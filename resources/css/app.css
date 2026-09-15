@@ -1,0 +1,412 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'M PLUS Rounded 1c', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Bolder, rounder Pixiv-style type across the app */
+body,
+.v-application {
+    font-family: 'M PLUS Rounded 1c', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
+    background: #F2F5F9;
+}
+
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6,
+.v-card-title,
+.v-app-bar-title,
+.v-list-item-title,
+.v-btn {
+    font-weight: 700 !important;
+    letter-spacing: 0.01em;
+}
+
+/* ---- Help section headers: distinct, high-contrast, colorblind-safe ----
+   White icons on saturated grounds keep contrast in both themes; titles
+   switch to lighter shades in dark mode. Never color-alone: every
+   section also has a unique icon + text label. */
+.help-title-blue { color: #1565C0; }
+.help-title-green { color: #2E7D32; }
+.help-title-purple { color: #6A1B9A; }
+.help-title-orange { color: #BF360C; }
+html.dark .help-title-blue { color: #64B5F6; }
+html.dark .help-title-green { color: #81C784; }
+html.dark .help-title-purple { color: #CE93D8; }
+html.dark .help-title-orange { color: #FFAB91; }
+
+/* ---- Pixiv-style search dropdown: blue thin scrollbar ---- */
+.search-menu {
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+}
+
+.search-menu .v-list {
+    border-radius: 24px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #7C3AED transparent;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+}
+
+.search-menu .v-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.search-menu .v-list::-webkit-scrollbar-track {
+    background: #e5e7eb;
+}
+
+.search-menu .v-list::-webkit-scrollbar-thumb {
+    background-color: #7C3AED;
+    border-radius: 0;
+    border: 2px solid #ffffff;
+}
+
+.search-menu .v-list-item-title {
+    font-weight: 700;
+}
+
+/* ---- Dashboard only: invisible page scrollbar (scroll still works) ---- */
+html.hide-page-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html.hide-page-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.lgu-table thead tr th.v-data-table__th {
+    border-bottom: 3px solid #64748b !important;
+}
+
+.lgu-table thead tr th.v-data-table__th,
+.lgu-table thead tr th.v-data-table__th .v-data-table-header__content {
+    color: #374151 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+}
+
+/* Slim inputs: control hugs the text height */
+.slim-field .v-field {
+    min-height: 30px !important;
+    max-height: 30px !important;
+    height: 30px !important;
+    overflow: hidden !important;
+    font-size: 0.85rem;
+}
+.slim-field .v-field__field,
+.slim-field .v-field__input {
+    min-height: 30px !important;
+    max-height: 30px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
+/* Single-line always: value or placeholder can never wrap taller */
+.slim-field .v-field__input,
+.slim-field .v-select__selection,
+.slim-field .v-select__selection-text,
+.slim-field input {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Picker-style tables (few rows): hug content up to the Roles height */
+.lgu-table.table-hug .v-table__wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 450px !important;
+}
+
+/* Paginated tables (7/page): natural height, never an inner scrollbar —
+   the wrapper grows with the rows instead of locking to 450px. */
+.lgu-table.table-pages .v-table__wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+}
+
+/* Routes table: long JsonLogic conditions truncate instead of
+   stretching the table into a horizontal scrollbar. Full text on hover. */
+.route-cond {
+    display: inline-block;
+    max-width: 200px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+/* Routes From/To chips: capped width with ellipsis so the columns stay
+   slim and the row actions shift left. Full name on hover via title. */
+.route-step-chip .v-chip__content {
+    max-width: 132px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.68rem;
+}
+
+/* One-off shorter viewport (Process Version definitions) */
+.lgu-table.table-h407 .v-table__wrapper {
+    height: 407px !important;
+    min-height: 407px !important;
+    max-height: 407px !important;
+}
+
+/* Loader <-> table swap glides instead of popping: no perceived shift */
+.swap-enter-active,
+.swap-leave-active {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.swap-enter-from {
+    opacity: 0;
+    transform: translateY(10px);
+}
+.swap-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+/* Fixed-column tables: long content can never blow out the layout */
+.lgu-table.table-fixed-cols .v-table__wrapper > table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.cell-truncate {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Every table viewport is locked to the Roles height: identical everywhere */
+.lgu-table .v-table__wrapper {
+    height: 450px !important;
+    min-height: 450px !important;
+    max-height: 450px !important;
+}
+
+/* Pages with an always-visible search field above the table (Transactions,
+   My Transactions): the search block is ~52px (40px compact field + 12px
+   mb-3), so the viewport shrinks by the same amount and the whole card
+   matches search-less pages like Roles. */
+.lgu-table.table-search .v-table__wrapper {
+    height: 398px !important;
+    min-height: 398px !important;
+    max-height: 398px !important;
+}
+
+/* Cards with extra content above the table (alerts, pickers): lock the
+   whole card to the Roles card height and let the table flex-fill the
+   leftover space, so cards match even when above-content differs.
+   Desktop only — mobile keeps natural heights. */
+@media (min-width: 960px) {
+    .lgu-card-fill {
+        height: 624px !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .lgu-card-fill > .v-card-text {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+    }
+    .lgu-card-fill .table-stage {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+    }
+    .lgu-card-fill .lgu-table {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+    }
+    .lgu-card-fill .lgu-table .v-table__wrapper {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        flex: 1 1 auto !important;
+    }
+}
+
+/* Roomier data rows so circled action buttons never look compressed */
+.lgu-table {
+    --v-table-row-height: 60px !important;
+    --v-table-header-height: 34px !important;
+}
+
+/* Skeleton rows use the same rhythm as data rows: loading looks loaded */
+.lgu-table .v-skeleton-loader__table-row,
+.lgu-table .v-skeleton-loader__table-cell {
+    height: 60px !important;
+    min-height: 60px !important;
+}
+
+/* ---- Sample design system: sharp cards + blue scrollbars ---- */
+.lgu-card {
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.lgu-table :deep(.v-table__wrapper),
+.lgu-table .v-table__wrapper {
+    scrollbar-width: thin;
+    scrollbar-color: #7C3AED transparent;
+    transition: none;
+}
+
+.lgu-table :deep(.v-table__wrapper *),
+.lgu-table .v-table__wrapper * {
+    transition: none !important;
+}
+
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar),
+.lgu-table .v-table__wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar-track),
+.lgu-table .v-table__wrapper::-webkit-scrollbar-track {
+    background: #e5e7eb;
+}
+
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb),
+.lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
+    background-color: #7C3AED;
+    border-radius: 0;
+    border: 2px solid #ffffff;
+}
+
+/* Color-guide dots (? tooltips): global because tooltip/menu content is
+   teleported to the body overlay, where component scoped styles can't reach. */
+.guide-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+/* ---- Dark mode (toggled from the drawer, persisted in localStorage) ----
+   Vuetify theme colors (surface/background/cards/inputs) flip automatically
+   via pixivDark. The rules below only cover hardcoded light colors that the
+   theme can't reach: inline chip backgrounds, white app bar, table headers,
+   loader rings, scrollbars, and guide panels. The login page keeps its
+   light pastel look on purpose (pre-auth). */
+html.dark body,
+html.dark .v-application {
+    background: #12121A;
+}
+
+html.dark .v-app-bar.bg-white {
+    background-color: #1E1E2E !important;
+}
+
+/* Light info chips with inline backgrounds (clock, weather, queue) */
+html.dark .v-chip[style*="f1f5f9"] {
+    background-color: #2A2A3D !important;
+    color: #E2E8F0 !important;
+}
+
+/* Navbar search field */
+html.dark .search-pixiv .v-field {
+    background-color: #2A2A3D !important;
+}
+html.dark .search-pixiv input {
+    color: #EDE9FE;
+}
+
+/* Table headers */
+html.dark .lgu-table thead tr th.v-data-table__th,
+html.dark .lgu-table thead tr th.v-data-table__th .v-data-table-header__content {
+    color: #C4B5FD !important;
+}
+
+/* Guide panels + section labels */
+html.dark .guide-panel {
+    background: #1E1E2E;
+    color: #EDE9FE;
+    border-bottom-color: #334155;
+}
+html.dark .guide-sec {
+    color: #94A3B8;
+}
+
+/* Donut track ring (SVG presentation attribute) */
+html.dark .donut-wrap svg circle:first-child {
+    stroke: #2A2A3D;
+}
+
+/* Loader orbit rings + text */
+html.dark .orbit-ring.outer {
+    border-color: #2A2A3D;
+    border-top-color: #A78BFA;
+    border-right-color: #8B5CF6;
+}
+html.dark .loader-text {
+    color: #CBD5E1;
+}
+
+/* Row hovers that hardcode light grey */
+html.dark .recent-row:hover,
+html.dark .legend-row:hover {
+    background: #2A2A3D;
+}
+
+/* Dark-grey text/controls (edit buttons, ref # chips, tonal chips) turn
+   white in dark mode so they stay readable on dark surfaces */
+html.dark .text-grey-darken-3 {
+    color: #FFFFFF !important;
+}
+html.dark .v-btn--variant-outlined.text-grey-darken-3 {
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Icon backlights (header avatars) turn purple in dark mode */
+html.dark .v-avatar.bg-grey-darken-3 {
+    background-color: #7C3AED !important;
+}
+
+/* Scrollbar tracks */
+html.dark .search-menu .v-list::-webkit-scrollbar-track,
+html.dark .lgu-table .v-table__wrapper::-webkit-scrollbar-track {
+    background: #2A2A3D;
+}
+
+/* ---- Table office dropdowns: smaller type + ellipsis so long names fit ---- */
+.office-select .v-field__input,
+.office-select .v-field__input input,
+.office-select .v-select__selection-text {
+    font-size: 0.72rem !important;
+    font-weight: 700;
+}
+.office-select .v-select__selection-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.office-select-menu .v-list-item-title {
+    font-size: 0.75rem !important;
+    white-space: normal;
+    line-height: 1.3;
+}
