@@ -79,9 +79,42 @@
                     @update:model-value="onPickType"
                 />
 
-                <template v-if="!activeDef && (loading || selectedTypeId)">
+                <template v-if="!activeDef && selectedTypeId">
+                    <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-1 font-weight-bold">Steps</div>
+                        <v-spacer />
+                        <v-btn
+                            color="grey-darken-3"
+                            rounded="0"
+                            prepend-icon="mdi-plus"
+                            :loading="saving"
+                            @click="clickAddStep"
+                        >
+                            Add Step
+                        </v-btn>
+                    </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
-                        <TableLoader label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                        <template v-if="loading">
+                            <v-skeleton-loader type="table-thead" />
+                            <v-skeleton-loader type="table-tbody" class="mt-2" />
+                            <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                        </template>
+                        <v-alert v-else type="info" variant="tonal" class="mb-3">
+                            No process yet for this transaction type — click <b>Add Step</b> to create step 1.
+                        </v-alert>
+                    </div>
+
+                    <v-divider class="my-3" />
+
+                    <div class="d-flex align-center mb-2 mt-6">
+                        <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                    </div>
+                    <div class="d-flex flex-column" style="min-height: 510px">
+                        <template v-if="loading">
+                            <v-skeleton-loader type="table-thead" />
+                            <v-skeleton-loader type="table-tbody" class="mt-2" />
+                            <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                        </template>
                     </div>
                 </template>
 
@@ -106,13 +139,15 @@
                 </v-alert>
                 <v-data-table
                     v-show="!loading"
+                    v-model:page="stepPage"
                     :items="flatStepRows"
                     :headers="stepHeaders"
                     item-key="id"
                     density="compact"
-                    height="450"
+                    height="330"
                     fixed-header
-                    :items-per-page="25"
+                    :items-per-page="STEP_PAGE_SIZE"
+                    :items-per-page-options="[STEP_PAGE_SIZE]"
                     hover
                     class="lgu-table table-pages"
                 >
@@ -181,8 +216,17 @@
                             />
                         </div>
                     </template>
+                    <template #[`body.append`]>
+                        <tr v-for="n in stepFillerCount" :key="`step-skel-${n}`" class="skel-fill">
+                            <td :colspan="stepHeaders.length">&nbsp;</td>
+                        </tr>
+                    </template>
                 </v-data-table>
-                <TableLoader v-if="loading" label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                <template v-if="loading">
+                    <v-skeleton-loader type="table-thead" />
+                    <v-skeleton-loader type="table-tbody" class="mt-2" />
+                    <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                </template>
                 </div>
 
                 <v-divider class="my-3" />
@@ -203,13 +247,15 @@
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <v-data-table
                     v-show="!loading"
+                    v-model:page="routePage"
                     :items="sortedRoutes"
                     :headers="routeHeaders"
                     item-key="id"
                     density="compact"
-                    height="450"
+                    height="330"
                     fixed-header
-                    :items-per-page="25"
+                    :items-per-page="ROUTE_PAGE_SIZE"
+                    :items-per-page-options="[ROUTE_PAGE_SIZE]"
                     hover
                     class="lgu-table table-pages"
                 >
@@ -265,8 +311,17 @@
                             />
                         </div>
                     </template>
+                    <template #[`body.append`]>
+                        <tr v-for="n in routeFillerCount" :key="`route-skel-${n}`" class="skel-fill">
+                            <td :colspan="routeHeaders.length">&nbsp;</td>
+                        </tr>
+                    </template>
                 </v-data-table>
-                <TableLoader v-if="loading" label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                <template v-if="loading">
+                    <v-skeleton-loader type="table-thead" />
+                    <v-skeleton-loader type="table-tbody" class="mt-2" />
+                    <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
+                </template>
                 </div>
 
                 <v-expansion-panels v-if="!loading && historyDefs.length" variant="accordion" class="mt-4">
@@ -582,6 +637,37 @@ const sortedRoutes = computed(() => {
     });
 });
 
+// Fixed page size (7) keeps both tables the same height; short last pages
+// are padded with skeleton rows so the footer never jumps.
+const STEP_PAGE_SIZE = 7;
+const ROUTE_PAGE_SIZE = 7;
+const stepPage = ref(1);
+const routePage = ref(1);
+
+const stepFillerCount = computed(() => {
+    if (loading.value) return 0;
+    const total = flatStepRows.value.length;
+    if (!total) return 0;
+    const rest = total - (stepPage.value - 1) * STEP_PAGE_SIZE;
+    return STEP_PAGE_SIZE - Math.min(Math.max(rest, 0), STEP_PAGE_SIZE);
+});
+
+const routeFillerCount = computed(() => {
+    if (loading.value) return 0;
+    const total = sortedRoutes.value.length;
+    if (!total) return 0;
+    const rest = total - (routePage.value - 1) * ROUTE_PAGE_SIZE;
+    return ROUTE_PAGE_SIZE - Math.min(Math.max(rest, 0), ROUTE_PAGE_SIZE);
+});
+
+// Keep the current page valid when rows are added/removed.
+watch([flatStepRows, sortedRoutes], () => {
+    const maxStep = Math.max(1, Math.ceil(flatStepRows.value.length / STEP_PAGE_SIZE));
+    if (stepPage.value > maxStep) stepPage.value = maxStep;
+    const maxRoute = Math.max(1, Math.ceil(sortedRoutes.value.length / ROUTE_PAGE_SIZE));
+    if (routePage.value > maxRoute) routePage.value = maxRoute;
+});
+
 // Route endpoints as names: id → "1 · Create PR" (dotted for sub-steps).
 // Missing step (deleted) announces itself instead of rendering blank.
 function stepLabel(id) {
@@ -629,8 +715,12 @@ function pretty(obj) {
 }
 
 watch(selectedTypeId, async (id) => {
+    // Clear first so the previous type's tables never linger while the new
+    // type loads (the skeleton state keeps the container size stable).
+    activeDef.value = null;
+    stepPage.value = 1;
+    routePage.value = 1;
     if (!id) {
-        activeDef.value = null;
         return;
     }
     error.value = "";
@@ -1018,3 +1108,10 @@ onMounted(async () => {
     applyTypeFromQuery();
 });
 </script>
+
+<style scoped>
+.skel-fill td {
+    height: 38px;
+    background: #fff;
+}
+</style>
