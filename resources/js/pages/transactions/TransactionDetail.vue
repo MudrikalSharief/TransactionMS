@@ -653,6 +653,17 @@ const selectedReturnRouteId = ref(null);
 const selectedRouteId = computed(
     () => selectedForwardRouteId.value ?? selectedReturnRouteId.value,
 );
+const isReturnSelected = computed(() =>
+    (availableActions.value || []).some(
+        (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
+    ),
+);
+// Return autofill: show every file on the transaction (including previous
+// stations and already-linked runs) so the user sees what travels back.
+// Forward actions start empty on purpose.
+function returnAttachments() {
+    return [...(tx.value?.attachments || [])];
+}
 const remarks = ref("");
 const proceedAttachments = ref([]);
 const checkAttachments = ref([]);
@@ -863,7 +874,11 @@ async function load() {
 
 function openProceed() {
     remarks.value = "";
-    proceedAttachments.value = [];
+    // Return actions autofill every transaction file so the user sees
+    // what will travel back; forward actions start empty.
+    proceedAttachments.value = isReturnSelected.value
+        ? [...returnAttachments()]
+        : [];
     executeError.value = "";
     remarksDialog.value = true;
 }
