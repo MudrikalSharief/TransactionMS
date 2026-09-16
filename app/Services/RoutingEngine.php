@@ -104,7 +104,11 @@ class RoutingEngine
             abort(422, 'Route does not start from current step.');
         }
 
-        $this->assertRequiredRequirementsChecked($tx, $currentStepId);
+        // Returns never require the checklist: a station sending work back
+        // must not be blocked by its own incomplete items.
+        if (!$route->is_return_route) {
+            $this->assertRequiredRequirementsChecked($tx, $currentStepId);
+        }
 
         $context = $this->buildContext($tx);
 

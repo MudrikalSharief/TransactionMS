@@ -19,7 +19,8 @@ return new class extends Migration {
 
             $table->timestamps();
 
-            // Immutable: one row only, never updated/un-checked
+            // One row per (transaction, step, requirement). Rows are deleted on
+            // uncheck and when a return wipes the returned-to station's list.
             $table->unique(
                 ['transaction_id', 'workflow_step_id', 'requirement_definition_id'],
                 'uq_trc_tx_step_req'

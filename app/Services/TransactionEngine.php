@@ -175,6 +175,24 @@ class TransactionEngine
                 'entered_at' => now(),
             ]);
 
+            // Every station arrival starts unchecked: clear the destination
+            // station's checklist checks so its items must be verified fresh.
+            // First visits are a no-op (nothing to clear); revisits (return
+            // loops or forward loops) force re-verification.
+            // On return, also clear the leaving station's checks so no stale
+            // history lingers. Untouched stations keep theirs; the run above
+            // records who moved it and why.
+            \App\Models\TransactionRequirementCheck::query()
+                ->where('transaction_id', $tx->id)
+                ->where('workflow_step_id', $toStepId)
+                ->delete();
+            if ($isReturn) {
+                \App\Models\TransactionRequirementCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $currentStepId)
+                    ->delete();
+            }
+
             return $tx->fresh()->load([
                 'type',
                 'office',
@@ -189,6 +207,7 @@ class TransactionEngine
                 'runs.performer',
                 'runs.attachments',
                 'fieldValues.fieldDefinition',
+                'requirementChecks.checker',
                 'attachments.step',
                 'attachments.requirement',
                 'attachments.uploader',

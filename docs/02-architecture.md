@@ -6,7 +6,7 @@
 - Build: Vite (`npm run build` -> `public/build`), Laravel SPA fallback in `routes/web.php`
 
 ## Backend layout (`app/`)
-- `Models/`: `User, Role, Permission, Transaction, TransactionType, WorkflowDefinition, WorkflowStep, WorkflowRoute, StepRole, FieldDefinition, FieldValue, RequirementDefinition, RequirementCheck, TransactionRequirementCheck, TransactionState, TransactionStepRun, AuditLog`
+- `Models/`: `User, Role, Permission, Transaction, TransactionType, WorkflowDefinition, WorkflowStep, WorkflowRoute, StepRole, FieldDefinition, FieldValue, RequirementDefinition, TransactionRequirementCheck, TransactionState, TransactionStepRun, AuditLog`
 - `Http/Controllers/Api/`: `AuthController (login/me/logout)`, `UserTransactionController (index/show/execute, role-filtered)`, `TransactionController (admin, unfiltered)`, `TransactionRequirementController (check/uncheck)`, `Admin/* (Users, Roles, TransactionTypes, Workflows, Steps, Routes, Fields, Requirements, GovRefs)`
 - `Http/Requests/`: `Auth/LoginRequest`, `Transactions/*`, `Admin/*`, `Admin/Workflows/*`, `Admin/Fields/*`, `Admin/Requirements/*`
 - `Http/Resources/`: `User, Role, Transaction, Workflow*, Field*, Requirement*, TransactionType, GovernmentReference`

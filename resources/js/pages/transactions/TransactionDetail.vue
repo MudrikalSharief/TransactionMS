@@ -184,7 +184,7 @@
                                 :disabled="
                                     !selectedRouteId ||
                                     saving ||
-                                    missingRequiredLabels.length > 0 ||
+                                    (!isReturnSelected && missingRequiredLabels.length > 0) ||
                                     missingRequiredFields.length > 0
                                 "
                                 :loading="saving"
@@ -542,7 +542,7 @@
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
-                        :disabled="!selectedRouteId || missingRequiredLabels.length > 0 || missingRequiredFields.length > 0"
+                        :disabled="!selectedRouteId || (!isReturnSelected && missingRequiredLabels.length > 0) || missingRequiredFields.length > 0"
                         @click="executeSelected"
                         >Proceed</v-btn
                     >
@@ -614,7 +614,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
@@ -653,6 +653,13 @@ const selectedReturnRouteId = ref(null);
 const selectedRouteId = computed(
     () => selectedForwardRouteId.value ?? selectedReturnRouteId.value,
 );
+// Proceed vs Return are mutually exclusive: picking one clears the other.
+watch(selectedForwardRouteId, (v) => {
+    if (v != null && selectedReturnRouteId.value !== null) selectedReturnRouteId.value = null;
+});
+watch(selectedReturnRouteId, (v) => {
+    if (v != null && selectedForwardRouteId.value !== null) selectedForwardRouteId.value = null;
+});
 const isReturnSelected = computed(() =>
     (availableActions.value || []).some(
         (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
