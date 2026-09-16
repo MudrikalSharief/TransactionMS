@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 16, 2026 at 05:33 AM
+-- Generation Time: Sep 16, 2026 at 07:03 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -84,8 +84,8 @@ INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81:timer', 'i:1789364911;', 1789364911),
 ('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1789527931),
 ('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1789527931;', 1789527931),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:9;', 1789529634),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1789529634;', 1789529634);
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:5;', 1789534780),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1789534780;', 1789534780);
 
 -- --------------------------------------------------------
 
@@ -352,7 +352,8 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (37, '2026_02_13_000008_drop_parent_id_from_workflow_steps_table', 8),
 (38, '2026_02_13_000009_readd_parent_id_to_office_steps_table', 9),
 (39, '2026_02_13_000010_readd_parent_id_to_workflow_steps_table', 9),
-(40, '2026_02_14_000001_create_transaction_attachments_table', 10);
+(40, '2026_02_14_000001_create_transaction_attachments_table', 10),
+(41, '2026_09_16_120000_drop_dead_requirement_tables', 11);
 
 -- --------------------------------------------------------
 
@@ -451,23 +452,6 @@ CREATE TABLE `permission_role` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `requirement_checks`
---
-
-CREATE TABLE `requirement_checks` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `checked_by` bigint(20) UNSIGNED NOT NULL,
-  `checked_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `requirement_definitions`
 --
 
@@ -521,22 +505,6 @@ INSERT INTO `requirement_definitions` (`id`, `workflow_definition_id`, `order_nu
 (30, 17, 1, 'dtr_collected', 'DTR collected', 'Tick once DTRs are collected.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (31, 17, 2, 'dtr_validated', 'DTR validated', 'Tick once DTRs are validated.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (32, 17, 3, 'payroll_finalized', 'Payroll finalized', 'Tick once payroll is finalized.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `requirement_definition_workflow_step`
---
-
-CREATE TABLE `requirement_definition_workflow_step` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `is_required` tinyint(1) NOT NULL DEFAULT 1,
-  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -622,8 +590,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('9Ec3zRKGzVngDWGdXEygJjznYSfNqd2jeFdVo80B', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoibjN1Y2xXZE9OVm0zVVNGeXJXSUMycjg5ajNyZ24wNzkxd1k5eHJmdiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1789378016),
-('RwXUhdYL0Nj3kCldp3rdXrvFw6D7Zg21gF9VqPNr', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoicGZicDBRVEk5Z1VtRVRGNHhsZ2xSR3ltYlZkT3Nmb3AzWm9EdVBjdiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1789529592);
+('RwXUhdYL0Nj3kCldp3rdXrvFw6D7Zg21gF9VqPNr', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoicGZicDBRVEk5Z1VtRVRGNHhsZ2xSR3ltYlZkT3Nmb3AzWm9EdVBjdiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1789534724);
 
 -- --------------------------------------------------------
 
@@ -852,7 +819,6 @@ INSERT INTO `transaction_requirement_checks` (`id`, `transaction_id`, `workflow_
 (10, 14, 2, 28, 1, '2026-09-14 00:39:08', '2026-09-14 00:39:08', '2026-09-14 00:39:08'),
 (11, 14, 3, 29, 1, '2026-09-14 00:42:21', '2026-09-14 00:42:21', '2026-09-14 00:42:21'),
 (12, 9, 40, 20, 1, '2026-09-15 19:15:29', '2026-09-15 19:15:29', '2026-09-15 19:15:29'),
-(13, 13, 1, 27, 1, '2026-09-15 19:18:03', '2026-09-15 19:18:03', '2026-09-15 19:18:03'),
 (14, 15, 1, 27, 1, '2026-09-15 19:19:12', '2026-09-15 19:19:12', '2026-09-15 19:19:12'),
 (15, 15, 2, 28, 1, '2026-09-15 19:19:53', '2026-09-15 19:19:53', '2026-09-15 19:19:53');
 
@@ -885,7 +851,7 @@ INSERT INTO `transaction_states` (`id`, `transaction_id`, `current_step_id`, `en
 (10, 10, 20, '2026-09-13 22:42:14', '2026-09-13 22:42:14', '2026-09-13 22:42:14'),
 (11, 11, 38, '2026-09-13 22:48:16', '2026-09-13 22:48:16', '2026-09-13 22:48:16'),
 (12, 12, 71, '2026-09-13 23:04:47', '2026-09-13 22:48:28', '2026-09-13 23:04:47'),
-(13, 13, 2, '2026-09-15 19:18:09', '2026-09-13 22:48:43', '2026-09-15 19:18:09'),
+(13, 13, 1, '2026-09-15 20:03:45', '2026-09-13 22:48:43', '2026-09-15 20:03:45'),
 (14, 14, 3, '2026-09-14 00:39:23', '2026-09-14 00:13:33', '2026-09-14 00:39:23'),
 (15, 15, 2, '2026-09-15 19:25:05', '2026-09-15 19:18:48', '2026-09-15 19:25:05');
 
@@ -940,7 +906,16 @@ INSERT INTO `transaction_step_runs` (`id`, `transaction_id`, `from_step_id`, `to
 (28, 15, 1, 1, 'create', 'Transaction created', 1, '2026-09-15 19:18:48', '2026-09-15 19:18:48', '2026-09-15 19:18:48'),
 (29, 15, 1, 2, 'submit', 'DTR', 1, '2026-09-15 19:19:31', '2026-09-15 19:19:31', '2026-09-15 19:19:31'),
 (30, 15, 2, 1, 'return', NULL, 1, '2026-09-15 19:20:06', '2026-09-15 19:20:06', '2026-09-15 19:20:06'),
-(31, 15, 1, 2, 'submit', NULL, 1, '2026-09-15 19:25:05', '2026-09-15 19:25:05', '2026-09-15 19:25:05');
+(31, 15, 1, 2, 'submit', NULL, 1, '2026-09-15 19:25:05', '2026-09-15 19:25:05', '2026-09-15 19:25:05'),
+(32, 13, 2, 1, 'return', 'ge', 1, '2026-09-15 19:49:36', '2026-09-15 19:49:36', '2026-09-15 19:49:36'),
+(33, 13, 1, 2, 'submit', NULL, 1, '2026-09-15 19:52:53', '2026-09-15 19:52:53', '2026-09-15 19:52:53'),
+(34, 13, 2, 1, 'return', NULL, 1, '2026-09-15 19:53:25', '2026-09-15 19:53:25', '2026-09-15 19:53:25'),
+(35, 13, 1, 2, 'submit', NULL, 1, '2026-09-15 19:55:48', '2026-09-15 19:55:48', '2026-09-15 19:55:48'),
+(36, 13, 2, 1, 'return', NULL, 1, '2026-09-15 19:55:59', '2026-09-15 19:55:59', '2026-09-15 19:55:59'),
+(38, 13, 1, 2, 'submit', NULL, 1, '2026-09-15 19:59:35', '2026-09-15 19:59:35', '2026-09-15 19:59:35'),
+(39, 13, 2, 1, 'return', NULL, 1, '2026-09-15 19:59:46', '2026-09-15 19:59:46', '2026-09-15 19:59:46'),
+(41, 13, 1, 2, 'submit', NULL, 1, '2026-09-15 20:03:35', '2026-09-15 20:03:35', '2026-09-15 20:03:35'),
+(42, 13, 2, 1, 'return', NULL, 1, '2026-09-15 20:03:45', '2026-09-15 20:03:45', '2026-09-15 20:03:45');
 
 -- --------------------------------------------------------
 
@@ -1326,30 +1301,11 @@ ALTER TABLE `permission_role`
   ADD KEY `permission_role_role_id_foreign` (`role_id`);
 
 --
--- Indexes for table `requirement_checks`
---
-ALTER TABLE `requirement_checks`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `req_checks_unique` (`transaction_id`,`workflow_step_id`,`requirement_definition_id`),
-  ADD KEY `requirement_checks_workflow_step_id_foreign` (`workflow_step_id`),
-  ADD KEY `requirement_checks_requirement_definition_id_foreign` (`requirement_definition_id`),
-  ADD KEY `requirement_checks_checked_by_foreign` (`checked_by`),
-  ADD KEY `req_checks_tx_step_idx` (`transaction_id`,`workflow_step_id`);
-
---
 -- Indexes for table `requirement_definitions`
 --
 ALTER TABLE `requirement_definitions`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_reqdef_wf_code` (`workflow_definition_id`,`code`);
-
---
--- Indexes for table `requirement_definition_workflow_step`
---
-ALTER TABLE `requirement_definition_workflow_step`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `rdws_step_req_uk` (`workflow_step_id`,`requirement_definition_id`),
-  ADD KEY `rdws_req_fk` (`requirement_definition_id`);
 
 --
 -- Indexes for table `roles`
@@ -1533,7 +1489,7 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT for table `offices`
@@ -1554,22 +1510,10 @@ ALTER TABLE `permissions`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `requirement_checks`
---
-ALTER TABLE `requirement_checks`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `requirement_definitions`
 --
 ALTER TABLE `requirement_definitions`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
-
---
--- AUTO_INCREMENT for table `requirement_definition_workflow_step`
---
-ALTER TABLE `requirement_definition_workflow_step`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -1599,13 +1543,13 @@ ALTER TABLE `transactions`
 -- AUTO_INCREMENT for table `transaction_attachments`
 --
 ALTER TABLE `transaction_attachments`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `transaction_requirement_checks`
 --
 ALTER TABLE `transaction_requirement_checks`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT for table `transaction_states`
@@ -1617,7 +1561,7 @@ ALTER TABLE `transaction_states`
 -- AUTO_INCREMENT for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
 -- AUTO_INCREMENT for table `transaction_types`
@@ -1695,26 +1639,10 @@ ALTER TABLE `permission_role`
   ADD CONSTRAINT `permission_role_role_id_foreign` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
 
 --
--- Constraints for table `requirement_checks`
---
-ALTER TABLE `requirement_checks`
-  ADD CONSTRAINT `requirement_checks_checked_by_foreign` FOREIGN KEY (`checked_by`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `requirement_checks_requirement_definition_id_foreign` FOREIGN KEY (`requirement_definition_id`) REFERENCES `requirement_definitions` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `requirement_checks_transaction_id_foreign` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `requirement_checks_workflow_step_id_foreign` FOREIGN KEY (`workflow_step_id`) REFERENCES `workflow_steps` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `requirement_definitions`
 --
 ALTER TABLE `requirement_definitions`
   ADD CONSTRAINT `fk_reqdef_wf` FOREIGN KEY (`workflow_definition_id`) REFERENCES `workflow_definitions` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `requirement_definition_workflow_step`
---
-ALTER TABLE `requirement_definition_workflow_step`
-  ADD CONSTRAINT `rdws_req_fk` FOREIGN KEY (`requirement_definition_id`) REFERENCES `requirement_definitions` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `rdws_step_fk` FOREIGN KEY (`workflow_step_id`) REFERENCES `workflow_steps` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `role_user`
