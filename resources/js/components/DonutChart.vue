@@ -29,17 +29,27 @@
                     :stroke-width="hoverIndex === i ? thickness + 4 : thickness"
                     :stroke-dasharray="`${seg.length} ${circumference - seg.length}`"
                     :stroke-dashoffset="-seg.start"
-                    stroke-linecap="butt"
+                    stroke-linecap="round"
+                    :opacity="hoverIndex === -1 || hoverIndex === i ? 1 : 0.3"
                     class="donut-seg"
-                    @mouseenter="hoverIndex = i"
-                    @mouseleave="hoverIndex = -1"
+                    @mouseenter="segEnter(i)"
+                    @mouseleave="segLeave()"
                 >
                     <title>{{ seg.label }}: {{ seg.value }} ({{ seg.pct }}%)</title>
                 </circle>
             </svg>
             <div class="donut-center">
-                <div class="text-h5 font-weight-bold">{{ total }}</div>
-                <div class="text-caption text-medium-emphasis font-weight-bold">{{ centerLabel }}</div>
+                <template v-if="hovered">
+                    <div class="text-h5 font-weight-bold" :style="{ color: hovered.color }">{{ hovered.value }}</div>
+                    <div class="text-caption font-weight-bold text-truncate px-2" style="max-width: 132px">
+                        {{ hovered.label }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis font-weight-bold">{{ hovered.pct }}%</div>
+                </template>
+                <template v-else>
+                    <div class="text-h5 font-weight-bold">{{ total }}</div>
+                    <div class="text-caption text-medium-emphasis font-weight-bold">{{ centerLabel }}</div>
+                </template>
             </div>
         </div>
 
@@ -48,8 +58,8 @@
                 v-for="(seg, i) in segments"
                 :key="seg.label"
                 class="d-flex align-center mb-1 legend-row"
-                @mouseenter="hoverIndex = i"
-                @mouseleave="hoverIndex = -1"
+                @mouseenter="segEnter(i)"
+                @mouseleave="segLeave()"
             >
                 <span class="legend-dot mr-2" :style="{ background: seg.color }" />
                 <span class="text-caption font-weight-bold text-truncate" style="max-width: 170px">
@@ -88,6 +98,20 @@ const PALETTE = [
 
 const hoverIndex = ref(-1)
 
+const emit = defineEmits(['hover'])
+
+function segEnter(i) {
+    hoverIndex.value = i
+    emit('hover', segments.value[i]?.label ?? null)
+}
+
+function segLeave() {
+    hoverIndex.value = -1
+    emit('hover', null)
+}
+
+const hovered = computed(() => (hoverIndex.value >= 0 ? segments.value[hoverIndex.value] ?? null : null))
+
 const total = computed(() => props.items.reduce((n, i) => n + (Number(i.value) || 0), 0))
 const radius = computed(() => props.size / 2 - props.thickness / 2 - 4)
 const circumference = computed(() => 2 * Math.PI * radius.value)
@@ -123,7 +147,7 @@ const segments = computed(() => {
                 pct: Math.round(fraction * 100),
                 color: i.color || PALETTE[idx % PALETTE.length],
                 start: acc,
-                length: Math.max(fraction * circumference.value - 2, 0.5),
+                length: Math.max(fraction * circumference.value - 5, 0.5),
             }
             acc += fraction * circumference.value
             return seg
@@ -153,7 +177,7 @@ const segments = computed(() => {
     transform: rotate(-90deg);
 }
 .donut-seg {
-    transition: stroke-width 0.15s ease, stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease;
+    transition: stroke-width 0.15s ease, stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease, opacity 0.15s ease;
     cursor: pointer;
 }
 .donut-center {
@@ -180,7 +204,7 @@ const segments = computed(() => {
 .legend-dot {
     width: 10px;
     height: 10px;
-    border-radius: 3px;
+    border-radius: 50%;
     flex-shrink: 0;
 }
 </style>
