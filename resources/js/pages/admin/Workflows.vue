@@ -8,7 +8,7 @@
                 <div>
                     <span class="text-h6 font-weight-bold">Workflows</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
-                    <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
+                    <div v-else class="text-caption text-medium-emphasis">Select a process</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
                         <v-chip
                             rounded="0"
@@ -64,8 +64,8 @@
                     rounded="0"
                     class="mb-3"
                 >
-                    No transaction type selected. Pick one below, or go to
-                    <b>Transaction Types</b> and open <b>Steps</b> for one type.
+                    No process selected. Pick one below, or go to
+                    <b>Processes</b> and open <b>Steps</b> for one process.
                 </v-alert>
                 <v-select
                     v-if="!selectedTypeId && !loading && (types || []).length"
@@ -73,7 +73,7 @@
                     :items="typePickerOptions"
                     item-title="label"
                     item-value="id"
-                    label="Select transaction type"
+                    label="Select process"
                     density="compact"
                     class="mb-3"
                     @update:model-value="onPickType"
@@ -100,7 +100,7 @@
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <v-alert v-else type="info" variant="tonal" class="mb-3">
-                            No process yet for this transaction type — click <b>Add Step</b> to create step 1.
+                            No process yet for this process — click <b>Add Step</b> to create step 1.
                         </v-alert>
                     </div>
 

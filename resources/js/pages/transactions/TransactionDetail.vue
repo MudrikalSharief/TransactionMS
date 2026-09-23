@@ -20,7 +20,7 @@
 
             <v-card-text v-if="tx" class="pa-4">
                 <div class="mb-2">
-                    <b>Transaction Type:</b> {{ tx.transaction_type?.name }}
+                    <b>Process:</b> {{ tx.transaction_type?.name }}
                 </div>
 
                 <div class="mb-2">

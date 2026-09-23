@@ -138,7 +138,7 @@
             :items="typeOptions"
             item-title="label"
             item-value="id"
-            label="Transaction Type"
+            label="Process"
           />
           <v-text-field v-model="form.title" label="Title (optional)" />
           <v-alert type="info" variant="tonal" class="mt-3">
@@ -224,7 +224,7 @@ const typeOptions = computed(() =>
 const baseHeaders = [
   { title: 'Ref #', key: 'reference_number' },
   { title: 'Title', key: 'title' },
-  { title: 'Transaction Type', key: 'type', sortable: false },
+  { title: 'Process', key: 'type', sortable: false },
   { title: 'Current Step', key: 'current_step', sortable: false },
   { title: 'Created', key: 'created_at' },
 ]
