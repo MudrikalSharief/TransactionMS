@@ -1,7 +1,8 @@
 <template>
     <div>
-        <div class="text-subtitle-2 font-weight-bold mb-2">
-            Attach files <span class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
+        <div class="text-h6 font-weight-bold mb-3">
+            Attach files
+            <span class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
         </div>
         <v-file-input
             v-model="picked"

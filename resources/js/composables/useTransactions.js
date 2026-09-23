@@ -57,6 +57,22 @@ export function useTransactions() {
     }
   }
 
+  async function gotoStation(id, payload) {
+    const res = await api.post(`/api/admin/transactions/${id}/goto`, payload)
+    return {
+      tx: res.data.data ?? res.data,
+      meta: res.data.meta ?? {},
+    }
+  }
+
+  async function finalize(id) {
+    const res = await api.post(`/api/admin/transactions/${id}/finalize`)
+    return {
+      tx: res.data.data ?? res.data,
+      meta: res.data.meta ?? {},
+    }
+  }
+
   async function checkRequirement(id, requirement_definition_id) {
     const res = await api.post(`/api/admin/transactions/${id}/requirements/check`, {
       requirement_definition_id,
@@ -80,5 +96,5 @@ export function useTransactions() {
     return res.data.data ?? res.data
   }
 
-  return { items, loading, fetchAll, create, getOne, updateOffice, execute, checkRequirement, destroy, uploadAttachment }
+  return { items, loading, fetchAll, create, getOne, updateOffice, execute, gotoStation, finalize, checkRequirement, destroy, uploadAttachment }
 }

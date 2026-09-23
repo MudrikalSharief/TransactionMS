@@ -83,7 +83,8 @@
                 </v-card-text>
             </v-card>
 
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
+            <!-- Checklist skeleton hidden with its card (see below). -->
+            <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
                 <v-card-title class="d-flex align-center pa-5">
                     <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
                         <v-icon color="white">mdi-clipboard-check-outline</v-icon>
@@ -121,85 +122,76 @@
                 :current-step-code="tx.current_step?.code"
                 :details="tx.station_checklist"
                 :runs="tx.runs"
+                :visited-step-ids="visitedStepIds"
                 title="Transaction Stations"
-            />
-        </div>
-
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-swap-horizontal</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">Available Actions</span>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-
-                <v-alert
-                    v-if="!availableActions.length"
-                    type="info"
-                    variant="tonal"
-                    class="mb-3"
-                >
-                    No actions available for your role on this step (or route
-                    conditions not satisfied).
-                </v-alert>
-
-                <div v-else>
-                    <v-row>
-                        <v-col cols="12" md="6">
-                            <v-select
-                                v-model="selectedForwardRouteId"
-                                :items="forwardRouteOptions"
-                                item-title="label"
-                                item-value="route_id"
-                                label="Proceed / Forward actions"
-                                clearable
-                                :disabled="saving"
-                            />
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                            <v-select
-                                v-model="selectedReturnRouteId"
-                                :items="returnRouteOptions"
-                                item-title="label"
-                                item-value="route_id"
-                                label="Return actions"
-                                clearable
-                                :disabled="saving"
-                            />
-                        </v-col>
-                    </v-row>
-
-                    <v-alert v-if="selectedRouteId && missingRequiredFields.length" type="warning" variant="tonal" class="mt-3 mb-0">
-                        Fill in required station info before proceeding — {{ missingRequiredFields.join(", ") }}.
+            >
+                <template #actions v-if="tx">
+                    <v-alert
+                        v-if="isDone"
+                        type="success"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <v-icon start size="small">mdi-flag-checkered</v-icon>
+                        This process has been finalized — view only.
+                    </v-alert>
+                    <v-alert
+                        v-else-if="!hasActionOptions && !showFinalize"
+                        type="info"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        No actions available for your role on this step (or route
+                        conditions not satisfied).
                     </v-alert>
 
-                    <v-row class="mt-1">
-                        <v-col cols="12" class="d-flex justify-end">
-                            <v-btn
-                                color="grey-darken-3"
-                                rounded="0"
-                                :disabled="
-                                    !selectedRouteId ||
-                                    saving ||
-                                    (!isReturnSelected && missingRequiredLabels.length > 0) ||
-                                    missingRequiredFields.length > 0
-                                "
-                                :loading="saving"
-                                @click="openProceed()"
-                            >
-                                Proceed
-                            </v-btn>
-                        </v-col>
-                    </v-row>
-                </div>
+                    <div v-else>
+                        <v-row v-if="hasActionOptions">
+                            <v-col cols="12">
+                                <v-select
+                                    v-model="selectedRouteId"
+                                    :items="unifiedRouteOptions"
+                                    item-title="label"
+                                    item-value="value"
+                                    label="Select Action"
+                                    clearable
+                                    :disabled="saving"
+                                />
+                            </v-col>
+                        </v-row>
 
-            </v-card-text>
-        </v-card>
+                        <v-row class="mt-1">
+                            <v-col cols="12" class="d-flex justify-end ga-2">
+                                <v-btn
+                                    v-if="showFinalize"
+                                    variant="outlined"
+                                    color="grey-darken-3"
+                                    rounded="0"
+                                    :disabled="saving"
+                                    :loading="saving"
+                                    @click="finalizeDialog = true"
+                                >
+                                    Finalize Process
+                                </v-btn>
+                                <v-btn
+                                    v-if="hasActionOptions"
+                                    color="grey-darken-3"
+                                    rounded="0"
+                                    :disabled="!selectedRouteId || saving"
+                                    :loading="saving"
+                                    @click="isJumpSelected ? openJump() : openProceed()"
+                                >
+                                    {{ mainActionButtonLabel }}
+                                </v-btn>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </template>
+            </StepProgress>
+        </div>
 
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
+        <!-- Checklist card hidden: checking now lives in the Proceed wizard. Flip v-if back to restore. -->
+        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
             <v-card-title class="d-flex align-center pa-5">
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
                     <v-icon color="white">mdi-clipboard-check-outline</v-icon>
@@ -365,7 +357,7 @@
                                 size="small"
                                 color="grey-darken-3"
                                 rounded="0"
-                                :disabled="savingChecklist"
+                                :disabled="savingChecklist || isDone"
                                 :loading="
                                     savingChecklist &&
                                     savingRequirementId === item.definition.id
@@ -399,7 +391,7 @@
                                 size="small"
                                 rounded="0"
                                 color="warning"
-                                :disabled="savingChecklist || !canUncheck(item)"
+                                :disabled="savingChecklist || !canUncheck(item) || isDone"
                                 :loading="
                                     savingChecklist &&
                                     savingRequirementId === item.definition.id
@@ -502,36 +494,34 @@
         <v-dialog v-model="remarksDialog" max-width="800">
             <v-card rounded="0">
                 <v-card-title>
-                    Proceed
+                    {{ isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
                     <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
                 </v-card-title>
                 <v-divider />
                 <v-card-text>
-                    <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
-                    <StepInfoFields :fields="tx?.current_step_fields" :form="form" />
-                    <div v-if="!(tx?.current_step_fields || []).length" class="text-caption text-medium-emphasis mb-3">
-                        No info fields on this station — remarks only.
-                    </div>
-                    <v-textarea
-                        v-model="remarks"
-                        label="Remarks (optional)"
-                        rows="4"
-                        class="mt-2"
+                    <ProceedWizard
+                        ref="wizardRef"
+                        v-model:step="wizardStep"
+                        v-model:remarks="remarks"
+                        v-model:proceed-attachments="proceedAttachments"
+                        :tx-id="route.params.id"
+                        is-admin
+                        :requirements="tx?.current_step_requirements || []"
+                        :fields="tx?.current_step_fields"
+                        :form="form"
+                        :selected-action-label="selectedActionLabel"
+                        :selected-route-id="selectedRouteId"
+                        :is-return-selected="isReturnSelected"
+                        :missing-required-labels="missingRequiredLabels"
+                        :missing-required-fields="missingRequiredFields"
+                        :execute-error="executeError"
+                        :saving="saving"
+                        :saving-checklist="savingChecklist"
+                        :saving-requirement-id="savingRequirementId"
+                        @toggle-requirement="onWizardToggle"
+                        @requirement-uploaded="refreshTxPreservingForm"
+                        @attachment-deleted="removeAttachment"
                     />
-                    <v-divider class="my-3" />
-                    <AttachmentUploader :tx-id="route.params.id" is-admin v-model="proceedAttachments" @deleted="removeAttachment" />
-                    <v-alert v-if="executeError" type="error" variant="tonal" class="mt-3">
-                        {{ executeError }}
-                    </v-alert>
-                    <v-alert v-if="missingRequiredFields.length" type="warning" variant="tonal" class="mt-3">
-                        Fill in required station info: {{ missingRequiredFields.join(", ") }}.
-                    </v-alert>
-                    <v-alert v-if="missingRequiredLabels.length" type="warning" variant="tonal" class="mt-3">
-                        Required items missing: {{ missingRequiredLabels.join(", ") }}.
-                    </v-alert>
-                    <v-alert v-else-if="!missingRequiredFields.length" type="info" variant="tonal" class="mt-3">
-                        Station info and remarks will be saved together with this move.
-                    </v-alert>
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">
@@ -539,6 +529,19 @@
                         >Cancel</v-btn
                     >
                     <v-btn
+                        v-if="wizardStep === 2 && !isSingleStepProceed"
+                        variant="text"
+                        @click="wizardStep = 1"
+                    >Back</v-btn>
+                    <v-btn
+                        v-if="wizardStep === 1 && !isSingleStepProceed"
+                        color="grey-darken-3"
+                        rounded="0"
+                        :disabled="saving || savingChecklist"
+                        @click="goWizardNext"
+                    >Next</v-btn>
+                    <v-btn
+                        v-if="wizardStep === 2"
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
@@ -549,6 +552,25 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <JumpBackDialog
+            v-model:open="jumpDialog"
+            :current-label="jumpCurrentLabel"
+            :destination-label="jumpDestinationLabel"
+            :confirm-label="mainActionButtonLabel"
+            :saving="saving"
+            @confirm="confirmJump"
+        />
+
+        <ConfirmActionDialog
+            v-model:open="finalizeDialog"
+            title="Finalize process?"
+            message="This marks the transaction done and locks it to view-only."
+            confirm-label="Finalize Process"
+            confirm-color="success"
+            :saving="saving"
+            @confirm="finalizeTx"
+        />
 
         <v-dialog v-model="checkDialog" max-width="700">
             <v-card rounded="0">
@@ -562,6 +584,7 @@
                         is-admin
                         :requirement-id="checkTarget?.definition?.id"
                         v-model="checkAttachments"
+                        :disabled="isDone"
                         @deleted="removeAttachment"
                     />
                     <v-expansion-panels variant="accordion" class="mt-3">
@@ -614,21 +637,24 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed, watch } from "vue";
+import { onMounted, ref, computed } from "vue";
 import { useRoute } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
 import StepProgress from '@/components/StepProgress.vue';
+import JumpBackDialog from '@/components/JumpBackDialog.vue';
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
 import StepInfoFields from '@/components/StepInfoFields.vue';
+import ProceedWizard from '@/components/ProceedWizard.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 
 const route = useRoute();
 const { api } = useApi();
-const { getOne, execute } = useTransactions();
+const { getOne, execute, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
@@ -647,24 +673,51 @@ function formatApiError(e, fallback) {
 }
 
 const remarksDialog = ref(false);
-const selectedForwardRouteId = ref(null);
-const selectedReturnRouteId = ref(null);
-
-const selectedRouteId = computed(
-    () => selectedForwardRouteId.value ?? selectedReturnRouteId.value,
+const wizardStep = ref(1);
+const wizardRef = ref(null);
+const selectedRouteId = ref(null);
+// Stations the paper already passed (meta.visited_step_ids). Powers the
+// yellow tracker nodes + the "Go to Station N" jump options.
+const visitedStepIds = ref([]);
+// Finalized transactions are view-only (backend rejects all writes).
+const isDone = computed(() => !!(tx.value?.is_done));
+const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
+const showFinalize = computed(() => isEndStep.value && !isDone.value);
+const hasActionOptions = computed(() =>
+    (availableActions.value || []).length > 0 || (jumpRouteOptions.value || []).length > 0,
 );
-// Proceed vs Return are mutually exclusive: picking one clears the other.
-watch(selectedForwardRouteId, (v) => {
-    if (v != null && selectedReturnRouteId.value !== null) selectedReturnRouteId.value = null;
-});
-watch(selectedReturnRouteId, (v) => {
-    if (v != null && selectedForwardRouteId.value !== null) selectedForwardRouteId.value = null;
-});
+const finalizeDialog = ref(false);
+// Jump selections are strings ("jump:<stepId>"); route ids stay numbers.
+const isJumpSelected = computed(() =>
+    typeof selectedRouteId.value === 'string' && selectedRouteId.value.startsWith('jump:'),
+);
+const jumpStepId = computed(() =>
+    isJumpSelected.value ? Number(String(selectedRouteId.value).split(':')[1]) : null,
+);
 const isReturnSelected = computed(() =>
+    !isJumpSelected.value &&
     (availableActions.value || []).some(
         (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
     ),
 );
+// Drop a selection that no longer exists in the refreshed action list.
+// Otherwise the closed select renders the raw route id (e.g. "42") with
+// no matching label after a move or a condition flip.
+function pruneSelectedRoute() {
+    if (selectedRouteId.value == null) return;
+    const routeOk = (availableActions.value || []).some(
+        (a) => Number(a.route_id) === Number(selectedRouteId.value),
+    );
+    const jumpOk = (jumpRouteOptions.value || []).some(
+        (o) => String(o.value) === String(selectedRouteId.value),
+    );
+    if (!routeOk && !jumpOk) selectedRouteId.value = null;
+}
+// Single-step mode: no requirements on this station, skip page 1 entirely.
+const hasProceedRequirements = computed(
+    () => (tx.value?.current_step_requirements || []).length > 0,
+);
+const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 // Return autofill: show every file on the transaction (including previous
 // stations and already-linked runs) so the user sees what travels back.
 // Forward actions start empty on purpose.
@@ -826,11 +879,12 @@ const flatStationItems = computed(() => {
     return out;
 });
 
-const missingRequiredLabels = computed(() => {    const reqs = tx.value?.current_step_requirements ?? [];
-    return reqs
+const missingRequiredLabels = computed(() => {
+    const out = (tx.value?.current_step_requirements ?? [])
         .filter((r) => r?.pivot?.is_required && !r.checked)
         .map((r) => r.definition?.name)
         .filter(Boolean);
+    return out;
 });
 
 // Required station-info fields still empty in the draft form. These fail
@@ -863,15 +917,13 @@ async function load() {
         const res = await getOne(route.params.id);
         tx.value = res.tx;
         availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         hydrateForm();
 
         const allIds = new Set(
             (availableActions.value || []).map((a) => a.route_id),
         );
-        if (!allIds.has(selectedForwardRouteId.value))
-            selectedForwardRouteId.value = null;
-        if (!allIds.has(selectedReturnRouteId.value))
-            selectedReturnRouteId.value = null;
+        if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load transaction.";
     } finally {
@@ -882,12 +934,57 @@ async function load() {
 function openProceed() {
     remarks.value = "";
     // Return actions autofill every transaction file so the user sees
-    // what will travel back; forward actions start empty.
+    // what will travel back. Forward actions start empty on first visits;
+    // on re-walks into an already-passed station, prefill this station's
+    // previous files (station info values are already pre-filled, since
+    // field values persist per transaction).
+    const destVisited = (() => {
+        const id = selectedAction.value?.to_step?.id;
+        if (id === null || id === undefined) return false;
+        return (visitedStepIds.value || []).map(Number).includes(Number(id));
+    })();
     proceedAttachments.value = isReturnSelected.value
         ? [...returnAttachments()]
-        : [];
+        : destVisited
+            ? [...currentStepAttachments()]
+            : [];
     executeError.value = "";
+    // Skip page 1 when there are no requirements — go straight to checklist/remarks.
+    wizardStep.value = hasProceedRequirements.value ? 1 : 2;
+    wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
+}
+
+// Files previously saved on the current station, for prefill when
+// re-proceeding through already-passed stations.
+function currentStepAttachments() {
+    const cur = Number(tx.value?.current_step?.id);
+    return (tx.value?.attachments || []).filter((a) => Number(a.workflow_step_id) === cur);
+}
+
+// Re-fetch tx without wiping staged station-info `form` (uploads and
+// check/uncheck refresh the requirements list only).
+async function refreshTxPreservingForm() {
+    try {
+        const res = await getOne(route.params.id);
+        tx.value = res.tx;
+        availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Failed to refresh transaction.";
+    }
+}
+
+async function goWizardNext() {
+    await refreshTxPreservingForm();
+    wizardStep.value = 2;
+}
+
+async function onWizardToggle(req, checked) {
+    if (!req?.definition?.id) return;
+    if (checked && !req.checked) await checkRequirement(req.definition.id);
+    else if (!checked && req.checked) await uncheckRequirement(req.definition.id);
 }
 
 async function executeSelected() {
@@ -930,13 +1027,71 @@ async function executeSelected() {
 
         tx.value = res.tx;
         availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         remarksDialog.value = false;
+        wizardStep.value = 1;
         proceedAttachments.value = [];
+        // New station, new outgoing routes — force a fresh selection so the
+        // closed dropdown never shows the previous route's raw id.
+        selectedRouteId.value = null;
         hydrateForm();
     } catch (e) {
         const msg = formatApiError(e, "Execute failed.");
         error.value = msg;
         executeError.value = msg;
+    } finally {
+        saving.value = false;
+    }
+}
+
+// Finalize the process on the last station. No requirements — the
+// backend enforces end-step + once-only. Afterwards view-only.
+const jumpDialog = ref(false);
+async function finalizeTx() {
+    if (saving.value) return;
+    saving.value = true;
+    error.value = "";
+    try {
+        const res = await finalizeApi(route.params.id);
+        tx.value = res.tx;
+        availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        selectedRouteId.value = null;
+        hydrateForm();
+        finalizeDialog.value = false;
+    } catch (e) {
+        error.value = formatApiError(e, "Finalize failed.");
+    } finally {
+        saving.value = false;
+    }
+}
+
+function openJump() {
+    if (!isJumpSelected.value) return;
+    jumpDialog.value = true;
+}
+
+async function confirmJump(remarksText) {
+    jumpDialog.value = false;
+    await gotoStation(remarksText);
+}
+
+async function gotoStation(remarksText) {
+    if (!isJumpSelected.value || !jumpStepId.value || saving.value) return;
+    saving.value = true;
+    error.value = "";
+    try {
+        const res = await gotoStationApi(route.params.id, {
+            to_step_id: jumpStepId.value,
+            remarks: remarksText || null,
+        });
+        tx.value = res.tx;
+        availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        selectedRouteId.value = null;
+        hydrateForm();
+    } catch (e) {
+        error.value = formatApiError(e, "Jump failed.");
     } finally {
         saving.value = false;
     }
@@ -954,6 +1109,8 @@ async function checkRequirement(requirementId) {
 
         tx.value = res.data.data ?? res.data;
         availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
         // Keep staged (unsent) info: fields only persist on Proceed, so do
         // NOT rebuild the form from server values here — that would wipe
         // what was just typed in the Check modal.
@@ -977,6 +1134,8 @@ async function uncheckRequirement(requirementId) {
 
         tx.value = res.data.data ?? res.data;
         availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
         // Same as check: preserve staged info, server has no newer values.
     } catch (e) {
         error.value = e?.response?.data?.message || "Checklist uncheck failed.";
@@ -1007,32 +1166,88 @@ const returnActions = computed(() =>
 );
 
 function labelForAction(a) {
-    const to = a?.to_step?.name
-        ? `${a.to_step.name} (${a.to_step.code})`
-        : `Step #${a.to_step_id ?? ""}`;
-    const group = a?.route_group ? ` • ${a.route_group}` : "";
-    const approvals = a?.required_approvals_count
-        ? ` • approvals: ${a.required_approvals_count}`
-        : "";
-    return `${a.action_code} → ${to}${group}${approvals}`;
+    const name = a?.to_step?.name ?? `Step #${a.to_step_id ?? ""}`;
+    const n = a?.to_step?.order_number;
+    return n != null && n !== "" ? `${n}. ${name}` : `${name}`;
 }
 
-const forwardRouteOptions = computed(() =>
-    forwardActions.value.map((a) => ({
+const unifiedRouteOptions = computed(() => [
+    ...forwardActions.value.map((a) => ({
+        value: a.route_id,
         route_id: a.route_id,
-        label: labelForAction(a),
+        label: `Proceed → ${labelForAction(a)}`,
     })),
-);
-const returnRouteOptions = computed(() =>
-    returnActions.value.map((a) => ({
+    ...returnActions.value.map((a) => ({
+        value: a.route_id,
         route_id: a.route_id,
-        label: labelForAction(a),
+        label: `Return → ${labelForAction(a)}`,
     })),
+    ...jumpRouteOptions.value,
+]);
+
+// Jump targets: visited stations BEHIND the current one, ordered by
+// station number. Values are "jump:<stepId>" strings so they never
+// collide with numeric route ids. Forward moves always go step by step
+// through the assigned routes — never by jump.
+const jumpRouteOptions = computed(() => {
+    const visited = new Set((visitedStepIds.value || []).map((v) => Number(v)));
+    const cur = Number(tx.value?.current_step?.id);
+    const curOrder = Number(
+        (tx.value?.workflow_steps || []).find((s) => Number(s.id) === cur)?.order_number ?? NaN,
+    );
+    return (tx.value?.workflow_steps || [])
+        .filter((s) => visited.has(Number(s.id)) && Number(s.order_number) < curOrder)
+        .sort((a, b) => (Number(a.order_number) || 0) - (Number(b.order_number) || 0))
+        .map((s) => ({
+            value: `jump:${s.id}`,
+            to_step_id: s.id,
+            to_number: s.order_number ?? s.id,
+            is_jump: true,
+            label: `Go to Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
+        }));
+});
+
+const selectedJumpOption = computed(() =>
+    (jumpRouteOptions.value || []).find((o) => String(o.value) === String(selectedRouteId.value)) || null,
 );
 
+const jumpDestinationLabel = computed(() => {
+    const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(jumpStepId.value));
+    if (!s) return 'the selected station';
+    return `Station ${s.order_number} · ${s.name || s.code || ''}`.trim();
+});
+
+const jumpCurrentLabel = computed(() => {
+    const c = tx.value?.current_step;
+    if (!c) return 'current station';
+    const match = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(c.id));
+    return `Station ${match?.order_number ?? ''} · ${c.name || c.code || ''}`.trim();
+});
+
 const selectedActionLabel = computed(() => {
+    if (isJumpSelected.value) return selectedJumpOption.value?.label ?? "";
     const a = (availableActions.value || []).find((x) => x.route_id === selectedRouteId.value);
     return a ? labelForAction(a) : "";
+});
+
+const selectedAction = computed(() => {
+    if (isJumpSelected.value) return null;
+    return (availableActions.value || []).find(
+        (x) => Number(x.route_id) === Number(selectedRouteId.value),
+    );
+});
+const selectedStepNumber = computed(
+    () => selectedAction.value?.to_step?.order_number ?? selectedAction.value?.to_step_id ?? "",
+);
+const mainActionButtonLabel = computed(() => {
+    if (!selectedRouteId.value) return "Proceed";
+    if (isJumpSelected.value) {
+        const n = selectedJumpOption.value?.to_number ?? "";
+        return n !== "" ? `Go to Station ${n}` : "Go to Station";
+    }
+    if (!selectedAction.value) return "Proceed";
+    if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
+    return `Proceed to Station ${selectedStepNumber.value}`;
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so

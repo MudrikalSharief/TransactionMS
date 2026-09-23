@@ -57,6 +57,7 @@
                     height="398"
                     fixed-header
                     :items-per-page="25"
+                    :sort-by="[{ key: 'created_at', order: 'desc' }]"
                     hover
                     class="lgu-table table-search"
                     @click:row="(_, row) => open(row.item)"
@@ -90,6 +91,17 @@
                                 >
                                     <v-icon start size="small">{{ stepIcon(item.current_step) }}</v-icon>
                                     {{ item.current_step?.name || item.current_step?.code || 'Unassigned' }}
+                                </v-chip>
+                                <v-chip
+                                    v-if="item.is_done"
+                                    color="success"
+                                    variant="flat"
+                                    rounded="0"
+                                    size="small"
+                                    class="ml-1"
+                                >
+                                    <v-icon start size="small">mdi-flag-checkered</v-icon>
+                                    Done
                                 </v-chip>
                             </template>
                             <StepProgress

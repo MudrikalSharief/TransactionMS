@@ -42,6 +42,22 @@ export function useMyTransactions() {
         };
     }
 
+    async function gotoStation(id, payload) {
+        const res = await api.post(`/api/transactions/${id}/goto`, payload);
+        return {
+            tx: res.data.data ?? res.data,
+            meta: res.data.meta ?? {},
+        };
+    }
+
+    async function finalize(id) {
+        const res = await api.post(`/api/transactions/${id}/finalize`);
+        return {
+            tx: res.data.data ?? res.data,
+            meta: res.data.meta ?? {},
+        };
+    }
+
     async function checkRequirement(transactionId, requirementId) {
         const res = await api.post(
             `/api/transactions/${transactionId}/requirements/${requirementId}/check`,
@@ -76,6 +92,8 @@ export function useMyTransactions() {
         fetchAll,
         getOne,
         execute,
+        gotoStation,
+        finalize,
         checkRequirement,
         uncheckRequirement,
         uploadAttachment,
