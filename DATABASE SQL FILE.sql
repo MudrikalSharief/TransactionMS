@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Sep 21, 2026 at 02:39 AM
+-- Generation Time: Sep 23, 2026 at 12:44 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.33
 
@@ -60,7 +60,11 @@ INSERT INTO `audit_logs` (`id`, `actor_user_id`, `event`, `entity_type`, `entity
 (15, 1, 'transactions.delete', 'App\\Models\\Transaction', 3, '{\"reference_number\":\"TSYP-YHTP-JNWK\",\"transaction_type_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', '2026-09-15 19:31:46'),
 (16, 1, 'transactions.delete', 'App\\Models\\Transaction', 4, '{\"reference_number\":\"7ERC-ULBD-0AV1\",\"transaction_type_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', '2026-09-15 19:31:50'),
 (17, 1, 'transactions.delete', 'App\\Models\\Transaction', 5, '{\"reference_number\":\"GCHJ-9XQD-CV59\",\"transaction_type_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', '2026-09-15 19:31:54'),
-(18, 1, 'transactions.delete', 'App\\Models\\Transaction', 10, '{\"reference_number\":\"CC5T-ZXED-JAFX\",\"transaction_type_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', '2026-09-15 19:32:01');
+(18, 1, 'transactions.delete', 'App\\Models\\Transaction', 10, '{\"reference_number\":\"CC5T-ZXED-JAFX\",\"transaction_type_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', '2026-09-15 19:32:01'),
+(19, 1, 'transaction_types.update', 'App\\Models\\TransactionType', 1, '{\"before\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"LGU payroll processing\",\"is_active\":true},\"after\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"LGU payroll processing\",\"is_active\":true}}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-20 17:10:42'),
+(20, 1, 'transaction_types.update', 'App\\Models\\TransactionType', 1, '{\"before\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"LGU payroll processing\",\"is_active\":true},\"after\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"job order\",\"is_active\":true}}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-20 17:11:37'),
+(21, 1, 'transactions.finalize', 'App\\Models\\Transaction', 16, '{\"reference_number\":\"Z5UP-ADG3-47IT\",\"current_step_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-21 23:47:33'),
+(22, 1, 'transactions.finalize', 'App\\Models\\Transaction', 15, '{\"reference_number\":\"VYIR-X6GM-MMXP\",\"current_step_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-21 23:48:27');
 
 -- --------------------------------------------------------
 
@@ -78,6 +82,10 @@ CREATE TABLE `cache` (
 --
 
 INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
+('laravel-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:1;', 1790055009),
+('laravel-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790055009;', 1790055009),
+('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:6;', 1790063533),
+('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790063533;', 1790063533),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81', 'i:5;', 1789364911),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81:timer', 'i:1789364911;', 1789364911),
 ('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1789527931),
@@ -223,7 +231,20 @@ INSERT INTO `field_values` (`id`, `transaction_id`, `field_definition_id`, `valu
 (2, 9, 3, '{\"value\": \"Almost Office\"}', 'Almost Office', NULL, '2026-09-13 19:36:55', '2026-09-13 19:36:55', 1),
 (3, 9, 4, '{\"value\": 500}', '500', NULL, '2026-09-13 19:36:55', '2026-09-13 19:36:55', 1),
 (4, 9, 7, '{\"value\": \"ad\"}', 'ad', NULL, '2026-09-13 19:36:55', '2026-09-13 19:36:55', 1),
-(5, 9, 5, '{\"value\": \"Minotaur.com\"}', 'Minotaur.com', NULL, '2026-09-13 20:46:56', '2026-09-13 20:46:56', 1);
+(5, 9, 5, '{\"value\": \"Minotaur.com\"}', 'Minotaur.com', NULL, '2026-09-13 20:46:56', '2026-09-13 20:46:56', 1),
+(6, 9, 6, '{\"value\":\"34534534\"}', '34534534', NULL, '2026-09-20 17:05:15', '2026-09-20 17:05:15', 1),
+(7, 17, 2, '{\"value\":\"3234234\"}', '3234234', NULL, '2026-09-20 19:30:52', '2026-09-20 19:30:52', 1),
+(8, 17, 3, '{\"value\":\"234\"}', '234', NULL, '2026-09-20 19:30:52', '2026-09-20 19:30:52', 1),
+(9, 17, 4, '{\"value\":3242}', '3242', NULL, '2026-09-20 19:30:52', '2026-09-20 19:30:52', 1),
+(10, 17, 7, '{\"value\":\"23423\"}', '23423', NULL, '2026-09-20 19:30:52', '2026-09-20 19:30:52', 1),
+(11, 17, 5, '{\"value\":\"67567567\"}', '67567567', NULL, '2026-09-20 19:32:50', '2026-09-20 19:32:50', 1),
+(12, 18, 2, '{\"value\":\"3234234\"}', '3234234', NULL, '2026-09-21 17:18:56', '2026-09-21 17:18:56', 1),
+(13, 18, 3, '{\"value\":\"234\"}', '234', NULL, '2026-09-21 17:18:56', '2026-09-21 17:18:56', 1),
+(14, 18, 4, '{\"value\":1}', '1', NULL, '2026-09-21 17:18:56', '2026-09-21 17:18:56', 1),
+(15, 18, 7, '{\"value\":null}', NULL, NULL, '2026-09-21 17:18:56', '2026-09-21 17:18:56', 1),
+(16, 18, 5, '{\"value\":\"waffawfawfas\"}', 'waffawfawfas', NULL, '2026-09-21 17:21:46', '2026-09-21 19:29:48', 1),
+(17, 18, 6, '{\"value\":\"awdawfaaawaa\"}', 'awdawfaaawaa', NULL, '2026-09-21 17:22:45', '2026-09-21 19:29:41', 1),
+(18, 18, 1, '{\"value\":\"46\"}', '46', NULL, '2026-09-21 17:26:43', '2026-09-21 17:26:43', 1);
 
 -- --------------------------------------------------------
 
@@ -342,7 +363,9 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (38, '2026_02_13_000009_readd_parent_id_to_office_steps_table', 9),
 (39, '2026_02_13_000010_readd_parent_id_to_workflow_steps_table', 9),
 (40, '2026_02_14_000001_create_transaction_attachments_table', 10),
-(41, '2026_09_16_120000_drop_dead_requirement_tables', 11);
+(41, '2026_09_16_120000_drop_dead_requirement_tables', 11),
+(42, '2026_09_23_000001_create_transaction_station_touches_table', 12),
+(43, '2026_09_30_000001_add_is_done_to_transactions_table', 13);
 
 -- --------------------------------------------------------
 
@@ -501,7 +524,9 @@ INSERT INTO `requirement_definitions` (`id`, `workflow_definition_id`, `order_nu
 (29, 1, 3, 'payroll_finalized', 'Payroll finalized', 'Tick once payroll is finalized.', 1, '2026-09-13 23:01:03', '2026-09-13 23:01:03', NULL),
 (30, 17, 1, 'dtr_collected', 'DTR collected', 'Tick once DTRs are collected.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (31, 17, 2, 'dtr_validated', 'DTR validated', 'Tick once DTRs are validated.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(32, 17, 3, 'payroll_finalized', 'Payroll finalized', 'Tick once payroll is finalized.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL);
+(32, 17, 3, 'payroll_finalized', 'Payroll finalized', 'Tick once payroll is finalized.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(33, 18, 1, 'comm_logged', 'Communication logged', 'Tick once the communication is received and logged.', 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
+(34, 18, 2, 'comm_released', 'Communication released', 'Tick once the communication is released at the end station.', 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL);
 
 -- --------------------------------------------------------
 
@@ -584,7 +609,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('RwXUhdYL0Nj3kCldp3rdXrvFw6D7Zg21gF9VqPNr', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoicGZicDBRVEk5Z1VtRVRGNHhsZ2xSR3ltYlZkT3Nmb3AzWm9EdVBjdiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1789534724);
+('dM9A3dDWJ1WnXICyd5acxiikr4BlQJcvreQnwTwH', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiWXhCa3RiNkluQTNSdzh2bDU5UGhLdGozd0xyUnFoRGNra0ZZajZaNCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiOWIzYTI0N2FkNTM2NDY5ZmEyNjVjYjQxZDkwZDI3Mzc0NTMyMjI1MjJhODdhMWZhYTRmM2Y0MmU3MjAxZjliZCI7fQ==', 1790063483);
 
 -- --------------------------------------------------------
 
@@ -637,7 +662,9 @@ INSERT INTO `step_requirements` (`id`, `workflow_step_id`, `requirement_definiti
 (29, 3, 29, 1, 1, '2026-09-13 23:01:03', '2026-09-13 23:01:03'),
 (30, 72, 30, 1, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
 (31, 74, 32, 1, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
-(32, 73, 31, 1, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40');
+(32, 73, 31, 1, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
+(33, 75, 33, 1, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10'),
+(34, 76, 34, 1, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10');
 
 -- --------------------------------------------------------
 
@@ -708,7 +735,9 @@ INSERT INTO `step_roles` (`id`, `workflow_step_id`, `role_id`, `created_at`, `up
 (49, 72, 3, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
 (50, 73, 3, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
 (51, 73, 4, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
-(52, 74, 4, '2026-09-14 00:53:40', '2026-09-14 00:53:40');
+(52, 74, 4, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
+(53, 75, 3, '2026-09-21 23:27:10', '2026-09-21 23:27:10'),
+(54, 76, 4, '2026-09-21 23:27:10', '2026-09-21 23:27:10');
 
 -- --------------------------------------------------------
 
@@ -722,6 +751,7 @@ CREATE TABLE `transactions` (
   `office_id` bigint UNSIGNED DEFAULT NULL,
   `reference_number` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_done` tinyint(1) NOT NULL DEFAULT '0',
   `created_by` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
@@ -732,19 +762,22 @@ CREATE TABLE `transactions` (
 -- Dumping data for table `transactions`
 --
 
-INSERT INTO `transactions` (`id`, `transaction_type_id`, `workflow_definition_id`, `office_id`, `reference_number`, `title`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 3, 3, NULL, 'JFCW-GO9W-DM6Q', 'Communication 1', 1, '2026-03-09 23:51:48', '2026-09-15 19:31:38', '2026-09-15 19:31:38'),
-(2, 3, 3, NULL, 'UTST-CZUL-F55O', 'Communication 2', 1, '2026-03-09 23:57:06', '2026-09-15 19:31:42', '2026-09-15 19:31:42'),
-(3, 3, 4, NULL, 'TSYP-YHTP-JNWK', 'Communication 3', 1, '2026-03-09 23:57:31', '2026-09-15 19:31:46', '2026-09-15 19:31:46'),
-(4, 3, 4, NULL, '7ERC-ULBD-0AV1', 'Communication 4', 1, '2026-03-10 00:32:03', '2026-09-15 19:31:50', '2026-09-15 19:31:50'),
-(5, 3, 4, NULL, 'GCHJ-9XQD-CV59', 'Shopee', 1, '2026-09-11 16:50:34', '2026-09-15 19:31:54', '2026-09-15 19:31:54'),
-(9, 2, 7, NULL, 'K8JB-EEGG-36OC', 'Lazada', 1, '2026-09-11 22:24:51', '2026-09-11 22:24:51', NULL),
-(10, 3, 4, NULL, 'CC5T-ZXED-JAFX', 'Lazada', 1, '2026-09-13 22:42:14', '2026-09-15 19:32:01', '2026-09-15 19:32:01'),
-(11, 2, 7, NULL, '4JNN-BZGT-BRYB', 'qwe', 1, '2026-09-13 22:48:16', '2026-09-13 22:48:16', NULL),
-(12, 3, 16, NULL, 'LUC2-ULOD-KIFH', 'ewq', 1, '2026-09-13 22:48:28', '2026-09-13 22:48:28', NULL),
-(13, 1, 1, NULL, 'OWOB-BEOY-FW1M', 'eqweqwe', 1, '2026-09-13 22:48:43', '2026-09-13 22:48:43', NULL),
-(14, 1, 1, NULL, 'HHZB-GGI6-RIQH', 'new', 1, '2026-09-14 00:13:33', '2026-09-14 00:13:33', NULL),
-(15, 1, 1, NULL, 'VYIR-X6GM-MMXP', 'BAAA', 1, '2026-09-15 19:18:48', '2026-09-15 19:18:48', NULL);
+INSERT INTO `transactions` (`id`, `transaction_type_id`, `workflow_definition_id`, `office_id`, `reference_number`, `title`, `is_done`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 3, 3, NULL, 'JFCW-GO9W-DM6Q', 'Communication 1', 0, 1, '2026-03-09 23:51:48', '2026-09-15 19:31:38', '2026-09-15 19:31:38'),
+(2, 3, 3, NULL, 'UTST-CZUL-F55O', 'Communication 2', 0, 1, '2026-03-09 23:57:06', '2026-09-15 19:31:42', '2026-09-15 19:31:42'),
+(3, 3, 4, NULL, 'TSYP-YHTP-JNWK', 'Communication 3', 0, 1, '2026-03-09 23:57:31', '2026-09-15 19:31:46', '2026-09-15 19:31:46'),
+(4, 3, 4, NULL, '7ERC-ULBD-0AV1', 'Communication 4', 0, 1, '2026-03-10 00:32:03', '2026-09-15 19:31:50', '2026-09-15 19:31:50'),
+(5, 3, 4, 9, 'GCHJ-9XQD-CV59', 'Shopee', 0, 1, '2026-09-11 16:50:34', '2026-09-15 19:31:54', '2026-09-15 19:31:54'),
+(9, 2, 7, 9, 'K8JB-EEGG-36OC', 'Lazada', 0, 1, '2026-09-11 22:24:51', '2026-09-11 22:24:51', NULL),
+(10, 3, 4, NULL, 'CC5T-ZXED-JAFX', 'Lazada', 0, 1, '2026-09-13 22:42:14', '2026-09-15 19:32:01', '2026-09-15 19:32:01'),
+(11, 2, 7, NULL, '4JNN-BZGT-BRYB', 'qwe', 0, 1, '2026-09-13 22:48:16', '2026-09-13 22:48:16', NULL),
+(12, 3, 16, NULL, 'LUC2-ULOD-KIFH', 'ewq', 0, 1, '2026-09-13 22:48:28', '2026-09-13 22:48:28', NULL),
+(13, 1, 1, NULL, 'OWOB-BEOY-FW1M', 'eqweqwe', 0, 1, '2026-09-13 22:48:43', '2026-09-13 22:48:43', NULL),
+(14, 1, 1, NULL, 'HHZB-GGI6-RIQH', 'new', 0, 1, '2026-09-14 00:13:33', '2026-09-14 00:13:33', NULL),
+(15, 1, 1, NULL, 'VYIR-X6GM-MMXP', 'BAAA', 1, 1, '2026-09-15 19:18:48', '2026-09-21 23:48:27', NULL),
+(16, 1, 1, NULL, 'Z5UP-ADG3-47IT', NULL, 1, 1, '2026-09-20 17:09:18', '2026-09-21 23:47:33', NULL),
+(17, 2, 7, NULL, 'G6RW-ZX2H-UUMI', NULL, 0, 1, '2026-09-20 19:10:13', '2026-09-20 19:10:13', NULL),
+(18, 2, 7, NULL, '4YD8-5DKW-JCYT', NULL, 0, 1, '2026-09-21 17:15:15', '2026-09-21 17:15:15', NULL);
 
 -- --------------------------------------------------------
 
@@ -807,9 +840,18 @@ INSERT INTO `transaction_requirement_checks` (`id`, `transaction_id`, `workflow_
 (9, 14, 1, 27, 1, '2026-09-14 00:16:35', '2026-09-14 00:16:35', '2026-09-14 00:16:35'),
 (10, 14, 2, 28, 1, '2026-09-14 00:39:08', '2026-09-14 00:39:08', '2026-09-14 00:39:08'),
 (11, 14, 3, 29, 1, '2026-09-14 00:42:21', '2026-09-14 00:42:21', '2026-09-14 00:42:21'),
-(12, 9, 40, 20, 1, '2026-09-15 19:15:29', '2026-09-15 19:15:29', '2026-09-15 19:15:29'),
 (14, 15, 1, 27, 1, '2026-09-15 19:19:12', '2026-09-15 19:19:12', '2026-09-15 19:19:12'),
-(15, 15, 2, 28, 1, '2026-09-15 19:19:53', '2026-09-15 19:19:53', '2026-09-15 19:19:53');
+(15, 15, 2, 28, 1, '2026-09-15 19:19:53', '2026-09-15 19:19:53', '2026-09-15 19:19:53'),
+(26, 9, 40, 20, 1, '2026-09-20 17:04:48', '2026-09-20 17:04:48', '2026-09-20 17:04:48'),
+(31, 17, 38, 23, 1, '2026-09-20 19:30:46', '2026-09-20 19:30:46', '2026-09-20 19:30:46'),
+(32, 17, 39, 19, 1, '2026-09-20 19:32:01', '2026-09-20 19:32:01', '2026-09-20 19:32:01'),
+(33, 17, 40, 20, 1, '2026-09-20 22:12:24', '2026-09-20 22:12:24', '2026-09-20 22:12:24'),
+(34, 18, 38, 23, 1, '2026-09-21 17:18:33', '2026-09-21 17:18:33', '2026-09-21 17:18:33'),
+(35, 18, 39, 19, 1, '2026-09-21 17:21:44', '2026-09-21 17:21:44', '2026-09-21 17:21:44'),
+(37, 18, 42, 22, 1, '2026-09-21 17:26:20', '2026-09-21 17:26:20', '2026-09-21 17:26:20'),
+(46, 18, 40, 20, 1, '2026-09-21 23:15:29', '2026-09-21 23:15:29', '2026-09-21 23:15:29'),
+(47, 16, 1, 27, 1, '2026-09-21 23:29:55', '2026-09-21 23:29:55', '2026-09-21 23:29:55'),
+(48, 16, 2, 28, 1, '2026-09-21 23:30:09', '2026-09-21 23:30:09', '2026-09-21 23:30:09');
 
 -- --------------------------------------------------------
 
@@ -835,13 +877,31 @@ INSERT INTO `transaction_states` (`id`, `transaction_id`, `current_step_id`, `en
 (3, 3, 20, '2026-03-10 00:00:39', '2026-03-09 23:57:31', '2026-03-10 00:00:39'),
 (4, 4, 21, '2026-03-10 00:32:33', '2026-03-10 00:32:03', '2026-03-10 00:32:33'),
 (5, 5, 20, '2026-09-11 16:50:34', '2026-09-11 16:50:34', '2026-09-11 16:50:34'),
-(9, 9, 40, '2026-09-13 20:46:56', '2026-09-11 22:24:51', '2026-09-13 20:46:56'),
+(9, 9, 42, '2026-09-21 16:54:14', '2026-09-11 22:24:51', '2026-09-21 16:54:14'),
 (10, 10, 20, '2026-09-13 22:42:14', '2026-09-13 22:42:14', '2026-09-13 22:42:14'),
 (11, 11, 38, '2026-09-13 22:48:16', '2026-09-13 22:48:16', '2026-09-13 22:48:16'),
 (12, 12, 71, '2026-09-13 23:04:47', '2026-09-13 22:48:28', '2026-09-13 23:04:47'),
-(13, 13, 1, '2026-09-15 20:03:45', '2026-09-13 22:48:43', '2026-09-15 20:03:45'),
+(13, 13, 1, '2026-09-20 18:09:46', '2026-09-13 22:48:43', '2026-09-20 18:09:46'),
 (14, 14, 3, '2026-09-14 00:39:23', '2026-09-14 00:13:33', '2026-09-14 00:39:23'),
-(15, 15, 2, '2026-09-15 19:25:05', '2026-09-15 19:18:48', '2026-09-15 19:25:05');
+(15, 15, 3, '2026-09-21 23:48:17', '2026-09-15 19:18:48', '2026-09-21 23:48:17'),
+(16, 16, 3, '2026-09-21 23:30:10', '2026-09-20 17:09:18', '2026-09-21 23:30:10'),
+(17, 17, 40, '2026-09-20 19:32:50', '2026-09-20 19:10:13', '2026-09-20 19:32:50'),
+(18, 18, 38, '2026-09-21 23:25:43', '2026-09-21 17:15:15', '2026-09-21 23:25:43');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `transaction_station_touches`
+--
+CREATE TABLE `transaction_station_touches` (
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `touched_by` bigint UNSIGNED NOT NULL,
+  `touched_at` timestamp NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -902,7 +962,64 @@ INSERT INTO `transaction_step_runs` (`id`, `transaction_id`, `from_step_id`, `to
 (38, 13, 1, 2, 'submit', NULL, 1, '2026-09-15 19:59:35', '2026-09-15 19:59:35', '2026-09-15 19:59:35'),
 (39, 13, 2, 1, 'return', NULL, 1, '2026-09-15 19:59:46', '2026-09-15 19:59:46', '2026-09-15 19:59:46'),
 (41, 13, 1, 2, 'submit', NULL, 1, '2026-09-15 20:03:35', '2026-09-15 20:03:35', '2026-09-15 20:03:35'),
-(42, 13, 2, 1, 'return', NULL, 1, '2026-09-15 20:03:45', '2026-09-15 20:03:45', '2026-09-15 20:03:45');
+(42, 13, 2, 1, 'return', NULL, 1, '2026-09-15 20:03:45', '2026-09-15 20:03:45', '2026-09-15 20:03:45'),
+(43, 9, 40, 41, 'submit', NULL, 1, '2026-09-20 17:05:15', '2026-09-20 17:05:15', '2026-09-20 17:05:15'),
+(44, 16, 1, 1, 'create', 'Transaction created', 1, '2026-09-20 17:09:18', '2026-09-20 17:09:18', '2026-09-20 17:09:18'),
+(45, 13, 1, 2, 'submit', NULL, 1, '2026-09-20 17:52:22', '2026-09-20 17:52:22', '2026-09-20 17:52:22'),
+(46, 13, 2, 1, 'return', NULL, 1, '2026-09-20 18:09:46', '2026-09-20 18:09:46', '2026-09-20 18:09:46'),
+(47, 17, 38, 38, 'create', 'Transaction created', 1, '2026-09-20 19:10:13', '2026-09-20 19:10:13', '2026-09-20 19:10:13'),
+(48, 17, 38, 39, 'submit', 'awdawdawdawdawdawdwadaw', 1, '2026-09-20 19:30:52', '2026-09-20 19:30:52', '2026-09-20 19:30:52'),
+(49, 17, 39, 40, 'submit', NULL, 1, '2026-09-20 19:32:50', '2026-09-20 19:32:50', '2026-09-20 19:32:50'),
+(50, 9, 41, 42, 'submit', NULL, 1, '2026-09-21 16:54:14', '2026-09-21 16:54:14', '2026-09-21 16:54:14'),
+(51, 18, 38, 38, 'create', 'Transaction created', 1, '2026-09-21 17:15:15', '2026-09-21 17:15:15', '2026-09-21 17:15:15'),
+(52, 18, 38, 39, 'submit', NULL, 1, '2026-09-21 17:18:56', '2026-09-21 17:18:56', '2026-09-21 17:18:56'),
+(53, 18, 39, 40, 'submit', NULL, 1, '2026-09-21 17:21:46', '2026-09-21 17:21:46', '2026-09-21 17:21:46'),
+(54, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 17:22:45', '2026-09-21 17:22:45', '2026-09-21 17:22:45'),
+(55, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 17:26:00', '2026-09-21 17:26:00', '2026-09-21 17:26:00'),
+(56, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 17:26:43', '2026-09-21 17:26:43', '2026-09-21 17:26:43'),
+(57, 18, 43, 40, 'rewind', 'Rewound to past station', 1, '2026-09-21 18:48:26', '2026-09-21 18:48:26', '2026-09-21 18:48:26'),
+(58, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 18:48:26', '2026-09-21 18:48:26', '2026-09-21 18:48:26'),
+(59, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 18:55:28', '2026-09-21 18:55:28', '2026-09-21 18:55:28'),
+(60, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 18:56:03', '2026-09-21 18:56:03', '2026-09-21 18:56:03'),
+(61, 18, 43, 40, 'rewind', 'Rewound to past station', 1, '2026-09-21 18:57:26', '2026-09-21 18:57:26', '2026-09-21 18:57:26'),
+(62, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 18:57:27', '2026-09-21 18:57:27', '2026-09-21 18:57:27'),
+(63, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 18:57:39', '2026-09-21 18:57:39', '2026-09-21 18:57:39'),
+(64, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 18:57:52', '2026-09-21 18:57:52', '2026-09-21 18:57:52'),
+(65, 18, 43, 38, 'return', 'hay nako', 1, '2026-09-21 19:04:31', '2026-09-21 19:04:31', '2026-09-21 19:04:31'),
+(66, 18, 38, 39, 'submit', NULL, 1, '2026-09-21 19:04:51', '2026-09-21 19:04:51', '2026-09-21 19:04:51'),
+(67, 18, 39, 40, 'submit', NULL, 1, '2026-09-21 19:04:57', '2026-09-21 19:04:57', '2026-09-21 19:04:57'),
+(68, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 19:05:06', '2026-09-21 19:05:06', '2026-09-21 19:05:06'),
+(69, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 19:05:14', '2026-09-21 19:05:14', '2026-09-21 19:05:14'),
+(70, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 19:10:05', '2026-09-21 19:10:05', '2026-09-21 19:10:05'),
+(71, 18, 43, 38, 'return', 'awdawd', 1, '2026-09-21 21:49:06', '2026-09-21 21:49:06', '2026-09-21 21:49:06'),
+(72, 18, 38, 39, 'submit', NULL, 1, '2026-09-21 21:49:22', '2026-09-21 21:49:22', '2026-09-21 21:49:22'),
+(73, 18, 39, 40, 'submit', NULL, 1, '2026-09-21 21:49:29', '2026-09-21 21:49:29', '2026-09-21 21:49:29'),
+(74, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 21:49:38', '2026-09-21 21:49:38', '2026-09-21 21:49:38'),
+(75, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 21:49:47', '2026-09-21 21:49:47', '2026-09-21 21:49:47'),
+(76, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 21:49:55', '2026-09-21 21:49:55', '2026-09-21 21:49:55'),
+(77, 18, 43, 38, 'return', 'awda', 1, '2026-09-21 21:52:22', '2026-09-21 21:52:22', '2026-09-21 21:52:22'),
+(78, 18, 38, 39, 'submit', NULL, 1, '2026-09-21 21:52:53', '2026-09-21 21:52:53', '2026-09-21 21:52:53'),
+(79, 18, 39, 40, 'submit', NULL, 1, '2026-09-21 21:57:34', '2026-09-21 21:57:34', '2026-09-21 21:57:34'),
+(80, 18, 40, 43, 'revisit', 'Jumped to a passed station', 1, '2026-09-21 22:54:35', '2026-09-21 22:54:35', '2026-09-21 22:54:35'),
+(81, 18, 43, 40, 'revisit', 'Jumped to a passed station', 1, '2026-09-21 22:55:46', '2026-09-21 22:55:46', '2026-09-21 22:55:46'),
+(82, 18, 40, 41, 'revisit', 'Jumped to a passed station', 1, '2026-09-21 22:55:52', '2026-09-21 22:55:52', '2026-09-21 22:55:52'),
+(83, 18, 41, 40, 'revisit', 'Jumped to a passed station', 1, '2026-09-21 22:56:03', '2026-09-21 22:56:03', '2026-09-21 22:56:03'),
+(84, 18, 40, 41, 'revisit', 'Jumped to a passed station', 1, '2026-09-21 22:56:51', '2026-09-21 22:56:51', '2026-09-21 22:56:51'),
+(85, 18, 41, 40, 'revisit', 'Jumped to a passed station', 1, '2026-09-21 23:01:30', '2026-09-21 23:01:30', '2026-09-21 23:01:30'),
+(86, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 23:15:31', '2026-09-21 23:15:31', '2026-09-21 23:15:31'),
+(87, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 23:15:39', '2026-09-21 23:15:39', '2026-09-21 23:15:39'),
+(88, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 23:15:49', '2026-09-21 23:15:49', '2026-09-21 23:15:49'),
+(89, 18, 43, 40, 'revisit', 'please fix', 1, '2026-09-21 23:16:08', '2026-09-21 23:16:08', '2026-09-21 23:16:08'),
+(90, 18, 40, 41, 'submit', NULL, 1, '2026-09-21 23:16:16', '2026-09-21 23:16:16', '2026-09-21 23:16:16'),
+(91, 18, 41, 42, 'submit', NULL, 1, '2026-09-21 23:16:30', '2026-09-21 23:16:30', '2026-09-21 23:16:30'),
+(92, 18, 42, 43, 'submit', NULL, 1, '2026-09-21 23:16:42', '2026-09-21 23:16:42', '2026-09-21 23:16:42'),
+(93, 18, 43, 40, 'revisit', 'please fix', 1, '2026-09-21 23:17:13', '2026-09-21 23:17:13', '2026-09-21 23:17:13'),
+(94, 18, 40, 38, 'revisit', 'yamiti kudasai', 1, '2026-09-21 23:25:43', '2026-09-21 23:25:43', '2026-09-21 23:25:43'),
+(95, 16, 1, 2, 'submit', NULL, 1, '2026-09-21 23:29:57', '2026-09-21 23:29:57', '2026-09-21 23:29:57'),
+(96, 16, 2, 3, 'approve', NULL, 1, '2026-09-21 23:30:10', '2026-09-21 23:30:10', '2026-09-21 23:30:10'),
+(97, 16, 3, 3, 'finalize', 'Process finalized', 1, '2026-09-21 23:47:33', '2026-09-21 23:47:33', '2026-09-21 23:47:33'),
+(98, 15, 2, 3, 'approve', NULL, 1, '2026-09-21 23:48:17', '2026-09-21 23:48:17', '2026-09-21 23:48:17'),
+(99, 15, 3, 3, 'finalize', 'Process finalized', 1, '2026-09-21 23:48:27', '2026-09-21 23:48:27', '2026-09-21 23:48:27');
 
 -- --------------------------------------------------------
 
@@ -925,7 +1042,7 @@ CREATE TABLE `transaction_types` (
 --
 
 INSERT INTO `transaction_types` (`id`, `code`, `name`, `description`, `is_active`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 'payroll', 'Payroll', 'LGU payroll processing', 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(1, 'payroll', 'Payroll', 'job order', 1, '2026-03-09 21:24:39', '2026-09-20 17:11:37', NULL),
 (2, 'procurement', 'Procurement', 'LGU procurement process (inventory-linked)', 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
 (3, 'communication', 'Communication', NULL, 1, '2026-03-09 23:44:35', '2026-03-09 23:44:35', NULL);
 
@@ -995,7 +1112,8 @@ INSERT INTO `workflow_definitions` (`id`, `transaction_type_id`, `version`, `sta
 (6, 2, 2, 'draft', NULL, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
 (7, 2, 3, 'published', NULL, NULL, '2026-09-11 20:12:13', 1, '2026-09-11 20:07:42', '2026-09-11 20:12:13', NULL),
 (16, 3, 4, 'published', NULL, NULL, '2026-09-13 22:43:45', 1, '2026-09-13 22:43:22', '2026-09-13 22:43:45', NULL),
-(17, 1, 2, 'draft', NULL, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL);
+(17, 1, 2, 'draft', NULL, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(18, 3, 5, 'draft', NULL, NULL, NULL, NULL, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL);
 
 -- --------------------------------------------------------
 
@@ -1076,7 +1194,9 @@ INSERT INTO `workflow_routes` (`id`, `workflow_definition_id`, `from_step_id`, `
 (55, 16, 71, 70, 'return', 1, NULL, NULL, NULL, '2026-09-13 22:43:22', '2026-09-13 22:49:48', NULL),
 (56, 17, 73, 74, 'approve', 0, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (57, 17, 73, 72, 'return', 1, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(58, 17, 72, 73, 'submit', 0, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL);
+(58, 17, 72, 73, 'submit', 0, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(59, 18, 76, 75, 'return', 1, NULL, NULL, NULL, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
+(60, 18, 75, 76, 'submit', 0, NULL, NULL, NULL, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL);
 
 -- --------------------------------------------------------
 
@@ -1159,7 +1279,9 @@ INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `orde
 (71, 16, NULL, 2, 'communication_2', 'Communication Station End', NULL, 60, 0, 1, '2026-09-13 22:43:22', '2026-09-13 22:49:48', NULL),
 (72, 17, NULL, 1, 'collect_dtr', 'Collect DTR', 'HR', 2880, 1, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (73, 17, NULL, 2, 'validate_dtr', 'Validate DTR', 'HR', 2880, 0, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(74, 17, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', 4320, 0, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL);
+(74, 17, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', 4320, 0, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(75, 18, NULL, 1, 'communication_1', 'Communication Station 1', NULL, 60, 1, 0, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
+(76, 18, NULL, 2, 'communication_2', 'Communication Station End', NULL, 60, 0, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL);
 
 --
 -- Indexes for dumped tables
@@ -1369,6 +1491,15 @@ ALTER TABLE `transaction_states`
   ADD KEY `transaction_states_current_step_id_foreign` (`current_step_id`);
 
 --
+-- Indexes for table `transaction_station_touches`
+--
+ALTER TABLE `transaction_station_touches`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_tst_tx_step` (`transaction_id`,`workflow_step_id`),
+  ADD KEY `fk_tst_step` (`workflow_step_id`),
+  ADD KEY `fk_tst_user` (`touched_by`);
+
+--
 -- Indexes for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
@@ -1471,13 +1602,13 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
 
 --
 -- AUTO_INCREMENT for table `offices`
 --
 ALTER TABLE `offices`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `office_steps`
@@ -1495,7 +1626,7 @@ ALTER TABLE `permissions`
 -- AUTO_INCREMENT for table `requirement_definitions`
 --
 ALTER TABLE `requirement_definitions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -1507,43 +1638,49 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `step_requirements`
 --
 ALTER TABLE `step_requirements`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `step_roles`
 --
 ALTER TABLE `step_roles`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
 --
 -- AUTO_INCREMENT for table `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `transaction_attachments`
 --
 ALTER TABLE `transaction_attachments`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `transaction_requirement_checks`
 --
 ALTER TABLE `transaction_requirement_checks`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `transaction_states`
 --
 ALTER TABLE `transaction_states`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+
+--
+-- AUTO_INCREMENT for table `transaction_station_touches`
+--
+ALTER TABLE `transaction_station_touches`
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
 -- AUTO_INCREMENT for table `transaction_types`
@@ -1561,7 +1698,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `workflow_definitions`
 --
 ALTER TABLE `workflow_definitions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `workflow_routes`
@@ -1573,7 +1710,7 @@ ALTER TABLE `workflow_routes`
 -- AUTO_INCREMENT for table `workflow_steps`
 --
 ALTER TABLE `workflow_steps`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
 
 --
 -- Constraints for dumped tables
@@ -1681,6 +1818,14 @@ ALTER TABLE `transaction_requirement_checks`
 ALTER TABLE `transaction_states`
   ADD CONSTRAINT `transaction_states_current_step_id_foreign` FOREIGN KEY (`current_step_id`) REFERENCES `workflow_steps` (`id`),
   ADD CONSTRAINT `transaction_states_transaction_id_foreign` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `transaction_station_touches`
+--
+ALTER TABLE `transaction_station_touches`
+  ADD CONSTRAINT `fk_tst_step` FOREIGN KEY (`workflow_step_id`) REFERENCES `workflow_steps` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_tst_tx` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_tst_user` FOREIGN KEY (`touched_by`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `transaction_step_runs`
