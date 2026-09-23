@@ -25,13 +25,14 @@ class TransactionRequirementController extends Controller
             'workflow',
         ]);
 
-        $stepId = (int) $transaction->state?->current_step_id;
-        if (!$stepId) abort(422, 'Transaction has no current step.');
+        $currentStepId = (int) $transaction->state?->current_step_id;
+        if (!$currentStepId) abort(422, 'Transaction has no current step.');
 
         if ((int) $requirementDefinition->workflow_definition_id !== (int) $transaction->workflow_definition_id) {
             abort(422, 'Requirement does not belong to this transaction workflow version.');
         }
 
+        $stepId = $currentStepId;
         $isAssigned = $transaction->state->currentStep
             ->requirementDefinitions()
             ->where('requirement_definitions.id', $requirementDefinition->id)
@@ -76,6 +77,7 @@ class TransactionRequirementController extends Controller
         return (new TransactionResource($transaction))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($transaction),
             ],
         ]);
     }
@@ -91,13 +93,14 @@ class TransactionRequirementController extends Controller
             'state.currentStep',
         ]);
 
-        $stepId = (int) $transaction->state?->current_step_id;
-        if (!$stepId) abort(422, 'Transaction has no current step.');
+        $currentStepId = (int) $transaction->state?->current_step_id;
+        if (!$currentStepId) abort(422, 'Transaction has no current step.');
 
         if ((int) $requirementDefinition->workflow_definition_id !== (int) $transaction->workflow_definition_id) {
             abort(422, 'Requirement does not belong to this transaction workflow version.');
         }
 
+        $stepId = $currentStepId;
         $isAssigned = $transaction->state->currentStep
             ->requirementDefinitions()
             ->where('requirement_definitions.id', $requirementDefinition->id)
@@ -151,6 +154,7 @@ class TransactionRequirementController extends Controller
         return (new TransactionResource($transaction))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($transaction),
             ],
         ]);
     }

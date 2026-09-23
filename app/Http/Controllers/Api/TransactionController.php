@@ -24,7 +24,7 @@ class TransactionController extends Controller
                 'state.currentStep',
                 'creator',
             ])
-            ->oldest()
+            ->latest()
             ->get();
 
         return TransactionResource::collection($items);
@@ -83,6 +83,7 @@ class TransactionController extends Controller
         return (new TransactionResource($transaction))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($transaction),
             ],
         ]);
     }
@@ -115,6 +116,7 @@ class TransactionController extends Controller
         return (new TransactionResource($transaction))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($transaction),
             ],
         ]);
     }
@@ -176,6 +178,7 @@ class TransactionController extends Controller
         return (new TransactionResource($tx))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($tx),
             ],
         ]);
     }

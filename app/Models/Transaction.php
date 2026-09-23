@@ -17,7 +17,12 @@ class Transaction extends Model
         'office_id',
         'reference_number',
         'title',
+        'is_done',
         'created_by',
+    ];
+
+    protected $casts = [
+        'is_done' => 'boolean',
     ];
 
     public function type()

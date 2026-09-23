@@ -179,13 +179,17 @@ class TransactionEngine
             // station's checklist checks so its items must be verified fresh.
             // First visits are a no-op (nothing to clear); revisits (return
             // loops or forward loops) force re-verification.
+            // Exception: a destination whose required checklist + required
+            // fields are fully complete keeps its saved work. Stations with
+            // gaps always reset.
             // On return, also clear the leaving station's checks so no stale
-            // history lingers. Untouched stations keep theirs; the run above
-            // records who moved it and why.
-            \App\Models\TransactionRequirementCheck::query()
-                ->where('transaction_id', $tx->id)
-                ->where('workflow_step_id', $toStepId)
-                ->delete();
+            // history lingers. The run above records who moved it and why.
+            if (!$this->destinationArrivalIntact($tx, $toStepId)) {
+                \App\Models\TransactionRequirementCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $toStepId)
+                    ->delete();
+            }
             if ($isReturn) {
                 \App\Models\TransactionRequirementCheck::query()
                     ->where('transaction_id', $tx->id)
@@ -213,6 +217,125 @@ class TransactionEngine
                 'attachments.uploader',
             ]);
         });
+    }
+
+    /**
+     * Jump to an already-visited station (free navigation). No checklist
+     * gating — callers validate the destination. Complete destinations
+     * keep their saved work via the intact-arrival rule; gappy ones reset.
+     */
+    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId): Transaction
+    {
+        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId) {
+            $tx->loadMissing(['state.currentStep', 'workflow', 'workflow.steps']);
+
+            $currentStepId = (int) $tx->state?->current_step_id;
+            if (!$currentStepId) {
+                abort(422, 'Transaction has no current step.');
+            }
+            if ($currentStepId === $toStepId) {
+                abort(422, 'Already at this station.');
+            }
+
+            $run = TransactionStepRun::create([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $currentStepId,
+                'to_step_id' => $toStepId,
+                'action_code' => 'revisit',
+                'remarks' => $remarks ?? 'Jumped to a passed station',
+                'performed_by' => $userId,
+                'performed_at' => now(),
+            ]);
+
+            // Pending (unlinked) files travel with the jump so evidence
+            // is never orphaned.
+            \App\Models\TransactionAttachment::query()
+                ->where('transaction_id', $tx->id)
+                ->whereNull('step_run_id')
+                ->update(['step_run_id' => $run->id]);
+
+            $tx->state->update([
+                'current_step_id' => $toStepId,
+                'entered_at' => now(),
+            ]);
+
+            if (!$this->destinationArrivalIntact($tx, $toStepId)) {
+                \App\Models\TransactionRequirementCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $toStepId)
+                    ->delete();
+            }
+
+            return $tx->fresh()->load([
+                'type',
+                'office',
+                'office.steps',
+                'workflow.steps',
+                'workflow.routes',
+                'workflow.stepRoles.role',
+                'state.currentStep',
+                'creator',
+                'runs.fromStep',
+                'runs.toStep',
+                'runs.performer',
+                'runs.attachments',
+                'fieldValues.fieldDefinition',
+                'requirementChecks.checker',
+                'attachments.step',
+                'attachments.requirement',
+                'attachments.uploader',
+            ]);
+        });
+    }
+
+    /**
+     * True when the destination station's saved work is complete — safe to
+     * keep on arrival instead of reset. Missing required checks or empty
+     * required fields mean the arrival must reset as before.
+     */
+    private function destinationArrivalIntact(Transaction $tx, int $stepId): bool
+    {
+        $tx->loadMissing([
+            'workflow.steps.requirementDefinitions',
+            'workflow.steps.fieldDefinitions',
+            'fieldValues.fieldDefinition',
+        ]);
+
+        $step = $tx->workflow->steps->firstWhere('id', $stepId);
+        if (!$step) return false;
+
+        $requiredReqs = collect($step->requirementDefinitions ?? [])
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->values();
+        if ($requiredReqs->isNotEmpty()) {
+            $checkedIds = \App\Models\TransactionRequirementCheck::query()
+                ->where('transaction_id', $tx->id)
+                ->where('workflow_step_id', $stepId)
+                ->pluck('requirement_definition_id')
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values();
+            $allChecked = $requiredReqs->every(fn ($r) => $checkedIds->contains((int) $r->id));
+            if (!$allChecked) return false;
+        }
+
+        $valuesByDefId = collect($tx->fieldValues ?? [])->keyBy('field_definition_id');
+        $requiredFields = collect($step->fieldDefinitions ?? [])
+            ->filter(fn ($f) => (bool) ($f->pivot?->required_override ?? $f->required))
+            ->values();
+        foreach ($requiredFields as $f) {
+            $fv = $valuesByDefId->get($f->id);
+            $v = null;
+            if ($fv) {
+                if (is_array($fv->value_json) && array_key_exists('value', $fv->value_json)) $v = $fv->value_json['value'];
+                elseif ($fv->value_number !== null) $v = $fv->value_number;
+                elseif ($fv->value_text !== null) $v = $fv->value_text;
+                else $v = $fv->value_json;
+            }
+            if ($v === null || $v === '' || (is_array($v) && count($v) === 0)) return false;
+        }
+
+        return true;
     }
 
     private function makeReference(): string

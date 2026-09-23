@@ -72,6 +72,7 @@ export function slimTx(tx) {
         id: tx.id,
         title: tx.title ?? null,
         reference_number: tx.reference_number ?? null,
+        is_done: tx.is_done ?? false,
         created_at: tx.created_at ?? null,
         transaction_type_name: tx.transaction_type_name ?? tx.transaction_type?.name ?? null,
         transaction_type: tx.transaction_type

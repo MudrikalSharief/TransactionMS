@@ -235,6 +235,7 @@ class TransactionResource extends JsonResource
             'id' => $this->id,
             'reference_number' => $this->reference_number,
             'title' => $this->title,
+            'is_done' => (bool) $this->is_done,
 
             'transaction_type' => $this->type?->only(['id','code','name']),
             'office' => $this->office?->only(['id','code','name']),
