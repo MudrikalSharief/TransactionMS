@@ -15,8 +15,9 @@ class StoreRequirementDefinitionRequest extends FormRequest
     {
         return [
             'order_number' => ['nullable','integer','min:0'],
-            'code' => ['required','string','max:64'],
+            'code' => ['nullable','string','max:64'],
             'name' => ['required','string','max:255'],
+            'label' => ['nullable','string','max:120'],
             'description' => ['nullable','string'],
             'is_active' => ['nullable','boolean'],
         ];

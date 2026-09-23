@@ -10,6 +10,14 @@
             class="mr-1 mb-1"
         >
             <v-icon start size="small">mdi-paperclip</v-icon>
+            <v-chip
+                v-if="reqLabel(a)"
+                size="x-small"
+                variant="flat"
+                color="blue-grey"
+                rounded="0"
+                class="mr-1"
+            >{{ reqLabel(a) }}</v-chip>
             {{ a.original_name }}
             <span class="text-caption ml-1">({{ formatSize(a.size_bytes) }})</span>
             <a
@@ -38,7 +46,7 @@
         </v-alert>
         <div v-if="!compact" class="mt-1">
             <div v-for="a in items" :key="'d-' + a.id" class="text-caption text-medium-emphasis">
-                {{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
+                <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] </template>{{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
                 <a :href="a.download_url">Download</a>
                 <template v-if="canDelete">
                     •
@@ -108,6 +116,15 @@ const canDelete = computed(() => isSuperadmin.value && props.txId !== null && pr
 
 function displayUploader(a) {
     return a.uploaded_by?.name || a.uploader?.name || "—";
+}
+
+function reqLabel(a) {
+    if (a?.requirement?.name) return a.requirement.name;
+    if (a?.requirement?.code) return a.requirement.code;
+    if (a?.origin === "proceed" || (!a?.requirement_definition_id && a?.origin !== "check")) {
+        return "move file";
+    }
+    return "";
 }
 
 function askDelete(a) {

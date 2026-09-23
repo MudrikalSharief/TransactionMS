@@ -20,9 +20,11 @@ use App\Http\Controllers\Api\Admin\StepFieldController;
 
 use App\Http\Controllers\Api\Admin\RequirementDefinitionController;
 use App\Http\Controllers\Api\Admin\StepRequirementController;
+use App\Http\Controllers\Api\Admin\StepChecklistController;
 
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\TransactionRequirementController;
+use App\Http\Controllers\Api\TransactionChecklistController;
 use App\Http\Controllers\Api\TransactionAttachmentController;
 
 use App\Http\Controllers\Api\TransactionGotoController;
@@ -76,6 +78,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/transactions/{transaction}/requirements/{requirementDefinition}/check', [TransactionRequirementController::class, 'check']);
     Route::delete('/transactions/{transaction}/requirements/{requirementDefinition}/check', [TransactionRequirementController::class, 'uncheck']);
+
+    Route::post('/transactions/{transaction}/checklist/{checklistOverride}/check', [TransactionChecklistController::class, 'check']);
+    Route::delete('/transactions/{transaction}/checklist/{checklistOverride}/check', [TransactionChecklistController::class, 'uncheck']);
 
     Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
     Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
@@ -133,6 +138,11 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         // Requirements - Assign to a step
         Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements', [StepRequirementController::class, 'index']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements/sync', [StepRequirementController::class, 'sync']);
+
+        // Checklist - per-step overrides (seeded from requirements, then free-edited)
+        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
 
         // Transactions
         Route::get('/transactions', [TransactionController::class, 'index']);

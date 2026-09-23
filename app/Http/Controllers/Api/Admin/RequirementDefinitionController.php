@@ -9,10 +9,15 @@ use App\Http\Resources\RequirementDefinitionResource;
 use App\Models\RequirementDefinition;
 use App\Models\TransactionRequirementCheck;
 use App\Models\WorkflowDefinition;
+use App\Services\ChecklistService;
 use Illuminate\Http\Request;
 
 class RequirementDefinitionController extends Controller
 {
+    public function __construct(private ChecklistService $checklists)
+    {
+    }
+
     public function index(Request $request, WorkflowDefinition $workflowDefinition)
     {
         $items = RequirementDefinition::query()
@@ -33,6 +38,10 @@ class RequirementDefinitionController extends Controller
         if (!array_key_exists('is_active', $data)) $data['is_active'] = true;
         if (!array_key_exists('order_number', $data)) $data['order_number'] = 0;
 
+        if (empty($data['code'])) {
+            $data['code'] = $this->makeUniqueCode($workflowDefinition->id, $data['name']);
+        }
+
         $item = RequirementDefinition::create(array_merge($data, [
             'workflow_definition_id' => $workflowDefinition->id,
         ]));
@@ -48,6 +57,7 @@ class RequirementDefinitionController extends Controller
 
         // Live-editable: changes apply to running transactions immediately.
         $requirementDefinition->update($request->validated());
+        $this->syncStepChecklists($requirementDefinition);
 
         return new RequirementDefinitionResource($requirementDefinition);
     }
@@ -83,9 +93,24 @@ class RequirementDefinitionController extends Controller
             }
         }
 
+        $beforeStepIds = $requirementDefinition->steps()->pluck('workflow_steps.id')->map(fn ($id) => (int) $id)->all();
         $requirementDefinition->steps()->sync($sync);
 
+        foreach (array_unique(array_merge($beforeStepIds, array_keys($sync))) as $sid) {
+            $step = $workflowDefinition->steps()->find($sid);
+            if ($step) {
+                $this->checklists->syncFromRequirements($step);
+            }
+        }
+
         return response()->json(['message' => 'Saved']);
+    }
+
+    private function syncStepChecklists(RequirementDefinition $requirementDefinition): void
+    {
+        foreach ($requirementDefinition->steps as $step) {
+            $this->checklists->syncFromRequirements($step);
+        }
     }
 
     public function destroy(WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition)
@@ -106,5 +131,29 @@ class RequirementDefinitionController extends Controller
         $requirementDefinition->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Auto code from the name, unique within this workflow definition
+     * (falls back to a random suffix on collision).
+     */
+    private function makeUniqueCode(int $workflowDefinitionId, string $name): string
+    {
+        $base = strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $base = trim($base, '_') ?: 'req';
+        $base = substr($base, 0, 50);
+
+        $code = $base;
+        $i = 2;
+        while (
+            RequirementDefinition::withTrashed()
+                ->where('workflow_definition_id', $workflowDefinitionId)
+                ->where('code', $code)
+                ->exists()
+        ) {
+            $code = $base . '_' . $i++;
+        }
+
+        return $code;
     }
 }

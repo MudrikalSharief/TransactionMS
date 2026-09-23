@@ -171,13 +171,6 @@
                         <v-list-item-title>FIELDS</v-list-item-title>
                     </v-list-item>
                     <v-list-item
-                        to="/admin/requirements"
-                        prepend-icon="mdi-clipboard-check-outline"
-                        rounded="lg"
-                    >
-                        <v-list-item-title>REQUIREMENTS</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
                         to="/admin/government-references"
                         prepend-icon="mdi-bank"
                         rounded="lg"

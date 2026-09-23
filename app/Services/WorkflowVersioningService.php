@@ -185,6 +185,21 @@ class WorkflowVersioningService
             if (count($reqPayload)) {
                 WorkflowStep::find($newStepId)->requirementDefinitions()->sync($reqPayload);
             }
+
+            // Carry the free-edited checklist so publish never blanks a step.
+            $newStep = WorkflowStep::find($newStepId);
+            foreach ($step->checklistOverrides()->get() as $item) {
+                $newStep->checklistOverrides()->create([
+                    'requirement_definition_id' => isset($reqMap[$item->requirement_definition_id])
+                        ? $reqMap[$item->requirement_definition_id]
+                        : null,
+                    'name' => $item->name,
+                    'code' => $item->code,
+                    'description' => $item->description,
+                    'is_required' => (bool) $item->is_required,
+                    'display_order' => (int) $item->display_order,
+                ]);
+            }
         }
     }
 }

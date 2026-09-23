@@ -60,11 +60,15 @@ class TransactionResource extends JsonResource
         }
 
         $currentStepRequirements = [];
+        $currentStepChecklist = [];
         if ($currentStep) {
-            $this->loadMissing(['requirementChecks.checker', 'attachments.uploader']);
+            $this->loadMissing(['requirementChecks.checker', 'checklistChecks.checker', 'attachments.uploader']);
             $checks = collect($this->requirementChecks ?? [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->keyBy('requirement_definition_id');
+            $checklistChecks = collect($this->checklistChecks ?? [])
+                ->where('workflow_step_id', (int) $currentStep->id)
+                ->keyBy('checklist_override_id');
             $attsByReq = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
@@ -99,11 +103,35 @@ class TransactionResource extends JsonResource
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'step_run_id' => $a->step_run_id,
+                        'requirement_definition_id' => $a->requirement_definition_id,
+                        'requirement' => ['id' => $r->id, 'code' => $r->code, 'name' => $r->name],
                         'uploaded_by' => $a->uploader?->only(['id','name']),
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
                     ])->all(),
                     'attachment_count' => $reqAtts->count(),
+                ];
+            }
+
+            // Per-step checklist (seeded from requirements, then free-edited).
+            // Required items block Proceed when unticked — same idea as the
+            // old requirement ticks; uploads are a requirements-only concern.
+            $checklistItems = \app(\App\Services\ChecklistService::class)
+                ->ensureItems($currentStep);
+
+            foreach ($checklistItems as $item) {
+                $cCheck = $checklistChecks->get($item->id);
+                $currentStepChecklist[] = [
+                    'id' => $item->id,
+                    'requirement_definition_id' => $item->requirement_definition_id,
+                    'name' => $item->name,
+                    'code' => $item->code,
+                    'description' => $item->description,
+                    'is_required' => (bool) $item->is_required,
+                    'display_order' => (int) $item->display_order,
+                    'checked' => (bool) $cCheck,
+                    'checked_at' => $cCheck?->checked_at?->toISOString(),
+                    'checked_by' => $cCheck?->checker?->only(['id', 'name']),
                 ];
             }
         }
@@ -185,6 +213,8 @@ class TransactionResource extends JsonResource
                             'mime' => $a->mime,
                             'size_bytes' => (int) $a->size_bytes,
                             'step_run_id' => $a->step_run_id,
+                            'requirement_definition_id' => $a->requirement_definition_id,
+                            'requirement' => ['id' => $r->id, 'code' => $r->code, 'name' => $r->name],
                             'uploaded_by' => $a->uploader?->only(['id','name']),
                             'created_at' => $a->created_at?->toISOString(),
                             'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
@@ -258,6 +288,8 @@ class TransactionResource extends JsonResource
             'current_step_fields' => $currentStepFields,
 
             'current_step_requirements' => $currentStepRequirements,
+
+            'current_step_checklist' => $currentStepChecklist,
 
             'station_checklist' => $stationChecklist,
 

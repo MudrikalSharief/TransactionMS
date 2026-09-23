@@ -183,20 +183,20 @@
                     <template v-slot:[`item.actions`]="{ item }">
                         <div class="d-flex ga-3 justify-end">
                             <v-btn
-                                icon="mdi-table-column"
-                                v-tooltip="'Step fields'"
+                                icon="mdi-clipboard-list-outline"
+                                v-tooltip="'Requirements'"
                                 size="small"
                                 variant="outlined"
                                 color="grey-darken-3"
-                                @click="goStepFields(item)"
+                                @click="goStepRequirements(item)"
                             />
                             <v-btn
                                 icon="mdi-clipboard-check-outline"
-                                v-tooltip="'Step requirements'"
+                                v-tooltip="'Checklist'"
                                 size="small"
                                 variant="outlined"
                                 color="info"
-                                @click="goStepRequirements(item)"
+                                @click="goStepChecklist(item)"
                             />
                             <v-btn
                                 icon="mdi-pencil"
@@ -858,17 +858,41 @@ async function goStepFields(item) {
     }
 }
 
+function liveEditableTarget() {
+    // Requirements/checklist apply to running papers immediately, so
+    // open them on the published process — not an open draft clone.
+    return currentDef.value || activeDef.value;
+}
+
+function stepOnDef(def, item) {
+    return (def?.steps || []).find((s) => s.code && s.code === item?.code) || item;
+}
+
 async function goStepRequirements(item) {
     error.value = "";
     notice.value = "";
     try {
-        const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
-        const fresh = stepInDraft(oldSteps, item);
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
         const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-        router.push({ path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/requirements`, query: q });
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/requirements`, query: q });
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to open step requirements.";
+    }
+}
+
+async function goStepChecklist(item) {
+    error.value = "";
+    notice.value = "";
+    try {
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
+        const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/checklist`, query: q });
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Failed to open step checklist.";
     }
 }
 
