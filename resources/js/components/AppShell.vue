@@ -157,6 +157,13 @@
                         <v-list-item-title>ROLES</v-list-item-title>
                     </v-list-item>
                     <v-list-item
+                        to="/admin/offices"
+                        prepend-icon="mdi-office-building-outline"
+                        rounded="lg"
+                    >
+                        <v-list-item-title>OFFICES</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
                         to="/admin/transaction-types"
                         prepend-icon="mdi-format-list-bulleted-type"
                         rounded="lg"
@@ -313,6 +320,12 @@ const searchPages = computed(() => {
             { title: "Transactions", subtitle: "Page · Admin", icon: "mdi-swap-horizontal", to: "/transactions" },
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
             { title: "Roles", subtitle: "Page · Admin", icon: "mdi-shield-account", to: "/admin/roles" },
+            {
+                title: "Offices",
+                subtitle: "Page · Admin",
+                icon: "mdi-office-building-outline",
+                to: "/admin/offices",
+            },
             {
                 title: "Processes",
                 subtitle: "Page · Admin",

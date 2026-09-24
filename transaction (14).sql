@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 24, 2026 at 03:29 AM
+-- Generation Time: Sep 24, 2026 at 04:18 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -91,10 +91,10 @@ INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
 ('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790063533;', 1790063533),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81', 'i:5;', 1789364911),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81:timer', 'i:1789364911;', 1789364911),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790212251),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790212251;', 1790212251),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:3;', 1790213372),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790213372;', 1790213372);
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:1;', 1790215150),
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790215150;', 1790215150),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:4;', 1790216042),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790216042;', 1790216042);
 
 -- --------------------------------------------------------
 
@@ -387,7 +387,8 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (45, '2026_09_30_000003_create_checklist_overrides_table', 15),
 (46, '2026_09_30_000004_rename_label_to_code_on_checklist_overrides_table', 16),
 (47, '2026_09_30_000005_create_transaction_checklist_checks_table', 17),
-(48, '2026_09_24_000001_create_office_transaction_type_table', 18);
+(48, '2026_09_24_000001_create_office_transaction_type_table', 18),
+(49, '2026_09_25_000001_add_office_id_to_workflow_steps_table', 19);
 
 -- --------------------------------------------------------
 
@@ -664,7 +665,8 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('MWryFXi7Urxtjlczf0M0MrjaI0YWwgC6XP6F0GT6', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiRG9Sa01qTEFmZHhPbnRUaVJxbWZwMUI3cDBkaFR5M3hOQjdqSHFIRCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790213339);
+('MWryFXi7Urxtjlczf0M0MrjaI0YWwgC6XP6F0GT6', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiRG9Sa01qTEFmZHhPbnRUaVJxbWZwMUI3cDBkaFR5M3hOQjdqSHFIRCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790213669),
+('qW5g6NvzFHsZYILIN2C7mDuSfOOi5Uog0fpziNNn', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiSXlzQ1VtN0JmYkVwZ1VucXpQbWFyaUtzQ2JjU2JXcWNtN2h0a0RLRyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790215985);
 
 -- --------------------------------------------------------
 
@@ -1319,6 +1321,7 @@ CREATE TABLE `workflow_steps` (
   `code` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
   `stage` varchar(255) DEFAULT NULL,
+  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
   `sla_minutes` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `is_start` tinyint(1) NOT NULL DEFAULT 0,
   `is_end` tinyint(1) NOT NULL DEFAULT 0,
@@ -1331,65 +1334,65 @@ CREATE TABLE `workflow_steps` (
 -- Dumping data for table `workflow_steps`
 --
 
-INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `order_number`, `code`, `name`, `stage`, `sla_minutes`, `is_start`, `is_end`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 1, NULL, 1, 'collect_dtr', 'Collect DTR', 'HR', 2880, 1, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(2, 1, NULL, 2, 'validate_dtr', 'Validate DTR', 'HR', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(3, 1, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', 4320, 0, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(4, 2, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', 2880, 1, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(5, 2, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(6, 2, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(7, 2, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(8, 2, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(9, 2, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(10, 2, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(11, 2, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(12, 2, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(13, 2, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(14, 2, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(15, 2, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(16, 2, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(17, 2, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', 2880, 0, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(18, 3, NULL, 1, 'station_1', 'Station 1', NULL, 60, 1, 0, '2026-03-09 23:49:26', '2026-03-09 23:49:26', NULL),
-(19, 3, NULL, 2, 'station_2', 'Station 2', NULL, 60, 0, 1, '2026-03-09 23:49:41', '2026-03-09 23:49:41', NULL),
-(20, 4, NULL, 1, 'station_1', 'Station 1', NULL, 60, 1, 0, '2026-03-09 23:56:26', '2026-03-09 23:56:26', NULL),
-(21, 4, NULL, 2, 'station_2', 'Station 2', NULL, 60, 0, 1, '2026-03-09 23:56:26', '2026-03-09 23:56:26', NULL),
-(22, 5, NULL, 1, 'ridz', 'Communication Station 1', NULL, 60, 1, 0, '2026-03-10 00:30:24', '2026-09-13 22:43:17', NULL),
-(23, 5, NULL, 2, 'station_2', 'Station 2', NULL, 60, 0, 1, '2026-03-10 00:30:24', '2026-03-10 00:30:24', NULL),
-(24, 6, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', 2880, 1, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(25, 6, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(26, 6, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(27, 6, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(28, 6, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(29, 6, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(30, 6, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(31, 6, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(32, 6, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(33, 6, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(34, 6, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(35, 6, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(36, 6, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(37, 6, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', 2880, 0, 1, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(38, 7, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', 2880, 1, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(39, 7, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(40, 7, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(41, 7, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(42, 7, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(43, 7, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(44, 7, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(45, 7, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(46, 7, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(47, 7, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(48, 7, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(49, 7, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(50, 7, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(51, 7, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', 2880, 0, 1, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
-(70, 16, NULL, 1, 'communication_1', 'Communication Station 1', NULL, 60, 1, 0, '2026-09-13 22:43:22', '2026-09-13 22:49:48', NULL),
-(71, 16, NULL, 2, 'communication_2', 'Communication Station End', NULL, 60, 0, 1, '2026-09-13 22:43:22', '2026-09-13 22:49:48', NULL),
-(72, 17, NULL, 1, 'collect_dtr', 'Collect DTR', 'HR', 2880, 1, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(73, 17, NULL, 2, 'validate_dtr', 'Validate DTR', 'HR', 2880, 0, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(74, 17, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', 4320, 0, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(75, 18, NULL, 1, 'communication_1', 'Communication Station 1', NULL, 60, 1, 0, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
-(76, 18, NULL, 2, 'communication_2', 'Communication Station End', NULL, 60, 0, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL);
+INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `order_number`, `code`, `name`, `stage`, `office_id`, `sla_minutes`, `is_start`, `is_end`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 1, NULL, 1, 'collect_dtr', 'Collect DTR', 'HR', NULL, 2880, 1, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(2, 1, NULL, 2, 'validate_dtr', 'Validate DTR', 'HR', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(3, 1, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', NULL, 4320, 0, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(4, 2, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', NULL, 2880, 1, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(5, 2, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(6, 2, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(7, 2, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(8, 2, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(9, 2, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(10, 2, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(11, 2, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(12, 2, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(13, 2, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(14, 2, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(15, 2, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(16, 2, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', NULL, 2880, 0, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(17, 2, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', NULL, 2880, 0, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(18, 3, NULL, 1, 'station_1', 'Station 1', NULL, NULL, 60, 1, 0, '2026-03-09 23:49:26', '2026-03-09 23:49:26', NULL),
+(19, 3, NULL, 2, 'station_2', 'Station 2', NULL, NULL, 60, 0, 1, '2026-03-09 23:49:41', '2026-03-09 23:49:41', NULL),
+(20, 4, NULL, 1, 'station_1', 'Station 1', NULL, NULL, 60, 1, 0, '2026-03-09 23:56:26', '2026-03-09 23:56:26', NULL),
+(21, 4, NULL, 2, 'station_2', 'Station 2', NULL, NULL, 60, 0, 1, '2026-03-09 23:56:26', '2026-03-09 23:56:26', NULL),
+(22, 5, NULL, 1, 'ridz', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-03-10 00:30:24', '2026-09-13 22:43:17', NULL),
+(23, 5, NULL, 2, 'station_2', 'Station 2', NULL, NULL, 60, 0, 1, '2026-03-10 00:30:24', '2026-03-10 00:30:24', NULL),
+(24, 6, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', NULL, 2880, 1, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(25, 6, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(26, 6, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(27, 6, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(28, 6, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(29, 6, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(30, 6, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(31, 6, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(32, 6, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(33, 6, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(34, 6, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(35, 6, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(36, 6, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(37, 6, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', NULL, 2880, 0, 1, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
+(38, 7, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', NULL, 2880, 1, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(39, 7, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(40, 7, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(41, 7, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(42, 7, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(43, 7, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(44, 7, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(45, 7, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(46, 7, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(47, 7, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(48, 7, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(49, 7, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(50, 7, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(51, 7, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', NULL, 2880, 0, 1, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
+(70, 16, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-13 22:43:22', '2026-09-13 22:49:48', NULL),
+(71, 16, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-13 22:43:22', '2026-09-13 22:49:48', NULL),
+(72, 17, NULL, 1, 'collect_dtr', 'Collect DTR', 'HR', NULL, 2880, 1, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(73, 17, NULL, 2, 'validate_dtr', 'Validate DTR', 'HR', NULL, 2880, 0, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(74, 17, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', NULL, 4320, 0, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
+(75, 18, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
+(76, 18, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL);
 
 --
 -- Indexes for dumped tables
@@ -1684,7 +1687,8 @@ ALTER TABLE `workflow_steps`
   ADD UNIQUE KEY `workflow_steps_workflow_definition_id_code_unique` (`workflow_definition_id`,`code`),
   ADD KEY `workflow_steps_workflow_definition_id_order_number_index` (`workflow_definition_id`,`order_number`),
   ADD KEY `workflow_steps_parent_id_foreign` (`parent_id`),
-  ADD KEY `wf_steps_def_parent_order_idx` (`workflow_definition_id`,`parent_id`,`order_number`);
+  ADD KEY `wf_steps_def_parent_order_idx` (`workflow_definition_id`,`parent_id`,`order_number`),
+  ADD KEY `workflow_steps_office_id_foreign` (`office_id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -1742,7 +1746,7 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
 
 --
 -- AUTO_INCREMENT for table `offices`
@@ -2036,6 +2040,7 @@ ALTER TABLE `workflow_routes`
 -- Constraints for table `workflow_steps`
 --
 ALTER TABLE `workflow_steps`
+  ADD CONSTRAINT `workflow_steps_office_id_foreign` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `workflow_steps_parent_id_foreign` FOREIGN KEY (`parent_id`) REFERENCES `workflow_steps` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `workflow_steps_workflow_definition_id_foreign` FOREIGN KEY (`workflow_definition_id`) REFERENCES `workflow_definitions` (`id`) ON DELETE CASCADE;
 COMMIT;
