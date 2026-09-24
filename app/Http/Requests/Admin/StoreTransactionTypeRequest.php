@@ -18,6 +18,8 @@ class StoreTransactionTypeRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
+            'office_ids' => ['sometimes', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
         ];
     }
 }

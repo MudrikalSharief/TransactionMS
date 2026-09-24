@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 24, 2026 at 02:36 AM
+-- Generation Time: Sep 24, 2026 at 03:29 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -65,7 +65,8 @@ INSERT INTO `audit_logs` (`id`, `actor_user_id`, `event`, `entity_type`, `entity
 (19, 1, 'transaction_types.update', 'App\\Models\\TransactionType', 1, '{\"before\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"LGU payroll processing\",\"is_active\":true},\"after\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"LGU payroll processing\",\"is_active\":true}}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-20 17:10:42'),
 (20, 1, 'transaction_types.update', 'App\\Models\\TransactionType', 1, '{\"before\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"LGU payroll processing\",\"is_active\":true},\"after\":{\"code\":\"payroll\",\"name\":\"Payroll\",\"description\":\"job order\",\"is_active\":true}}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-20 17:11:37'),
 (21, 1, 'transactions.finalize', 'App\\Models\\Transaction', 16, '{\"reference_number\":\"Z5UP-ADG3-47IT\",\"current_step_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-21 23:47:33'),
-(22, 1, 'transactions.finalize', 'App\\Models\\Transaction', 15, '{\"reference_number\":\"VYIR-X6GM-MMXP\",\"current_step_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-21 23:48:27');
+(22, 1, 'transactions.finalize', 'App\\Models\\Transaction', 15, '{\"reference_number\":\"VYIR-X6GM-MMXP\",\"current_step_id\":3}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', '2026-09-21 23:48:27'),
+(23, 1, 'transaction_types.update', 'App\\Models\\TransactionType', 3, '{\"before\":{\"code\":\"communication\",\"name\":\"Communication\",\"description\":null,\"is_active\":true,\"office_ids\":[]},\"after\":{\"code\":\"communication\",\"name\":\"Communication\",\"description\":null,\"is_active\":true,\"office_ids\":[23]}}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', '2026-09-23 17:16:15');
 
 -- --------------------------------------------------------
 
@@ -90,10 +91,10 @@ INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
 ('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790063533;', 1790063533),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81', 'i:5;', 1789364911),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81:timer', 'i:1789364911;', 1789364911),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790125279),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790125279;', 1790125279),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:2;', 1790135565),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790135565;', 1790135565);
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790212251),
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790212251;', 1790212251),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:3;', 1790213372),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790213372;', 1790213372);
 
 -- --------------------------------------------------------
 
@@ -215,36 +216,6 @@ CREATE TABLE `field_definition_workflow_step` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `field_definition_workflow_step`
---
-
-INSERT INTO `field_definition_workflow_step` (`id`, `workflow_step_id`, `field_definition_id`, `display_order`, `required_override`, `created_at`, `updated_at`) VALUES
-(1, 4, 2, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(2, 4, 3, 2, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(3, 4, 4, 3, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(4, 4, 7, 4, 0, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(5, 5, 5, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(6, 6, 6, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(7, 6, 5, 2, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(8, 8, 1, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(9, 26, 5, 2, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(10, 26, 6, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(11, 24, 2, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(12, 24, 3, 2, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(13, 24, 4, 3, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(14, 24, 7, 4, 0, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(15, 28, 1, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(16, 25, 5, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(17, 40, 5, 2, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(18, 40, 6, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(19, 38, 2, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(20, 38, 3, 2, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(21, 38, 4, 3, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(22, 38, 7, 4, 0, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(23, 42, 1, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(24, 39, 5, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26');
 
 -- --------------------------------------------------------
 
@@ -415,7 +386,8 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (44, '2026_09_30_000002_add_label_to_requirement_definitions_table', 14),
 (45, '2026_09_30_000003_create_checklist_overrides_table', 15),
 (46, '2026_09_30_000004_rename_label_to_code_on_checklist_overrides_table', 16),
-(47, '2026_09_30_000005_create_transaction_checklist_checks_table', 17);
+(47, '2026_09_30_000005_create_transaction_checklist_checks_table', 17),
+(48, '2026_09_24_000001_create_office_transaction_type_table', 18);
 
 -- --------------------------------------------------------
 
@@ -483,6 +455,27 @@ CREATE TABLE `office_steps` (
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `office_transaction_type`
+--
+
+CREATE TABLE `office_transaction_type` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `office_id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `office_transaction_type`
+--
+
+INSERT INTO `office_transaction_type` (`id`, `office_id`, `transaction_type_id`, `created_at`, `updated_at`) VALUES
+(3, 23, 3, '2026-09-23 17:16:15', '2026-09-23 17:16:15');
 
 -- --------------------------------------------------------
 
@@ -671,7 +664,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('vveb49HoTgtianaoGjcy4yjdiH4eHacSLcUlKx6O', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiQ2tCTU4yWjNFVFVhbFJjajNvakZJQnJHSVJUWnZ4V0s1T09CbGs5QyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790135507);
+('MWryFXi7Urxtjlczf0M0MrjaI0YWwgC6XP6F0GT6', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiRG9Sa01qTEFmZHhPbnRUaVJxbWZwMUI3cDBkaFR5M3hOQjdqSHFIRCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790213339);
 
 -- --------------------------------------------------------
 
@@ -694,30 +687,30 @@ CREATE TABLE `step_requirements` (
 --
 
 INSERT INTO `step_requirements` (`id`, `workflow_step_id`, `requirement_definition_id`, `display_order`, `is_required`, `created_at`, `updated_at`) VALUES
-(1, 4, 1, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(2, 5, 2, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(3, 6, 3, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(4, 8, 4, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(5, 10, 5, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(6, 12, 6, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(7, 15, 7, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(8, 16, 8, 1, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(9, 36, 13, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(10, 35, 10, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(11, 30, 9, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(12, 26, 12, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(13, 24, 15, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(14, 28, 14, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(15, 32, 16, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(16, 25, 11, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(17, 50, 21, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(18, 49, 18, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(19, 44, 17, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(20, 40, 20, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(21, 38, 23, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(22, 42, 22, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(23, 46, 24, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
-(24, 39, 19, 1, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26'),
+(1, 4, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(2, 5, 2, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(3, 6, 3, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(4, 8, 4, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(5, 10, 5, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(6, 12, 6, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(7, 15, 7, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(8, 16, 8, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(9, 36, 13, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(10, 35, 10, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(11, 30, 9, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(12, 26, 12, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(13, 24, 15, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(14, 28, 14, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(15, 32, 16, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(16, 25, 11, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(17, 50, 21, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(18, 49, 18, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(19, 44, 17, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(20, 40, 20, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(21, 38, 23, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(22, 42, 22, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(23, 46, 24, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(24, 39, 19, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (25, 70, 25, 1, 1, '2026-09-13 23:01:03', '2026-09-13 23:01:03'),
 (26, 71, 26, 1, 1, '2026-09-13 23:01:03', '2026-09-13 23:01:03'),
 (27, 1, 27, 1, 1, '2026-09-13 23:01:03', '2026-09-13 23:01:03'),
@@ -750,48 +743,48 @@ CREATE TABLE `step_roles` (
 --
 
 INSERT INTO `step_roles` (`id`, `workflow_step_id`, `role_id`, `created_at`, `updated_at`) VALUES
-(1, 4, 6, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(2, 5, 6, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(3, 6, 6, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(4, 7, 6, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(5, 8, 7, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(6, 9, 7, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(7, 10, 8, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(8, 11, 6, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(9, 12, 10, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(10, 13, 9, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(11, 14, 11, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(12, 15, 12, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(13, 16, 12, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(14, 17, 13, '2026-03-09 21:24:39', '2026-03-09 21:24:39'),
-(15, 24, 6, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(16, 25, 6, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(17, 26, 6, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(18, 27, 6, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(19, 28, 7, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(20, 29, 7, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(21, 30, 8, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(22, 31, 6, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(23, 32, 10, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(24, 33, 9, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(25, 34, 11, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(26, 35, 12, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(27, 36, 12, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(28, 37, 13, '2026-09-11 19:51:53', '2026-09-11 19:51:53'),
-(29, 38, 6, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(30, 39, 6, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(31, 40, 6, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(32, 41, 6, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(33, 42, 7, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(34, 43, 7, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(35, 44, 8, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(36, 45, 6, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(37, 46, 10, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(38, 47, 9, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(39, 48, 11, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(40, 49, 12, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(41, 50, 12, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
-(42, 51, 13, '2026-09-11 20:07:42', '2026-09-11 20:07:42'),
+(1, 4, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(2, 5, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(3, 6, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(4, 7, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(5, 8, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(6, 9, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(7, 10, 8, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(8, 11, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(9, 12, 10, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(10, 13, 9, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(11, 14, 11, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(12, 15, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(13, 16, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(14, 17, 13, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(15, 24, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(16, 25, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(17, 26, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(18, 27, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(19, 28, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(20, 29, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(21, 30, 8, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(22, 31, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(23, 32, 10, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(24, 33, 9, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(25, 34, 11, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(26, 35, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(27, 36, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(28, 37, 13, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(29, 38, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(30, 39, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(31, 40, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(32, 41, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(33, 42, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(34, 43, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(35, 44, 8, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(36, 45, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(37, 46, 10, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(38, 47, 9, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(39, 48, 11, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(40, 49, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(41, 50, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
+(42, 51, 13, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (43, 70, 3, '2026-09-13 23:00:34', '2026-09-13 23:00:34'),
 (44, 71, 4, '2026-09-13 23:00:34', '2026-09-13 23:00:34'),
 (45, 1, 3, '2026-09-13 23:00:34', '2026-09-13 23:00:34'),
@@ -846,7 +839,8 @@ INSERT INTO `transactions` (`id`, `transaction_type_id`, `workflow_definition_id
 (17, 2, 7, NULL, 'G6RW-ZX2H-UUMI', NULL, 0, 1, '2026-09-20 19:10:13', '2026-09-20 19:10:13', NULL),
 (18, 2, 7, NULL, '4YD8-5DKW-JCYT', NULL, 0, 1, '2026-09-21 17:15:15', '2026-09-21 17:15:15', NULL),
 (19, 1, 1, 22, 'M5JW-EMVY-6REJ', 'adsa', 0, 1, '2026-09-22 18:12:24', '2026-09-22 18:12:24', NULL),
-(20, 1, 1, 21, '5PAV-VMC3-7KNX', 'almost', 0, 1, '2026-09-22 18:42:49', '2026-09-22 18:42:49', NULL);
+(20, 1, 1, 21, '5PAV-VMC3-7KNX', 'almost', 0, 1, '2026-09-22 18:42:49', '2026-09-22 18:42:49', NULL),
+(21, 2, 7, 21, 'WMMQ-TXQM-KHWO', 'e', 0, 1, '2026-09-23 17:25:08', '2026-09-23 17:25:08', NULL);
 
 -- --------------------------------------------------------
 
@@ -907,7 +901,8 @@ CREATE TABLE `transaction_checklist_checks` (
 
 INSERT INTO `transaction_checklist_checks` (`id`, `transaction_id`, `workflow_step_id`, `checklist_override_id`, `checked_by`, `checked_at`, `created_at`, `updated_at`) VALUES
 (1, 20, 1, 4, 1, '2026-09-22 19:32:03', '2026-09-22 19:32:03', '2026-09-22 19:32:03'),
-(2, 20, 1, 5, 1, '2026-09-22 19:32:05', '2026-09-22 19:32:05', '2026-09-22 19:32:05');
+(2, 20, 1, 5, 1, '2026-09-22 19:32:05', '2026-09-22 19:32:05', '2026-09-22 19:32:05'),
+(3, 21, 38, 6, 1, '2026-09-23 17:28:34', '2026-09-23 17:28:34', '2026-09-23 17:28:34');
 
 -- --------------------------------------------------------
 
@@ -988,7 +983,8 @@ INSERT INTO `transaction_states` (`id`, `transaction_id`, `current_step_id`, `en
 (17, 17, 40, '2026-09-20 19:32:50', '2026-09-20 19:10:13', '2026-09-20 19:32:50'),
 (18, 18, 38, '2026-09-21 23:25:43', '2026-09-21 17:15:15', '2026-09-21 23:25:43'),
 (19, 19, 1, '2026-09-22 18:12:24', '2026-09-22 18:12:24', '2026-09-22 18:12:24'),
-(20, 20, 1, '2026-09-22 18:42:49', '2026-09-22 18:42:49', '2026-09-22 18:42:49');
+(20, 20, 1, '2026-09-22 18:42:49', '2026-09-22 18:42:49', '2026-09-22 18:42:49'),
+(21, 21, 38, '2026-09-23 17:25:08', '2026-09-23 17:25:08', '2026-09-23 17:25:08');
 
 -- --------------------------------------------------------
 
@@ -1125,7 +1121,8 @@ INSERT INTO `transaction_step_runs` (`id`, `transaction_id`, `from_step_id`, `to
 (98, 15, 2, 3, 'approve', NULL, 1, '2026-09-21 23:48:17', '2026-09-21 23:48:17', '2026-09-21 23:48:17'),
 (99, 15, 3, 3, 'finalize', 'Process finalized', 1, '2026-09-21 23:48:27', '2026-09-21 23:48:27', '2026-09-21 23:48:27'),
 (100, 19, 1, 1, 'create', 'Transaction created', 1, '2026-09-22 18:12:24', '2026-09-22 18:12:24', '2026-09-22 18:12:24'),
-(101, 20, 1, 1, 'create', 'Transaction created', 1, '2026-09-22 18:42:49', '2026-09-22 18:42:49', '2026-09-22 18:42:49');
+(101, 20, 1, 1, 'create', 'Transaction created', 1, '2026-09-22 18:42:49', '2026-09-22 18:42:49', '2026-09-22 18:42:49'),
+(102, 21, 38, 38, 'create', 'Transaction created', 1, '2026-09-23 17:25:08', '2026-09-23 17:25:08', '2026-09-23 17:25:08');
 
 -- --------------------------------------------------------
 
@@ -1504,6 +1501,14 @@ ALTER TABLE `office_steps`
   ADD KEY `office_steps_office_id_parent_id_order_number_index` (`office_id`,`parent_id`,`order_number`);
 
 --
+-- Indexes for table `office_transaction_type`
+--
+ALTER TABLE `office_transaction_type`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `office_transaction_type_office_id_transaction_type_id_unique` (`office_id`,`transaction_type_id`),
+  ADD KEY `office_transaction_type_transaction_type_id_foreign` (`transaction_type_id`);
+
+--
 -- Indexes for table `password_reset_tokens`
 --
 ALTER TABLE `password_reset_tokens`
@@ -1689,7 +1694,7 @@ ALTER TABLE `workflow_steps`
 -- AUTO_INCREMENT for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `checklist_overrides`
@@ -1737,7 +1742,7 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `offices`
@@ -1749,6 +1754,12 @@ ALTER TABLE `offices`
 -- AUTO_INCREMENT for table `office_steps`
 --
 ALTER TABLE `office_steps`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `office_transaction_type`
+--
+ALTER TABLE `office_transaction_type`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
@@ -1785,7 +1796,7 @@ ALTER TABLE `step_roles`
 -- AUTO_INCREMENT for table `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `transaction_attachments`
@@ -1797,7 +1808,7 @@ ALTER TABLE `transaction_attachments`
 -- AUTO_INCREMENT for table `transaction_checklist_checks`
 --
 ALTER TABLE `transaction_checklist_checks`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `transaction_requirement_checks`
@@ -1809,7 +1820,7 @@ ALTER TABLE `transaction_requirement_checks`
 -- AUTO_INCREMENT for table `transaction_states`
 --
 ALTER TABLE `transaction_states`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `transaction_station_touches`
@@ -1821,7 +1832,7 @@ ALTER TABLE `transaction_station_touches`
 -- AUTO_INCREMENT for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=102;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=103;
 
 --
 -- AUTO_INCREMENT for table `transaction_types`
@@ -1897,6 +1908,13 @@ ALTER TABLE `field_values`
 ALTER TABLE `office_steps`
   ADD CONSTRAINT `office_steps_office_id_foreign` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `office_steps_parent_id_foreign` FOREIGN KEY (`parent_id`) REFERENCES `office_steps` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `office_transaction_type`
+--
+ALTER TABLE `office_transaction_type`
+  ADD CONSTRAINT `office_transaction_type_office_id_foreign` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `office_transaction_type_transaction_type_id_foreign` FOREIGN KEY (`transaction_type_id`) REFERENCES `transaction_types` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `permission_role`

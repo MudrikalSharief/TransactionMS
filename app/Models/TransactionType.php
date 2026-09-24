@@ -19,4 +19,10 @@ class TransactionType extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function offices()
+    {
+        return $this->belongsToMany(Office::class, 'office_transaction_type')
+            ->withTimestamps();
+    }
 }

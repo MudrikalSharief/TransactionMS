@@ -14,20 +14,26 @@ class PurchaseRequestSetupSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function (): void {
-            $workflow = $this->resolveWorkflow();
-            $steps = $workflow->steps()->get()->keyBy('code');
-
+            $workflows = $this->resolveWorkflows();
             $fieldIds = $this->seedFieldLibrary();
-            $this->attachFieldsToSteps($steps, $fieldIds);
 
-            $requirementIds = $this->seedRequirements($workflow->id);
-            $this->attachRequirementsToSteps($steps, $requirementIds);
+            foreach ($workflows as $workflow) {
+                $steps = $workflow->steps()->get()->keyBy('code');
 
-            $this->assignRolesToSteps($steps);
+                $this->attachFieldsToSteps($steps, $fieldIds);
+
+                $requirementIds = $this->seedRequirements($workflow->id);
+                $this->attachRequirementsToSteps($steps, $requirementIds);
+
+                $this->assignRolesToSteps($steps);
+            }
         });
     }
 
-    private function resolveWorkflow(): WorkflowDefinition
+    /**
+     * @return \Illuminate\Support\Collection<int, WorkflowDefinition>
+     */
+    private function resolveWorkflows()
     {
         $transactionType = TransactionType::where('code', 'procurement')->first();
 
@@ -35,15 +41,18 @@ class PurchaseRequestSetupSeeder extends Seeder
             throw new \RuntimeException('Transaction type "procurement" not found. Run TransactionTypeSeeder first.');
         }
 
-        $workflow = WorkflowDefinition::where('transaction_type_id', $transactionType->id)
-            ->where('version', 1)
-            ->first();
+        $workflows = WorkflowDefinition::where('transaction_type_id', $transactionType->id)->get();
 
-        if (!$workflow) {
-            throw new \RuntimeException('Purchase Request workflow v1 not found. Run WorkflowSeeder first.');
+        if ($workflows->isEmpty()) {
+            throw new \RuntimeException('Purchase Request workflow not found. Run WorkflowSeeder first.');
         }
 
-        return $workflow;
+        return $workflows;
+    }
+
+    private function resolveWorkflow(): WorkflowDefinition
+    {
+        return $this->resolveWorkflows()->firstWhere('version', 1) ?? $this->resolveWorkflows()->first();
     }
 
     /**
@@ -97,22 +106,14 @@ class PurchaseRequestSetupSeeder extends Seeder
     private function attachFieldsToSteps($steps, array $fieldIds): void
     {
         $stepFields = [
-            'create_pr' => [
-                ['request_title', true, 1],
-                ['office_name', true, 2],
-                ['request_amount', true, 3],
-                ['remarks', false, 4],
-            ],
-            'upload_drive' => [
-                ['drive_link', true, 1],
-            ],
-            'create_dts' => [
-                ['dts_number', true, 1],
-                ['drive_link', true, 2],
-            ],
-            'gso_input_pr_no' => [
-                ['pr_number', true, 1],
-            ],
+            // Procurement is files-only (requirements + auto-mirrored
+            // checklist), matching payroll. Former station-info fields
+            // (request_title, office_name, request_amount, remarks,
+            // drive_link, dts_number, pr_number) were old-code remnants.
+            'create_pr' => [],
+            'upload_drive' => [],
+            'create_dts' => [],
+            'gso_input_pr_no' => [],
         ];
 
         foreach ($stepFields as $stepCode => $fields) {

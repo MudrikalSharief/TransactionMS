@@ -11,16 +11,15 @@
         <v-window v-model="step">
             <!-- PAGE 1: current-step requirements + per-item uploads + station info -->
             <v-window-item v-if="hasRequirements" :value="1">
-                <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
-                <StepInfoFields :fields="fields" :form="form" />
-                <div v-if="!(fields || []).length" class="text-caption text-medium-emphasis mb-3">
-                    No info fields on this station — uploads only.
-                </div>
-                <v-alert v-if="missingRequiredFields.length" type="warning" variant="tonal" density="compact" class="mt-2 mb-3">
-                    Fill in required station info: {{ missingRequiredFields.join(", ") }}.
-                </v-alert>
+                <template v-if="(fields || []).length">
+                    <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
+                    <StepInfoFields :fields="fields" :form="form" />
+                    <v-alert v-if="missingRequiredFields.length" type="warning" variant="tonal" density="compact" class="mt-2 mb-3">
+                        Fill in required station info: {{ missingRequiredFields.join(", ") }}.
+                    </v-alert>
 
-                <v-divider class="my-3" />
+                    <v-divider class="my-3" />
+                </template>
                 <div class="text-subtitle-2 font-weight-bold mb-1">Required uploads — this step only</div>
                 <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
                     Return action — uploads optional.
@@ -199,8 +198,8 @@
                 <v-alert v-if="!isReturnSelected && missingRequiredChecklistLabels.length" type="warning" variant="tonal" class="mt-3">
                     Required checklist items not ticked: {{ missingRequiredChecklistLabels.join(", ") }}.
                 </v-alert>
-                <v-alert v-else-if="!missingRequiredFields.length && !missingRequiredUploadLabels.length && !missingRequiredChecklistLabels.length" type="info" variant="tonal" class="mt-3">
-                    Station info, files, and checklist will be verified together with this move.
+                <v-alert v-else-if="!missingRequiredUploadLabels.length && !missingRequiredChecklistLabels.length" type="info" variant="tonal" class="mt-3">
+                    Files and checklist will be verified together with this move.
                 </v-alert>
             </v-window-item>
         </v-window>
