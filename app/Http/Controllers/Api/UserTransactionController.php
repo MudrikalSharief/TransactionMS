@@ -25,7 +25,7 @@ class UserTransactionController extends Controller
                 'state.currentStep',
                 'creator',
             ])
-            ->oldest()
+            ->latest()
             ->get();
 
         $filtered = $items->filter(function (Transaction $tx) use ($routing, $user) {
@@ -64,6 +64,7 @@ class UserTransactionController extends Controller
         return (new TransactionResource($transaction))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($transaction),
             ],
         ]);
     }
@@ -113,6 +114,7 @@ class UserTransactionController extends Controller
         return (new TransactionResource($tx))->additional([
             'meta' => [
                 'available_actions' => $actions,
+                'visited_step_ids' => $routing->visitedStepIds($tx),
             ],
         ]);
     }

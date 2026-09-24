@@ -14,12 +14,12 @@
         <template #activator="{ props }">
             <div
                 v-bind="props"
-                class="d-flex flex-column align-center flex-shrink-0"
+                class="d-flex flex-column align-center flex-shrink-0 station-node"
                 style="width: 110px"
                 :data-node="dataNode"
             >
                 <v-avatar
-                    :color="state === 'done' ? 'success' : state === 'current' ? 'primary' : 'grey-lighten-2'"
+                    :color="avatarColor"
                     size="42"
                 >
                     <v-icon
@@ -133,13 +133,22 @@ const props = defineProps({
 
 const isUpcoming = computed(() => props.state === 'upcoming');
 
+// purple = current, green = visited behind, yellow = already passed ahead.
+const avatarColor = computed(() => {
+    if (props.state === 'done') return 'success';
+    if (props.state === 'current') return 'primary';
+    if (props.state === 'passed') return 'warning';
+    return 'grey-lighten-2';
+});
+
 const hasExtra = computed(() =>
     !!props.detail || !!props.move || props.state !== 'upcoming',
 );
 
 const statusLine = computed(() => {
     if (props.state === 'current') return 'In progress — this is where the paper sits.';
-    if (props.state === 'done') return 'Submitted here.';
+    if (props.state === 'done') return 'Passed — you can go back here from Available Actions.';
+    if (props.state === 'passed') return 'Already passed — continue forward step by step to return here.';
     return 'Not reached yet.';
 });
 
@@ -163,6 +172,9 @@ function formatSize(b) {
 .hover-file {
     color: #90caf9;
     overflow-wrap: anywhere;
+}
+.station-node {
+    border-radius: 8px;
 }
 .step-label {
     display: -webkit-box;

@@ -52,6 +52,16 @@
                 </template>
             </div>
         </v-card-text>
+        <template v-if="$slots.actions">
+            <v-divider />
+            <div class="pa-4">
+                <div class="d-flex align-center mb-3">
+                    <v-icon color="grey-darken-3" class="mr-2">mdi-swap-horizontal</v-icon>
+                    <span class="text-subtitle-1 font-weight-bold">Available Actions</span>
+                </div>
+                <slot name="actions" />
+            </div>
+        </template>
     </v-card>
 </template>
 
@@ -73,7 +83,13 @@ const props = defineProps({
     details: { type: Array, default: () => [] },
     // transaction_step_runs for the "moved" line per station.
     runs: { type: Array, default: () => [] },
+    // Station ids the paper has already passed (from meta.visited_step_ids).
+    // Visited stations behind current read green (done); visited stations
+    // ahead read yellow (passed); never-visited ahead stay grey.
+    visitedStepIds: { type: Array, default: () => [] },
 })
+
+const visitedSet = computed(() => new Set((props.visitedStepIds || []).map((v) => String(v))))
 
 const ordered = computed(() => {
     const list = [...(props.steps || [])]
@@ -191,8 +207,12 @@ onUnmounted(() => {
 
 function stateOf(i) {
     if (currentIdx.value < 0) return 'upcoming'
-    if (i < currentIdx.value) return 'done'
     if (i === currentIdx.value) return 'current'
+    const s = ordered.value[i]
+    if (s && visitedSet.value.has(String(s.id))) {
+        return i < currentIdx.value ? 'done' : 'passed'
+    }
+    if (i < currentIdx.value) return 'done'
     return 'upcoming'
 }
 

@@ -8,6 +8,7 @@ use App\Http\Resources\TransactionAttachmentResource;
 use App\Models\RequirementDefinition;
 use App\Models\Transaction;
 use App\Models\TransactionAttachment;
+use App\Models\WorkflowStep;
 use App\Services\RoutingEngine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -32,22 +33,29 @@ class TransactionAttachmentController extends Controller
         Transaction $transaction,
         RoutingEngine $routing
     ) {
+        // Current-step workers only (existing gate). Files always belong
+        // to the current step.
         $routing->assertUserCanExecute($transaction, $request->user());
 
         $transaction->loadMissing(['state.currentStep']);
 
-        $stepId = (int) $transaction->state?->current_step_id;
-        if (!$stepId) abort(422, 'Transaction has no current step.');
+        $currentStepId = (int) $transaction->state?->current_step_id;
+        if (!$currentStepId) abort(422, 'Transaction has no current step.');
 
-        $requirementId = $request->validated()['requirement_definition_id'] ?? null;
+        $validated = $request->validated();
+        $requirementId = $validated['requirement_definition_id'] ?? null;
+        if ($requirementId) $requirementId = (int) $requirementId;
+
+        $stepId = $currentStepId;
+        $assignStep = $transaction->state->currentStep;
+
         if ($requirementId) {
-            $requirementId = (int) $requirementId;
             if ((int) RequirementDefinition::whereKey($requirementId)->value('workflow_definition_id')
                 !== (int) $transaction->workflow_definition_id) {
                 abort(422, 'Requirement does not belong to this transaction workflow version.');
             }
 
-            $isAssigned = $transaction->state->currentStep
+            $isAssigned = $assignStep
                 ->requirementDefinitions()
                 ->where('requirement_definitions.id', $requirementId)
                 ->exists();

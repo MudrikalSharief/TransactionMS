@@ -26,6 +26,9 @@ class RoutingEngine
         $currentStep = $tx->state?->currentStep;
         if (!$currentStep) return [];
 
+        // Finalized transactions are view-only — no actions at all.
+        if ((bool) ($tx->is_done ?? false)) return [];
+
         if (!$this->userCanWorkOnStep($tx, $user, (int) $currentStep->id)) {
             return [];
         }
@@ -45,7 +48,7 @@ class RoutingEngine
                     'route_id' => $route->id,
                     'action_code' => $route->action_code,
                     'is_return_route' => (bool) $route->is_return_route,
-                    'to_step' => $toStep?->only(['id', 'code', 'name', 'stage', 'is_end']),
+                    'to_step' => $toStep?->only(['id', 'code', 'name', 'order_number', 'stage', 'is_end']),
                     'route_group' => $route->route_group,
                     'required_approvals_count' => $route->required_approvals_count,
                 ];
@@ -53,6 +56,31 @@ class RoutingEngine
         }
 
         return $available;
+    }
+
+    /**
+     * Stations the paper has already passed through (every from/to step
+     * in the run history, plus current). Monotonic: moving never
+     * un-visits. Drives free jumps + the tracker colors.
+     */
+    public function visitedStepIds(Transaction $tx): array
+    {
+        $ids = \App\Models\TransactionStepRun::query()
+            ->where('transaction_id', $tx->id)
+            ->get(['from_step_id', 'to_step_id'])
+            ->flatMap(fn ($r) => [(int) $r->from_step_id, (int) $r->to_step_id])
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $tx->loadMissing(['state']);
+        $currentStepId = (int) ($tx->state?->current_step_id ?? 0);
+        if ($currentStepId > 0 && !in_array($currentStepId, $ids, true)) {
+            $ids[] = $currentStepId;
+        }
+
+        return array_values($ids);
     }
 
     public function userCanWorkOnCurrentStep(Transaction $tx, User $user): bool
@@ -70,6 +98,9 @@ class RoutingEngine
 
     public function assertUserCanExecute(Transaction $tx, User $user): void
     {
+        if ((bool) ($tx->is_done ?? false)) {
+            abort(422, 'Transaction is finalized and view-only.');
+        }
         $tx->loadMissing(['workflow.stepRoles.role', 'state.currentStep']);
         $currentStepId = (int) $tx->state?->current_step_id;
 
@@ -81,7 +112,6 @@ class RoutingEngine
     public function assertRouteExecutable(Transaction $tx, int $routeId, User $user): WorkflowRoute
     {
         $this->assertUserCanExecute($tx, $user);
-
         $tx->loadMissing([
             'workflow.routes',
             'workflow.steps',
