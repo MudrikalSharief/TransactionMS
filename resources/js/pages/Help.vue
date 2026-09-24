@@ -331,9 +331,9 @@ const adminSteps = [
     },
     {
         icon: 'mdi-format-list-bulleted-type',
-        title: 'Transaction Types',
+        title: 'Processes',
         hint: 'Kinds of requests',
-        text: 'Define the kinds of requests (e.g. Communication). Each type gets its own steps.',
+        text: 'Define the kinds of requests (e.g. Communication). Each process gets its own steps.',
         to: '/admin/transaction-types',
     },
     {
@@ -354,7 +354,7 @@ const adminSteps = [
         icon: 'mdi-source-branch',
         title: 'Transaction Steps',
         hint: '1-2-3 steps, save goes live',
-        text: 'Open a Transaction Type → Steps → edit the steps → Save goes live for new transactions. Steps need at least one start and one end.',
+        text: 'Open a Process → Steps → edit the steps → Save goes live for new transactions. Steps need at least one start and one end.',
         to: '/admin/transaction-types',
     },
     {

@@ -144,7 +144,6 @@
                                     <th class="text-left">Transaction</th>
                                     <th class="text-left">Current Step</th>
                                     <th class="text-left">Waiting</th>
-                                    <th class="text-left">SLA</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -167,17 +166,7 @@
                                             {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
                                         </v-chip>
                                     </td>
-                                    <td class="font-weight-bold">{{ timeAgo(tx.created_at) }}</td>
-                                    <td>
-                                        <v-chip
-                                            size="small"
-                                            variant="tonal"
-                                            :color="slaStatus(tx).color"
-                                            class="font-weight-bold"
-                                        >
-                                            {{ slaStatus(tx).label }}
-                                        </v-chip>
-                                    </td>
+                                    <td class="font-weight-bold">{{ timeAgo(tx.entered_at || tx.created_at) }}</td>
                                 </tr>
                             </tbody>
                         </v-table>
@@ -338,18 +327,6 @@ function timeAgo(iso) {
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`
     if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`
     return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function slaStatus(tx) {
-    const sla = Number(tx.current_step?.sla_minutes)
-    if (!sla || sla <= 0) return { label: 'No SLA', color: 'grey' }
-    const base = tx.entered_at || tx.created_at
-    if (!base) return { label: 'No SLA', color: 'grey' }
-    const elapsedMin = (Date.now() - new Date(base).getTime()) / 60000
-    const remaining = sla - elapsedMin
-    if (remaining <= 0) return { label: 'Overdue', color: 'error' }
-    if (remaining <= sla * 0.25) return { label: 'Due soon', color: 'warning' }
-    return { label: 'On track', color: 'success' }
 }
 
 function openTx(tx) {

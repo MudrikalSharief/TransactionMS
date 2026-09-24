@@ -8,7 +8,7 @@
                 <div>
                     <span class="text-h6 font-weight-bold">Workflows</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
-                    <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
+                    <div v-else class="text-caption text-medium-emphasis">Select a process</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
                         <v-chip
                             rounded="0"
@@ -64,8 +64,8 @@
                     rounded="0"
                     class="mb-3"
                 >
-                    No transaction type selected. Pick one below, or go to
-                    <b>Transaction Types</b> and open <b>Steps</b> for one type.
+                    No process selected. Pick one below, or go to
+                    <b>Processes</b> and open <b>Steps</b> for one process.
                 </v-alert>
                 <v-select
                     v-if="!selectedTypeId && !loading && (types || []).length"
@@ -73,7 +73,7 @@
                     :items="typePickerOptions"
                     item-title="label"
                     item-value="id"
-                    label="Select transaction type"
+                    label="Select process"
                     density="compact"
                     class="mb-3"
                     @update:model-value="onPickType"
@@ -100,7 +100,7 @@
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <v-alert v-else type="info" variant="tonal" class="mb-3">
-                            No process yet for this transaction type — click <b>Add Step</b> to create step 1.
+                            No process yet for this process — click <b>Add Step</b> to create step 1.
                         </v-alert>
                     </div>
 
@@ -183,20 +183,20 @@
                     <template v-slot:[`item.actions`]="{ item }">
                         <div class="d-flex ga-3 justify-end">
                             <v-btn
-                                icon="mdi-table-column"
-                                v-tooltip="'Step fields'"
+                                icon="mdi-clipboard-list-outline"
+                                v-tooltip="'Requirements'"
                                 size="small"
                                 variant="outlined"
                                 color="grey-darken-3"
-                                @click="goStepFields(item)"
+                                @click="goStepRequirements(item)"
                             />
                             <v-btn
                                 icon="mdi-clipboard-check-outline"
-                                v-tooltip="'Step requirements'"
+                                v-tooltip="'Checklist'"
                                 size="small"
                                 variant="outlined"
                                 color="info"
-                                @click="goStepRequirements(item)"
+                                @click="goStepChecklist(item)"
                             />
                             <v-btn
                                 icon="mdi-pencil"
@@ -858,17 +858,41 @@ async function goStepFields(item) {
     }
 }
 
+function liveEditableTarget() {
+    // Requirements/checklist apply to running papers immediately, so
+    // open them on the published process — not an open draft clone.
+    return currentDef.value || activeDef.value;
+}
+
+function stepOnDef(def, item) {
+    return (def?.steps || []).find((s) => s.code && s.code === item?.code) || item;
+}
+
 async function goStepRequirements(item) {
     error.value = "";
     notice.value = "";
     try {
-        const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
-        const fresh = stepInDraft(oldSteps, item);
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
         const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-        router.push({ path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/requirements`, query: q });
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/requirements`, query: q });
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to open step requirements.";
+    }
+}
+
+async function goStepChecklist(item) {
+    error.value = "";
+    notice.value = "";
+    try {
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
+        const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/checklist`, query: q });
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Failed to open step checklist.";
     }
 }
 

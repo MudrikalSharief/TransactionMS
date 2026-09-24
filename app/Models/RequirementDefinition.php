@@ -14,6 +14,7 @@ class RequirementDefinition extends Model
         'order_number',
         'code',
         'name',
+        'label',
         'description',
         'is_active',
     ];

@@ -96,4 +96,9 @@ class WorkflowStep extends Model
     {
         return $this->requirementDefinitions();
     }
+
+    public function checklistOverrides(): HasMany
+    {
+        return $this->hasMany(ChecklistOverride::class, 'workflow_step_id');
+    }
 }

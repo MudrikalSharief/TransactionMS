@@ -118,6 +118,8 @@ class RoutingEngine
             'state.currentStep',
             'state.currentStep.requirementDefinitions',
             'requirementChecks',
+            'checklistChecks',
+            'attachments',
             'fieldValues.fieldDefinition',
             'type',
         ]);
@@ -137,7 +139,8 @@ class RoutingEngine
         // Returns never require the checklist: a station sending work back
         // must not be blocked by its own incomplete items.
         if (!$route->is_return_route) {
-            $this->assertRequiredRequirementsChecked($tx, $currentStepId);
+            $this->assertRequiredRequirementsUploaded($tx, $currentStepId);
+            $this->assertRequiredChecklistTicked($tx, $currentStepId);
         }
 
         $context = $this->buildContext($tx);
@@ -149,7 +152,11 @@ class RoutingEngine
         return $route;
     }
 
-    private function assertRequiredRequirementsChecked(Transaction $tx, int $stepId): void
+    /**
+     * Required requirements block Proceed until at least one file is
+     * attached for that item. Optional requirements never block.
+     */
+    private function assertRequiredRequirementsUploaded(Transaction $tx, int $stepId): void
     {
         $step = $tx->state?->currentStep;
         if (!$step) return;
@@ -160,18 +167,49 @@ class RoutingEngine
 
         if ($reqs->isEmpty()) return;
 
-        $requiredIds = $reqs->pluck('id')->values();
-
-        $checkedIds = collect($tx->requirementChecks ?? [])
+        $tx->loadMissing('attachments');
+        $attCounts = collect($tx->attachments ?? [])
             ->where('workflow_step_id', $stepId)
-            ->pluck('requirement_definition_id')
+            ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0))
+            ->map(fn ($g) => $g->count());
+
+        $missing = $reqs
+            ->filter(fn ($r) => ($attCounts->get((int) $r->id, 0) ?? 0) < 1)
+            ->pluck('name')
+            ->values();
+
+        if ($missing->isNotEmpty()) {
+            abort(422, 'Required items missing files: ' . $missing->implode(', '));
+        }
+    }
+
+    /**
+     * Required checklist items block Proceed until ticked. Optional
+     * checklist items never block — same shape as the old requirement ticks.
+     */
+    private function assertRequiredChecklistTicked(Transaction $tx, int $stepId): void
+    {
+        $step = $tx->state?->currentStep;
+        if (!$step) return;
+
+        $items = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $required = $items->filter(fn ($i) => (bool) $i->is_required)->values();
+        if ($required->isEmpty()) return;
+
+        $checkedIds = collect($tx->checklistChecks ?? [])
+            ->where('workflow_step_id', $stepId)
+            ->pluck('checklist_override_id')
+            ->filter()
+            ->map(fn ($v) => (int) $v)
             ->unique()
             ->values();
 
-        $missingIds = $requiredIds->diff($checkedIds)->values();
+        $missingNames = $required
+            ->filter(fn ($i) => !$checkedIds->contains((int) $i->id))
+            ->pluck('name')
+            ->values();
 
-        if ($missingIds->isNotEmpty()) {
-            $missingNames = $reqs->whereIn('id', $missingIds)->pluck('name')->values();
+        if ($missingNames->isNotEmpty()) {
             abort(422, 'Required checklist items not completed: ' . $missingNames->implode(', '));
         }
     }

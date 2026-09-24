@@ -13,8 +13,10 @@
                 @click="toggleNav"
             />
             <div
-                class="d-flex align-center flex-shrink-0 mr-4 ml-3"
+                class="d-flex align-center flex-shrink-0 mr-4 ml-3 brand-click"
                 style="flex: 0 0 auto; min-width: max-content"
+                v-tooltip="'Go to Dashboard'"
+                @click="router.push({ name: 'dashboard' })"
             >
                 <v-img
                     src="/zamboanga-seal.png"
@@ -159,14 +161,7 @@
                         prepend-icon="mdi-format-list-bulleted-type"
                         rounded="lg"
                     >
-                        <v-list-item-title>TRANSACTION TYPES</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
-                        to="/admin/workflows"
-                        prepend-icon="mdi-source-branch"
-                        rounded="lg"
-                    >
-                        <v-list-item-title>WORKFLOWS</v-list-item-title>
+                        <v-list-item-title>PROCESSES</v-list-item-title>
                     </v-list-item>
                     <v-list-item
                         to="/admin/fields"
@@ -174,13 +169,6 @@
                         rounded="lg"
                     >
                         <v-list-item-title>FIELDS</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
-                        to="/admin/requirements"
-                        prepend-icon="mdi-clipboard-check-outline"
-                        rounded="lg"
-                    >
-                        <v-list-item-title>REQUIREMENTS</v-list-item-title>
                     </v-list-item>
                     <v-list-item
                         to="/admin/government-references"
@@ -326,7 +314,7 @@ const searchPages = computed(() => {
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
             { title: "Roles", subtitle: "Page · Admin", icon: "mdi-shield-account", to: "/admin/roles" },
             {
-                title: "Transaction Types",
+                title: "Processes",
                 subtitle: "Page · Admin",
                 icon: "mdi-format-list-bulleted-type",
                 to: "/admin/transaction-types",
@@ -574,6 +562,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.brand-click {
+    cursor: pointer;
+    user-select: none;
+}
 /* Compact sidebar: tighter rows so all items fit without scrolling */
 .nav-compact :deep(.v-list-item) {
     min-height: 36px !important;

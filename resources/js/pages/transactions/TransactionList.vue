@@ -84,6 +84,13 @@
             </v-chip>
           </template>
 
+          <template v-slot:[`item.office`]="{ item }">
+            <span v-if="item.office?.name" class="text-medium-emphasis">
+              {{ item.office.name }}
+            </span>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+
           <template v-slot:[`item.current_step`]="{ item }">
             <v-menu open-on-hover location="end" open-delay="250">
               <template #activator="{ props }">
@@ -138,7 +145,15 @@
             :items="typeOptions"
             item-title="label"
             item-value="id"
-            label="Transaction Type"
+            label="Process"
+          />
+          <v-select
+            v-model="form.office_id"
+            :items="officeOptions"
+            item-title="label"
+            item-value="id"
+            label="Office (optional)"
+            clearable
           />
           <v-text-field v-model="form.title" label="Title (optional)" />
           <v-alert type="info" variant="tonal" class="mt-3">
@@ -176,6 +191,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
+import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
 import TableLoader from '@/components/TableLoader.vue'
 import StepProgress from '@/components/StepProgress.vue'
@@ -184,6 +200,7 @@ import GuideTable from '@/components/GuideTable.vue'
 const router = useRouter()
 const { items, loading, fetchAll, create, destroy } = useTransactions()
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
+const { items: offices, fetchAll: fetchOffices } = useOffices()
 const auth = useAuth()
 
 const isSuperadmin = computed(() =>
@@ -206,6 +223,7 @@ const guideSections = [
       { term: 'REF #', text: 'UNIQUE TRACKING CODE — QUOTE IT WHEN FOLLOWING UP' },
       { term: 'TITLE', text: 'SHORT NAME OF THE REQUEST' },
       { term: 'TRANSACTION TYPE', text: 'WHAT KIND OF REQUEST IT IS' },
+      { term: 'OFFICE', text: 'THE OFFICE THE REQUEST BELONGS TO (BLANK IF NONE)' },
       { term: 'CURRENT STEP', text: 'WHERE IT IS RIGHT NOW (HOVER THE CHIP FOR PROGRESS)' },
       { term: 'CREATED', text: 'WHEN THE REQUEST WAS SUBMITTED' },
     ],
@@ -214,6 +232,7 @@ const guideSections = [
 
 const form = ref({
   transaction_type_id: null,
+  office_id: null,
   title: '',
 })
 
@@ -221,10 +240,17 @@ const typeOptions = computed(() =>
   (types.value || []).map(t => ({ id: t.id, label: `${t.name} (${t.code})` }))
 )
 
+const officeOptions = computed(() =>
+  (offices.value || [])
+    .filter(o => o.is_active !== false && o.is_active !== 0)
+    .map(o => ({ id: o.id, label: `${o.name} (${o.code})` }))
+)
+
 const baseHeaders = [
   { title: 'Ref #', key: 'reference_number' },
   { title: 'Title', key: 'title' },
-  { title: 'Transaction Type', key: 'type', sortable: false },
+  { title: 'Process', key: 'type', sortable: false },
+  { title: 'Office', key: 'office', sortable: false },
   { title: 'Current Step', key: 'current_step', sortable: false },
   { title: 'Created', key: 'created_at' },
 ]
@@ -244,6 +270,7 @@ const filtered = computed(() => {
       tx.title,
       tx.transaction_type?.name,
       tx.transaction_type_name,
+      tx.office?.name,
       tx.current_step?.name,
       tx.current_step?.code,
     ]
@@ -290,7 +317,7 @@ function timeAgo(iso) {
 
 function openCreate() {
   error.value = ''
-  form.value = { transaction_type_id: null, title: '' }
+  form.value = { transaction_type_id: null, office_id: null, title: '' }
   dialog.value = true
 }
 
@@ -304,6 +331,7 @@ async function createTx() {
   try {
     const tx = await create({
       transaction_type_id: form.value.transaction_type_id,
+      office_id: form.value.office_id ?? null,
       title: form.value.title || null,
     })
     dialog.value = false
@@ -340,6 +368,7 @@ async function removeTx() {
 
 onMounted(async () => {
   await fetchTypes()
+  await fetchOffices().catch(() => {})
   await fetchAll()
 })
 </script>

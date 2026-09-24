@@ -170,6 +170,15 @@ class TransactionEngine
                     ->update(['step_run_id' => $run->id]);
             }
 
+            // Requirement uploads (wizard page 1: AR, DTR, …) stay unlinked
+            // until Proceed — stamp any still-pending files of this visit
+            // so the move-history row lists every file uploaded while here.
+            \App\Models\TransactionAttachment::query()
+                ->where('transaction_id', $tx->id)
+                ->where('workflow_step_id', $currentStepId)
+                ->whereNull('step_run_id')
+                ->update(['step_run_id' => $run->id]);
+
             $tx->state->update([
                 'current_step_id' => $toStepId,
                 'entered_at' => now(),
@@ -189,9 +198,17 @@ class TransactionEngine
                     ->where('transaction_id', $tx->id)
                     ->where('workflow_step_id', $toStepId)
                     ->delete();
+                \App\Models\TransactionChecklistCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $toStepId)
+                    ->delete();
             }
             if ($isReturn) {
                 \App\Models\TransactionRequirementCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $currentStepId)
+                    ->delete();
+                \App\Models\TransactionChecklistCheck::query()
                     ->where('transaction_id', $tx->id)
                     ->where('workflow_step_id', $currentStepId)
                     ->delete();
@@ -209,9 +226,10 @@ class TransactionEngine
                 'runs.fromStep',
                 'runs.toStep',
                 'runs.performer',
-                'runs.attachments',
+                'runs.attachments.requirement',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',
+                'checklistChecks.checker',
                 'attachments.step',
                 'attachments.requirement',
                 'attachments.uploader',
@@ -278,9 +296,10 @@ class TransactionEngine
                 'runs.fromStep',
                 'runs.toStep',
                 'runs.performer',
-                'runs.attachments',
+                'runs.attachments.requirement',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',
+                'checklistChecks.checker',
                 'attachments.step',
                 'attachments.requirement',
                 'attachments.uploader',
@@ -299,24 +318,41 @@ class TransactionEngine
             'workflow.steps.requirementDefinitions',
             'workflow.steps.fieldDefinitions',
             'fieldValues.fieldDefinition',
+            'attachments',
+            'checklistChecks',
         ]);
 
         $step = $tx->workflow->steps->firstWhere('id', $stepId);
         if (!$step) return false;
 
+        // Required requirements keep their files on intact arrivals.
         $requiredReqs = collect($step->requirementDefinitions ?? [])
             ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
             ->values();
         if ($requiredReqs->isNotEmpty()) {
-            $checkedIds = \App\Models\TransactionRequirementCheck::query()
-                ->where('transaction_id', $tx->id)
+            $attCounts = collect($tx->attachments ?? [])
                 ->where('workflow_step_id', $stepId)
-                ->pluck('requirement_definition_id')
+                ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0))
+                ->map(fn ($g) => $g->count());
+            foreach ($requiredReqs as $r) {
+                if (($attCounts->get((int) $r->id, 0) ?? 0) < 1) return false;
+            }
+        }
+
+        // Required checklist ticks must still be present.
+        $checklistItems = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $requiredItems = $checklistItems->filter(fn ($i) => (bool) $i->is_required)->values();
+        if ($requiredItems->isNotEmpty()) {
+            $checkedIds = collect($tx->checklistChecks ?? [])
+                ->where('workflow_step_id', $stepId)
+                ->pluck('checklist_override_id')
+                ->filter()
                 ->map(fn ($v) => (int) $v)
                 ->unique()
                 ->values();
-            $allChecked = $requiredReqs->every(fn ($r) => $checkedIds->contains((int) $r->id));
-            if (!$allChecked) return false;
+            foreach ($requiredItems as $item) {
+                if (!$checkedIds->contains((int) $item->id)) return false;
+            }
         }
 
         $valuesByDefId = collect($tx->fieldValues ?? [])->keyBy('field_definition_id');
