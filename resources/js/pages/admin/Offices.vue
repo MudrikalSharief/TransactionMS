@@ -28,20 +28,6 @@
         hover
         class="lgu-table"
       >
-        <template v-slot:[`item.steps_count`]="{ item }">
-          <v-chip
-            rounded="0"
-            size="small"
-            variant="tonal"
-            color="primary"
-            class="font-weight-bold"
-            @click="goSteps(item)"
-          >
-            <v-icon start size="small">mdi-format-list-numbered</v-icon>
-            {{ item.steps_count ?? 0 }} steps
-          </v-chip>
-        </template>
-
         <template v-slot:[`item.is_active`]="{ item }">
           <v-chip :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
             <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
@@ -96,11 +82,8 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useOffices } from '@/composables/useOffices'
 import TableLoader from '@/components/TableLoader.vue'
-
-const router = useRouter()
 
 const { items, loading, fetchAll, create, update, remove } = useOffices()
 
@@ -108,7 +91,6 @@ const headers = [
   { title: 'Code', key: 'code' },
   { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
-  { title: 'Steps', key: 'steps_count', sortable: false },
   { title: 'Status', key: 'is_active' },
   { title: '', key: 'actions', sortable: false },
 ]
@@ -168,10 +150,6 @@ async function removeRow(item) {
   } catch (e) {
     error.value = e?.response?.data?.message || 'Delete failed.'
   }
-}
-
-function goSteps(item) {
-  router.push(`/admin/offices/${item.id}/steps`)
 }
 
 onMounted(fetchAll)

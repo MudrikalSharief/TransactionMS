@@ -19,7 +19,7 @@ class WorkflowStepController extends Controller
     public function index(Request $request, WorkflowDefinition $workflowDefinition)
     {
         $steps = $workflowDefinition->steps()
-            ->with('roles')
+            ->with(['roles', 'office'])
             ->orderBy('order_number')
             ->get();
 
@@ -36,7 +36,7 @@ class WorkflowStepController extends Controller
             abort(404);
         }
 
-        return new WorkflowStepResource($workflowStep->load('roles'));
+        return new WorkflowStepResource($workflowStep->load(['roles', 'office']));
     }
 
     public function store(
@@ -62,7 +62,7 @@ class WorkflowStepController extends Controller
             $step->roles()->sync($data['role_ids']);
         }
 
-        return (new WorkflowStepResource($step->load('roles')))->response()->setStatusCode(201);
+        return (new WorkflowStepResource($step->load(['roles', 'office'])))->response()->setStatusCode(201);
     }
 
     public function update(
@@ -91,7 +91,7 @@ class WorkflowStepController extends Controller
             $workflowStep->roles()->sync($data['role_ids']);
         }
 
-        return new WorkflowStepResource($workflowStep->load('roles'));
+        return new WorkflowStepResource($workflowStep->load(['roles', 'office']));
     }
 
     public function destroy(

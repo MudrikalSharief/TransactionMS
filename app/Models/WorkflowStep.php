@@ -19,6 +19,7 @@ class WorkflowStep extends Model
         'code',
         'name',
         'stage',
+        'office_id',
         'sla_minutes',
         'is_start',
         'is_end',
@@ -71,6 +72,11 @@ class WorkflowStep extends Model
     public function fields(): BelongsToMany
     {
         return $this->fieldDefinitions();
+    }
+
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(Office::class);
     }
 
     public function roles()

@@ -29,4 +29,10 @@ class Office extends Model
     {
         return $this->hasMany(OfficeStep::class)->orderBy('order_number');
     }
+
+    public function transactionTypes()
+    {
+        return $this->belongsToMany(TransactionType::class, 'office_transaction_type')
+            ->withTimestamps();
+    }
 }

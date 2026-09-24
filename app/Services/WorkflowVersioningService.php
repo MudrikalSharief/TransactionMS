@@ -25,7 +25,7 @@ class WorkflowVersioningService
                 ->first();
 
             if ($existing) {
-                return $existing->load(['steps.roles', 'routes']);
+                return $existing->load(['steps.roles', 'steps.office', 'routes']);
             }
 
             $clone = (bool)($data['clone_latest_published'] ?? true);
@@ -55,7 +55,7 @@ class WorkflowVersioningService
                 }
             }
 
-            return $draft->load(['steps.roles', 'routes']);
+            return $draft->load(['steps.roles', 'steps.office', 'routes']);
         });
     }
 
@@ -82,7 +82,7 @@ class WorkflowVersioningService
                 'published_by' => $userId,
             ]);
 
-            return $definition->fresh()->load(['steps.roles', 'routes']);
+            return $definition->fresh()->load(['steps.roles', 'steps.office', 'routes']);
         });
     }
 
@@ -103,6 +103,7 @@ class WorkflowVersioningService
                 'code' => $step->code,
                 'name' => $step->name,
                 'stage' => $step->stage,
+                'office_id' => $step->office_id,
                 'sla_minutes' => $step->sla_minutes,
                 'is_start' => $step->is_start,
                 'is_end' => $step->is_end,
