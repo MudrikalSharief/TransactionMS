@@ -7,22 +7,28 @@ use App\Http\Requests\Admin\Workflows\UpsertWorkflowRouteRequest;
 use App\Http\Resources\WorkflowRouteResource;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowRoute;
+use App\Services\ChecklistService;
 use App\Services\WorkflowVersioningService;
 use Illuminate\Http\Request;
 
 class WorkflowRouteController extends Controller
 {
-    public function store(UpsertWorkflowRouteRequest $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc)
+    public function store(UpsertWorkflowRouteRequest $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, ChecklistService $checklists)
     {
         $svc->assertDraft($workflowDefinition);
 
         $data = $request->validated();
         $route = $workflowDefinition->routes()->create($data);
 
+        // A new link feeds the destination's checklist from its predecessors.
+        if ($to = $workflowDefinition->steps()->find($route->to_step_id)) {
+            $checklists->syncFromRequirements($to);
+        }
+
         return (new WorkflowRouteResource($route))->response()->setStatusCode(201);
     }
 
-    public function update(UpsertWorkflowRouteRequest $request, WorkflowDefinition $workflowDefinition, WorkflowRoute $workflowRoute, WorkflowVersioningService $svc)
+    public function update(UpsertWorkflowRouteRequest $request, WorkflowDefinition $workflowDefinition, WorkflowRoute $workflowRoute, WorkflowVersioningService $svc, ChecklistService $checklists)
     {
         $svc->assertDraft($workflowDefinition);
 
@@ -30,11 +36,20 @@ class WorkflowRouteController extends Controller
             abort(404);
         }
 
+        $oldToStepId = (int) $workflowRoute->to_step_id;
         $workflowRoute->update($request->validated());
+
+        // Re-derive every checklist that could have gained/lost a predecessor.
+        foreach (array_unique([$oldToStepId, (int) $workflowRoute->to_step_id]) as $stepId) {
+            if ($step = $workflowDefinition->steps()->find($stepId)) {
+                $checklists->syncFromRequirements($step);
+            }
+        }
+
         return new WorkflowRouteResource($workflowRoute);
     }
 
-    public function destroy(Request $request, WorkflowDefinition $workflowDefinition, WorkflowRoute $workflowRoute, WorkflowVersioningService $svc)
+    public function destroy(Request $request, WorkflowDefinition $workflowDefinition, WorkflowRoute $workflowRoute, WorkflowVersioningService $svc, ChecklistService $checklists)
     {
         $svc->assertDraft($workflowDefinition);
 
@@ -42,7 +57,13 @@ class WorkflowRouteController extends Controller
             abort(404);
         }
 
+        $toStepId = (int) $workflowRoute->to_step_id;
         $workflowRoute->delete();
+
+        if ($step = $workflowDefinition->steps()->find($toStepId)) {
+            $checklists->syncFromRequirements($step);
+        }
+
         return response()->json(['message' => 'Deleted']);
     }
 }

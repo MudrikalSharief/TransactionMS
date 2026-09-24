@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-stepper v-if="hasProceedContent" v-model="step" flat hide-actions alt-labels class="wizard-stepper mb-2">
+        <v-stepper v-if="showChecklist && hasProceedContent" v-model="step" flat hide-actions alt-labels class="wizard-stepper mb-2">
             <v-stepper-header>
                 <v-stepper-item :value="1" title="Requirements" subtitle="Upload files" complete-icon="mdi-check" />
                 <v-divider />
@@ -9,8 +9,10 @@
         </v-stepper>
 
         <v-window v-model="step">
-            <!-- PAGE 1: current-step requirements + per-item uploads + station info -->
-            <v-window-item v-if="hasRequirements" :value="1">
+            <!-- PAGE 1: current-step requirements + per-item uploads + station info.
+                 In single-page mode (step 1 → step 2, no checklist) this is
+                 the only page: remarks + move attachments render below. -->
+            <v-window-item v-if="hasRequirements || !showChecklist" :value="1">
                 <template v-if="(fields || []).length">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
                     <StepInfoFields :fields="fields" :form="form" />
@@ -25,7 +27,7 @@
                     Return action — uploads optional.
                 </div>
                 <div v-else-if="!(requirements || []).length" class="text-caption text-medium-emphasis mb-2">
-                    No requirements for this station — press Next.
+                    No requirements for this station{{ showChecklist ? ' — press Next' : '' }}.
                 </div>
                 <div v-else class="text-caption text-medium-emphasis mb-2">
                     <b>Required</b> items need at least one file attached before you can Proceed.
@@ -104,10 +106,27 @@
                         </v-expansion-panel-text>
                     </v-expansion-panel>
                 </v-expansion-panels>
+                <!-- Single-page mode: remarks + move attachments live here,
+                     so step 1 → step 2 never shows a second screen. -->
+                <ProceedFooter
+                    v-if="!showChecklist"
+                    v-model:remarks="remarks"
+                    v-model:proceed-attachments="proceedAttachments"
+                    :tx-id="txId"
+                    :is-admin="isAdmin"
+                    :is-return-selected="isReturnSelected"
+                    :show-checklist="showChecklist"
+                    :missing-required-upload-labels="missingRequiredUploadLabels"
+                    :missing-required-checklist-labels="missingRequiredChecklistLabels"
+                    :missing-required-fields="missingRequiredFields"
+                    :execute-error="executeError"
+                    @attachment-deleted="(id) => emit('attachment-deleted', id)"
+                />
             </v-window-item>
 
-            <!-- PAGE 2: requirements status + checklist ticks + remarks + final proceed -->
-            <v-window-item :value="2">
+            <!-- PAGE 2: requirements status + checklist ticks + remarks + final proceed.
+                 Only in two-page mode; single-page mode ends on page 1. -->
+            <v-window-item v-if="showChecklist" :value="2">
                 <!-- Single-step fallback: no requirements, so station info lives here -->
                 <template v-if="!hasRequirements && (fields || []).length">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
@@ -171,36 +190,19 @@
                     />
                 </div>
 
-                <v-divider class="my-3" />
-                <v-textarea
-                    :model-value="remarks"
-                    label="Remarks (optional)"
-                    rows="4"
-                    @update:model-value="(v) => emit('update:remarks', v)"
-                />
-                <v-divider class="my-3" />
-                <AttachmentUploader
+                <ProceedFooter
+                    v-model:remarks="remarks"
+                    v-model:proceed-attachments="proceedAttachments"
                     :tx-id="txId"
                     :is-admin="isAdmin"
-                    :model-value="proceedAttachments"
-                    @update:model-value="(files) => emit('update:proceedAttachments', files)"
-                    @deleted="(id) => emit('attachment-deleted', id)"
+                    :is-return-selected="isReturnSelected"
+                    :show-checklist="showChecklist"
+                    :missing-required-upload-labels="missingRequiredUploadLabels"
+                    :missing-required-checklist-labels="missingRequiredChecklistLabels"
+                    :missing-required-fields="missingRequiredFields"
+                    :execute-error="executeError"
+                    @attachment-deleted="(id) => emit('attachment-deleted', id)"
                 />
-                <v-alert v-if="executeError" type="error" variant="tonal" class="mt-3">
-                    {{ executeError }}
-                </v-alert>
-                <v-alert v-if="missingRequiredFields.length" type="warning" variant="tonal" class="mt-3">
-                    Fill in required station info: {{ missingRequiredFields.join(", ") }}.
-                </v-alert>
-                <v-alert v-if="!isReturnSelected && missingRequiredUploadLabels.length" type="warning" variant="tonal" class="mt-3">
-                    Required items missing files: {{ missingRequiredUploadLabels.join(", ") }}.
-                </v-alert>
-                <v-alert v-if="!isReturnSelected && missingRequiredChecklistLabels.length" type="warning" variant="tonal" class="mt-3">
-                    Required checklist items not ticked: {{ missingRequiredChecklistLabels.join(", ") }}.
-                </v-alert>
-                <v-alert v-else-if="!missingRequiredUploadLabels.length && !missingRequiredChecklistLabels.length" type="info" variant="tonal" class="mt-3">
-                    Files and checklist will be verified together with this move.
-                </v-alert>
             </v-window-item>
         </v-window>
     </div>
@@ -211,6 +213,7 @@ import { computed, ref } from 'vue'
 import StepInfoFields from '@/components/StepInfoFields.vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import AttachmentList from '@/components/AttachmentList.vue'
+import ProceedFooter from '@/components/ProceedFooter.vue'
 
 // Wizard step + remarks + move-level attachments are two-way bound to the parent
 // so staged station-info `form` (mutated in place) is never wiped.
@@ -223,7 +226,7 @@ const props = defineProps({
     isAdmin: { type: Boolean, default: false },
     // tx.current_step_requirements — current step only.
     requirements: { type: Array, default: () => [] },
-    // tx.current_step_checklist — current step only.
+    // tx.current_step_checklist — mirrors the previous station's requirements.
     checklist: { type: Array, default: () => [] },
     // tx.current_step_fields
     fields: { type: Array, default: () => [] },
@@ -232,6 +235,8 @@ const props = defineProps({
     selectedActionLabel: { type: String, default: '' },
     selectedRouteId: { type: [Number, String, null], default: null },
     isReturnSelected: { type: Boolean, default: false },
+    // False for step 1 → step 2: requirements only, checklist hidden entirely.
+    showChecklist: { type: Boolean, default: true },
     missingRequiredUploadLabels: { type: Array, default: () => [] },
     missingRequiredChecklistLabels: { type: Array, default: () => [] },
     missingRequiredFields: { type: Array, default: () => [] },
@@ -241,7 +246,8 @@ const props = defineProps({
     savingChecklistItemId: { type: [Number, String, null], default: null },
 })
 
-// Page 1 only when there are requirements (uploads). Checklist lives on page 2.
+// Page 1 holds the uploads. In single-page mode (step 1 → step 2) it is the
+// only page: remarks + move attachments render below the uploads.
 const hasRequirements = computed(() => (props.requirements || []).length > 0)
 const hasProceedContent = computed(
     () => hasRequirements.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,

@@ -14,8 +14,9 @@
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
                 <v-alert type="info" variant="tonal" class="mb-3">
-                    Linked to this step's requirements — they are added, updated,
+                    Linked to the previous station's requirements (via forward routes) — they are added, updated,
                     and removed automatically. Custom items you add here stay independent.
+                    Starting stations have no previous station, so only custom items appear.
                 </v-alert>
 
                 <v-row>
@@ -62,7 +63,7 @@
                             :loading="saving"
                             @click="resetToRequirements"
                         >
-                            Reset to requirements
+                            Reset to previous requirements
                         </v-btn>
                         <v-btn
                             color="grey-darken-3"

@@ -99,7 +99,7 @@ class RequirementDefinitionController extends Controller
         foreach (array_unique(array_merge($beforeStepIds, array_keys($sync))) as $sid) {
             $step = $workflowDefinition->steps()->find($sid);
             if ($step) {
-                $this->checklists->syncFromRequirements($step);
+                $this->checklists->syncSuccessorsOf($step);
             }
         }
 
@@ -109,7 +109,7 @@ class RequirementDefinitionController extends Controller
     private function syncStepChecklists(RequirementDefinition $requirementDefinition): void
     {
         foreach ($requirementDefinition->steps as $step) {
-            $this->checklists->syncFromRequirements($step);
+            $this->checklists->syncSuccessorsOf($step);
         }
     }
 
