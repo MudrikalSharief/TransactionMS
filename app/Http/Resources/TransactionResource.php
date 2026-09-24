@@ -279,7 +279,7 @@ class TransactionResource extends JsonResource
             'created_by' => $this->creator?->only(['id','name','email']),
             'created_at' => $this->created_at?->toISOString(),
 
-            'current_step' => $state?->currentStep?->only(['id','code','name','stage','sla_minutes','is_start','is_end']),
+            'current_step' => $state?->currentStep?->only(['id','order_number','code','name','stage','sla_minutes','is_start','is_end']),
             'entered_at' => $state?->entered_at?->toISOString(),
 
             'workflow_steps' => $this->workflow?->steps?->map(fn($s) => $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end']))?->values(),

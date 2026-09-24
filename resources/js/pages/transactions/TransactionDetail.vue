@@ -500,7 +500,7 @@
         <v-dialog v-model="remarksDialog" max-width="800">
             <v-card rounded="0">
                 <v-card-title>
-                    {{ isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
+                    {{ isFirstStepTransition || isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
                     <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
                 </v-card-title>
                 <v-divider />
@@ -519,6 +519,7 @@
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
+                        :show-checklist="!isFirstStepTransition"
                         :missing-required-upload-labels="missingRequiredUploadLabels"
                         :missing-required-checklist-labels="missingRequiredChecklistLabels"
                         :missing-required-fields="missingRequiredFields"
@@ -538,19 +539,19 @@
                         >Cancel</v-btn
                     >
                     <v-btn
-                        v-if="wizardStep === 2 && !isSingleStepProceed"
+                        v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition"
                         variant="text"
                         @click="wizardStep = 1"
                     >Back</v-btn>
                     <v-btn
-                        v-if="wizardStep === 1 && !isSingleStepProceed"
+                        v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition"
                         color="grey-darken-3"
                         rounded="0"
                         :disabled="saving || savingChecklist"
                         @click="goWizardNext"
                     >Next</v-btn>
                     <v-btn
-                        v-if="wizardStep === 2"
+                        v-if="wizardStep === 2 || isFirstStepTransition"
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
@@ -708,6 +709,14 @@ const isReturnSelected = computed(() =>
     (availableActions.value || []).some(
         (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
     ),
+);
+// Step 1 → step 2 shows requirements only: hide the checklist in the wizard
+// and skip its gating. Every other transition is unchanged.
+const isFirstStepTransition = computed(() =>
+    !isReturnSelected.value &&
+    !isJumpSelected.value &&
+    Number(tx.value?.current_step?.order_number) === 1 &&
+    Number(selectedAction.value?.to_step?.order_number) === 2,
 );
 // Drop a selection that no longer exists in the refreshed action list.
 // Otherwise the closed select renders the raw route id (e.g. "42") with
@@ -904,6 +913,7 @@ const missingRequiredUploadLabels = computed(() => {
 
 const missingRequiredChecklistLabels = computed(() => {
     if (isReturnSelected.value) return [];
+    if (isFirstStepTransition.value) return [];
     return (tx.value?.current_step_checklist ?? [])
         .filter((c) => c.is_required && !c.checked)
         .map((c) => c.name)
@@ -978,8 +988,9 @@ function openProceed() {
             ? [...currentStepAttachments()]
             : [];
     executeError.value = "";
+    // Single-page mode (step 1 → step 2): everything happens on page 1.
     // Skip page 1 when there are no requirements — go straight to checklist/remarks.
-    wizardStep.value = hasProceedRequirements.value ? 1 : 2;
+    wizardStep.value = isFirstStepTransition.value ? 1 : (hasProceedRequirements.value ? 1 : 2);
     wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
 }

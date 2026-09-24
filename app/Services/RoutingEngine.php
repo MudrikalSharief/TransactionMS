@@ -140,7 +140,13 @@ class RoutingEngine
         // must not be blocked by its own incomplete items.
         if (!$route->is_return_route) {
             $this->assertRequiredRequirementsUploaded($tx, $currentStepId);
-            $this->assertRequiredChecklistTicked($tx, $currentStepId);
+            // Step 1 → step 2 shows requirements only: no checklist gate.
+            // (Checklists mirror the previous station's requirements, so
+            // step 1 has none anyway; this also guards custom items an
+            // admin may have added to a start step.)
+            if (!$this->isFirstStepTransition($tx, $route)) {
+                $this->assertRequiredChecklistTicked($tx, $currentStepId);
+            }
         }
 
         $context = $this->buildContext($tx);
@@ -212,6 +218,20 @@ class RoutingEngine
         if ($missingNames->isNotEmpty()) {
             abort(422, 'Required checklist items not completed: ' . $missingNames->implode(', '));
         }
+    }
+
+    /**
+     * The step 1 → step 2 transition shows requirements only, so the
+     * checklist is neither displayed nor enforced. Returns and every
+     * other transition keep the checklist gate.
+     */
+    private function isFirstStepTransition(Transaction $tx, WorkflowRoute $route): bool
+    {
+        $from = $tx->workflow->steps->firstWhere('id', (int) $route->from_step_id);
+        $to = $tx->workflow->steps->firstWhere('id', (int) $route->to_step_id);
+
+        return (int) ($from?->order_number ?? 0) === 1
+            && (int) ($to?->order_number ?? 0) === 2;
     }
 
     private function userCanWorkOnStep(Transaction $tx, User $user, int $stepId): bool

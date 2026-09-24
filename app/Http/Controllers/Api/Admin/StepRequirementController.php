@@ -74,7 +74,8 @@ class StepRequirementController extends Controller
         }
 
         $workflowStep->requirementDefinitions()->sync($sync);
-        $this->checklists->syncFromRequirements($workflowStep);
+        // This step's requirements feed its successors' checklists.
+        $this->checklists->syncSuccessorsOf($workflowStep);
 
         return response()->json(['message' => 'Saved']);
     }
