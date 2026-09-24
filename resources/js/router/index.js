@@ -23,6 +23,8 @@ import TransactionDetail from "@/pages/transactions/TransactionDetail.vue";
 import MyTransactionsList from "@/pages/my/MyTransactionList.vue";
 import MyTransactionDetail from "@/pages/my/MyTransactionDetail.vue";
 
+import ApprovalInbox from "@/pages/approvals/ApprovalInbox.vue";
+
 import Help from "@/pages/Help.vue";
 
 import { useAuth } from "@/composables/useAuth";
@@ -135,6 +137,12 @@ export function createRouter() {
                 name: "my.transaction.detail",
                 component: MyTransactionDetail,
                 meta: { requiresAuth: true },
+            },
+            {
+                path: "/approvals",
+                name: "approvals",
+                component: ApprovalInbox,
+                meta: { requiresAuth: true, title: "Approvals" },
             },
             {
                 path: "/help",

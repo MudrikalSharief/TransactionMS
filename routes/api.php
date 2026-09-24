@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\TransactionAttachmentController;
 use App\Http\Controllers\Api\TransactionGotoController;
 use App\Http\Controllers\Api\TransactionFinalizeController;
 use App\Http\Controllers\Api\UserTransactionController;
+use App\Http\Controllers\Api\ApprovalController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -70,6 +71,8 @@ Route::get('/weather', function () {
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/approvals', [ApprovalController::class, 'index']);
+
     Route::get('/transactions', [UserTransactionController::class, 'index']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);

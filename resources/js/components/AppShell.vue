@@ -141,6 +141,13 @@
                 >
                     <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
                 </v-list-item>
+                <v-list-item
+                    to="/approvals"
+                    prepend-icon="mdi-clipboard-check-multiple-outline"
+                    rounded="lg"
+                >
+                    <v-list-item-title>APPROVALS</v-list-item-title>
+                </v-list-item>
 
                 <template v-if="isSuperadmin">
                     <v-list-item
@@ -312,6 +319,12 @@ const searchPages = computed(() => {
             subtitle: "Page",
             icon: "mdi-file-document-multiple",
             to: "/my/transactions",
+        },
+        {
+            title: "Approvals",
+            subtitle: "Page",
+            icon: "mdi-clipboard-check-multiple-outline",
+            to: "/approvals",
         },
         { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
     ];

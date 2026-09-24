@@ -116,11 +116,27 @@ class TransactionResource extends JsonResource
             // Per-step checklist (seeded from requirements, then free-edited).
             // Required items block Proceed when unticked — same idea as the
             // old requirement ticks; uploads are a requirements-only concern.
-            $checklistItems = \app(\App\Services\ChecklistService::class)
-                ->ensureItems($currentStep);
+            $checklistService = \app(\App\Services\ChecklistService::class);
+            $checklistItems = $checklistService->ensureItems($currentStep);
+
+            // Items mirrored from a predecessor's requirement carry that
+            // station and the files it uploaded, so the reviewer can see
+            // what they are validating (Approvals page).
+            $sourceStepByReq = [];
+            foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
+                foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
+                    $sourceStepByReq[(int) $reqId] ??= $pred;
+                }
+            }
+            $attsByStepReq = collect($this->attachments ?? [])
+                ->groupBy(fn ($a) => ((int) $a->workflow_step_id) . ':' . ((int) ($a->requirement_definition_id ?? 0)));
 
             foreach ($checklistItems as $item) {
                 $cCheck = $checklistChecks->get($item->id);
+                $sourceStep = $sourceStepByReq[(int) ($item->requirement_definition_id ?? 0)] ?? null;
+                $sourceAtts = $sourceStep
+                    ? $attsByStepReq->get(((int) $sourceStep->id) . ':' . ((int) $item->requirement_definition_id), collect())->values()
+                    : collect();
                 $currentStepChecklist[] = [
                     'id' => $item->id,
                     'requirement_definition_id' => $item->requirement_definition_id,
@@ -132,6 +148,17 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $cCheck,
                     'checked_at' => $cCheck?->checked_at?->toISOString(),
                     'checked_by' => $cCheck?->checker?->only(['id', 'name']),
+                    'source_step' => $sourceStep?->only(['id', 'code', 'name', 'order_number']),
+                    'attachments' => $sourceAtts->map(fn ($a) => [
+                        'id' => $a->id,
+                        'original_name' => $a->original_name,
+                        'mime' => $a->mime,
+                        'size_bytes' => (int) $a->size_bytes,
+                        'uploaded_by' => $a->uploader?->only(['id', 'name']),
+                        'created_at' => $a->created_at?->toISOString(),
+                        'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                    ])->all(),
+                    'attachment_count' => $sourceAtts->count(),
                 ];
             }
         }
