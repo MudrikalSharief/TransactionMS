@@ -8,7 +8,7 @@
             <div class="mt-2 font-weight-bold">No data yet</div>
         </div>
         <template v-else>
-            <div v-if="layers.length > 1" class="wave-legend">
+            <div v-if="inStackMode && layers.length" class="wave-legend">
                 <span
                     v-for="layer in layers"
                     :key="layer.label"
@@ -134,6 +134,7 @@ const props = defineProps({
     points: { type: Array, default: () => [] }, // fallback [{ label, value }]
     series: { type: Array, default: () => [] }, // per-type [{ label, color, values: [] }]
     weekLabels: { type: Array, default: () => [] },
+    totals: { type: Array, default: null }, // optional weekly totals incl. series not drawn; else sum of series
     loading: { type: Boolean, default: false },
     height: { type: Number, default: 190 },
     isolate: { type: String, default: null }, // externally isolated type label (e.g. from donut hover)
@@ -191,6 +192,7 @@ const weekCount = computed(() => layers.value[0]?.values?.length || 0)
 
 const weekTotals = computed(() => {
     const n = weekCount.value
+    if (props.totals?.length === n) return props.totals
     const totals = Array(n).fill(0)
     for (const layer of layers.value) {
         ;(layer.values || []).forEach((v, i) => {

@@ -8,10 +8,38 @@
                             <v-icon color="white" size="22">mdi-chart-areaspline</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">Transactions per Week</span>
+                        <v-spacer />
+                        <v-select
+                            v-model="processFilter"
+                            :items="processOptions"
+                            label="Process"
+                            placeholder="Top 5"
+                            persistent-placeholder
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            multiple
+                            clearable
+                            class="process-filter"
+                        >
+                            <template v-slot:selection="{ item, index }">
+                                <span v-if="index === 0" class="text-truncate">
+                                    {{ processFilter.length === 1 ? item.raw.label : `${processFilter.length} processes` }}
+                                </span>
+                            </template>
+                        </v-select>
                     </v-card-title>
                     <v-divider />
                     <v-card-text class="pa-3 d-flex flex-column" style="flex: 1 1 auto">
-                        <AreaWaveChart :points="weeklyVolume" :series="weeklyStack.series" :week-labels="weeklyStack.weeks" :loading="loading" :height="190" />
+                        <AreaWaveChart
+                            :points="weeklyVolume"
+                            :series="weeklyStack.series"
+                            :week-labels="weeklyStack.weeks"
+                            :totals="processFilter.length ? null : weeklyVolume.map((p) => p.value)"
+                            :loading="loading"
+                            :height="190"
+                        />
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -215,19 +243,6 @@ function txTypeLabel(tx) {
     return tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
 }
 
-const byType = computed(() => {
-    const counts = {}
-    for (const tx of scopeSource.value) {
-        const label = txTypeLabel(tx)
-        counts[label] = (counts[label] || 0) + 1
-    }
-    return Object.entries(counts).map(([label, value], idx) => ({
-        label,
-        value,
-        color: label === 'Unclassified' ? '#9E9E9E' : PALETTE[idx % PALETTE.length],
-    }))
-})
-
 // 10 full 7-day windows ending today, shared by the wave totals + type stack.
 const weekWindows = computed(() => {
     const windows = []
@@ -257,21 +272,48 @@ const weeklyVolume = computed(() =>
     }))
 )
 
-// Per-type weekly series for the stacked wave (colors match the donut).
-const weeklyStack = computed(() => {
-    const order = byType.value
-    const valuesByLabel = new Map(order.map((t) => [t.label, weekWindows.value.map(() => 0)]))
+// Per-process weekly counts inside the chart window, busiest first.
+// Colors follow the rank so the top 5 always get distinct colors.
+const processRanking = computed(() => {
+    const windows = weekWindows.value
+    const valuesByLabel = new Map()
     for (const tx of scopeSource.value) {
         if (!tx.created_at) continue
         const t = new Date(tx.created_at).getTime()
-        const wi = weekWindows.value.findIndex((w) => t >= w.start.getTime() && t < w.end.getTime())
+        const wi = windows.findIndex((w) => t >= w.start.getTime() && t < w.end.getTime())
         if (wi < 0) continue
-        const arr = valuesByLabel.get(txTypeLabel(tx))
-        if (arr) arr[wi]++
+        const label = txTypeLabel(tx)
+        if (!valuesByLabel.has(label)) valuesByLabel.set(label, windows.map(() => 0))
+        valuesByLabel.get(label)[wi]++
     }
+    return [...valuesByLabel.entries()]
+        .map(([label, values]) => ({ label, values, total: values.reduce((s, v) => s + v, 0) }))
+        .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+        .map((p, idx) => ({ ...p, color: p.label === 'Unclassified' ? '#9E9E9E' : PALETTE[idx % PALETTE.length] }))
+})
+
+// Line graph filter: empty = top 5 automatically, otherwise up to 5 picked processes.
+const MAX_PROCESSES = 5
+const processFilter = ref([])
+
+const processOptions = computed(() =>
+    processRanking.value.map((p) => ({
+        title: `${p.label} (${p.total})`,
+        value: p.label,
+        label: p.label,
+        props: {
+            disabled: processFilter.value.length >= MAX_PROCESSES && !processFilter.value.includes(p.label),
+        },
+    }))
+)
+
+const weeklyStack = computed(() => {
+    const ranked = processRanking.value
+    const picked = processFilter.value
+    const shown = picked.length ? ranked.filter((p) => picked.includes(p.label)) : ranked.slice(0, MAX_PROCESSES)
     return {
         weeks: weekWindows.value.map((w) => w.label),
-        series: order.map((t) => ({ label: t.label, color: t.color, values: valuesByLabel.get(t.label) })),
+        series: shown.map(({ label, color, values }) => ({ label, color, values })),
     }
 })
 
@@ -414,6 +456,10 @@ onUnmounted(() => {
 .action-table :deep(td) {
     padding-top: 6px;
     padding-bottom: 6px;
+}
+.process-filter {
+    flex: 0 1 240px;
+    min-width: 160px;
 }
 .start-row {
     cursor: pointer;
