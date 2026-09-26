@@ -14,6 +14,7 @@ class RequirementDefinitionResource extends JsonResource
             'order_number' => $this->order_number,
             'code' => $this->code,
             'name' => $this->name,
+            'label' => $this->label,
             'description' => $this->description,
             'is_active' => (bool) $this->is_active,
             'steps' => $this->whenLoaded('steps', function () {

@@ -14,6 +14,7 @@ import AdminStepFields from "@/pages/admin/StepFields.vue";
 
 import AdminRequirements from "@/pages/admin/Requirements.vue";
 import AdminStepRequirements from "@/pages/admin/StepRequirements.vue";
+import AdminStepChecklist from "@/pages/admin/StepChecklist.vue";
 import AdminRequirementsIndex from "@/pages/admin/RequirementsIndex.vue";
 
 import TransactionsList from "@/pages/transactions/TransactionList.vue";
@@ -22,9 +23,11 @@ import TransactionDetail from "@/pages/transactions/TransactionDetail.vue";
 import MyTransactionsList from "@/pages/my/MyTransactionList.vue";
 import MyTransactionDetail from "@/pages/my/MyTransactionDetail.vue";
 
+import ApprovalInbox from "@/pages/approvals/ApprovalInbox.vue";
+
 import Help from "@/pages/Help.vue";
 
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 
 export function createRouter() {
     const router = _createRouter({
@@ -100,6 +103,12 @@ export function createRouter() {
                 component: AdminStepRequirements,
                 meta: { requiresAuth: true },
             },
+            {
+                path: "/admin/workflows/:workflowId/steps/:stepId/checklist",
+                name: "admin.step-checklist",
+                component: AdminStepChecklist,
+                meta: { requiresAuth: true },
+            },
 
             {
                 path: "/transactions",
@@ -130,6 +139,12 @@ export function createRouter() {
                 meta: { requiresAuth: true },
             },
             {
+                path: "/approvals",
+                name: "approvals",
+                component: ApprovalInbox,
+                meta: { requiresAuth: true, title: "Approvals" },
+            },
+            {
                 path: "/help",
                 name: "help",
                 component: Help,
@@ -143,6 +158,8 @@ export function createRouter() {
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
         if (to.name === "login" && auth.user.value)
+            return { name: "dashboard" };
+        if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
         return true;
     });

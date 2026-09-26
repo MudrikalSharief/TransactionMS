@@ -13,8 +13,10 @@
                 @click="toggleNav"
             />
             <div
-                class="d-flex align-center flex-shrink-0 mr-4 ml-3"
+                class="d-flex align-center flex-shrink-0 mr-4 ml-3 brand-click"
                 style="flex: 0 0 auto; min-width: max-content"
+                v-tooltip="'Go to Dashboard'"
+                @click="router.push({ name: 'dashboard' })"
             >
                 <v-img
                     src="/zamboanga-seal.png"
@@ -139,6 +141,36 @@
                 >
                     <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
                 </v-list-item>
+                <v-list-item
+                    v-if="showApprovals"
+                    to="/approvals"
+                    rounded="lg"
+                    v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : undefined"
+                >
+                    <template #prepend>
+                        <v-badge
+                            :model-value="rail && pendingRequirements > 0"
+                            :content="pendingRequirements > 99 ? '99+' : pendingRequirements"
+                            color="error"
+                            class="approvals-badge"
+                        >
+                            <v-icon>mdi-clipboard-check-multiple-outline</v-icon>
+                        </v-badge>
+                    </template>
+                    <v-list-item-title>APPROVALS</v-list-item-title>
+                    <template #append>
+                        <v-chip
+                            v-if="!rail && pendingRequirements > 0"
+                            size="x-small"
+                            color="error"
+                            variant="flat"
+                            class="font-weight-bold"
+                            v-tooltip="approvalsBadgeLabel"
+                        >
+                            {{ pendingRequirements > 99 ? "99+" : pendingRequirements }}
+                        </v-chip>
+                    </template>
+                </v-list-item>
 
                 <template v-if="isSuperadmin">
                     <v-list-item
@@ -155,18 +187,18 @@
                         <v-list-item-title>ROLES</v-list-item-title>
                     </v-list-item>
                     <v-list-item
+                        to="/admin/offices"
+                        prepend-icon="mdi-office-building-outline"
+                        rounded="lg"
+                    >
+                        <v-list-item-title>OFFICES</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
                         to="/admin/transaction-types"
                         prepend-icon="mdi-format-list-bulleted-type"
                         rounded="lg"
                     >
-                        <v-list-item-title>TRANSACTION TYPES</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
-                        to="/admin/workflows"
-                        prepend-icon="mdi-source-branch"
-                        rounded="lg"
-                    >
-                        <v-list-item-title>WORKFLOWS</v-list-item-title>
+                        <v-list-item-title>PROCESSES</v-list-item-title>
                     </v-list-item>
                     <v-list-item
                         to="/admin/fields"
@@ -174,13 +206,6 @@
                         rounded="lg"
                     >
                         <v-list-item-title>FIELDS</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
-                        to="/admin/requirements"
-                        prepend-icon="mdi-clipboard-check-outline"
-                        rounded="lg"
-                    >
-                        <v-list-item-title>REQUIREMENTS</v-list-item-title>
                     </v-list-item>
                     <v-list-item
                         to="/admin/government-references"
@@ -239,12 +264,13 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
+import { useApprovalBadge } from "@/composables/useApprovalBadge";
 
 const router = useRouter();
 const route = useRoute();
@@ -288,6 +314,27 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === "superadmin");
 });
 
+const showApprovals = computed(() => canUseApprovals(auth.user.value));
+
+// ---- APPROVALS badge: required requirements waiting for validation ----
+const approvalBadge = useApprovalBadge();
+const pendingRequirements = approvalBadge.pendingRequirements;
+const approvalsBadgeLabel = computed(() => {
+    const n = pendingRequirements.value;
+    return `${n} requirement${n === 1 ? "" : "s"} waiting for your validation`;
+});
+
+function refreshApprovalBadge() {
+    if (showApprovals.value) approvalBadge.refresh();
+    else approvalBadge.clear();
+}
+
+// Recount on login/role change and on every page change; a timer (see
+// onMounted) catches work that arrives from other users meanwhile.
+watch(showApprovals, refreshApprovalBadge, { immediate: true });
+watch(() => route.fullPath, refreshApprovalBadge);
+let approvalBadgeTimer = null;
+
 const userTooltip = computed(() => {
     const u = auth.user.value;
     if (!u) return "User";
@@ -320,13 +367,27 @@ const searchPages = computed(() => {
         },
         { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
     ];
+    if (showApprovals.value) {
+        pages.splice(2, 0, {
+            title: "Approvals",
+            subtitle: "Page",
+            icon: "mdi-clipboard-check-multiple-outline",
+            to: "/approvals",
+        });
+    }
     if (isSuperadmin.value) {
         pages.push(
             { title: "Transactions", subtitle: "Page · Admin", icon: "mdi-swap-horizontal", to: "/transactions" },
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
             { title: "Roles", subtitle: "Page · Admin", icon: "mdi-shield-account", to: "/admin/roles" },
             {
-                title: "Transaction Types",
+                title: "Offices",
+                subtitle: "Page · Admin",
+                icon: "mdi-office-building-outline",
+                to: "/admin/offices",
+            },
+            {
+                title: "Processes",
                 subtitle: "Page · Admin",
                 icon: "mdi-format-list-bulleted-type",
                 to: "/admin/transaction-types",
@@ -565,15 +626,21 @@ onMounted(() => {
     clockTimer = setInterval(tickClock, 1000);
     loadTemperature();
     weatherTimer = setInterval(loadTemperature, 10 * 60 * 1000);
+    approvalBadgeTimer = setInterval(refreshApprovalBadge, 60 * 1000);
 });
 
 onUnmounted(() => {
     if (clockTimer) clearInterval(clockTimer);
     if (weatherTimer) clearInterval(weatherTimer);
+    if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
 });
 </script>
 
 <style scoped>
+.brand-click {
+    cursor: pointer;
+    user-select: none;
+}
 /* Compact sidebar: tighter rows so all items fit without scrolling */
 .nav-compact :deep(.v-list-item) {
     min-height: 36px !important;
@@ -586,6 +653,12 @@ onUnmounted(() => {
 }
 .nav-compact :deep(.v-list-item__prepend .v-icon) {
     font-size: 1.1rem;
+}
+/* Keep the APPROVALS badge on the icon, clear of the title */
+.approvals-badge :deep(.v-badge__badge) {
+    font-size: 0.65rem;
+    min-width: 18px;
+    height: 18px;
 }
 /* Footer theme/help pair */
 .drawer-footer .v-btn {

@@ -4,6 +4,15 @@ import { useApi } from "@/composables/useApi";
 const user = ref(null);
 const initialized = ref(false);
 
+// Approvals is hidden from users with no assigned role, and from end users
+// (they submit, never approve). Superadmin keeps access even when also
+// holding end_user. Mirrors ApprovalController::index.
+export function canUseApprovals(u) {
+    const codes = (u?.roles ?? []).map((r) => r.code);
+    if (!codes.length) return false;
+    return codes.includes("superadmin") || !codes.includes("end_user");
+}
+
 export function useAuth() {
     const { api, csrf } = useApi();
 

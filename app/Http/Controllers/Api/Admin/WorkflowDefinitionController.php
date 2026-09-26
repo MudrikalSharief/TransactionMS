@@ -22,7 +22,7 @@ class WorkflowDefinitionController extends Controller
         $typeId = $request->query('transaction_type_id');
 
         $q = WorkflowDefinition::query()
-            ->with(['steps.roles', 'routes'])
+            ->with(['steps.roles', 'steps.office', 'routes'])
             ->orderByDesc('version');
 
         if ($typeId) $q->where('transaction_type_id', $typeId);
@@ -33,7 +33,7 @@ class WorkflowDefinitionController extends Controller
     public function show(WorkflowDefinition $workflowDefinition)
     {
         return new WorkflowDefinitionResource(
-            $workflowDefinition->load(['steps.roles', 'routes'])
+            $workflowDefinition->load(['steps.roles', 'steps.office', 'routes'])
         );
     }
 

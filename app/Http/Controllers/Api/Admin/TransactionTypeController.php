@@ -15,33 +15,52 @@ class TransactionTypeController extends Controller
     public function index()
     {
         return TransactionTypeResource::collection(
-            TransactionType::query()->orderBy('name')->get()
+            TransactionType::query()->with('offices')->orderBy('name')->get()
         );
     }
 
     public function store(StoreTransactionTypeRequest $request, AuditService $audit)
     {
-        $type = TransactionType::create($request->validated());
+        $validated = $request->validated();
+        $officeIds = $validated['office_ids'] ?? null;
+        unset($validated['office_ids']);
+
+        $type = TransactionType::create($validated);
+
+        if (is_array($officeIds)) {
+            $type->offices()->sync($officeIds);
+        }
 
         $audit->log($request, 'transaction_types.create', $type, [
             'payload' => $request->validated(),
         ]);
 
-        return (new TransactionTypeResource($type))->response()->setStatusCode(201);
+        return (new TransactionTypeResource($type->load('offices')))->response()->setStatusCode(201);
     }
 
     public function update(UpdateTransactionTypeRequest $request, TransactionType $transactionType, AuditService $audit)
     {
         $before = $transactionType->only(['code', 'name', 'description', 'is_active']);
+        $before['office_ids'] = $transactionType->offices()->pluck('offices.id')->values()->all();
 
-        $transactionType->update($request->validated());
+        $validated = $request->validated();
+        $officeIds = $validated['office_ids'] ?? null;
+        unset($validated['office_ids']);
+
+        $transactionType->update($validated);
+
+        if (is_array($officeIds)) {
+            $transactionType->offices()->sync($officeIds);
+        }
 
         $audit->log($request, 'transaction_types.update', $transactionType, [
             'before' => $before,
-            'after' => $transactionType->only(['code', 'name', 'description', 'is_active']),
+            'after' => array_merge($transactionType->only(['code', 'name', 'description', 'is_active']), [
+                'office_ids' => $transactionType->offices()->pluck('offices.id')->values()->all(),
+            ]),
         ]);
 
-        return new TransactionTypeResource($transactionType);
+        return new TransactionTypeResource($transactionType->load('offices'));
     }
 
     public function destroy(Request $request, TransactionType $transactionType, AuditService $audit)

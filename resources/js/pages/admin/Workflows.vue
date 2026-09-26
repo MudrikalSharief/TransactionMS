@@ -8,7 +8,7 @@
                 <div>
                     <span class="text-h6 font-weight-bold">Workflows</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
-                    <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
+                    <div v-else class="text-caption text-medium-emphasis">Select a process</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
                         <v-chip
                             rounded="0"
@@ -64,8 +64,8 @@
                     rounded="0"
                     class="mb-3"
                 >
-                    No transaction type selected. Pick one below, or go to
-                    <b>Transaction Types</b> and open <b>Steps</b> for one type.
+                    No process selected. Pick one below, or go to
+                    <b>Processes</b> and open <b>Steps</b> for one process.
                 </v-alert>
                 <v-select
                     v-if="!selectedTypeId && !loading && (types || []).length"
@@ -73,7 +73,7 @@
                     :items="typePickerOptions"
                     item-title="label"
                     item-value="id"
-                    label="Select transaction type"
+                    label="Select process"
                     density="compact"
                     class="mb-3"
                     @update:model-value="onPickType"
@@ -100,7 +100,7 @@
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <v-alert v-else type="info" variant="tonal" class="mb-3">
-                            No process yet for this transaction type — click <b>Add Step</b> to create step 1.
+                            No process yet for this process — click <b>Add Step</b> to create step 1.
                         </v-alert>
                     </div>
 
@@ -165,6 +165,35 @@
                             sub of {{ item.parent_name }}
                         </div>
                     </template>
+                    <template v-slot:[`item.office_id`]="{ item }">
+                        <v-chip
+                            v-if="officeName(item)"
+                            rounded="0"
+                            size="small"
+                            variant="tonal"
+                            color="primary"
+                            class="font-weight-bold"
+                        >
+                            {{ officeName(item) }}
+                        </v-chip>
+                        <span v-else class="text-medium-emphasis">—</span>
+                    </template>
+                    <template v-slot:[`item.role_ids`]="{ item }">
+                        <div class="d-flex flex-wrap ga-1">
+                            <v-chip
+                                v-for="r in roleNames(item)"
+                                :key="r"
+                                rounded="0"
+                                size="x-small"
+                                variant="tonal"
+                                color="grey-darken-3"
+                                class="font-weight-bold"
+                            >
+                                {{ r }}
+                            </v-chip>
+                            <span v-if="!roleNames(item).length" class="text-medium-emphasis">—</span>
+                        </div>
+                    </template>
                     <template v-slot:[`item.flags`]="{ item }">
                         <v-chip
                             v-if="item.is_start"
@@ -183,20 +212,20 @@
                     <template v-slot:[`item.actions`]="{ item }">
                         <div class="d-flex ga-3 justify-end">
                             <v-btn
-                                icon="mdi-table-column"
-                                v-tooltip="'Step fields'"
+                                icon="mdi-clipboard-list-outline"
+                                v-tooltip="'Requirements'"
                                 size="small"
                                 variant="outlined"
                                 color="grey-darken-3"
-                                @click="goStepFields(item)"
+                                @click="goStepRequirements(item)"
                             />
                             <v-btn
                                 icon="mdi-clipboard-check-outline"
-                                v-tooltip="'Step requirements'"
+                                v-tooltip="'Checklist'"
                                 size="small"
                                 variant="outlined"
                                 color="info"
-                                @click="goStepRequirements(item)"
+                                @click="goStepChecklist(item)"
                             />
                             <v-btn
                                 icon="mdi-pencil"
@@ -397,6 +426,15 @@
                     <v-switch v-model="stepForm.is_end" label="Is End" />
 
                     <v-select
+                        v-model="stepForm.office_id"
+                        :items="officeOptions"
+                        item-title="label"
+                        item-value="id"
+                        label="Office for this step"
+                        clearable
+                    />
+
+                    <v-select
                         v-model="stepForm.role_ids"
                         :items="roleOptions"
                         item-title="label"
@@ -486,6 +524,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useWorkflows } from "@/composables/useWorkflows";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
+import { useOffices } from "@/composables/useOffices";
 import TableLoader from '@/components/TableLoader.vue';
 import GuideTable from '@/components/GuideTable.vue';
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus';
@@ -506,6 +545,7 @@ const {
 
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes();
 const { roles, fetchRoles } = useRoles();
+const { items: offices, fetchAll: fetchOffices } = useOffices();
 
 const selectedTypeId = ref(null);
 const activeDef = ref(null);
@@ -547,6 +587,36 @@ const conditionHint =
 const roleOptions = computed(
     () => (roles.value || []).map((r) => ({ id: r.id, label: `${r.name}` })), // use ${r.code} to show Role Code
 );
+
+const officeOptions = computed(
+    () => (offices.value || []).map((o) => ({ id: o.id, label: `${o.name}` })),
+);
+
+const roleNameById = computed(() => {
+    const m = new Map();
+    for (const r of (roles.value || [])) m.set(Number(r.id), r.name || r.code);
+    return m;
+});
+
+const officeNameById = computed(() => {
+    const m = new Map();
+    for (const o of (offices.value || [])) m.set(Number(o.id), o.name || o.code);
+    return m;
+});
+
+function officeName(item) {
+    if (item?.office?.name) return item.office.name;
+    if (item?.office_id == null) return "";
+    return officeNameById.value.get(Number(item.office_id)) || "";
+}
+
+function roleNames(item) {
+    if (Array.isArray(item?.roles) && item.roles.length)
+        return item.roles.map((r) => r.name || r.code);
+    return (item?.role_ids || []).map(
+        (id) => roleNameById.value.get(Number(id)) || `#${id}`,
+    );
+}
 
 const selectedTypeName = computed(() => {
     const t = (types.value || []).find((x) => Number(x.id) === Number(selectedTypeId.value));
@@ -690,6 +760,8 @@ const stepHeaders = [
     { title: "Name", key: "name" },
     { title: "Stage", key: "stage" },
     { title: "SLA (min)", key: "sla_minutes" },
+    { title: "Office", key: "office_id", sortable: false },
+    { title: "Roles", key: "role_ids", sortable: false },
     { title: "Flags", key: "flags", sortable: false },
     { title: "", key: "actions", sortable: false },
 ];
@@ -858,17 +930,41 @@ async function goStepFields(item) {
     }
 }
 
+function liveEditableTarget() {
+    // Requirements/checklist apply to running papers immediately, so
+    // open them on the published process — not an open draft clone.
+    return currentDef.value || activeDef.value;
+}
+
+function stepOnDef(def, item) {
+    return (def?.steps || []).find((s) => s.code && s.code === item?.code) || item;
+}
+
 async function goStepRequirements(item) {
     error.value = "";
     notice.value = "";
     try {
-        const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
-        const fresh = stepInDraft(oldSteps, item);
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
         const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-        router.push({ path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/requirements`, query: q });
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/requirements`, query: q });
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to open step requirements.";
+    }
+}
+
+async function goStepChecklist(item) {
+    error.value = "";
+    notice.value = "";
+    try {
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
+        const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/checklist`, query: q });
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Failed to open step checklist.";
     }
 }
 
@@ -920,6 +1016,7 @@ function openStepDialog(step = null) {
             parent_id: step.parent_id ?? null,
             name: step.name,
             stage: step.stage ?? "",
+            office_id: step.office_id ?? null,
             sla_minutes: step.sla_minutes ?? 0,
             is_start: !!step.is_start,
             is_end: !!step.is_end,
@@ -933,6 +1030,7 @@ function openStepDialog(step = null) {
             parent_id: null,
             name: "",
             stage: "",
+            office_id: null,
             sla_minutes: 0,
             is_start: false,
             is_end: false,
@@ -952,6 +1050,7 @@ async function saveStep() {
             order_number: Number(stepForm.value.order_number),
             name: stepForm.value.name,
             stage: stepForm.value.stage || null,
+            office_id: stepForm.value.office_id ?? null,
             sla_minutes: Number(stepForm.value.sla_minutes || 0),
             is_start: !!stepForm.value.is_start,
             is_end: !!stepForm.value.is_end,
@@ -1105,6 +1204,7 @@ watch(
 onMounted(async () => {
     await fetchTypes();
     await fetchRoles();
+    await fetchOffices();
     applyTypeFromQuery();
 });
 </script>

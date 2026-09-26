@@ -43,6 +43,20 @@
           </v-chip>
         </template>
 
+        <template v-slot:[`item.office`]="{ item }">
+          <v-chip
+            v-if="item.office?.name || officeNameById.get(Number(item.office_id))"
+            rounded="0"
+            size="small"
+            variant="tonal"
+            color="primary"
+            class="font-weight-bold"
+          >
+            {{ item.office?.name || officeNameById.get(Number(item.office_id)) }}
+          </v-chip>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
+
         <template v-slot:[`item.is_active`]="{ item }">
           <v-chip :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
             <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
@@ -102,6 +116,15 @@
           multiple
           chips
         />
+
+        <v-select
+          v-model="form.office_id"
+          :items="officeOptions"
+          item-title="label"
+          item-value="id"
+          label="Office"
+          clearable
+        />
       </v-card-text>
       <v-divider />
       <v-card-actions class="justify-end">
@@ -116,17 +139,20 @@
 import { computed, onMounted, ref } from 'vue'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
+import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
 import TableLoader from '@/components/TableLoader.vue'
 
 const auth = useAuth()
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = useAdminUsers()
 const { roles, fetchRoles } = useRoles()
+const { items: offices, fetchAll: fetchOffices } = useOffices()
 
 const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Email', key: 'email' },
   { title: 'Roles', key: 'roles', sortable: false },
+  { title: 'Office', key: 'office', sortable: false },
   { title: 'Status', key: 'is_active' },
   { title: '', key: 'actions', sortable: false },
 ]
@@ -142,15 +168,26 @@ const form = ref({
   password: '',
   is_active: true,
   role_ids: [],
+  office_id: null,
 })
 
 const roleOptions = computed(() =>
    (roles.value || []).map(r => ({ id: r.id, label: `${r.name}` })) // use ${r.code} to show Role Code
 )
 
+const officeOptions = computed(() =>
+  (offices.value || []).map(o => ({ id: o.id, label: `${o.name}` }))
+)
+
+const officeNameById = computed(() => {
+  const m = new Map()
+  for (const o of (offices.value || [])) m.set(Number(o.id), o.name || o.code)
+  return m
+})
+
 function openCreate() {
   error.value = ''
-  form.value = { id: null, name: '', email: '', password: '', is_active: true, role_ids: [] }
+  form.value = { id: null, name: '', email: '', password: '', is_active: true, role_ids: [], office_id: null }
   dialog.value = true
 }
 
@@ -163,6 +200,7 @@ function openEdit(item) {
     password: '',
     is_active: !!item.is_active,
     role_ids: (item.roles || []).map(r => r.id),
+    office_id: item.office_id ?? item.office?.id ?? null,
   }
   dialog.value = true
 }
@@ -176,6 +214,7 @@ async function save() {
       email: form.value.email,
       is_active: form.value.is_active,
       role_ids: form.value.role_ids,
+      office_id: form.value.office_id ?? null,
     }
     if (form.value.password) payload.password = form.value.password
 
@@ -207,6 +246,7 @@ async function deactivate(item) {
 
 onMounted(async () => {
   await fetchRoles()
+  await fetchOffices()
   await fetchUsers()
 })
 </script>

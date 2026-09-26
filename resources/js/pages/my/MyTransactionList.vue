@@ -79,6 +79,13 @@
                         </v-chip>
                     </template>
 
+                    <template v-slot:[`item.office`]="{ item }">
+                        <span v-if="item.office?.name" class="text-medium-emphasis">
+                            {{ item.office.name }}
+                        </span>
+                        <span v-else class="text-medium-emphasis">—</span>
+                    </template>
+
                     <template v-slot:[`item.current_step`]="{ item }">
                         <v-menu open-on-hover location="end" open-delay="250">
                             <template #activator="{ props }">
@@ -146,6 +153,7 @@ const guideSections = [
             { term: "REFERENCE", text: "UNIQUE TRACKING CODE — QUOTE IT WHEN FOLLOWING UP" },
             { term: "TITLE", text: "SHORT NAME OF THE REQUEST" },
             { term: "TRANSACTION TYPE", text: "WHAT KIND OF REQUEST IT IS" },
+            { term: "OFFICE", text: "THE OFFICE THE REQUEST BELONGS TO (BLANK IF NONE)" },
             { term: "CURRENT STEP", text: "WHERE IT IS RIGHT NOW (HOVER THE CHIP FOR PROGRESS)" },
             { term: "CREATED AT", text: "WHEN THE REQUEST WAS SUBMITTED" },
         ],
@@ -155,7 +163,8 @@ const guideSections = [
 const headers = [
     { title: "Reference", key: "reference_number" },
     { title: "Title", key: "title" },
-    { title: "Transaction Type", key: "type", sortable: false },
+    { title: "Process", key: "type", sortable: false },
+    { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
     { title: "Created At", key: "created_at" },
 ];
@@ -169,6 +178,7 @@ const filtered = computed(() => {
             tx.title,
             tx.transaction_type?.name,
             tx.transaction_type_name,
+            tx.office?.name,
             tx.current_step?.name,
             tx.current_step?.code,
         ]

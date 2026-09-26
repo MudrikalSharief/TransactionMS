@@ -20,7 +20,7 @@
 
             <v-card-text v-if="tx" class="pa-4">
                 <div class="mb-2">
-                    <b>Transaction Type:</b> {{ tx.transaction_type?.name }}
+                    <b>Process:</b> {{ tx.transaction_type?.name }}
                 </div>
 
                 <div class="mb-2">
@@ -241,14 +241,20 @@
 
                 <div v-else class="mb-3">
                     <v-alert
-                        v-if="missingRequiredLabels.length"
+                        v-if="missingRequiredUploadLabels.length || missingRequiredChecklistLabels.length"
                         type="warning"
                         variant="tonal"
                         class="mb-3"
                     >
-                        Required items missing:
-                        {{ missingRequiredLabels.join(", ") }}. You will not be
-                        able to execute any action until these are checked.
+                        <div v-if="missingRequiredUploadLabels.length">
+                            Missing files for required items:
+                            {{ missingRequiredUploadLabels.join(", ") }}.
+                        </div>
+                        <div v-if="missingRequiredChecklistLabels.length">
+                            Required checklist items not ticked:
+                            {{ missingRequiredChecklistLabels.join(", ") }}.
+                        </div>
+                        You will not be able to proceed until these are done.
                     </v-alert>
 
                     <div class="d-flex flex-column" style="min-height: 510px">
@@ -494,7 +500,7 @@
         <v-dialog v-model="remarksDialog" max-width="800">
             <v-card rounded="0">
                 <v-card-title>
-                    {{ isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
+                    {{ isFirstStepTransition || isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
                     <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
                 </v-card-title>
                 <v-divider />
@@ -507,18 +513,22 @@
                         :tx-id="route.params.id"
                         is-admin
                         :requirements="tx?.current_step_requirements || []"
+                        :checklist="tx?.current_step_checklist || []"
                         :fields="tx?.current_step_fields"
                         :form="form"
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
-                        :missing-required-labels="missingRequiredLabels"
+                        :show-checklist="!isFirstStepTransition"
+                        :missing-required-upload-labels="missingRequiredUploadLabels"
+                        :missing-required-checklist-labels="missingRequiredChecklistLabels"
                         :missing-required-fields="missingRequiredFields"
                         :execute-error="executeError"
                         :saving="saving"
                         :saving-checklist="savingChecklist"
-                        :saving-requirement-id="savingRequirementId"
+                        :saving-checklist-item-id="savingChecklistItemId"
                         @toggle-requirement="onWizardToggle"
+                        @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
                         @attachment-deleted="removeAttachment"
                     />
@@ -529,23 +539,23 @@
                         >Cancel</v-btn
                     >
                     <v-btn
-                        v-if="wizardStep === 2 && !isSingleStepProceed"
+                        v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition"
                         variant="text"
                         @click="wizardStep = 1"
                     >Back</v-btn>
                     <v-btn
-                        v-if="wizardStep === 1 && !isSingleStepProceed"
+                        v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition"
                         color="grey-darken-3"
                         rounded="0"
                         :disabled="saving || savingChecklist"
                         @click="goWizardNext"
                     >Next</v-btn>
                     <v-btn
-                        v-if="wizardStep === 2"
+                        v-if="wizardStep === 2 || isFirstStepTransition"
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
-                        :disabled="!selectedRouteId || (!isReturnSelected && missingRequiredLabels.length > 0) || missingRequiredFields.length > 0"
+                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0"
                         @click="executeSelected"
                         >Proceed</v-btn
                     >
@@ -700,6 +710,14 @@ const isReturnSelected = computed(() =>
         (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
     ),
 );
+// Step 1 → step 2 shows requirements only: hide the checklist in the wizard
+// and skip its gating. Every other transition is unchanged.
+const isFirstStepTransition = computed(() =>
+    !isReturnSelected.value &&
+    !isJumpSelected.value &&
+    Number(tx.value?.current_step?.order_number) === 1 &&
+    Number(selectedAction.value?.to_step?.order_number) === 2,
+);
 // Drop a selection that no longer exists in the refreshed action list.
 // Otherwise the closed select renders the raw route id (e.g. "42") with
 // no matching label after a move or a condition flip.
@@ -733,6 +751,7 @@ const form = ref({});
 const auth = useAuth();
 
 const savingChecklist = ref(false);
+const savingChecklistItemId = ref(null);
 const savingRequirementId = ref(null);
 
 const reqHeaders = [
@@ -879,13 +898,33 @@ const flatStationItems = computed(() => {
     return out;
 });
 
-const missingRequiredLabels = computed(() => {
-    const out = (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_required && !r.checked)
+const missingRequiredUploadLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    return (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => {
+            const existing = (r.attachments || []).length;
+            const staged = (stagedReqFileCount(r) || 0);
+            return existing + staged === 0;
+        })
         .map((r) => r.definition?.name)
         .filter(Boolean);
-    return out;
 });
+
+const missingRequiredChecklistLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    if (isFirstStepTransition.value) return [];
+    return (tx.value?.current_step_checklist ?? [])
+        .filter((c) => c.is_required && !c.checked)
+        .map((c) => c.name)
+        .filter(Boolean);
+});
+
+// Instant staged-file counts from the open wizard (uploads persist server-side
+// immediately; this is only for the pre-refresh badge on page 1).
+function stagedReqFileCount(r) {
+    return wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0;
+}
 
 // Required station-info fields still empty in the draft form. These fail
 // server-side validation on Proceed (e.g. Request Title, Office Name,
@@ -949,8 +988,9 @@ function openProceed() {
             ? [...currentStepAttachments()]
             : [];
     executeError.value = "";
+    // Single-page mode (step 1 → step 2): everything happens on page 1.
     // Skip page 1 when there are no requirements — go straight to checklist/remarks.
-    wizardStep.value = hasProceedRequirements.value ? 1 : 2;
+    wizardStep.value = isFirstStepTransition.value ? 1 : (hasProceedRequirements.value ? 1 : 2);
     wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
 }
@@ -985,6 +1025,52 @@ async function onWizardToggle(req, checked) {
     if (!req?.definition?.id) return;
     if (checked && !req.checked) await checkRequirement(req.definition.id);
     else if (!checked && req.checked) await uncheckRequirement(req.definition.id);
+}
+
+async function onWizardChecklistToggle(item, checked) {
+    if (!item?.id) return;
+    if (checked && !item.checked) await checkChecklistItem(item.id);
+    else if (!checked && item.checked) await uncheckChecklistItem(item.id);
+}
+
+async function checkChecklistItem(itemId) {
+    savingChecklist.value = true;
+    savingChecklistItemId.value = itemId;
+    error.value = "";
+    try {
+        const res = await api.post(
+            `/api/transactions/${route.params.id}/checklist/${itemId}/check`,
+        );
+        tx.value = res.data.data ?? res.data;
+        availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Checklist check failed.";
+    } finally {
+        savingChecklist.value = false;
+        savingChecklistItemId.value = null;
+    }
+}
+
+async function uncheckChecklistItem(itemId) {
+    savingChecklist.value = true;
+    savingChecklistItemId.value = itemId;
+    error.value = "";
+    try {
+        const res = await api.delete(
+            `/api/transactions/${route.params.id}/checklist/${itemId}/check`,
+        );
+        tx.value = res.data.data ?? res.data;
+        availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Checklist uncheck failed.";
+    } finally {
+        savingChecklist.value = false;
+        savingChecklistItemId.value = null;
+    }
 }
 
 async function executeSelected() {

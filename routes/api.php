@@ -14,20 +14,24 @@ use App\Http\Controllers\Api\Admin\GovernmentReferenceController;
 use App\Http\Controllers\Api\Admin\WorkflowDefinitionController;
 use App\Http\Controllers\Api\Admin\WorkflowStepController;
 use App\Http\Controllers\Api\Admin\WorkflowRouteController;
+use App\Http\Controllers\Api\Admin\DashboardSummaryController;
 
 use App\Http\Controllers\Api\Admin\FieldDefinitionController;
 use App\Http\Controllers\Api\Admin\StepFieldController;
 
 use App\Http\Controllers\Api\Admin\RequirementDefinitionController;
 use App\Http\Controllers\Api\Admin\StepRequirementController;
+use App\Http\Controllers\Api\Admin\StepChecklistController;
 
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\TransactionRequirementController;
+use App\Http\Controllers\Api\TransactionChecklistController;
 use App\Http\Controllers\Api\TransactionAttachmentController;
 
 use App\Http\Controllers\Api\TransactionGotoController;
 use App\Http\Controllers\Api\TransactionFinalizeController;
 use App\Http\Controllers\Api\UserTransactionController;
+use App\Http\Controllers\Api\ApprovalController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -68,6 +72,9 @@ Route::get('/weather', function () {
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/approvals', [ApprovalController::class, 'index']);
+    Route::get('/approvals/count', [ApprovalController::class, 'count']);
+
     Route::get('/transactions', [UserTransactionController::class, 'index']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
@@ -76,6 +83,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/transactions/{transaction}/requirements/{requirementDefinition}/check', [TransactionRequirementController::class, 'check']);
     Route::delete('/transactions/{transaction}/requirements/{requirementDefinition}/check', [TransactionRequirementController::class, 'uncheck']);
+
+    Route::post('/transactions/{transaction}/checklist/{checklistOverride}/check', [TransactionChecklistController::class, 'check']);
+    Route::delete('/transactions/{transaction}/checklist/{checklistOverride}/check', [TransactionChecklistController::class, 'uncheck']);
 
     Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
     Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
@@ -133,6 +143,14 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         // Requirements - Assign to a step
         Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements', [StepRequirementController::class, 'index']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements/sync', [StepRequirementController::class, 'sync']);
+
+        // Checklist - per-step overrides (seeded from requirements, then free-edited)
+        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
+
+        // Dashboard - Transaction Summary card
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
 
         // Transactions
         Route::get('/transactions', [TransactionController::class, 'index']);

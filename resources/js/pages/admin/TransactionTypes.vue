@@ -4,10 +4,10 @@
       <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
         <v-icon color="white">mdi-format-list-bulleted-type</v-icon>
       </v-avatar>
-      <span class="text-h6 font-weight-bold">Transaction Types</span>
+      <span class="text-h6 font-weight-bold">Processes</span>
       <v-spacer />
       <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
-        Add Transaction Type
+        Add Process
       </v-btn>
     </v-card-title>
     <v-divider />
@@ -51,6 +51,22 @@
           <span v-else class="text-medium-emphasis">—</span>
         </template>
 
+        <template v-slot:[`item.offices`]="{ item }">
+          <div v-if="(item.offices || []).length" class="d-flex flex-wrap ga-1">
+            <v-chip
+              v-for="o in item.offices"
+              :key="o.id"
+              rounded="0"
+              size="small"
+              variant="tonal"
+              color="grey-darken-3"
+            >
+              {{ o.name }}
+            </v-chip>
+          </div>
+          <span v-else class="text-medium-emphasis">—</span>
+        </template>
+
         <template v-slot:[`item.is_active`]="{ item }">
           <v-chip :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
             <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
@@ -62,7 +78,7 @@
           <div class="d-flex ga-3 justify-end">
             <v-btn
               icon="mdi-pencil"
-              v-tooltip="'Edit transaction type'"
+              v-tooltip="'Edit process'"
               size="small"
               variant="outlined"
               color="grey-darken-3"
@@ -70,7 +86,7 @@
             />
             <v-btn
               icon="mdi-delete"
-              v-tooltip="'Delete transaction type'"
+              v-tooltip="'Delete process'"
               size="small"
               variant="outlined"
               color="error"
@@ -79,19 +95,29 @@
           </div>
         </template>
       </v-data-table>
-      <TableLoader v-if="loading" label="transaction types" icon="mdi-format-list-bulleted-type" style="flex: 1 1 auto" />
+      <TableLoader v-if="loading" label="processes" icon="mdi-format-list-bulleted-type" style="flex: 1 1 auto" />
       </div>
     </v-card-text>
   </v-card>
 
   <v-dialog v-model="dialog" max-width="700">
     <v-card rounded="0">
-      <v-card-title>{{ form.id ? 'Edit Transaction Type' : 'New Transaction Type' }}</v-card-title>
+      <v-card-title>{{ form.id ? 'Edit Process' : 'New Process' }}</v-card-title>
       <v-divider />
       <v-card-text>
         <v-text-field v-model="form.code" label="Code (snake_case)" />
         <v-text-field v-model="form.name" label="Name" />
         <v-textarea v-model="form.description" label="Description" rows="3" />
+        <v-select
+          v-model="form.office_ids"
+          :items="officeOptions"
+          item-title="label"
+          item-value="id"
+          label="Office(s)"
+          multiple
+          chips
+          closable-chips
+        />
         <v-switch v-model="form.is_active" label="Active" />
       </v-card-text>
       <v-divider />
@@ -108,17 +134,24 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useWorkflows } from '@/composables/useWorkflows'
+import { useOffices } from '@/composables/useOffices'
 import TableLoader from '@/components/TableLoader.vue'
 
 const router = useRouter()
 const { items, loading, fetchAll, create, update, remove } = useTransactionTypes()
 const { defs, loading: defsLoading, fetchDefinitions } = useWorkflows()
+const { items: offices, fetchAll: fetchOffices } = useOffices()
+
+const officeOptions = computed(() =>
+  (offices.value || []).map((o) => ({ id: o.id, label: `${o.name} (${o.code})` })),
+)
 
 const headers = [
   { title: 'Code', key: 'code' },
   { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
   { title: 'Steps', key: 'steps', sortable: false },
+  { title: 'Office(s)', key: 'offices', sortable: false },
   { title: 'Status', key: 'is_active' },
   { title: '', key: 'actions', sortable: false },
 ]
@@ -150,11 +183,11 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 
-const form = ref({ id: null, code: '', name: '', description: '', is_active: true })
+const form = ref({ id: null, code: '', name: '', description: '', office_ids: [], is_active: true })
 
 function openCreate() {
   error.value = ''
-  form.value = { id: null, code: '', name: '', description: '', is_active: true }
+  form.value = { id: null, code: '', name: '', description: '', office_ids: [], is_active: true }
   dialog.value = true
 }
 
@@ -165,6 +198,7 @@ function openEdit(item) {
     code: item.code,
     name: item.name,
     description: item.description ?? '',
+    office_ids: (item.office_ids ?? (item.offices || []).map((o) => o.id) ?? []).slice(),
     is_active: !!item.is_active,
   }
   dialog.value = true
@@ -178,6 +212,7 @@ async function save() {
       code: form.value.code,
       name: form.value.name,
       description: form.value.description,
+      office_ids: form.value.office_ids || [],
       is_active: form.value.is_active,
     }
 
@@ -206,5 +241,6 @@ async function removeRow(item) {
 onMounted(async () => {
   await fetchAll()
   await fetchDefinitions()
+  await fetchOffices()
 })
 </script>
