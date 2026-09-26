@@ -40,7 +40,6 @@
                         density="compact"
                         rounded="0"
                         hide-details
-                        clearable
                         style="max-width: 360px; min-width: 240px"
                     />
                     <v-switch
@@ -80,15 +79,11 @@
 
                     <v-divider />
 
-                    <v-expansion-panels v-model="openPanels" multiple variant="accordion" rounded="0">
-                        <v-expansion-panel
-                            v-for="tx in group.transactions"
-                            :key="tx.id"
-                            :value="tx.id"
-                            rounded="0"
-                        >
-                            <v-expansion-panel-title>
-                                <div class="d-flex align-center flex-wrap ga-2" style="width: 100%">
+                    <v-list class="py-0" lines="two">
+                        <template v-for="(tx, i) in group.transactions" :key="tx.id">
+                            <v-divider v-if="i > 0" />
+                            <v-list-item class="approval-row" @click="review(tx)">
+                                <div class="d-flex align-center flex-wrap ga-2">
                                     <v-chip color="grey-darken-3" variant="tonal" rounded="0" size="small" class="font-weight-bold">
                                         {{ tx.reference_number || `#${tx.id}` }}
                                     </v-chip>
@@ -105,96 +100,42 @@
                                         size="small"
                                         rounded="0"
                                         variant="flat"
-                                        :color="progress(tx).done === progress(tx).total ? 'success' : 'warning'"
+                                        :color="isPending(tx) ? 'warning' : 'success'"
                                         class="mr-2"
                                     >
                                         {{ progress(tx).done }}/{{ progress(tx).total }} validated
                                     </v-chip>
-                                </div>
-                            </v-expansion-panel-title>
-
-                            <v-expansion-panel-text>
-                                <template v-for="section in sections(tx)" :key="section.key">
-                                    <div class="text-subtitle-2 font-weight-bold mb-1">
-                                        {{ section.title }}
-                                    </div>
-                                    <v-list density="compact" class="py-0 mb-3">
-                                        <v-list-item
-                                            v-for="item in section.items"
-                                            :key="item.id"
-                                            class="px-0 approval-item"
-                                        >
-                                            <template #prepend>
-                                                <v-checkbox-btn
-                                                    :model-value="item.checked"
-                                                    :disabled="isBusy(tx.id) || (item.checked && !canUnvalidate(item))"
-                                                    color="primary"
-                                                    @update:model-value="(v) => onValidate(tx, item, v)"
-                                                />
-                                            </template>
-                                            <v-list-item-title class="font-weight-bold">
-                                                {{ item.name }}
-                                                <v-chip
-                                                    size="x-small"
-                                                    rounded="0"
-                                                    variant="tonal"
-                                                    :color="item.is_required ? 'error' : 'grey'"
-                                                    class="ml-2"
-                                                >
-                                                    {{ item.is_required ? "Required" : "Optional" }}
-                                                </v-chip>
-                                            </v-list-item-title>
-                                            <v-list-item-subtitle class="mb-1">
-                                                <span v-if="item.checked">
-                                                    Validated by {{ item.checked_by?.name || "someone" }} · {{ fmtDateTime(item.checked_at) }}
-                                                </span>
-                                                <span v-else>Not validated yet</span>
-                                            </v-list-item-subtitle>
-                                            <AttachmentList
-                                                v-if="item.attachments?.length"
-                                                :items="item.attachments"
-                                                :tx-id="tx.id"
-                                                compact
-                                            />
-                                            <div
-                                                v-else-if="section.key !== 'custom'"
-                                                class="text-caption text-warning"
-                                            >
-                                                No files uploaded.
-                                            </div>
-                                        </v-list-item>
-                                    </v-list>
-                                </template>
-
-                                <div class="d-flex align-center">
-                                    <v-alert
-                                        v-if="missingRequired(tx).length"
-                                        type="warning"
-                                        variant="tonal"
-                                        density="compact"
-                                        class="mr-3"
-                                    >
-                                        Validate before Proceed: {{ missingRequired(tx).join(", ") }}.
-                                    </v-alert>
-                                    <v-alert v-else type="success" variant="tonal" density="compact" class="mr-3">
-                                        All required items validated. Open the transaction to Proceed.
-                                    </v-alert>
-                                    <v-spacer />
                                     <v-btn
                                         color="grey-darken-3"
                                         rounded="0"
+                                        size="small"
                                         append-icon="mdi-arrow-right"
-                                        @click="openTx(tx)"
+                                        @click.stop="review(tx)"
                                     >
-                                        Open
+                                        Review &amp; Proceed
                                     </v-btn>
                                 </div>
-                            </v-expansion-panel-text>
-                        </v-expansion-panel>
-                    </v-expansion-panels>
+                                <div class="text-caption text-medium-emphasis mt-1">
+                                    <template v-for="(src, j) in sources(tx)" :key="src">
+                                        <span v-if="j > 0"> · </span>Requirements from {{ src }}
+                                    </template>
+                                    <span v-if="missingRequired(tx).length" class="text-warning">
+                                        — to validate: {{ missingRequired(tx).join(", ") }}
+                                    </span>
+                                </div>
+                            </v-list-item>
+                        </template>
+                    </v-list>
                 </v-card>
             </v-card-text>
         </v-card>
+
+        <ApprovalProceedDialog
+            v-model:open="dialogOpen"
+            :tx-id="dialogTxId"
+            @changed="replaceTx"
+            @proceeded="onProceeded"
+        />
 
         <v-snackbar v-model="snack.show" :color="snack.color" timeout="4000">
             {{ snack.text }}
@@ -204,60 +145,34 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
-import { useRouter } from "vue-router";
 import { useApprovals } from "@/composables/useApprovals";
-import { useAuth } from "@/composables/useAuth";
+import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import TableLoader from "@/components/TableLoader.vue";
 import GuideTable from "@/components/GuideTable.vue";
-import AttachmentList from "@/components/AttachmentList.vue";
+import ApprovalProceedDialog from "@/components/ApprovalProceedDialog.vue";
 
-const router = useRouter();
-const auth = useAuth();
-const { items, loading, fetchAll, setValidated } = useApprovals();
+const { items, loading, fetchAll } = useApprovals();
+const approvalBadge = useApprovalBadge();
 
 const error = ref("");
-const processFilter = ref(null);
+const ALL_PROCESSES = "all";
+const processFilter = ref(ALL_PROCESSES);
 const pendingOnly = ref(true);
-const openPanels = ref([]);
-const busyTxIds = ref(new Set());
-const snack = reactive({ show: false, text: "", color: "error" });
+const dialogOpen = ref(false);
+const dialogTxId = ref(null);
+const snack = reactive({ show: false, text: "", color: "success" });
 
 const guideSections = [
     {
         title: "HOW IT WORKS",
         rows: [
             { term: "INBOX", text: "TRANSACTIONS AT YOUR STATION WAITING FOR YOU TO CHECK WHAT THE PREVIOUS STATION SUBMITTED" },
-            { term: "FILES", text: "CLICK A FILE TO DOWNLOAD WHAT THE PREVIOUS STATION UPLOADED" },
-            { term: "VALIDATE", text: "TICK AN ITEM ONCE ITS FILES ARE CORRECT — REQUIRED ITEMS MUST BE VALIDATED BEFORE PROCEED" },
-            { term: "UNDO", text: "ONLY THE PERSON WHO VALIDATED IT (OR A SUPERADMIN) CAN UNTICK IT" },
-            { term: "OPEN", text: "GO TO THE TRANSACTION TO PROCEED TO THE NEXT STATION" },
+            { term: "REVIEW & PROCEED", text: "OPENS THE PROCEED MODAL: UPLOAD THIS STATION'S FILES, TICK THE PREVIOUS STATION'S REQUIREMENTS, THEN PROCEED" },
+            { term: "PROCEED", text: "MOVES THE TRANSACTION TO THE NEXT STATION — IT THEN LEAVES THIS LIST" },
+            { term: "OPEN TRANSACTION", text: "FOR RETURNS, JUMPS AND HISTORY, USE THE TRANSACTION PAGE" },
         ],
     },
 ];
-
-const isSuperadmin = computed(() =>
-    (auth.user.value?.roles ?? []).some((r) => r.code === "superadmin"),
-);
-
-// Checklist items grouped by the station whose requirement they mirror;
-// admin-added custom items (no source station) go last.
-function sections(tx) {
-    const bySource = new Map();
-    for (const item of tx.current_step_checklist || []) {
-        const src = item.source_step;
-        const key = src ? `s-${src.id}` : "custom";
-        if (!bySource.has(key)) {
-            bySource.set(key, {
-                key,
-                title: src ? `Requirements from ${src.name}` : "Other checklist items",
-                order: src ? Number(src.order_number ?? 0) : Number.MAX_SAFE_INTEGER,
-                items: [],
-            });
-        }
-        bySource.get(key).items.push(item);
-    }
-    return [...bySource.values()].sort((a, b) => a.order - b.order);
-}
 
 function missingRequired(tx) {
     return (tx.current_step_checklist || [])
@@ -274,13 +189,23 @@ function isPending(tx) {
     return missingRequired(tx).length > 0;
 }
 
+// Names of the previous station(s) whose requirements this row validates.
+function sources(tx) {
+    const names = new Set();
+    for (const item of tx.current_step_checklist || []) {
+        if (item.source_step?.name) names.add(item.source_step.name);
+    }
+    return [...names];
+}
+
 const processOptions = computed(() => {
     const seen = new Map();
     for (const tx of items.value || []) {
         const t = tx.transaction_type;
         if (t && !seen.has(t.id)) seen.set(t.id, { title: t.name, value: t.id });
     }
-    return [...seen.values()];
+    const processes = [...seen.values()].sort((a, b) => a.title.localeCompare(b.title));
+    return [{ title: "All processes", value: ALL_PROCESSES }, ...processes];
 });
 
 const groups = computed(() => {
@@ -288,10 +213,10 @@ const groups = computed(() => {
     for (const tx of items.value || []) {
         const s = tx.current_step;
         if (!s) continue;
-        if (processFilter.value && tx.transaction_type?.id !== processFilter.value) continue;
-        // Keep an expanded row visible even once it's fully validated, so it
-        // doesn't vanish from under the user mid-review.
-        if (pendingOnly.value && !isPending(tx) && !openPanels.value.includes(tx.id)) continue;
+        if (processFilter.value !== ALL_PROCESSES && tx.transaction_type?.id !== processFilter.value) continue;
+        // Keep the row under review visible even once it's fully validated.
+        const underReview = dialogOpen.value && tx.id === dialogTxId.value;
+        if (pendingOnly.value && !isPending(tx) && !underReview) continue;
         if (!byStep.has(s.id)) byStep.set(s.id, { step: s, transactions: [], pendingCount: 0 });
         const g = byStep.get(s.id);
         g.transactions.push(tx);
@@ -300,44 +225,25 @@ const groups = computed(() => {
     return [...byStep.values()];
 });
 
-function canUnvalidate(item) {
-    return isSuperadmin.value || item.checked_by?.id === auth.user.value?.id;
+function review(tx) {
+    dialogTxId.value = tx.id;
+    dialogOpen.value = true;
 }
 
-function isBusy(txId) {
-    return busyTxIds.value.has(txId);
+// Ticks/uploads inside the modal: keep the row's progress in step.
+function replaceTx(updated) {
+    if (!updated) return;
+    const idx = items.value.findIndex((t) => t.id === updated.id);
+    if (idx !== -1) items.value.splice(idx, 1, { ...items.value[idx], ...updated });
+    approvalBadge.refresh();
 }
 
-async function onValidate(tx, item, validated) {
-    busyTxIds.value = new Set([...busyTxIds.value, tx.id]);
-    try {
-        const updated = await setValidated(tx.id, item.id, validated);
-        const idx = items.value.findIndex((t) => t.id === updated.id);
-        if (idx !== -1) items.value.splice(idx, 1, updated);
-    } catch (e) {
-        snack.text = e?.response?.data?.message || "Update failed.";
-        snack.color = "error";
-        snack.show = true;
-    } finally {
-        const next = new Set(busyTxIds.value);
-        next.delete(tx.id);
-        busyTxIds.value = next;
-    }
-}
-
-function openTx(tx) {
-    router.push(`/my/transactions/${tx.id}`);
-}
-
-function fmtDateTime(iso) {
-    if (!iso) return "";
-    return new Date(iso).toLocaleString("en-PH", {
-        timeZone: "Asia/Manila",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+async function onProceeded(movedTx) {
+    const to = movedTx?.current_step?.name;
+    snack.text = `${movedTx?.reference_number || "Transaction"} moved${to ? ` to ${to}` : ""}.`;
+    snack.color = "success";
+    snack.show = true;
+    await load();
 }
 
 function waited(iso) {
@@ -352,6 +258,7 @@ async function load() {
     error.value = "";
     try {
         await fetchAll();
+        approvalBadge.refresh();
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load approvals.";
     }
@@ -361,8 +268,7 @@ onMounted(load);
 </script>
 
 <style scoped>
-/* Let the file chips wrap under the title instead of truncating the row */
-.approval-item :deep(.v-list-item__content) {
-    overflow: visible;
+.approval-row {
+    cursor: pointer;
 }
 </style>

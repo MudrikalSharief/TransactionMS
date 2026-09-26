@@ -13,7 +13,10 @@
                     v-for="layer in layers"
                     :key="layer.label"
                     class="wave-legend-item"
-                    :class="{ active: isolateLabel === layer.label, dimmed: isolateLabel && isolateLabel !== layer.label }"
+                    :class="{
+                        active: isolateLabel === layer.label,
+                        dimmed: isolateLabel ? isolateLabel !== layer.label : isFaded(layer),
+                    }"
                     @mouseenter="legendHover = layer.label"
                     @mouseleave="legendHover = null"
                 >
@@ -28,7 +31,7 @@
                     width="100%"
                     height="100%"
                     role="img"
-                    aria-label="Transactions per week by type"
+                    :aria-label="ariaLabel"
                 >
                     <!-- gridlines + y labels at every tick -->
                     <line
@@ -88,7 +91,7 @@
                         :fill="layer.color"
                         stroke="#fff"
                         stroke-width="2"
-                        :opacity="isolateLabel && isolateLabel !== layer.label ? 0.15 : 1"
+                        :opacity="dotOpacity(layer)"
                     />
                     <!-- x labels, edge-anchored so nothing clips -->
                     <text
@@ -138,6 +141,9 @@ const props = defineProps({
     loading: { type: Boolean, default: false },
     height: { type: Number, default: 190 },
     isolate: { type: String, default: null }, // externally isolated type label (e.g. from donut hover)
+    // Labels to emphasize (e.g. from a filter). Others stay drawn but faded.
+    highlight: { type: Array, default: () => [] },
+    ariaLabel: { type: String, default: 'Transactions per week by type' },
 })
 
 const wrapRef = ref(null)
@@ -152,10 +158,21 @@ let observer = null
 // Isolated type: external prop (donut hover) wins, else wave legend hover.
 const isolateLabel = computed(() => props.isolate ?? legendHover.value)
 
+// Faded by the highlight filter: still visible, just pushed back.
+function isFaded(layer) {
+    return props.highlight.length > 0 && !props.highlight.includes(layer.label)
+}
+
 function lineOpacity(layer) {
     if (isolateLabel.value && isolateLabel.value !== layer.label) return 0.07
+    if (isFaded(layer)) return 0.25
     if (hoverIndex.value >= 0 && (layer.values[hoverIndex.value] || 0) === 0) return 0.2
     return 0.9
+}
+
+function dotOpacity(layer) {
+    if (isolateLabel.value && isolateLabel.value !== layer.label) return 0.15
+    return isFaded(layer) ? 0.3 : 1
 }
 
 // Render the SVG in true pixels (viewBox matches rendered size 1:1)
@@ -264,8 +281,11 @@ const tipRows = computed(() => {
     if (hoverIndex.value < 0) return []
     let rows = [...layers.value]
     if (isolateLabel.value) rows = rows.filter((l) => l.label === isolateLabel.value)
+    // Highlighted lines first, then busiest this week.
     return rows
-        .sort((a, b) => (b.values[hoverIndex.value] || 0) - (a.values[hoverIndex.value] || 0))
+        .sort((a, b) =>
+            Number(isFaded(a)) - Number(isFaded(b)) ||
+            (b.values[hoverIndex.value] || 0) - (a.values[hoverIndex.value] || 0))
         .slice(0, 5)
 })
 

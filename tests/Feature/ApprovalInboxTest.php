@@ -176,6 +176,74 @@ class ApprovalInboxTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
+    public function test_end_user_is_forbidden(): void
+    {
+        $endUser = $this->userWithRole(Role::create(['code' => 'end_user', 'name' => 'End User']));
+
+        Sanctum::actingAs($endUser);
+
+        $this->getJson('/api/approvals')->assertForbidden();
+    }
+
+    public function test_user_without_any_role_is_forbidden(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/approvals')->assertForbidden();
+    }
+
+    public function test_superadmin_keeps_access_even_with_end_user_role(): void
+    {
+        $admin = $this->userWithRole(Role::create(['code' => 'superadmin', 'name' => 'Super Admin']));
+        $admin->roles()->attach(Role::create(['code' => 'end_user', 'name' => 'End User'])->id);
+        $this->makeTransactionAt($this->validate, $admin);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/approvals')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_count_reports_unvalidated_required_requirements(): void
+    {
+        $approver = $this->userWithRole($this->approver);
+        $ar = RequirementDefinition::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'code' => 'ar',
+            'name' => 'AR',
+        ]);
+        $this->collect->requirementDefinitions()->attach($ar->id, ['display_order' => 2, 'is_required' => true]);
+
+        $first = $this->makeTransactionAt($this->validate, $approver);
+        $this->makeTransactionAt($this->validate, $approver);
+        $this->makeTransactionAt($this->collect, $approver); // start station: never counted
+
+        Sanctum::actingAs($approver);
+
+        // 2 transactions x 2 required items (DTR collected, AR)
+        $this->getJson('/api/approvals/count')
+            ->assertOk()
+            ->assertExactJson(['pending_requirements' => 4, 'transactions' => 2]);
+
+        // Validating one item on the first transaction lowers the count.
+        $dtrItem = app(\App\Services\ChecklistService::class)
+            ->ensureItems($this->validate)
+            ->firstWhere('requirement_definition_id', $this->dtr->id);
+        $this->postJson("/api/transactions/{$first->id}/checklist/{$dtrItem->id}/check")->assertOk();
+
+        $this->getJson('/api/approvals/count')
+            ->assertOk()
+            ->assertExactJson(['pending_requirements' => 3, 'transactions' => 2]);
+    }
+
+    public function test_count_is_forbidden_for_end_users(): void
+    {
+        Sanctum::actingAs($this->userWithRole(Role::create(['code' => 'end_user', 'name' => 'End User'])));
+
+        $this->getJson('/api/approvals/count')->assertForbidden();
+    }
+
     public function test_guest_is_rejected(): void
     {
         $this->getJson('/api/approvals')->assertUnauthorized();

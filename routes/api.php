@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\GovernmentReferenceController;
 use App\Http\Controllers\Api\Admin\WorkflowDefinitionController;
 use App\Http\Controllers\Api\Admin\WorkflowStepController;
 use App\Http\Controllers\Api\Admin\WorkflowRouteController;
+use App\Http\Controllers\Api\Admin\DashboardSummaryController;
 
 use App\Http\Controllers\Api\Admin\FieldDefinitionController;
 use App\Http\Controllers\Api\Admin\StepFieldController;
@@ -72,6 +73,7 @@ Route::get('/weather', function () {
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/approvals', [ApprovalController::class, 'index']);
+    Route::get('/approvals/count', [ApprovalController::class, 'count']);
 
     Route::get('/transactions', [UserTransactionController::class, 'index']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
@@ -146,6 +148,9 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
+
+        // Dashboard - Transaction Summary card
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
 
         // Transactions
         Route::get('/transactions', [TransactionController::class, 'index']);

@@ -2,9 +2,8 @@ import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
 
 // Approval inbox: open transactions at a station the user works on, whose
-// checklist mirrors the previous station's requirements. Validating an item
-// is a checklist tick; the endpoint returns the refreshed transaction so the
-// page can swap a single row instead of reloading the whole inbox.
+// checklist mirrors the previous station's requirements. Validating and
+// proceeding happen in ApprovalProceedDialog via the transaction endpoints.
 export function useApprovals() {
     const { api } = useApi();
 
@@ -22,11 +21,5 @@ export function useApprovals() {
         return items.value;
     }
 
-    async function setValidated(transactionId, checklistItemId, validated) {
-        const url = `/api/transactions/${transactionId}/checklist/${checklistItemId}/check`;
-        const res = validated ? await api.post(url) : await api.delete(url);
-        return res.data.data ?? res.data;
-    }
-
-    return { items, loading, fetchAll, setValidated };
+    return { items, loading, fetchAll };
 }

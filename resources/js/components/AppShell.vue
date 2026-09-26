@@ -142,11 +142,34 @@
                     <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
                 </v-list-item>
                 <v-list-item
+                    v-if="showApprovals"
                     to="/approvals"
-                    prepend-icon="mdi-clipboard-check-multiple-outline"
                     rounded="lg"
+                    v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : undefined"
                 >
+                    <template #prepend>
+                        <v-badge
+                            :model-value="rail && pendingRequirements > 0"
+                            :content="pendingRequirements > 99 ? '99+' : pendingRequirements"
+                            color="error"
+                            class="approvals-badge"
+                        >
+                            <v-icon>mdi-clipboard-check-multiple-outline</v-icon>
+                        </v-badge>
+                    </template>
                     <v-list-item-title>APPROVALS</v-list-item-title>
+                    <template #append>
+                        <v-chip
+                            v-if="!rail && pendingRequirements > 0"
+                            size="x-small"
+                            color="error"
+                            variant="flat"
+                            class="font-weight-bold"
+                            v-tooltip="approvalsBadgeLabel"
+                        >
+                            {{ pendingRequirements > 99 ? "99+" : pendingRequirements }}
+                        </v-chip>
+                    </template>
                 </v-list-item>
 
                 <template v-if="isSuperadmin">
@@ -241,12 +264,13 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
+import { useApprovalBadge } from "@/composables/useApprovalBadge";
 
 const router = useRouter();
 const route = useRoute();
@@ -290,6 +314,27 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === "superadmin");
 });
 
+const showApprovals = computed(() => canUseApprovals(auth.user.value));
+
+// ---- APPROVALS badge: required requirements waiting for validation ----
+const approvalBadge = useApprovalBadge();
+const pendingRequirements = approvalBadge.pendingRequirements;
+const approvalsBadgeLabel = computed(() => {
+    const n = pendingRequirements.value;
+    return `${n} requirement${n === 1 ? "" : "s"} waiting for your validation`;
+});
+
+function refreshApprovalBadge() {
+    if (showApprovals.value) approvalBadge.refresh();
+    else approvalBadge.clear();
+}
+
+// Recount on login/role change and on every page change; a timer (see
+// onMounted) catches work that arrives from other users meanwhile.
+watch(showApprovals, refreshApprovalBadge, { immediate: true });
+watch(() => route.fullPath, refreshApprovalBadge);
+let approvalBadgeTimer = null;
+
 const userTooltip = computed(() => {
     const u = auth.user.value;
     if (!u) return "User";
@@ -320,14 +365,16 @@ const searchPages = computed(() => {
             icon: "mdi-file-document-multiple",
             to: "/my/transactions",
         },
-        {
+        { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
+    ];
+    if (showApprovals.value) {
+        pages.splice(2, 0, {
             title: "Approvals",
             subtitle: "Page",
             icon: "mdi-clipboard-check-multiple-outline",
             to: "/approvals",
-        },
-        { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
-    ];
+        });
+    }
     if (isSuperadmin.value) {
         pages.push(
             { title: "Transactions", subtitle: "Page · Admin", icon: "mdi-swap-horizontal", to: "/transactions" },
@@ -579,11 +626,13 @@ onMounted(() => {
     clockTimer = setInterval(tickClock, 1000);
     loadTemperature();
     weatherTimer = setInterval(loadTemperature, 10 * 60 * 1000);
+    approvalBadgeTimer = setInterval(refreshApprovalBadge, 60 * 1000);
 });
 
 onUnmounted(() => {
     if (clockTimer) clearInterval(clockTimer);
     if (weatherTimer) clearInterval(weatherTimer);
+    if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
 });
 </script>
 
@@ -604,6 +653,12 @@ onUnmounted(() => {
 }
 .nav-compact :deep(.v-list-item__prepend .v-icon) {
     font-size: 1.1rem;
+}
+/* Keep the APPROVALS badge on the icon, clear of the title */
+.approvals-badge :deep(.v-badge__badge) {
+    font-size: 0.65rem;
+    min-width: 18px;
+    height: 18px;
 }
 /* Footer theme/help pair */
 .drawer-footer .v-btn {

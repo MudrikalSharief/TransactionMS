@@ -27,7 +27,7 @@ import ApprovalInbox from "@/pages/approvals/ApprovalInbox.vue";
 
 import Help from "@/pages/Help.vue";
 
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 
 export function createRouter() {
     const router = _createRouter({
@@ -158,6 +158,8 @@ export function createRouter() {
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
         if (to.name === "login" && auth.user.value)
+            return { name: "dashboard" };
+        if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
         return true;
     });
