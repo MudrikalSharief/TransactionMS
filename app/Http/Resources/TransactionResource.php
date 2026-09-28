@@ -119,8 +119,15 @@ class TransactionResource extends JsonResource
             $checklistItems = \app(\App\Services\ChecklistService::class)
                 ->ensureItems($currentStep);
 
+            // Checklist items mirror predecessor requirements, so their
+            // files live on earlier steps. Group transaction-wide by
+            // requirement so the wizard can offer a View button per file.
+            $attsByReqTx = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])
+                ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
+
             foreach ($checklistItems as $item) {
                 $cCheck = $checklistChecks->get($item->id);
+                $itemAtts = $attsByReqTx->get((int) ($item->requirement_definition_id ?? 0), collect())->values();
                 $currentStepChecklist[] = [
                     'id' => $item->id,
                     'requirement_definition_id' => $item->requirement_definition_id,
@@ -132,6 +139,18 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $cCheck,
                     'checked_at' => $cCheck?->checked_at?->toISOString(),
                     'checked_by' => $cCheck?->checker?->only(['id', 'name']),
+                    'attachments' => $itemAtts->map(fn ($a) => [
+                        'id' => $a->id,
+                        'original_name' => $a->original_name,
+                        'mime' => $a->mime,
+                        'size_bytes' => (int) $a->size_bytes,
+                        'requirement_definition_id' => $a->requirement_definition_id,
+                        'uploaded_by' => $a->uploader?->only(['id', 'name']),
+                        'created_at' => $a->created_at?->toISOString(),
+                        'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                        'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                    ])->all(),
+                    'attachment_count' => $itemAtts->count(),
                 ];
             }
         }
@@ -296,6 +315,15 @@ class TransactionResource extends JsonResource
             'attachments' => TransactionAttachmentResource::collection($this->whenLoaded('attachments')),
 
             'runs' => TransactionStepRunResource::collection($this->whenLoaded('runs')),
+
+            'pending_receipt' => $this->when(
+                $this->relationLoaded('runs'),
+                function () {
+                    $pending = collect($this->runs ?? [])->firstWhere(fn ($r) => $r->received_at === null);
+                    if (!$pending) return null;
+                    return (new TransactionStepRunResource($pending))->toArray(request());
+                }
+            ),
         ];
     }
 }

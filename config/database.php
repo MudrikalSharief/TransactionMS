@@ -58,6 +58,16 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // WARNING: do NOT add a 'timezone' key here without a global
+            // +8h data migration. The app writes UTC literals while MySQL
+            // sessions run at SYSTEM (+08:00), so stored TIMESTAMP instants
+            // sit -8h and readouts shift +8h — a twisted but self-consistent
+            // loop in which every displayed wall time is TRUE (see
+            // 2026_10_02 timestamp repairs). Changing the session TZ would
+            // shift every displayed date in the system by 8h. See also:
+            // never use ON UPDATE CURRENT_TIMESTAMP on event-time columns
+            // (performed_at, entered_at, checked_at) — it silently rewrites
+            // history on every row update.
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

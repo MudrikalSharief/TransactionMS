@@ -67,6 +67,11 @@ class TransactionEngine
                 'remarks' => 'Transaction created',
                 'performed_by' => $userId,
                 'performed_at' => now(),
+                // Creation is not a forward — no pending receipt.
+                'received_at' => now(),
+                'received_by' => $userId,
+                'received_office_id' => $startStep->office_id,
+                'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
             ]);
 
             return $tx->load([
@@ -78,8 +83,14 @@ class TransactionEngine
                 'state.currentStep',
                 'creator',
                 'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
                 'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
                 'runs.performer',
+                'runs.receiver',
+                'runs.receivedOffice',
                 'fieldValues.fieldDefinition',
             ]);
         });
@@ -134,6 +145,8 @@ class TransactionEngine
 
             $currentStepId = (int) $tx->state->current_step_id;
             $toStepId = (int) $route->to_step_id;
+            $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
+                ?? \App\Models\WorkflowStep::find($toStepId);
 
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
@@ -143,6 +156,11 @@ class TransactionEngine
                 'remarks' => $remarks,
                 'performed_by' => $userId,
                 'performed_at' => now(),
+                // Pending receipt: next office must click Receive.
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $toStep?->office_id,
+                'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
             // Link proceed-modal uploads (keep-forever evidence) to this run.
@@ -224,8 +242,14 @@ class TransactionEngine
                 'state.currentStep',
                 'creator',
                 'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
                 'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
                 'runs.performer',
+                'runs.receiver',
+                'runs.receivedOffice',
                 'runs.attachments.requirement',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',
@@ -255,6 +279,9 @@ class TransactionEngine
                 abort(422, 'Already at this station.');
             }
 
+            $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
+                ?? \App\Models\WorkflowStep::find($toStepId);
+
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
@@ -263,6 +290,10 @@ class TransactionEngine
                 'remarks' => $remarks ?? 'Jumped to a passed station',
                 'performed_by' => $userId,
                 'performed_at' => now(),
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $toStep?->office_id,
+                'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
             // Pending (unlinked) files travel with the jump so evidence
@@ -294,8 +325,76 @@ class TransactionEngine
                 'state.currentStep',
                 'creator',
                 'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
                 'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
                 'runs.performer',
+                'runs.receiver',
+                'runs.receivedOffice',
+                'runs.attachments.requirement',
+                'fieldValues.fieldDefinition',
+                'requirementChecks.checker',
+                'checklistChecks.checker',
+                'attachments.step',
+                'attachments.requirement',
+                'attachments.uploader',
+            ]);
+        });
+    }
+
+    /**
+     * Claim the latest pending receipt (explicit Receive button).
+     * First user with the destination role wins — atomic WHERE received_at IS NULL.
+     */
+    public function receive(Transaction $tx, int $userId): Transaction
+    {
+        return DB::transaction(function () use ($tx, $userId) {
+            $tx->loadMissing(['state']);
+            $currentStepId = (int) ($tx->state?->current_step_id ?? 0);
+            if (!$currentStepId) abort(422, 'Transaction has no current step.');
+
+            $pending = TransactionStepRun::where('transaction_id', $tx->id)
+                ->whereNull('received_at')
+                ->orderByDesc('performed_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$pending) abort(422, 'Nothing to receive — already received.');
+            if ((int) $pending->to_step_id !== $currentStepId) {
+                abort(422, 'Pending receipt does not match the current step.');
+            }
+
+            $claimed = TransactionStepRun::where('id', $pending->id)
+                ->whereNull('received_at')
+                ->update(['received_at' => now(), 'received_by' => $userId]);
+
+            if (!$claimed) {
+                $fresh = TransactionStepRun::with('receiver:id,name')->find($pending->id);
+                abort(409, 'Already received by ' . ($fresh?->receiver?->name ?? 'another user') . '.');
+            }
+
+            return $tx->fresh()->load([
+                'type',
+                'office',
+                'office.steps',
+                'workflow.steps',
+                'workflow.routes',
+                'workflow.stepRoles.role',
+                'state.currentStep',
+                'creator',
+                'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
+                'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
+                'runs.performer',
+                'runs.receiver',
+                'runs.receivedOffice',
+                'runs.receiver',
+                'runs.receivedOffice',
                 'runs.attachments.requirement',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',

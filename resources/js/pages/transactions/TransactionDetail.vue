@@ -127,6 +127,19 @@
             >
                 <template #actions v-if="tx">
                     <v-alert
+                        v-if="pendingReceipt"
+                        type="warning"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
+                        <div class="text-caption">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <v-btn color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
+                            <v-icon start>mdi-inbox-arrow-down</v-icon>
+                            Receive Step
+                        </v-btn>
+                    </v-alert>
+                    <v-alert
                         v-if="isDone"
                         type="success"
                         variant="tonal"
@@ -136,6 +149,19 @@
                         This process has been finalized — view only.
                     </v-alert>
                     <v-alert
+                        v-else-if="noOutgoingRoutes"
+                        type="error"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <div class="font-weight-bold">This step has no outgoing routes — the process can't move forward.</div>
+                        <div class="text-caption">Link the steps in Workflows (Routes), then publish. Transactions already created stay on the old version — create a new one after publishing.</div>
+                        <v-btn v-if="isSuperadmin()" :to="workflowsLink" color="error" variant="outlined" rounded="0" size="small" class="mt-2">
+                            <v-icon start size="small">mdi-source-branch</v-icon>
+                            Open Workflows
+                        </v-btn>
+                    </v-alert>
+                    <v-alert
                         v-else-if="!hasActionOptions && !showFinalize"
                         type="info"
                         variant="tonal"
@@ -143,6 +169,7 @@
                     >
                         No actions available for your role on this step (or route
                         conditions not satisfied).
+                        <span v-if="currentStepRoles.length" class="d-block mt-1 text-caption">This step requires role(s): <b>{{ currentStepRoles.join(', ') }}</b>.</span>
                     </v-alert>
 
                     <div v-else>
@@ -466,13 +493,33 @@
                     class="lgu-table"
                 >
                     <template v-slot:[`item.from_step`]="{ item }">
-                        {{ item.from_step?.name }} ({{ item.from_step?.code }})
+                        <span :title="item.action_code === 'create' ? 'created' : (item.from_step?.code || '')">{{ fmtFromStep(item) }}</span>
                     </template>
                     <template v-slot:[`item.to_step`]="{ item }">
-                        {{ item.to_step?.name }} ({{ item.to_step?.code }})
+                        <span :title="item.to_step?.code || ''">{{ fmtStepOfficeRoles(item.to_step) }}</span>
                     </template>
                     <template v-slot:[`item.performed_by`]="{ item }">
                         {{ item.performed_by?.name }}
+                    </template>
+                    <template v-slot:[`item.released_at`]="{ item }">
+                        {{ fmtDateTime(item.released_at || item.performed_at) }}
+                    </template>
+                    <template v-slot:[`item.received_by`]="{ item }">
+                        {{ item.received_by?.name || '—' }}
+                    </template>
+                    <template v-slot:[`item.received_at`]="{ item }">
+                        {{ item.received_at ? fmtDateTime(item.received_at) : 'Pending' }}
+                    </template>
+                    <template v-slot:[`item.duration_estimated_minutes`]="{ item }">
+                        {{ fmtMinutes(item.duration_estimated_minutes ?? item.sla_minutes_snapshot) }}
+                    </template>
+                    <template v-slot:[`item.sla_actual_minutes`]="{ item }">
+                        {{ item.sla_actual_minutes == null ? '—' : fmtMinutes(item.sla_actual_minutes) }}
+                    </template>
+                    <template v-slot:[`item.receive_status`]="{ item }">
+                        <v-chip size="x-small" :color="item.received_at ? (item.is_breached ? 'error' : 'success') : 'warning'" variant="tonal">
+                            {{ item.received_at ? (item.is_breached ? 'Overdue' : 'On time') : 'Pending' }}
+                        </v-chip>
                     </template>
                     <template v-slot:[`item.files`]="{ item }">
                         <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" is-admin compact @deleted="removeAttachment" />
@@ -661,10 +708,12 @@ import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
+import { fmtStepOfficeRoles, fmtFromStep } from '@/utils/steps';
+import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
 const { api } = useApi();
-const { getOne, execute, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
+const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
@@ -692,7 +741,7 @@ const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value);
+const showFinalize = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
 const hasActionOptions = computed(() =>
     (availableActions.value || []).length > 0 || (jumpRouteOptions.value || []).length > 0,
 );
@@ -831,9 +880,71 @@ const runHeaders = [
     { title: "Action", key: "action_code" },
     { title: "Remarks", key: "remarks" },
     { title: "Files", key: "files", sortable: false },
-    { title: "By", key: "performed_by", sortable: false },
-    { title: "At", key: "performed_at" },
+    { title: "From User", key: "performed_by", sortable: false },
+    { title: "Released At", key: "released_at" },
+    { title: "To User", key: "received_by", sortable: false },
+    { title: "Received At", key: "received_at" },
+    { title: "Est. Duration", key: "duration_estimated_minutes", sortable: false },
+    { title: "Actual SLA", key: "sla_actual_minutes", sortable: false },
+    { title: "Status", key: "receive_status", sortable: false },
 ];
+
+const receiving = ref(false);
+const pendingReceipt = computed(
+    () => tx.value?.pending_receipt || (tx.value?.runs || []).find((r) => !r.received_at) || null,
+);
+
+// Safety net: fail visibly when the process itself is unfinished.
+// Counts outgoing routes of the CURRENT step in the PINNED workflow version.
+const outgoingRoutesCount = computed(() => {
+    const cid = tx.value?.current_step?.id;
+    if (cid == null) return 0;
+    return (tx.value?.workflow_routes || []).filter((r) => Number(r.from_step_id) === Number(cid)).length;
+});
+const noOutgoingRoutes = computed(() => {
+    if (!tx.value || isDone.value || showFinalize.value || pendingReceipt.value) return false;
+    if (!Array.isArray(tx.value?.workflow_routes)) return false;
+    return outgoingRoutesCount.value === 0;
+});
+const workflowsLink = computed(() => {
+    const id = tx.value?.transaction_type?.id;
+    return id ? `/admin/workflows?type=${id}` : '/admin/workflows';
+});
+// Roles allowed on the current step (from station checklist) — shown when
+// routes exist but the viewer still has no actions (role mismatch).
+const currentStepRoles = computed(() => {
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
+});
+
+function fmtMinutes(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    if (n < 60) return `${n}m`;
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    if (h < 48) return m ? `${h}h ${m}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    return rh ? `${d}d ${rh}h` : `${d}d`;
+}
+
+async function receiveStep() {
+    receiving.value = true;
+    executeError.value = "";
+    try {
+        const { tx: fresh, meta } = await receive(route.params.id);
+        tx.value = fresh;
+        availableActions.value = meta?.available_actions || [];
+        visitedStepIds.value = meta?.visited_step_ids || [];
+    } catch (e) {
+        executeError.value = formatApiError(e, "Receive failed.");
+    } finally {
+        receiving.value = false;
+    }
+}
 
 function componentFor(type) {
     switch (type) {
@@ -1276,6 +1387,8 @@ const unifiedRouteOptions = computed(() => [
 // collide with numeric route ids. Forward moves always go step by step
 // through the assigned routes — never by jump.
 const jumpRouteOptions = computed(() => {
+    // Locked until received — backend rejects jumps on pending receipt.
+    if (pendingReceipt.value) return [];
     const visited = new Set((visitedStepIds.value || []).map((v) => Number(v)));
     const cur = Number(tx.value?.current_step?.id);
     const curOrder = Number(

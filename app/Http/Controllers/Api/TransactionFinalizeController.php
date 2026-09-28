@@ -30,6 +30,10 @@ class TransactionFinalizeController extends Controller
             abort(422, 'Transaction is already finalized.');
         }
 
+        if ($routing->hasPendingReceipt($transaction)) {
+            abort(422, 'Please receive the step first before finalizing.');
+        }
+
         $transaction->loadMissing(['state.currentStep']);
         $current = $transaction->state?->currentStep;
         if (!$current) abort(422, 'Transaction has no current step.');
@@ -48,6 +52,12 @@ class TransactionFinalizeController extends Controller
                 'remarks' => 'Process finalized',
                 'performed_by' => $request->user()->id,
                 'performed_at' => now(),
+                // Finalizing closes the loop — auto-received so the row
+                // never dangles as Pending in History.
+                'received_at' => now(),
+                'received_by' => $request->user()->id,
+                'received_office_id' => $current->office_id,
+                'sla_minutes_snapshot' => (int) ($current->sla_minutes ?? 0),
             ]);
 
             return $transaction->fresh();
@@ -68,8 +78,14 @@ class TransactionFinalizeController extends Controller
             'state.currentStep',
             'creator',
             'runs.fromStep',
+            'runs.fromStep.office',
+            'runs.fromStep.roles',
             'runs.toStep',
+            'runs.toStep.office',
+            'runs.toStep.roles',
             'runs.performer',
+            'runs.receiver',
+            'runs.receivedOffice',
             'runs.attachments.requirement',
             'fieldValues.fieldDefinition',
             'requirementChecks.checker',

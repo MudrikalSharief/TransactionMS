@@ -177,17 +177,37 @@
                     <div class="text-caption text-medium-emphasis mb-2">
                         Tick each item as done. Required items must be ticked before you can Proceed.
                     </div>
-                    <v-checkbox
+                    <div
                         v-for="c in (checklist || [])"
                         :key="c.id"
-                        :model-value="!!c.checked"
-                        :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
-                        density="compact"
-                        hide-details="auto"
-                        :disabled="saving || savingChecklist"
-                        :loading="savingChecklist && savingChecklistItemId === c.id"
-                        @update:model-value="(v) => emit('toggle-checklist', c, v)"
-                    />
+                        class="d-flex align-center ga-2 py-1"
+                    >
+                        <v-checkbox
+                            :model-value="!!c.checked"
+                            :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
+                            density="compact"
+                            hide-details="auto"
+                            style="flex: 1 1 auto"
+                            :disabled="saving || savingChecklist"
+                            :loading="savingChecklist && savingChecklistItemId === c.id"
+                            @update:model-value="(v) => emit('toggle-checklist', c, v)"
+                        />
+                        <v-btn
+                            v-for="a in viewableFiles(c)"
+                            :key="a.id"
+                            size="x-small"
+                            variant="tonal"
+                            color="info"
+                            rounded="0"
+                            :href="a.view_url || a.download_url"
+                            target="_blank"
+                            rel="noopener"
+                            :title="`View ${a.original_name}`"
+                            @click.stop
+                        >
+                            <v-icon start size="x-small">mdi-eye</v-icon>View
+                        </v-btn>
+                    </div>
                 </div>
 
                 <ProceedFooter
@@ -264,6 +284,22 @@ const emit = defineEmits([
 
 function hasReqFiles(r) {
     return ((r.attachments || []).length + (getReqFiles(r.definition.id) || []).length) > 0
+}
+
+// Files the browser can render inline in a new tab (PDF, images,
+// plain text). Anything else keeps Download-only on page 1.
+function isViewable(a) {
+    const mime = String(a?.mime || '').toLowerCase()
+    if (
+        mime === 'application/pdf' ||
+        mime.startsWith('image/') ||
+        mime.startsWith('text/')
+    ) return true
+    return /\.(pdf|png|jpe?g|gif|webp|svg|bmp|txt|csv|log)$/i.test(String(a?.original_name || ''))
+}
+
+function viewableFiles(c) {
+    return (c?.attachments || []).filter(isViewable)
 }
 
 // Files uploaded per requirement in this wizard session. Server already

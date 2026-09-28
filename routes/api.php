@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\TransactionAttachmentController;
 
 use App\Http\Controllers\Api\TransactionGotoController;
 use App\Http\Controllers\Api\TransactionFinalizeController;
+use App\Http\Controllers\Api\TransactionReceiveController;
 use App\Http\Controllers\Api\UserTransactionController;
 
 Route::prefix('auth')->group(function () {
@@ -73,6 +74,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/transactions', [UserTransactionController::class, 'index']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
+    Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
     Route::post('/transactions/{transaction}/goto', [TransactionGotoController::class, 'goto']);
     Route::post('/transactions/{transaction}/finalize', [TransactionFinalizeController::class, 'finalize']);
 
@@ -85,6 +87,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
     Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
     Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
+    Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 });
 
@@ -151,12 +154,14 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy']);
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice']);
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction']);
+        Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
         Route::post('/transactions/{transaction}/goto', [TransactionGotoController::class, 'goto']);
         Route::post('/transactions/{transaction}/finalize', [TransactionFinalizeController::class, 'finalize']);
 
         Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
         Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
         Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
+        Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
         Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 
     });

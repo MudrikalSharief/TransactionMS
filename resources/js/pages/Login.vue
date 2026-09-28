@@ -22,7 +22,7 @@
                     />
                 </div>
                 <h1 class="brand-logo brand-left" aria-label="LGU Transaction System">
-                    <span class="brand-main">TransactionMS</span>
+                    <span class="brand-main">TrMS</span>
                     <span class="brand-sub">TRANSACTION MANAGEMENT SYSTEM</span>
                 </h1>
             </div>
@@ -109,7 +109,7 @@
                 </div>
                 <p class="extra-foot">Need help? Visit the City Hall help desk or contact support.</p>
             </div>
-            <p class="copyright">© City Government of Zamboanga · TransactionMS</p>
+            <p class="copyright">© City Government of Zamboanga · TrMS</p>
             </div>
         </v-card>
     </div>

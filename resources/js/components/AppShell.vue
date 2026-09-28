@@ -34,7 +34,7 @@
                         class="font-weight-bold text-primary"
                         style="font-size: 1.25rem; line-height: 1"
                     >
-                        TransactionMS
+                        TrMS
                     </div>
                     <div
                         class="font-weight-bold text-medium-emphasis"

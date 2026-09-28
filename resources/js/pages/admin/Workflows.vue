@@ -415,7 +415,8 @@
                     <v-text-field v-model="stepForm.name" label="Name" />
                     <v-text-field
                         v-model="stepForm.stage"
-                        label="Stage (Budget/Accounting/...)"
+                        label="Stage"
+                        placeholder="e.g. Planning"
                     />
                     <v-text-field
                         v-model="stepForm.sla_minutes"

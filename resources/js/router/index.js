@@ -155,7 +155,7 @@ export function createRouter() {
     });
 
     router.afterEach((to) => {
-        const base = "TransactionMS Management System";
+        const base = "TrMS Management System";
         document.title = to.meta?.title ? `${base} | ${to.meta.title}` : `${base} | Dashboard`;
     });
 
