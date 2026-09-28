@@ -499,13 +499,37 @@
                         <span :title="item.to_step?.code || ''">{{ fmtStepOfficeRoles(item.to_step) }}</span>
                     </template>
                     <template v-slot:[`item.performed_by`]="{ item }">
-                        {{ item.performed_by?.name }}
+                        <div class="font-weight-medium text-caption">{{ item.performed_by?.name || '—' }}</div>
+                        <div v-if="(item.performed_by?.roles || []).length" class="d-flex flex-wrap ga-1 mt-1">
+                            <v-chip
+                                v-for="r in (item.performed_by?.roles || [])"
+                                :key="r.id || r.code"
+                                size="x-small"
+                                variant="tonal"
+                                rounded="0"
+                                :color="roleColorFor(r.code)"
+                            >
+                                {{ r.name || r.code }}
+                            </v-chip>
+                        </div>
                     </template>
                     <template v-slot:[`item.released_at`]="{ item }">
                         {{ fmtDateTime(item.released_at || item.performed_at) }}
                     </template>
                     <template v-slot:[`item.received_by`]="{ item }">
-                        {{ item.received_by?.name || '—' }}
+                        <div class="font-weight-medium text-caption">{{ item.received_by?.name || '—' }}</div>
+                        <div v-if="(item.received_by?.roles || []).length" class="d-flex flex-wrap ga-1 mt-1">
+                            <v-chip
+                                v-for="r in (item.received_by?.roles || [])"
+                                :key="r.id || r.code"
+                                size="x-small"
+                                variant="tonal"
+                                rounded="0"
+                                :color="roleColorFor(r.code)"
+                            >
+                                {{ r.name || r.code }}
+                            </v-chip>
+                        </div>
                     </template>
                     <template v-slot:[`item.received_at`]="{ item }">
                         {{ item.received_at ? fmtDateTime(item.received_at) : 'Pending' }}
@@ -709,6 +733,7 @@ import ProceedWizard from '@/components/ProceedWizard.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import { fmtStepOfficeRoles, fmtFromStep } from '@/utils/steps';
+import { roleColorFor } from '@/utils/roles';
 import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
