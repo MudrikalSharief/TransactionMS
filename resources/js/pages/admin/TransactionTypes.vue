@@ -4,10 +4,10 @@
       <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
         <v-icon color="white">mdi-format-list-bulleted-type</v-icon>
       </v-avatar>
-      <span class="text-h6 font-weight-bold">Processes</span>
+      <span class="text-h6 font-weight-bold">Transaction Types</span>
       <v-spacer />
       <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
-        Add Process
+        Add Transaction Type
       </v-btn>
     </v-card-title>
     <v-divider />
@@ -89,7 +89,7 @@
           <div class="d-flex ga-3 justify-end">
             <v-btn
               icon="mdi-pencil"
-              v-tooltip="'Edit process'"
+              v-tooltip="'Edit transaction type'"
               size="small"
               variant="outlined"
               color="grey-darken-3"
@@ -97,7 +97,7 @@
             />
             <v-btn
               icon="mdi-delete"
-              v-tooltip="'Delete process'"
+              v-tooltip="'Delete transaction type'"
               size="small"
               variant="outlined"
               color="error"
@@ -106,14 +106,14 @@
           </div>
         </template>
       </v-data-table>
-      <TableLoader v-if="loading" label="processes" icon="mdi-format-list-bulleted-type" style="flex: 1 1 auto" />
+      <TableLoader v-if="loading" label="transaction types" icon="mdi-format-list-bulleted-type" style="flex: 1 1 auto" />
       </div>
     </v-card-text>
   </v-card>
 
   <v-dialog v-model="dialog" max-width="700">
     <v-card rounded="0">
-      <v-card-title>{{ form.id ? 'Edit Process' : 'New Process' }}</v-card-title>
+      <v-card-title>{{ form.id ? 'Edit Transaction Type' : 'New Transaction Type' }}</v-card-title>
       <v-divider />
       <v-card-text>
         <v-text-field v-model="form.code" label="Code (snake_case)" />

@@ -27,7 +27,7 @@
                 </v-alert>
 
                 <div class="text-caption text-medium-emphasis font-weight-bold mb-1 pl-4">
-                    1 · Pick a live process — its checklist loads by itself
+                    1 · Pick a live transaction type — its checklist loads by itself
                 </div>
                 <div class="d-flex ga-2 mb-2 flex-wrap">
                     <v-select
@@ -35,8 +35,8 @@
                         :items="workflowOptions"
                         item-title="label"
                         item-value="id"
-                        placeholder="Select a process…"
-                        aria-label="Select process"
+                        placeholder="Select a transaction type…"
+                        aria-label="Select transaction type"
                         :loading="wfLoading"
                         clearable
                         density="compact"
@@ -99,7 +99,7 @@
                     :items-per-page="5"
                     :items-per-page-options="[5, 10, 25]"
                     hover
-                    no-data-text="No checklist items here yet — pick another process or add one above."
+                    no-data-text="No checklist items here yet — pick another transaction type or add one above."
                     class="lgu-table table-hug"
                 >
                     <template v-slot:[`item.is_active`]="{ item }">
@@ -360,7 +360,7 @@ const form = ref({
     is_active: true,
 });
 
-// Stations of the picked process (for the Stations column dialog).
+// Stations of the picked transaction type (for the Stations column dialog).
 const stations = ref([]);
 const stationsLoading = ref(false);
 
@@ -560,7 +560,7 @@ async function loadRequirements() {
 function openDialog(item = null) {
     error.value = "";
     if (!selectedWorkflowId.value) {
-        error.value = "Pick a process above first.";
+        error.value = "Pick a transaction type above first.";
         return;
     }
 
@@ -642,7 +642,7 @@ onMounted(async () => {
     }
 });
 
-// Picking another process loads its checklist at once — no extra button press.
+// Picking another transaction type loads its checklist at once — no extra button press.
 watch(selectedWorkflowId, async (id, prev) => {
     if (!id || id === prev) return;
     await loadRequirements();

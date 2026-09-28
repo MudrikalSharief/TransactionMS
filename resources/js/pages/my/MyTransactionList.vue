@@ -163,7 +163,7 @@ const guideSections = [
 const headers = [
     { title: "Reference", key: "reference_number" },
     { title: "Title", key: "title" },
-    { title: "Process", key: "type", sortable: false },
+    { title: "Transaction Type", key: "type", sortable: false },
     { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
     { title: "Created At", key: "created_at" },

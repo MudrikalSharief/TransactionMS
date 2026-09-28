@@ -71,7 +71,7 @@ class WorkflowVersioningService
 
             if ($startCount < 1 || $endCount < 1) {
                 throw ValidationException::withMessages([
-                    'steps' => 'Process Version must have at least one start step and one end step before publishing.',
+                    'steps' => 'Transaction Type Version must have at least one start step and one end step before publishing.',
                 ]);
             }
 

@@ -56,7 +56,7 @@ class WorkflowDefinitionController extends Controller
         }
 
         if (Transaction::where('workflow_definition_id', $workflowDefinition->id)->exists()) {
-            return response()->json(['message' => 'Cannot delete: transactions use this process.'], 422);
+            return response()->json(['message' => 'Cannot delete: transactions use this transaction type.'], 422);
         }
 
         return DB::transaction(function () use ($request, $workflowDefinition, $audit) {

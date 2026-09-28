@@ -18,7 +18,7 @@
 
             <v-card-text v-if="tx" class="pa-4">
                 <div class="mb-2">
-                    <b>Process:</b> {{ tx.transaction_type?.name }}
+                    <b>Transaction Type:</b> {{ tx.transaction_type?.name }}
                 </div>
 
                 <div class="mb-2">
@@ -145,10 +145,10 @@
                     </v-alert>
                     <v-alert v-if="isDone" type="success" variant="tonal" class="mb-3">
                         <v-icon start size="small">mdi-flag-checkered</v-icon>
-                        This process has been finalized — view only.
+                        This transaction has been finalized — view only.
                     </v-alert>
                     <v-alert v-else-if="noOutgoingRoutes" type="error" variant="tonal" class="mb-3">
-                        <div class="font-weight-bold">This step has no outgoing routes — the process can't move forward.</div>
+                        <div class="font-weight-bold">This step has no outgoing routes — the transaction can't move forward.</div>
                         <div class="text-caption">Ask an admin to link the steps in Workflows (Routes), then publish. Transactions already created stay on the old version — create a new one after publishing.</div>
                         <v-btn v-if="isSuperadmin()" :to="workflowsLink" color="error" variant="outlined" rounded="0" size="small" class="mt-2">
                             <v-icon start size="small">mdi-source-branch</v-icon>
@@ -195,7 +195,7 @@
                                     :loading="saving"
                                     @click="finalizeDialog = true"
                                 >
-                                    Finalize Process
+                                    Finalize Transaction
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
@@ -255,7 +255,7 @@
             <v-card-text class="pa-4">
 
                 <v-alert v-if="!(tx?.station_checklist || []).length" type="info" variant="tonal" class="mb-3">
-                    No stations in this process yet.
+                    No stations in this transaction type yet.
                 </v-alert>
 
                 <div v-else class="mb-3">
@@ -498,9 +498,9 @@
 
         <ConfirmActionDialog
             v-model:open="finalizeDialog"
-            title="Finalize process?"
+            title="Finalize transaction?"
             message="This marks the transaction done and locks it to view-only."
-            confirm-label="Finalize Process"
+            confirm-label="Finalize Transaction"
             confirm-color="success"
             :saving="saving"
             @confirm="finalizeTx"
@@ -771,7 +771,7 @@ const pendingReceipt = computed(
     () => tx.value?.pending_receipt || (tx.value?.runs || []).find((r) => !r.received_at) || null,
 );
 
-// Safety net: fail visibly when the process itself is unfinished.
+// Safety net: fail visibly when the transaction type itself is unfinished.
 // Counts outgoing routes of the CURRENT step in the PINNED workflow version.
 const outgoingRoutesCount = computed(() => {
     const cid = tx.value?.current_step?.id;
@@ -1128,7 +1128,7 @@ async function gotoStation(remarksText) {
     }
 }
 
-// Finalize the process on the last station. No requirements — the
+// Finalize the transaction on the last station. No requirements — the
 // backend enforces end-step + once-only. Afterwards view-only.
 async function finalizeTx() {
     if (saving.value) return;

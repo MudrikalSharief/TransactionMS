@@ -38,7 +38,7 @@ class TransactionFinalizeController extends Controller
         $current = $transaction->state?->currentStep;
         if (!$current) abort(422, 'Transaction has no current step.');
         if (!(bool) $current->is_end) {
-            abort(422, 'Only the last station can finalize the process.');
+            abort(422, 'Only the last station can finalize the transaction.');
         }
 
         $tx = DB::transaction(function () use ($transaction, $request, $current) {
@@ -49,7 +49,7 @@ class TransactionFinalizeController extends Controller
                 'from_step_id' => $current->id,
                 'to_step_id' => $current->id,
                 'action_code' => 'finalize',
-                'remarks' => 'Process finalized',
+                'remarks' => 'Transaction finalized',
                 'performed_by' => $request->user()->id,
                 'performed_at' => now(),
                 // Finalizing closes the loop — auto-received so the row
