@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        \App\Console\Commands\PruneUnusedWorkflows::class,
+    ])
     ->withMiddleware(function (Middleware $middleware) {
         // Sanctum SPA cookie auth requires this to run on the API group.
         $middleware->group('api', [

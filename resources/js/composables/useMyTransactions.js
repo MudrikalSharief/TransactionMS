@@ -42,6 +42,14 @@ export function useMyTransactions() {
         };
     }
 
+    async function receive(id) {
+        const res = await api.post(`/api/transactions/${id}/receive`);
+        return {
+            tx: res.data.data ?? res.data,
+            meta: res.data.meta ?? {},
+        };
+    }
+
     async function gotoStation(id, payload) {
         const res = await api.post(`/api/transactions/${id}/goto`, payload);
         return {
@@ -92,6 +100,7 @@ export function useMyTransactions() {
         fetchAll,
         getOne,
         execute,
+        receive,
         gotoStation,
         finalize,
         checkRequirement,

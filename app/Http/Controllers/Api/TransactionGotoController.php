@@ -24,6 +24,10 @@ class TransactionGotoController extends Controller
     ) {
         $routing->assertUserCanExecute($transaction, $request->user());
 
+        if ($routing->hasPendingReceipt($transaction)) {
+            abort(422, 'Please receive the step first before jumping.');
+        }
+
         $transaction->loadMissing(['state', 'workflow.steps']);
 
         $currentStepId = (int) $transaction->state?->current_step_id;
@@ -66,8 +70,14 @@ class TransactionGotoController extends Controller
             'state.currentStep',
             'creator',
             'runs.fromStep',
+            'runs.fromStep.office',
+            'runs.fromStep.roles',
             'runs.toStep',
+            'runs.toStep.office',
+            'runs.toStep.roles',
             'runs.performer',
+            'runs.receiver',
+            'runs.receivedOffice',
             'runs.attachments.requirement',
             'fieldValues.fieldDefinition',
             'requirementChecks.checker',

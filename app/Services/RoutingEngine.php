@@ -29,6 +29,10 @@ class RoutingEngine
         // Finalized transactions are view-only — no actions at all.
         if ((bool) ($tx->is_done ?? false)) return [];
 
+        // Pending receipt locks the station: destination office must click
+        // Receive before any Proceed/return/jump action is offered.
+        if ($this->hasPendingReceipt($tx)) return [];
+
         if (!$this->userCanWorkOnStep($tx, $user, (int) $currentStep->id)) {
             return [];
         }
@@ -96,6 +100,27 @@ class RoutingEngine
         return $this->userCanWorkOnStep($tx, $user, $stepId);
     }
 
+    /**
+     * True when the latest forward has not been received yet.
+     * Used to lock Proceed actions until the destination office receives.
+     */
+    public function hasPendingReceipt(Transaction $tx): bool
+    {
+        return \App\Models\TransactionStepRun::where('transaction_id', $tx->id)
+            ->whereNull('received_at')
+            ->exists();
+    }
+
+    public function pendingReceipt(Transaction $tx): ?\App\Models\TransactionStepRun
+    {
+        return \App\Models\TransactionStepRun::where('transaction_id', $tx->id)
+            ->whereNull('received_at')
+            ->with(['fromStep:id,code,name', 'toStep:id,code,name,office_id', 'performer:id,name', 'receivedOffice:id,code,name'])
+            ->orderByDesc('performed_at')
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function assertUserCanExecute(Transaction $tx, User $user): void
     {
         if ((bool) ($tx->is_done ?? false)) {
@@ -112,6 +137,9 @@ class RoutingEngine
     public function assertRouteExecutable(Transaction $tx, int $routeId, User $user): WorkflowRoute
     {
         $this->assertUserCanExecute($tx, $user);
+        if ($this->hasPendingReceipt($tx)) {
+            abort(422, 'Please receive the step first before acting.');
+        }
         $tx->loadMissing([
             'workflow.routes',
             'workflow.steps',

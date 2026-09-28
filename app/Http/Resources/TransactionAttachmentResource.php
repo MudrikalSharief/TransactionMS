@@ -23,6 +23,7 @@ class TransactionAttachmentResource extends JsonResource
             'uploaded_by' => $this->whenLoaded('uploader', fn () => $this->uploader?->only(['id', 'name'])),
             'created_at' => $this->created_at?->toISOString(),
             'download_url' => url("/api/transactions/{$this->transaction_id}/attachments/{$this->id}/download"),
+            'view_url' => url("/api/transactions/{$this->transaction_id}/attachments/{$this->id}/view"),
         ];
     }
 }

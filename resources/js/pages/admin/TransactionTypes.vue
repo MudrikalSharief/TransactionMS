@@ -48,7 +48,18 @@
             <v-icon start size="small">mdi-format-list-numbered</v-icon>
             {{ stepsOf(item).count }} steps
           </v-chip>
-          <span v-else class="text-medium-emphasis">—</span>
+          <v-btn
+            v-else
+            rounded="0"
+            size="small"
+            variant="outlined"
+            color="grey-darken-3"
+            prepend-icon="mdi-plus"
+            v-tooltip="'Add first step'"
+            @click="goSteps(item)"
+          >
+            Add Step
+          </v-btn>
         </template>
 
         <template v-slot:[`item.offices`]="{ item }">
