@@ -420,78 +420,13 @@
             </v-card-text>
         </v-card>
 
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-history</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">History</span>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <div class="d-flex flex-column" style="min-height: 510px">
-                <v-data-table v-show="!loading" :headers="runHeaders" :items="tx.runs || []" item-key="id" density="compact" height="450" fixed-header :items-per-page="25" hover class="lgu-table">
-                    <template v-slot:[`item.from_step`]="{ item }">
-                        <span :title="item.action_code === 'create' ? 'created' : (item.from_step?.code || '')">{{ fmtFromStep(item) }}</span>
-                    </template>
-                    <template v-slot:[`item.to_step`]="{ item }">
-                        <span :title="item.to_step?.code || ''">{{ fmtStepOfficeRoles(item.to_step) }}</span>
-                    </template>
-                    <template v-slot:[`item.performed_by`]="{ item }">
-                        <div class="font-weight-medium text-caption">{{ item.performed_by?.name || '—' }}</div>
-                        <div v-if="(item.performed_by?.roles || []).length" class="d-flex flex-wrap ga-1 mt-1">
-                            <v-chip
-                                v-for="r in (item.performed_by?.roles || [])"
-                                :key="r.id || r.code"
-                                size="x-small"
-                                variant="tonal"
-                                rounded="0"
-                                :color="roleColorFor(r.code)"
-                            >
-                                {{ r.name || r.code }}
-                            </v-chip>
-                        </div>
-                    </template>
-                    <template v-slot:[`item.released_at`]="{ item }">
-                        {{ fmtDateTime(item.released_at || item.performed_at) }}
-                    </template>
-                    <template v-slot:[`item.received_by`]="{ item }">
-                        <div class="font-weight-medium text-caption">{{ item.received_by?.name || '—' }}</div>
-                        <div v-if="(item.received_by?.roles || []).length" class="d-flex flex-wrap ga-1 mt-1">
-                            <v-chip
-                                v-for="r in (item.received_by?.roles || [])"
-                                :key="r.id || r.code"
-                                size="x-small"
-                                variant="tonal"
-                                rounded="0"
-                                :color="roleColorFor(r.code)"
-                            >
-                                {{ r.name || r.code }}
-                            </v-chip>
-                        </div>
-                    </template>
-                    <template v-slot:[`item.received_at`]="{ item }">
-                        {{ item.received_at ? fmtDateTime(item.received_at) : 'Pending' }}
-                    </template>
-                    <template v-slot:[`item.duration_estimated_minutes`]="{ item }">
-                        {{ fmtMinutes(item.duration_estimated_minutes ?? item.sla_minutes_snapshot) }}
-                    </template>
-                    <template v-slot:[`item.sla_actual_minutes`]="{ item }">
-                        {{ item.sla_actual_minutes == null ? '—' : fmtMinutes(item.sla_actual_minutes) }}
-                    </template>
-                    <template v-slot:[`item.receive_status`]="{ item }">
-                        <v-chip size="x-small" :color="item.received_at ? (item.is_breached ? 'error' : 'success') : 'warning'" variant="tonal">
-                            {{ item.received_at ? (item.is_breached ? 'Overdue' : 'On time') : 'Pending' }}
-                        </v-chip>
-                    </template>
-                    <template v-slot:[`item.files`]="{ item }">
-                        <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" compact @deleted="removeAttachment" />
-                    </template>
-                </v-data-table>
-                <TableLoader v-if="loading" label="history" compact style="flex: 1 1 auto" />
-                </div>
-            </v-card-text>
-        </v-card>
+        <TransactionHistory
+            v-if="tx || loading"
+            :runs="tx?.runs || []"
+            :loading="loading"
+            :tx-id="route.params.id"
+            @deleted="removeAttachment"
+        />
 
         <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
             <v-card-title class="d-flex align-center pa-5">
@@ -649,8 +584,7 @@ import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
-import { fmtStepOfficeRoles, fmtFromStep } from '@/utils/steps';
-import { roleColorFor } from '@/utils/roles';
+import TransactionHistory from '@/components/history/TransactionHistory.vue';
 import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
@@ -832,21 +766,6 @@ function waitText(row) {
     return `Waiting — handled at Station ${st.order_number} · ${st.name}${who ? ` (${who})` : ""}.`;
 }
 
-const runHeaders = [
-    { title: "From", key: "from_step", sortable: false },
-    { title: "To", key: "to_step", sortable: false },
-    { title: "Action", key: "action_code" },
-    { title: "Remarks", key: "remarks" },
-    { title: "Files", key: "files", sortable: false },
-    { title: "From User", key: "performed_by", sortable: false },
-    { title: "Released At", key: "released_at" },
-    { title: "To User", key: "received_by", sortable: false },
-    { title: "Received At", key: "received_at" },
-    { title: "Est. Duration", key: "duration_estimated_minutes", sortable: false },
-    { title: "Actual SLA", key: "sla_actual_minutes", sortable: false },
-    { title: "Status", key: "receive_status", sortable: false },
-];
-
 const receiving = ref(false);
 const pendingReceipt = computed(
     () => tx.value?.pending_receipt || (tx.value?.runs || []).find((r) => !r.received_at) || null,
@@ -876,18 +795,6 @@ const currentStepRoles = computed(() => {
     );
     return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
 });
-
-function fmtMinutes(v) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return '—';
-    if (n < 60) return `${n}m`;
-    const h = Math.floor(n / 60);
-    const m = n % 60;
-    if (h < 48) return m ? `${h}h ${m}m` : `${h}h`;
-    const d = Math.floor(h / 24);
-    const rh = h % 24;
-    return rh ? `${d}d ${rh}h` : `${d}d`;
-}
 
 async function receiveStep() {
     receiving.value = true;

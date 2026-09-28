@@ -93,7 +93,7 @@
         <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-1 mb-1">
             {{ deleteError }}
         </v-alert>
-        <div v-if="!compact" class="mt-1">
+        <div v-if="!compact && showDetails" class="mt-1">
             <div v-for="a in items" :key="'d-' + a.id" class="text-caption text-medium-emphasis">
                 <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] </template>{{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
                 <a :href="a.download_url">Download</a>
@@ -144,6 +144,9 @@ import { useAuth } from "@/composables/useAuth";
 const props = defineProps({
     items: { type: Array, default: () => [] },
     compact: { type: Boolean, default: false },
+    // When false, hides the plain-text detail lines below the chips
+    // (used in history expanded details to avoid showing each file twice).
+    showDetails: { type: Boolean, default: true },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
 });

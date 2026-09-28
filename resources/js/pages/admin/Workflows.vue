@@ -6,7 +6,7 @@
                     <v-icon color="white">mdi-source-branch</v-icon>
                 </v-avatar>
                 <div>
-                    <span class="text-h6 font-weight-bold">Workflows</span>
+                    <span class="text-h6 font-weight-bold">WORKFLOW STEPS</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
                     <div v-else class="text-caption text-medium-emphasis">Select a process</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
@@ -107,7 +107,7 @@
                     <v-divider class="my-3" />
 
                     <div class="d-flex align-center mb-2 mt-6">
-                        <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                        <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
                         <template v-if="loading">
@@ -261,7 +261,7 @@
                 <v-divider class="my-3" />
 
                 <div class="d-flex align-center mb-2 mt-6">
-                    <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                    <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     <v-spacer />
                     <v-btn
                         color="grey-darken-3"
@@ -431,7 +431,9 @@
                         :items="officeOptions"
                         item-title="label"
                         item-value="id"
-                        label="Office for this step"
+                        label="Destination Office"
+                        hint="The office this step will be sent to"
+                        persistent-hint
                         clearable
                     />
 
@@ -761,7 +763,7 @@ const stepHeaders = [
     { title: "Name", key: "name" },
     { title: "Stage", key: "stage" },
     { title: "SLA (min)", key: "sla_minutes" },
-    { title: "Office", key: "office_id", sortable: false },
+    { title: "Destination Office", key: "office_id", sortable: false },
     { title: "Roles", key: "role_ids", sortable: false },
     { title: "Flags", key: "flags", sortable: false },
     { title: "", key: "actions", sortable: false },
