@@ -2,17 +2,123 @@
     <div>
         <v-stepper v-if="showChecklist && hasProceedContent" v-model="step" flat hide-actions alt-labels class="wizard-stepper mb-2">
             <v-stepper-header>
-                <v-stepper-item :value="1" title="Requirements" subtitle="Upload files" complete-icon="mdi-check" />
+                <v-stepper-item :value="1" title="Review" subtitle="Checklist & proceed" complete-icon="mdi-check" />
                 <v-divider />
-                <v-stepper-item :value="2" title="Review" subtitle="Checklist & proceed" complete-icon="mdi-check" />
+                <v-stepper-item :value="2" title="Requirements" subtitle="Upload files" complete-icon="mdi-check" />
             </v-stepper-header>
         </v-stepper>
 
         <v-window v-model="step">
-            <!-- PAGE 1: current-step requirements + per-item uploads + station info.
-                 In single-page mode (step 1 → step 2, no checklist) this is
-                 the only page: remarks + move attachments render below. -->
-            <v-window-item v-if="hasRequirements || !showChecklist" :value="1">
+            <!-- PAGE 1: review — requirements status + checklist ticks.
+                 First page in two-page mode; the only page in single-step
+                 (checklist-only) mode where its footer allows Proceed. -->
+            <v-window-item v-if="showChecklist" :value="1">
+                <!-- Single-step fallback: no requirements, so station info lives here -->
+                <template v-if="!hasRequirements && (fields || []).length">
+                    <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
+                    <StepInfoFields :fields="fields" :form="form" />
+                    <v-alert v-if="missingRequiredFields.length" type="warning" variant="tonal" density="compact" class="mt-2 mb-3">
+                        Fill in required station info: {{ missingRequiredFields.join(", ") }}.
+                    </v-alert>
+                    <v-divider class="my-3" />
+                </template>
+
+                <!-- Requirements status: file presence only (required = must upload). -->
+                <template v-if="hasRequirements">
+                    <div class="text-subtitle-2 font-weight-bold mb-1">Requirements</div>
+                    <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
+                        Return action — uploads optional.
+                    </div>
+                    <div v-else class="text-caption text-medium-emphasis mb-2">
+                        Required items show as ready only when a file is attached — press Next to upload.
+                    </div>
+                    <div
+                        v-for="r in (requirements || [])"
+                        :key="`req-status-${r.definition.id}`"
+                        class="d-flex align-center ga-2 py-1"
+                    >
+                        <v-icon size="small" :color="hasReqFiles(r) ? 'success' : (r?.pivot?.is_required && !isReturnSelected ? 'error' : 'grey')">
+                            {{ hasReqFiles(r) ? 'mdi-check-circle' : (r?.pivot?.is_required && !isReturnSelected ? 'mdi-alert-circle-outline' : 'mdi-circle-outline') }}
+                        </v-icon>
+                        <span class="text-body-2">
+                            {{ r.definition.name }}
+                            <span v-if="r?.pivot?.is_required" class="text-error font-weight-bold">*</span>
+                            <span v-else class="text-medium-emphasis">(optional)</span>
+                        </span>
+                        <v-chip v-if="hasReqFiles(r)" size="x-small" variant="tonal" color="success" rounded="0">file ready</v-chip>
+                        <v-chip v-else-if="r?.pivot?.is_required && !isReturnSelected" size="x-small" variant="tonal" color="error" rounded="0">file required</v-chip>
+                    </div>
+                    <v-divider class="my-3" />
+                </template>
+
+                <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
+                <div class="text-subtitle-2 font-weight-bold mb-1">Checklist</div>
+                <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
+                    Return action — checklist not required.
+                </div>
+                <div v-else-if="!(checklist || []).length" class="text-caption text-medium-emphasis mb-2">
+                    No checklist items for this station.
+                </div>
+                <div v-else>
+                    <div class="text-caption text-medium-emphasis mb-2">
+                        Tick each item as done. Required items must be ticked before you can Proceed.
+                    </div>
+                    <div
+                        v-for="c in (checklist || [])"
+                        :key="c.id"
+                        class="d-flex align-center ga-2 py-1"
+                    >
+                        <v-checkbox
+                            :model-value="!!c.checked"
+                            :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
+                            density="compact"
+                            hide-details="auto"
+                            style="flex: 1 1 auto"
+                            :disabled="saving || savingChecklist"
+                            :loading="savingChecklist && savingChecklistItemId === c.id"
+                            @update:model-value="(v) => emit('toggle-checklist', c, v)"
+                        />
+                        <v-btn
+                            v-for="a in viewableFiles(c)"
+                            :key="a.id"
+                            size="x-small"
+                            variant="tonal"
+                            color="info"
+                            rounded="0"
+                            :href="a.view_url || a.download_url"
+                            target="_blank"
+                            rel="noopener"
+                            :title="`View ${a.original_name}`"
+                            @click.stop
+                        >
+                            <v-icon start size="x-small">mdi-eye</v-icon>View
+                        </v-btn>
+                    </div>
+                </div>
+
+                <!-- Single-step mode only (no requirements): remarks + move
+                     attachments live here so checklist-only flows can Proceed. -->
+                <ProceedFooter
+                    v-if="!hasRequirements"
+                    v-model:remarks="remarks"
+                    v-model:proceed-attachments="proceedAttachments"
+                    :tx-id="txId"
+                    :is-admin="isAdmin"
+                    :is-return-selected="isReturnSelected"
+                    :show-checklist="showChecklist"
+                    :missing-required-upload-labels="missingRequiredUploadLabels"
+                    :missing-required-checklist-labels="missingRequiredChecklistLabels"
+                    :missing-required-fields="missingRequiredFields"
+                    :execute-error="executeError"
+                    @attachment-deleted="(id) => emit('attachment-deleted', id)"
+                />
+            </v-window-item>
+
+            <!-- PAGE 2: current-step requirements + per-item uploads + station info.
+                 Last page in two-page mode; the only page in single-page mode
+                 (step 1 → step 2, no checklist): remarks + move attachments
+                 render below so it never shows a second screen. -->
+            <v-window-item v-if="hasRequirements || !showChecklist" :value="2">
                 <template v-if="(fields || []).length">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
                     <StepInfoFields :fields="fields" :form="form" />
@@ -27,7 +133,7 @@
                     Return action — uploads optional.
                 </div>
                 <div v-else-if="!(requirements || []).length" class="text-caption text-medium-emphasis mb-2">
-                    No requirements for this station{{ showChecklist ? ' — press Next' : '' }}.
+                    No requirements for this station.
                 </div>
                 <div v-else class="text-caption text-medium-emphasis mb-2">
                     <b>Required</b> items need at least one file attached before you can Proceed.
@@ -106,110 +212,6 @@
                         </v-expansion-panel-text>
                     </v-expansion-panel>
                 </v-expansion-panels>
-                <!-- Single-page mode: remarks + move attachments live here,
-                     so step 1 → step 2 never shows a second screen. -->
-                <ProceedFooter
-                    v-if="!showChecklist"
-                    v-model:remarks="remarks"
-                    v-model:proceed-attachments="proceedAttachments"
-                    :tx-id="txId"
-                    :is-admin="isAdmin"
-                    :is-return-selected="isReturnSelected"
-                    :show-checklist="showChecklist"
-                    :missing-required-upload-labels="missingRequiredUploadLabels"
-                    :missing-required-checklist-labels="missingRequiredChecklistLabels"
-                    :missing-required-fields="missingRequiredFields"
-                    :execute-error="executeError"
-                    @attachment-deleted="(id) => emit('attachment-deleted', id)"
-                />
-            </v-window-item>
-
-            <!-- PAGE 2: requirements status + checklist ticks + remarks + final proceed.
-                 Only in two-page mode; single-page mode ends on page 1. -->
-            <v-window-item v-if="showChecklist" :value="2">
-                <!-- Single-step fallback: no requirements, so station info lives here -->
-                <template v-if="!hasRequirements && (fields || []).length">
-                    <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
-                    <StepInfoFields :fields="fields" :form="form" />
-                    <v-alert v-if="missingRequiredFields.length" type="warning" variant="tonal" density="compact" class="mt-2 mb-3">
-                        Fill in required station info: {{ missingRequiredFields.join(", ") }}.
-                    </v-alert>
-                    <v-divider class="my-3" />
-                </template>
-
-                <!-- Requirements status: file presence only (required = must upload). -->
-                <template v-if="hasRequirements">
-                    <div class="text-subtitle-2 font-weight-bold mb-1">Requirements</div>
-                    <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
-                        Return action — uploads optional.
-                    </div>
-                    <div v-else class="text-caption text-medium-emphasis mb-2">
-                        Required items show as ready only when a file is attached.
-                    </div>
-                    <div
-                        v-for="r in (requirements || [])"
-                        :key="`req-status-${r.definition.id}`"
-                        class="d-flex align-center ga-2 py-1"
-                    >
-                        <v-icon size="small" :color="hasReqFiles(r) ? 'success' : (r?.pivot?.is_required && !isReturnSelected ? 'error' : 'grey')">
-                            {{ hasReqFiles(r) ? 'mdi-check-circle' : (r?.pivot?.is_required && !isReturnSelected ? 'mdi-alert-circle-outline' : 'mdi-circle-outline') }}
-                        </v-icon>
-                        <span class="text-body-2">
-                            {{ r.definition.name }}
-                            <span v-if="r?.pivot?.is_required" class="text-error font-weight-bold">*</span>
-                            <span v-else class="text-medium-emphasis">(optional)</span>
-                        </span>
-                        <v-chip v-if="hasReqFiles(r)" size="x-small" variant="tonal" color="success" rounded="0">file ready</v-chip>
-                        <v-chip v-else-if="r?.pivot?.is_required && !isReturnSelected" size="x-small" variant="tonal" color="error" rounded="0">file required</v-chip>
-                    </div>
-                    <v-divider class="my-3" />
-                </template>
-
-                <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
-                <div class="text-subtitle-2 font-weight-bold mb-1">Checklist</div>
-                <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
-                    Return action — checklist not required.
-                </div>
-                <div v-else-if="!(checklist || []).length" class="text-caption text-medium-emphasis mb-2">
-                    No checklist items for this station.
-                </div>
-                <div v-else>
-                    <div class="text-caption text-medium-emphasis mb-2">
-                        Tick each item as done. Required items must be ticked before you can Proceed.
-                    </div>
-                    <div
-                        v-for="c in (checklist || [])"
-                        :key="c.id"
-                        class="d-flex align-center ga-2 py-1"
-                    >
-                        <v-checkbox
-                            :model-value="!!c.checked"
-                            :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
-                            density="compact"
-                            hide-details="auto"
-                            style="flex: 1 1 auto"
-                            :disabled="saving || savingChecklist"
-                            :loading="savingChecklist && savingChecklistItemId === c.id"
-                            @update:model-value="(v) => emit('toggle-checklist', c, v)"
-                        />
-                        <v-btn
-                            v-for="a in viewableFiles(c)"
-                            :key="a.id"
-                            size="x-small"
-                            variant="tonal"
-                            color="info"
-                            rounded="0"
-                            :href="a.view_url || a.download_url"
-                            target="_blank"
-                            rel="noopener"
-                            :title="`View ${a.original_name}`"
-                            @click.stop
-                        >
-                            <v-icon start size="x-small">mdi-eye</v-icon>View
-                        </v-btn>
-                    </div>
-                </div>
-
                 <ProceedFooter
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
@@ -266,7 +268,7 @@ const props = defineProps({
     savingChecklistItemId: { type: [Number, String, null], default: null },
 })
 
-// Page 1 holds the uploads. In single-page mode (step 1 → step 2) it is the
+// Page 2 holds the uploads. In single-page mode (step 1 → step 2) it is the
 // only page: remarks + move attachments render below the uploads.
 const hasRequirements = computed(() => (props.requirements || []).length > 0)
 const hasProceedContent = computed(

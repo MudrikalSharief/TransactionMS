@@ -218,7 +218,9 @@ function resetWizardForRoute() {
     const destVisited = destId != null && (visitedStepIds.value || []).map(Number).includes(Number(destId));
     proceedAttachments.value = destVisited ? [...currentStepAttachments()] : [];
     executeError.value = "";
-    wizardStep.value = isFirstStepTransition.value ? 1 : (hasProceedRequirements.value ? 1 : 2);
+    // Single-page mode (step 1 → step 2): everything happens on the
+    // Requirements page (now page 2). Otherwise start on Review (page 1).
+    wizardStep.value = isFirstStepTransition.value ? 2 : 1;
     wizardRef.value?.clearReqFiles?.();
 }
 

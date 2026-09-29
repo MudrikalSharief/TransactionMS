@@ -142,7 +142,7 @@
                     <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                    v-if="showApprovals"
+                    v-if="false && showApprovals"
                     to="/approvals"
                     rounded="lg"
                     v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : undefined"
