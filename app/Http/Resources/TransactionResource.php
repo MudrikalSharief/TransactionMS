@@ -116,8 +116,20 @@ class TransactionResource extends JsonResource
             // Per-step checklist (seeded from requirements, then free-edited).
             // Required items block Proceed when unticked — same idea as the
             // old requirement ticks; uploads are a requirements-only concern.
-            $checklistItems = \app(\App\Services\ChecklistService::class)
-                ->ensureItems($currentStep);
+            $checklistService = \app(\App\Services\ChecklistService::class);
+            $checklistItems = $checklistService->ensureItems($currentStep);
+
+            // Items mirrored from a predecessor's requirement carry that
+            // station and the files it uploaded, so the reviewer can see
+            // what they are validating (Approvals page).
+            $sourceStepByReq = [];
+            foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
+                foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
+                    $sourceStepByReq[(int) $reqId] ??= $pred;
+                }
+            }
+            $attsByStepReq = collect($this->attachments ?? [])
+                ->groupBy(fn ($a) => ((int) $a->workflow_step_id) . ':' . ((int) ($a->requirement_definition_id ?? 0)));
 
             // Checklist items mirror predecessor requirements, so their
             // files live on earlier steps. Group transaction-wide by
@@ -127,6 +139,10 @@ class TransactionResource extends JsonResource
 
             foreach ($checklistItems as $item) {
                 $cCheck = $checklistChecks->get($item->id);
+                $sourceStep = $sourceStepByReq[(int) ($item->requirement_definition_id ?? 0)] ?? null;
+                $sourceAtts = $sourceStep
+                    ? $attsByStepReq->get(((int) $sourceStep->id) . ':' . ((int) $item->requirement_definition_id), collect())->values()
+                    : collect();
                 $itemAtts = $attsByReqTx->get((int) ($item->requirement_definition_id ?? 0), collect())->values();
                 $currentStepChecklist[] = [
                     'id' => $item->id,
@@ -139,7 +155,7 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $cCheck,
                     'checked_at' => $cCheck?->checked_at?->toISOString(),
                     'checked_by' => $cCheck?->checker?->only(['id', 'name']),
-                    'attachments' => $itemAtts->map(fn ($a) => [
+                    'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
                         'mime' => $a->mime,
@@ -150,7 +166,7 @@ class TransactionResource extends JsonResource
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
                         'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
                     ])->all(),
-                    'attachment_count' => $itemAtts->count(),
+                    'attachment_count' => ($sourceStep ? $sourceAtts : $itemAtts)->count(),
                 ];
             }
         }

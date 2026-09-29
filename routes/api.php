@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\GovernmentReferenceController;
 use App\Http\Controllers\Api\Admin\WorkflowDefinitionController;
 use App\Http\Controllers\Api\Admin\WorkflowStepController;
 use App\Http\Controllers\Api\Admin\WorkflowRouteController;
+use App\Http\Controllers\Api\Admin\DashboardSummaryController;
 
 use App\Http\Controllers\Api\Admin\FieldDefinitionController;
 use App\Http\Controllers\Api\Admin\StepFieldController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Api\TransactionGotoController;
 use App\Http\Controllers\Api\TransactionFinalizeController;
 use App\Http\Controllers\Api\TransactionReceiveController;
 use App\Http\Controllers\Api\UserTransactionController;
+use App\Http\Controllers\Api\ApprovalController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -71,6 +73,9 @@ Route::get('/weather', function () {
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/approvals', [ApprovalController::class, 'index']);
+    Route::get('/approvals/count', [ApprovalController::class, 'count']);
+
     Route::get('/transactions', [UserTransactionController::class, 'index']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
@@ -146,6 +151,9 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
+
+        // Dashboard - Transaction Summary card
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
 
         // Transactions
         Route::get('/transactions', [TransactionController::class, 'index']);
