@@ -6,9 +6,9 @@
                     <v-icon color="white">mdi-source-branch</v-icon>
                 </v-avatar>
                 <div>
-                    <span class="text-h6 font-weight-bold">Workflows</span>
+                    <span class="text-h6 font-weight-bold">WORKFLOW STEPS</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
-                    <div v-else class="text-caption text-medium-emphasis">Select a process</div>
+                    <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
                         <v-chip
                             rounded="0"
@@ -17,7 +17,7 @@
                             :color="activeDef.status === 'published' ? 'success' : activeDef.status === 'draft' ? 'warning' : 'grey'"
                             class="font-weight-bold"
                         >
-                            {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current process" : "Previous" }}
+                            {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current version" : "Previous" }}
                         </v-chip>
                         <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
                             {{ (activeDef.steps || []).length }} steps
@@ -64,8 +64,8 @@
                     rounded="0"
                     class="mb-3"
                 >
-                    No process selected. Pick one below, or go to
-                    <b>Processes</b> and open <b>Steps</b> for one process.
+                    No transaction type selected. Pick one below, or go to
+                    <b>Transaction Types</b> and open <b>Steps</b> for one transaction type.
                 </v-alert>
                 <v-select
                     v-if="!selectedTypeId && !loading && (types || []).length"
@@ -73,7 +73,7 @@
                     :items="typePickerOptions"
                     item-title="label"
                     item-value="id"
-                    label="Select process"
+                    label="Select transaction type"
                     density="compact"
                     class="mb-3"
                     @update:model-value="onPickType"
@@ -100,14 +100,14 @@
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <v-alert v-else type="info" variant="tonal" class="mb-3">
-                            No process yet for this process — click <b>Add Step</b> to create step 1.
+                            No workflow yet for this transaction type — click <b>Add Step</b> to create step 1.
                         </v-alert>
                     </div>
 
                     <v-divider class="my-3" />
 
                     <div class="d-flex align-center mb-2 mt-6">
-                        <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                        <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
                         <template v-if="loading">
@@ -135,7 +135,7 @@
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <v-alert v-if="!loading && activeDef && !flatStepRows.length" type="info" variant="tonal" class="mb-3">
-                    This process has no steps yet — click <b>Add Step</b> to create step 1.
+                    This transaction type has no steps yet — click <b>Add Step</b> to create step 1.
                 </v-alert>
                 <v-data-table
                     v-show="!loading"
@@ -261,7 +261,7 @@
                 <v-divider class="my-3" />
 
                 <div class="d-flex align-center mb-2 mt-6">
-                    <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                    <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     <v-spacer />
                     <v-btn
                         color="grey-darken-3"
@@ -354,7 +354,7 @@
                 </div>
 
                 <v-expansion-panels v-if="!loading && historyDefs.length" variant="accordion" class="mt-4">
-                    <v-expansion-panel rounded="0" title="History (previous processes, read-only)">
+                    <v-expansion-panel rounded="0" title="History (previous versions, read-only)">
                         <template #text>
                             <v-list density="compact" class="py-0">
                                 <v-list-item
@@ -367,7 +367,7 @@
                                         <v-icon :color="wfStatusColor(d.status)" size="small">{{ wfStatusIcon(d.status) }}</v-icon>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
-                                        {{ d.name || "Process" }} · {{ (d.steps || []).length }} steps
+                                        {{ d.name || "Workflow" }} · {{ (d.steps || []).length }} steps
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ wfStatusLabel(d.status) }}</v-list-item-subtitle>
                                     <template #append>
@@ -431,7 +431,9 @@
                         :items="officeOptions"
                         item-title="label"
                         item-value="id"
-                        label="Office for this step"
+                        label="Destination Office"
+                        hint="The office this step will be sent to"
+                        persistent-hint
                         clearable
                     />
 
@@ -558,11 +560,11 @@ const router = useRouter();
 
 const guideSections = [
     {
-        title: "PROCESSES",
+        title: "TRANSACTION TYPES",
         rows: [
-            { term: "PROCESS", text: "CURRENT = LIVE FLOW, DRAFT = EDITABLE, PREVIOUS = RETIRED" },
+            { term: "TRANSACTION TYPE", text: "CURRENT = LIVE FLOW, DRAFT = EDITABLE, PREVIOUS = RETIRED" },
             { term: "STATUS", text: "DRAFT = EDITABLE, PUBLISHED = LIVE, ARCHIVED = RETIRED" },
-            { term: "NAME", text: "PROCESS LABEL" },
+            { term: "NAME", text: "TRANSACTION TYPE LABEL" },
         ],
     },
     {
@@ -761,7 +763,7 @@ const stepHeaders = [
     { title: "Name", key: "name" },
     { title: "Stage", key: "stage" },
     { title: "SLA (min)", key: "sla_minutes" },
-    { title: "Office", key: "office_id", sortable: false },
+    { title: "Destination Office", key: "office_id", sortable: false },
     { title: "Roles", key: "role_ids", sortable: false },
     { title: "Flags", key: "flags", sortable: false },
     { title: "", key: "actions", sortable: false },
@@ -801,7 +803,7 @@ watch(selectedTypeId, async (id) => {
         await fetchDefinitions(id);
         selectEffective();
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load processes.";
+        error.value = e?.response?.data?.message || "Failed to load transaction types.";
         activeDef.value = null;
     }
 });
@@ -933,7 +935,7 @@ async function goStepFields(item) {
 
 function liveEditableTarget() {
     // Requirements/checklist apply to running papers immediately, so
-    // open them on the published process — not an open draft clone.
+    // open them on the published transaction type — not an open draft clone.
     return currentDef.value || activeDef.value;
 }
 

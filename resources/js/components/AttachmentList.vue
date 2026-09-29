@@ -1,5 +1,53 @@
 <template>
     <div v-if="items?.length">
+        <div v-if="compact" class="d-flex flex-wrap ga-1">
+            <span v-for="a in items" :key="a.id" class="d-inline-flex align-center">
+                <v-tooltip location="top" max-width="320">
+                    <template #activator="{ props }">
+                        <a
+                            :href="a.view_url || a.download_url"
+                            target="_blank"
+                            rel="noopener"
+                            class="text-decoration-none"
+                            :title="a.original_name"
+                            v-bind="props"
+                            @click.stop
+                        >
+                            <v-btn
+                                icon
+                                size="x-small"
+                                variant="tonal"
+                                color="grey-darken-3"
+                                :aria-label="a.original_name"
+                                :title="a.original_name"
+                            >
+                                <v-icon size="small">{{ fileIconFor(a) }}</v-icon>
+                            </v-btn>
+                        </a>
+                    </template>
+                    <div class="font-weight-bold text-caption">{{ a.original_name }}</div>
+                    <div class="text-caption text-medium-emphasis">
+                        <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] · </template>{{ formatSize(a.size_bytes) }}
+                    </div>
+                    <div class="text-caption mt-1">
+                        <a :href="a.download_url" class="text-white" @click.stop>Download</a>
+                    </div>
+                </v-tooltip>
+                <v-btn
+                    v-if="canDelete"
+                    icon="mdi-delete"
+                    size="x-small"
+                    variant="text"
+                    color="error"
+                    class="ml-1"
+                    title="Delete (superadmin only)"
+                    :loading="deletingId === a.id"
+                    :disabled="deletingId !== null"
+                    @click.stop="askDelete(a)"
+                />
+            </span>
+        </div>
+        <template v-else>
         <v-chip
             v-for="a in items"
             :key="a.id"
@@ -41,10 +89,11 @@
                 @click.stop="askDelete(a)"
             />
         </v-chip>
+        </template>
         <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-1 mb-1">
             {{ deleteError }}
         </v-alert>
-        <div v-if="!compact" class="mt-1">
+        <div v-if="!compact && showDetails" class="mt-1">
             <div v-for="a in items" :key="'d-' + a.id" class="text-caption text-medium-emphasis">
                 <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] </template>{{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
                 <a :href="a.download_url">Download</a>
@@ -95,6 +144,9 @@ import { useAuth } from "@/composables/useAuth";
 const props = defineProps({
     items: { type: Array, default: () => [] },
     compact: { type: Boolean, default: false },
+    // When false, hides the plain-text detail lines below the chips
+    // (used in history expanded details to avoid showing each file twice).
+    showDetails: { type: Boolean, default: true },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
 });
@@ -125,6 +177,24 @@ function reqLabel(a) {
         return "move file";
     }
     return "";
+}
+
+function fileIconFor(a) {
+    const mime = String(a?.mime || "").toLowerCase();
+    const name = String(a?.original_name || "").toLowerCase();
+    const ext = (name.split(".").pop() || "").split("?")[0];
+
+    if (mime.includes("pdf") || ext === "pdf") return "mdi-file-pdf-box";
+    if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)) return "mdi-file-image";
+    if (mime.includes("word") || mime.includes("officedocument.wordprocessing") || ["doc", "docx", "odt", "rtf"].includes(ext)) return "mdi-file-word";
+    if (mime.includes("spreadsheet") || mime.includes("excel") || ["xls", "xlsx", "ods"].includes(ext)) return "mdi-file-excel";
+    if (mime.includes("csv") || ext === "csv") return "mdi-file-delimited";
+    if (mime.includes("presentation") || mime.includes("powerpoint") || ["ppt", "pptx", "odp"].includes(ext)) return "mdi-file-powerpoint";
+    if (mime.includes("zip") || mime.includes("compressed") || ["zip", "rar", "7z", "tar", "gz"].includes(ext)) return "mdi-folder-zip";
+    if (mime.startsWith("text/") || ["txt", "md", "log"].includes(ext)) return "mdi-file-document-outline";
+    if (mime.startsWith("video/") || ["mp4", "avi", "mov", "mkv"].includes(ext)) return "mdi-file-video";
+    if (mime.startsWith("audio/") || ["mp3", "wav", "ogg"].includes(ext)) return "mdi-file-music";
+    return "mdi-file-document";
 }
 
 function askDelete(a) {

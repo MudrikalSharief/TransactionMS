@@ -198,7 +198,7 @@
                         prepend-icon="mdi-format-list-bulleted-type"
                         rounded="lg"
                     >
-                        <v-list-item-title>PROCESSES</v-list-item-title>
+                        <v-list-item-title>TRANSACTION TYPES</v-list-item-title>
                     </v-list-item>
                     <v-list-item
                         to="/admin/fields"
@@ -387,7 +387,7 @@ const searchPages = computed(() => {
                 to: "/admin/offices",
             },
             {
-                title: "Processes",
+                title: "Transaction Types",
                 subtitle: "Page · Admin",
                 icon: "mdi-format-list-bulleted-type",
                 to: "/admin/transaction-types",

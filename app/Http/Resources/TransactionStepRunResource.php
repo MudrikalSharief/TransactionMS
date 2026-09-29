@@ -21,11 +21,11 @@ class TransactionStepRunResource extends JsonResource
             'action_code' => $this->action_code,
             'remarks' => $this->remarks,
             // #3 From user / #1 From (releasing) timestamp
-            'performed_by' => $this->performer?->only(['id','name','email']),
+            'performed_by' => $this->userPayload($this->performer),
             'performed_at' => $this->performed_at?->toISOString(),
             'released_at' => $this->performed_at?->toISOString(),
             // #4 To user / #2 To (receiving) timestamp
-            'received_by' => $this->whenLoaded('receiver', fn () => $this->receiver?->only(['id','name','email'])),
+            'received_by' => $this->receiver ? $this->userPayload($this->receiver) : null,
             'received_at' => $this->received_at?->toISOString(),
             'received_office' => $this->whenLoaded('receivedOffice', fn () => $this->receivedOffice?->only(['id','code','name'])),
             // #5 Estimated duration (snapshot of destination sla_minutes)
@@ -37,6 +37,25 @@ class TransactionStepRunResource extends JsonResource
             'is_breached' => $actual !== null && $actual > $estimated,
             'attachments' => TransactionAttachmentResource::collection($this->whenLoaded('attachments')),
         ];
+    }
+
+    /**
+     * User payload for history From/To User cells: identity + roles.
+     * Roles render as colored chips in the same column on the frontend.
+     */
+    private function userPayload($user): ?array
+    {
+        if (!$user) return null;
+
+        $roles = [];
+        if ($user->relationLoaded('roles')) {
+            $roles = $user->roles->map(fn ($r) => ['id' => $r->id, 'code' => $r->code, 'name' => $r->name])->values()->all();
+        }
+
+        return array_merge(
+            $user->only(['id', 'name', 'email']),
+            ['roles' => $roles],
+        );
     }
 
     /**

@@ -20,7 +20,7 @@
 
             <v-card-text v-if="tx" class="pa-4">
                 <div class="mb-2">
-                    <b>Process:</b> {{ tx.transaction_type?.name }}
+                    <b>Transaction Type:</b> {{ tx.transaction_type?.name }}
                 </div>
 
                 <div class="mb-2">
@@ -146,7 +146,7 @@
                         class="mb-3"
                     >
                         <v-icon start size="small">mdi-flag-checkered</v-icon>
-                        This process has been finalized — view only.
+                        This transaction has been finalized — view only.
                     </v-alert>
                     <v-alert
                         v-else-if="noOutgoingRoutes"
@@ -154,7 +154,7 @@
                         variant="tonal"
                         class="mb-3"
                     >
-                        <div class="font-weight-bold">This step has no outgoing routes — the process can't move forward.</div>
+                        <div class="font-weight-bold">This step has no outgoing routes — the transaction can't move forward.</div>
                         <div class="text-caption">Link the steps in Workflows (Routes), then publish. Transactions already created stay on the old version — create a new one after publishing.</div>
                         <v-btn v-if="isSuperadmin()" :to="workflowsLink" color="error" variant="outlined" rounded="0" size="small" class="mt-2">
                             <v-icon start size="small">mdi-source-branch</v-icon>
@@ -198,7 +198,7 @@
                                     :loading="saving"
                                     @click="finalizeDialog = true"
                                 >
-                                    Finalize Process
+                                    Finalize Transaction
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
@@ -263,7 +263,7 @@
                     variant="tonal"
                     class="mb-3"
                 >
-                    No stations in this process yet.
+                    No stations in this transaction type yet.
                 </v-alert>
 
                 <div v-else class="mb-3">
@@ -470,65 +470,14 @@
             </v-card-text>
         </v-card>
 
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-history</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">History</span>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <div class="d-flex flex-column" style="min-height: 510px">
-                <v-data-table
-                    v-show="!loading"
-                    :headers="runHeaders"
-                    :items="tx.runs || []"
-                    item-key="id"
-                    density="compact"
-                    height="450"
-                    fixed-header
-                    :items-per-page="25"
-                    hover
-                    class="lgu-table"
-                >
-                    <template v-slot:[`item.from_step`]="{ item }">
-                        <span :title="item.action_code === 'create' ? 'created' : (item.from_step?.code || '')">{{ fmtFromStep(item) }}</span>
-                    </template>
-                    <template v-slot:[`item.to_step`]="{ item }">
-                        <span :title="item.to_step?.code || ''">{{ fmtStepOfficeRoles(item.to_step) }}</span>
-                    </template>
-                    <template v-slot:[`item.performed_by`]="{ item }">
-                        {{ item.performed_by?.name }}
-                    </template>
-                    <template v-slot:[`item.released_at`]="{ item }">
-                        {{ fmtDateTime(item.released_at || item.performed_at) }}
-                    </template>
-                    <template v-slot:[`item.received_by`]="{ item }">
-                        {{ item.received_by?.name || '—' }}
-                    </template>
-                    <template v-slot:[`item.received_at`]="{ item }">
-                        {{ item.received_at ? fmtDateTime(item.received_at) : 'Pending' }}
-                    </template>
-                    <template v-slot:[`item.duration_estimated_minutes`]="{ item }">
-                        {{ fmtMinutes(item.duration_estimated_minutes ?? item.sla_minutes_snapshot) }}
-                    </template>
-                    <template v-slot:[`item.sla_actual_minutes`]="{ item }">
-                        {{ item.sla_actual_minutes == null ? '—' : fmtMinutes(item.sla_actual_minutes) }}
-                    </template>
-                    <template v-slot:[`item.receive_status`]="{ item }">
-                        <v-chip size="x-small" :color="item.received_at ? (item.is_breached ? 'error' : 'success') : 'warning'" variant="tonal">
-                            {{ item.received_at ? (item.is_breached ? 'Overdue' : 'On time') : 'Pending' }}
-                        </v-chip>
-                    </template>
-                    <template v-slot:[`item.files`]="{ item }">
-                        <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" is-admin compact @deleted="removeAttachment" />
-                    </template>
-                </v-data-table>
-                <TableLoader v-if="loading" label="history" compact style="flex: 1 1 auto" />
-                </div>
-            </v-card-text>
-        </v-card>
+        <TransactionHistory
+            v-if="tx || loading"
+            :runs="tx?.runs || []"
+            :loading="loading"
+            :tx-id="route.params.id"
+            is-admin
+            @deleted="removeAttachment"
+        />
 
         <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
             <v-card-title class="d-flex align-center pa-5">
@@ -621,9 +570,9 @@
 
         <ConfirmActionDialog
             v-model:open="finalizeDialog"
-            title="Finalize process?"
+            title="Finalize transaction?"
             message="This marks the transaction done and locks it to view-only."
-            confirm-label="Finalize Process"
+            confirm-label="Finalize Transaction"
             confirm-color="success"
             :saving="saving"
             @confirm="finalizeTx"
@@ -708,7 +657,7 @@ import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
-import { fmtStepOfficeRoles, fmtFromStep } from '@/utils/steps';
+import TransactionHistory from '@/components/history/TransactionHistory.vue';
 import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
@@ -874,27 +823,12 @@ function waitText(row) {
     return `Waiting — handled at Station ${st.order_number} · ${st.name}${who ? ` (${who})` : ""}.`;
 }
 
-const runHeaders = [
-    { title: "From", key: "from_step", sortable: false },
-    { title: "To", key: "to_step", sortable: false },
-    { title: "Action", key: "action_code" },
-    { title: "Remarks", key: "remarks" },
-    { title: "Files", key: "files", sortable: false },
-    { title: "From User", key: "performed_by", sortable: false },
-    { title: "Released At", key: "released_at" },
-    { title: "To User", key: "received_by", sortable: false },
-    { title: "Received At", key: "received_at" },
-    { title: "Est. Duration", key: "duration_estimated_minutes", sortable: false },
-    { title: "Actual SLA", key: "sla_actual_minutes", sortable: false },
-    { title: "Status", key: "receive_status", sortable: false },
-];
-
 const receiving = ref(false);
 const pendingReceipt = computed(
     () => tx.value?.pending_receipt || (tx.value?.runs || []).find((r) => !r.received_at) || null,
 );
 
-// Safety net: fail visibly when the process itself is unfinished.
+// Safety net: fail visibly when the transaction type itself is unfinished.
 // Counts outgoing routes of the CURRENT step in the PINNED workflow version.
 const outgoingRoutesCount = computed(() => {
     const cid = tx.value?.current_step?.id;
@@ -918,18 +852,6 @@ const currentStepRoles = computed(() => {
     );
     return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
 });
-
-function fmtMinutes(v) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return '—';
-    if (n < 60) return `${n}m`;
-    const h = Math.floor(n / 60);
-    const m = n % 60;
-    if (h < 48) return m ? `${h}h ${m}m` : `${h}h`;
-    const d = Math.floor(h / 24);
-    const rh = h % 24;
-    return rh ? `${d}d ${rh}h` : `${d}d`;
-}
 
 async function receiveStep() {
     receiving.value = true;
@@ -1241,7 +1163,7 @@ async function executeSelected() {
     }
 }
 
-// Finalize the process on the last station. No requirements — the
+// Finalize the transaction on the last station. No requirements — the
 // backend enforces end-step + once-only. Afterwards view-only.
 const jumpDialog = ref(false);
 async function finalizeTx() {

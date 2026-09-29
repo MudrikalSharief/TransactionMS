@@ -43,12 +43,12 @@ class TransactionStepRun extends Model
 
     public function performer()
     {
-        return $this->belongsTo(User::class, 'performed_by');
+        return $this->belongsTo(User::class, 'performed_by')->with('roles');
     }
 
     public function receiver()
     {
-        return $this->belongsTo(User::class, 'received_by');
+        return $this->belongsTo(User::class, 'received_by')->with('roles');
     }
 
     public function receivedOffice()
