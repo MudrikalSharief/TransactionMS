@@ -1,367 +1,365 @@
 <template>
     <div>
-        <v-row align="stretch">
-            <v-col cols="12" lg="8" class="d-flex">
-                <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                    <v-card-title class="d-flex align-center pa-4">
-                        <v-avatar color="#7C3AED" rounded="0" size="34" class="mr-3">
-                            <v-icon color="white" size="22">mdi-chart-areaspline</v-icon>
-                        </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">
-                            {{ graphMode === 'process' ? 'Transactions per Process' : 'Transactions per Office' }}
-                        </span>
-                        <v-spacer />
-                        <v-select
-                            v-model="graphPeriod"
-                            :items="periodOptions"
-                            label="Period"
-                            variant="outlined"
-                            density="compact"
-                            rounded="0"
-                            hide-details
-                            class="process-filter mr-2"
-                        />
-                        <v-select
-                            v-model="processFilter"
-                            :items="processOptions"
-                            label="Process"
-                            placeholder="All processes"
-                            persistent-placeholder
-                            variant="outlined"
-                            density="compact"
-                            rounded="0"
-                            hide-details
-                            multiple
-                            clearable
-                            class="process-filter mr-2"
-                        >
-                            <template v-slot:selection="{ item, index }">
-                                <span v-if="index === 0" class="text-truncate">
-                                    {{ processFilter.length === 1 ? item.raw.value : `${processFilter.length} processes` }}
-                                </span>
-                            </template>
-                        </v-select>
-                        <v-select
-                            v-model="officeFilter"
-                            :items="officeOptions"
-                            label="Office"
-                            placeholder="All offices"
-                            persistent-placeholder
-                            variant="outlined"
-                            density="compact"
-                            rounded="0"
-                            hide-details
-                            multiple
-                            clearable
-                            class="process-filter"
-                        >
-                            <template v-slot:selection="{ item, index }">
-                                <span v-if="index === 0" class="text-truncate">
-                                    {{ officeFilter.length === 1 ? item.raw.value : `${officeFilter.length} offices` }}
-                                </span>
-                            </template>
-                        </v-select>
-                    </v-card-title>
-                    <v-divider />
-                    <v-card-text class="pa-3 d-flex flex-column" style="flex: 1 1 auto">
-                        <AreaWaveChart
-                            :points="graphChart.points"
-                            :series="graphChart.series"
-                            :week-labels="graphChart.weeks"
-                            :highlight="graphChart.highlight"
-                            :fade-color="FADE_GRAY[themeMode]"
-                            :loading="loading"
-                            :height="190"
-                            :aria-label="`Transactions per ${graphMode} per week, ${graphPeriodLabel}`"
-                        />
-                        <div v-if="!loading && graphNote" class="text-caption text-medium-emphasis mt-1">
-                            {{ graphNote }}
-                        </div>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-            <v-col cols="12" lg="4" class="d-flex">
-                <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                    <v-card-title class="d-flex align-center pa-4">
-                        <v-avatar color="#5C6BC0" rounded="0" size="34" class="mr-3">
-                            <v-icon color="white" size="22">mdi-rocket-launch-outline</v-icon>
-                        </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Get Started</span>
-                    </v-card-title>
-                    <v-divider />
-                    <v-card-text class="pa-0 d-flex flex-column" style="flex: 1 1 auto">
-                        <div
-                            v-for="link in startLinks"
-                            :key="link.title"
-                            class="start-row d-flex align-center px-4"
-                            style="flex: 1 1 0"
-                            @click="link.go"
-                        >
-                            <v-avatar :color="link.color" rounded="0" size="34" class="mr-3">
-                                <v-icon color="white" size="20">{{ link.icon }}</v-icon>
+        <div v-if="layoutChanged" class="d-flex justify-end mb-1">
+            <v-btn
+                variant="text"
+                size="small"
+                color="grey-darken-3"
+                prepend-icon="mdi-restore"
+                @click="resetLayout"
+            >
+                Reset layout
+            </v-btn>
+        </div>
+        <!-- Cards render in the user's saved order; drag events are handled here for every card. -->
+        <v-row
+            align="stretch"
+            @dragstart="onDragStart"
+            @dragover="onDragOver"
+            @dragleave="onDragLeave"
+            @drop="onDrop"
+            @dragend="endDrag"
+            @keydown="onGripKey"
+        >
+            <template v-for="id in cardOrder" :key="id">
+                <v-col v-if="id === 'graph'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4">
+                            <CardGrip />
+                            <v-avatar color="#7C3AED" rounded="0" size="34" class="mr-3">
+                                <v-icon color="white" size="22">mdi-chart-bar</v-icon>
                             </v-avatar>
-                            <div class="flex-grow-1" style="min-width: 0">
-                                <div class="font-weight-bold start-title">{{ link.title }}</div>
-                                <div class="text-caption text-medium-emphasis">{{ link.subtitle }}</div>
+                            <span class="text-subtitle-1 font-weight-bold">{{ DASHBOARD_OFFICE.code }} Transactions per Process</span>
+                            <span class="text-caption text-medium-emphasis ml-2 text-truncate">{{ DASHBOARD_OFFICE.name }}</span>
+                            <v-spacer />
+                            <v-select
+                                v-model="graphPeriod"
+                                :items="monthOptions"
+                                label="Month"
+                                variant="outlined"
+                                density="compact"
+                                rounded="0"
+                                hide-details
+                                class="process-filter mr-2"
+                            />
+                            <v-select
+                                v-model="processFilter"
+                                :items="processOptions"
+                                label="Process"
+                                placeholder="All processes"
+                                persistent-placeholder
+                                variant="outlined"
+                                density="compact"
+                                rounded="0"
+                                hide-details
+                                multiple
+                                clearable
+                                class="process-filter"
+                            >
+                                <template v-slot:selection="{ item, index }">
+                                    <span v-if="index === 0" class="text-truncate">
+                                        {{ processFilter.length === 1 ? item.raw.value : `${processFilter.length} processes` }}
+                                    </span>
+                                </template>
+                            </v-select>
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pa-3 d-flex flex-column" style="flex: 1 1 auto">
+                            <GroupedBarChart
+                                :series="graphSeries"
+                                :group-labels="graphWeeks"
+                                :loading="loading"
+                                :height="190"
+                                :empty-text="`No ${DASHBOARD_OFFICE.code} transactions in ${graphPeriodLabel}`"
+                                :aria-label="`${DASHBOARD_OFFICE.code} transactions per process per week, ${graphPeriodLabel}`"
+                            />
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col v-else-if="id === 'start'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4">
+                            <CardGrip />
+                            <v-avatar color="#5C6BC0" rounded="0" size="34" class="mr-3">
+                                <v-icon color="white" size="22">mdi-rocket-launch-outline</v-icon>
+                            </v-avatar>
+                            <span class="text-subtitle-1 font-weight-bold">Get Started</span>
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pa-0 d-flex flex-column" style="flex: 1 1 auto">
+                            <div
+                                v-for="link in startLinks"
+                                :key="link.title"
+                                class="start-row d-flex align-center px-4"
+                                style="flex: 1 1 0"
+                                @click="link.go"
+                            >
+                                <v-avatar :color="link.color" rounded="0" size="34" class="mr-3">
+                                    <v-icon color="white" size="20">{{ link.icon }}</v-icon>
+                                </v-avatar>
+                                <div class="flex-grow-1" style="min-width: 0">
+                                    <div class="font-weight-bold start-title">{{ link.title }}</div>
+                                    <div class="text-caption text-medium-emphasis">{{ link.subtitle }}</div>
+                                </div>
+                                <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
                             </div>
-                            <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
-                        </div>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
-
-        <v-row v-if="isSuperadmin" class="mt-2">
-            <v-col cols="12">
-                <v-card rounded="0" elevation="1" class="lgu-card summary-card">
-                    <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4">
-                        <v-avatar color="#4A3AA7" rounded="0" size="34" class="mr-1">
-                            <v-icon color="white" size="22">mdi-clipboard-text-clock-outline</v-icon>
-                        </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
-                        <span class="text-caption text-medium-emphasis ml-1">{{ summaryScopeText }}</span>
-                        <v-spacer />
-                        <v-select
-                            v-model="summaryPeriod"
-                            :items="periodOptions"
-                            label="Period"
-                            variant="outlined"
-                            density="compact"
-                            rounded="0"
-                            hide-details
-                            class="process-filter"
-                        />
-                    </v-card-title>
-                    <v-divider />
-                    <v-card-text class="pa-4">
-                        <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
-                            {{ summaryError }}
-                        </v-alert>
-                        <v-row :class="{ 'summary-stale': summaryLoading && summary }">
-                            <v-col cols="12" md="7">
-                                <div class="summary-tiles">
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col v-else-if="id === 'summary'" cols="12" class="dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card summary-card">
+                        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4">
+                            <CardGrip />
+                            <v-avatar color="#4A3AA7" rounded="0" size="34" class="mr-1">
+                                <v-icon color="white" size="22">mdi-clipboard-text-clock-outline</v-icon>
+                            </v-avatar>
+                            <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
+                            <span class="text-caption text-medium-emphasis ml-1">{{ DASHBOARD_OFFICE.code }} · {{ summaryScopeText }}</span>
+                            <v-spacer />
+                            <v-select
+                                v-model="summaryPeriod"
+                                :items="periodOptions"
+                                label="Period"
+                                variant="outlined"
+                                density="compact"
+                                rounded="0"
+                                hide-details
+                                class="process-filter"
+                            />
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pa-4">
+                            <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
+                                {{ summaryError }}
+                            </v-alert>
+                            <v-row :class="{ 'summary-stale': summaryLoading && summary }">
+                                <v-col cols="12" md="7">
+                                    <div class="summary-tiles">
+                                        <div
+                                            v-for="tile in summaryTiles"
+                                            :key="tile.key"
+                                            :ref="(el) => (tileEls[tile.key] = el)"
+                                            class="summary-tile"
+                                            :style="{ '--tile-accent': tile.accent }"
+                                            role="button"
+                                            tabindex="0"
+                                            :aria-label="`${tile.label}: ${tile.value}. Press Enter for the full list`"
+                                            @keydown.enter.prevent="openDetail(tile.key, tileEls[tile.key])"
+                                            @keydown.space.prevent="openDetail(tile.key, tileEls[tile.key])"
+                                        >
+                                            <SummaryPopover
+                                                :category="tile.key"
+                                                :query="summaryQuery"
+                                                :period-label="summaryScopeText"
+                                                :disabled="!summary"
+                                                @expand="openDetail(tile.key, tileEls[tile.key])"
+                                            />
+                                            <div class="d-flex align-center ga-2 summary-tile-label">
+                                                <v-icon :color="tile.color" size="20" class="summary-tile-icon">{{ tile.icon }}</v-icon>
+                                                {{ tile.label }}
+                                            </div>
+                                            <div class="summary-tile-value">
+                                                <v-progress-circular v-if="summaryLoading && !summary" indeterminate size="22" width="3" color="grey" />
+                                                <template v-else>{{ tile.value }}</template>
+                                            </div>
+                                            <div class="text-caption text-medium-emphasis">{{ tile.hint }}</div>
+                                            <div class="summary-tile-cta">
+                                                Show list <v-icon size="14">mdi-chevron-down</v-icon>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </v-col>
+                                <v-col cols="12" md="5">
+                                    <div class="summary-tile-label mb-2">
+                                        <v-icon size="20" color="grey-darken-1">mdi-format-list-bulleted-type</v-icon>
+                                        Transactions by process
+                                    </div>
+                                    <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
+                                        No transactions created in this period.
+                                    </div>
                                     <div
-                                        v-for="tile in summaryTiles"
-                                        :key="tile.key"
-                                        :ref="(el) => (tileEls[tile.key] = el)"
-                                        class="summary-tile"
-                                        :style="{ '--tile-accent': tile.accent }"
+                                        v-for="row in byProcessRows"
+                                        :key="row.id"
+                                        :ref="(el) => (barEls[row.id] = el)"
+                                        class="process-bar-row"
                                         role="button"
                                         tabindex="0"
-                                        :aria-label="`${tile.label}: ${tile.value}. Press Enter for the full list`"
-                                        @keydown.enter.prevent="openDetail(tile.key, tileEls[tile.key])"
-                                        @keydown.space.prevent="openDetail(tile.key, tileEls[tile.key])"
+                                        :aria-label="`${row.name}: ${row.count} transactions. Press Enter for the full list`"
+                                        @keydown.enter.prevent="openDetail('process', barEls[row.id], row)"
                                     >
                                         <SummaryPopover
-                                            :category="tile.key"
+                                            category="process"
+                                            :process-id="row.id"
+                                            :process-name="`${row.name} transactions`"
                                             :query="summaryQuery"
                                             :period-label="summaryScopeText"
-                                            :disabled="!summary"
-                                            @expand="openDetail(tile.key, tileEls[tile.key])"
+                                            @expand="openDetail('process', barEls[row.id], row)"
                                         />
-                                        <div class="d-flex align-center ga-2 summary-tile-label">
-                                            <v-icon :color="tile.color" size="20" class="summary-tile-icon">{{ tile.icon }}</v-icon>
-                                            {{ tile.label }}
+                                        <div class="process-bar-name text-truncate">{{ row.name }}</div>
+                                        <div class="process-bar-track">
+                                            <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
                                         </div>
-                                        <div class="summary-tile-value">
-                                            <v-progress-circular v-if="summaryLoading && !summary" indeterminate size="22" width="3" color="grey" />
-                                            <template v-else>{{ tile.value }}</template>
-                                        </div>
-                                        <div class="text-caption text-medium-emphasis">{{ tile.hint }}</div>
-                                        <div class="summary-tile-cta">
-                                            Show list <v-icon size="14">mdi-chevron-down</v-icon>
-                                        </div>
+                                        <div class="process-bar-count">{{ row.count }}</div>
                                     </div>
-                                </div>
-                            </v-col>
-                            <v-col cols="12" md="5">
-                                <div class="summary-tile-label mb-2">
-                                    <v-icon size="20" color="grey-darken-1">mdi-format-list-bulleted-type</v-icon>
-                                    Transactions by process
-                                </div>
-                                <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
-                                    No transactions created in this period.
-                                </div>
-                                <div
-                                    v-for="row in byProcessRows"
-                                    :key="row.id"
-                                    :ref="(el) => (barEls[row.id] = el)"
-                                    class="process-bar-row"
-                                    role="button"
-                                    tabindex="0"
-                                    :aria-label="`${row.name}: ${row.count} transactions. Press Enter for the full list`"
-                                    @keydown.enter.prevent="openDetail('process', barEls[row.id], row)"
-                                >
-                                    <SummaryPopover
-                                        category="process"
-                                        :process-id="row.id"
-                                        :process-name="`${row.name} transactions`"
-                                        :query="summaryQuery"
-                                        :period-label="summaryScopeText"
-                                        @expand="openDetail('process', barEls[row.id], row)"
-                                    />
-                                    <div class="process-bar-name text-truncate">{{ row.name }}</div>
-                                    <div class="process-bar-track">
-                                        <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
-                                    </div>
-                                    <div class="process-bar-count">{{ row.count }}</div>
-                                </div>
-                            </v-col>
-                        </v-row>
-                    </v-card-text>
-                </v-card>
-                <SummaryDetailDialog
-                    v-model:open="detail.open"
-                    :category="detail.category"
-                    :process-id="detail.processId"
-                    :process-name="detail.processName"
-                    :origin-el="detail.originEl"
-                    :query="summaryQuery"
-                    :period-label="summary?.period?.label || 'Last 4 weeks'"
-                />
-            </v-col>
-        </v-row>
-
-        <v-row class="mt-2" align="stretch">
-            <v-col cols="12" lg="4" class="d-flex">
-                <v-card rounded="0" elevation="1" class="lgu-card" style="height: 100%; width: 100%">
-                    <v-card-title class="d-flex align-center pa-4">
-                        <v-avatar color="#8B5CF6" rounded="0" size="34" class="mr-3">
-                            <v-icon color="white" size="22">mdi-history</v-icon>
-                        </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
-                        <v-spacer />
-                        <v-btn
-                            variant="text"
-                            size="small"
-                            color="grey-darken-3"
-                            append-icon="mdi-arrow-right"
-                            @click="goToQueue"
-                        >
-                            View all
-                        </v-btn>
-                    </v-card-title>
-                    <v-divider />
-                    <v-card-text class="pa-2">
-                        <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
-                            <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
-                        </div>
-                        <v-alert
-                            v-else-if="!recent.length"
-                            type="info"
-                            variant="tonal"
-                            rounded="0"
-                            class="ma-2"
-                        >
-                            Nothing here yet — new transactions will show up here.
-                        </v-alert>
-                        <v-list v-else lines="two" class="py-0">
-                            <v-list-item
-                                v-for="tx in recent"
-                                :key="tx.id"
-                                rounded="0"
-                                class="recent-row"
-                                @click="openTx(tx)"
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col v-else-if="id === 'recent'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4">
+                            <CardGrip />
+                            <v-avatar color="#8B5CF6" rounded="0" size="34" class="mr-3">
+                                <v-icon color="white" size="22">mdi-history</v-icon>
+                            </v-avatar>
+                            <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
+                            <v-spacer />
+                            <v-btn
+                                variant="text"
+                                size="small"
+                                color="grey-darken-3"
+                                append-icon="mdi-arrow-right"
+                                @click="goToQueue"
                             >
-                                <template v-slot:prepend>
-                                    <v-avatar color="grey-darken-3" variant="tonal" rounded="0" size="34">
-                                        <v-icon color="grey-darken-3" size="20">mdi-file-document-outline</v-icon>
-                                    </v-avatar>
-                                </template>
-                                <v-list-item-title class="font-weight-bold">
-                                    {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
-                                </v-list-item-title>
-                                <v-list-item-subtitle>
-                                    {{ txSubtitle(tx) }} · {{ timeAgo(tx.created_at) }}
-                                </v-list-item-subtitle>
-                                <template v-slot:append>
-                                    <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
-                                </template>
-                            </v-list-item>
-                        </v-list>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-            <v-col cols="12" lg="8" class="d-flex">
-                <v-card rounded="0" elevation="1" class="lgu-card" style="height: 100%; width: 100%">
-                    <v-card-title class="d-flex align-center pa-4">
-                        <v-avatar color="#6D28D9" rounded="0" size="34" class="mr-3">
-                            <v-icon color="white" size="22">mdi-tray-full</v-icon>
-                        </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
-                        <v-spacer />
-                        <v-btn
-                            variant="text"
-                            size="small"
-                            color="grey-darken-3"
-                            append-icon="mdi-arrow-right"
-                            @click="goToQueue"
-                        >
-                            My queue
-                        </v-btn>
-                    </v-card-title>
-                    <v-divider />
-                    <v-card-text class="pa-0">
-                        <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
-                            <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
-                        </div>
-                        <v-alert
-                            v-else-if="!actionQueue.length"
-                            type="success"
-                            variant="tonal"
-                            rounded="0"
-                            class="ma-4"
-                        >
-                            All clear — nothing is waiting on you.
-                        </v-alert>
-                        <v-table v-else density="compact" class="action-table">
-                            <thead>
-                                <tr>
-                                    <th class="text-left">Transaction</th>
-                                    <th class="text-left">Current Step</th>
-                                    <th class="text-left">Waiting</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr
-                                    v-for="tx in actionQueue"
+                                View all
+                            </v-btn>
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pa-2">
+                            <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
+                            </div>
+                            <v-alert
+                                v-else-if="!recent.length"
+                                type="info"
+                                variant="tonal"
+                                rounded="0"
+                                class="ma-2"
+                            >
+                                Nothing here yet — new transactions will show up here.
+                            </v-alert>
+                            <v-list v-else lines="two" class="py-0">
+                                <v-list-item
+                                    v-for="tx in recent"
                                     :key="tx.id"
-                                    class="action-row"
+                                    rounded="0"
+                                    class="recent-row"
                                     @click="openTx(tx)"
                                 >
-                                    <td>
-                                        <div class="font-weight-bold action-title">
-                                            {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
-                                        </div>
-                                        <div class="text-caption text-medium-emphasis">
-                                            {{ txSubtitle(tx) }}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <v-chip size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
-                                            {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
-                                        </v-chip>
-                                    </td>
-                                    <td class="font-weight-bold">{{ timeAgo(tx.entered_at || tx.created_at) }}</td>
-                                </tr>
-                            </tbody>
-                        </v-table>
-                    </v-card-text>
-                </v-card>
-            </v-col>
+                                    <template v-slot:prepend>
+                                        <v-avatar color="grey-darken-3" variant="tonal" rounded="0" size="34">
+                                            <v-icon color="grey-darken-3" size="20">mdi-file-document-outline</v-icon>
+                                        </v-avatar>
+                                    </template>
+                                    <v-list-item-title class="font-weight-bold">
+                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                    </v-list-item-title>
+                                    <v-list-item-subtitle>
+                                        {{ txSubtitle(tx) }} · {{ timeAgo(tx.created_at) }}
+                                    </v-list-item-subtitle>
+                                    <template v-slot:append>
+                                        <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
+                                    </template>
+                                </v-list-item>
+                            </v-list>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col v-else-if="id === 'action'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4">
+                            <CardGrip />
+                            <v-avatar color="#6D28D9" rounded="0" size="34" class="mr-3">
+                                <v-icon color="white" size="22">mdi-tray-full</v-icon>
+                            </v-avatar>
+                            <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
+                            <v-spacer />
+                            <v-btn
+                                variant="text"
+                                size="small"
+                                color="grey-darken-3"
+                                append-icon="mdi-arrow-right"
+                                @click="goToQueue"
+                            >
+                                My queue
+                            </v-btn>
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pa-0">
+                            <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
+                            </div>
+                            <v-alert
+                                v-else-if="!actionQueue.length"
+                                type="success"
+                                variant="tonal"
+                                rounded="0"
+                                class="ma-4"
+                            >
+                                All clear — nothing is waiting on you.
+                            </v-alert>
+                            <v-table v-else density="compact" class="action-table">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Transaction</th>
+                                        <th class="text-left">Current Step</th>
+                                        <th class="text-left">Waiting</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="tx in actionQueue"
+                                        :key="tx.id"
+                                        class="action-row"
+                                        @click="openTx(tx)"
+                                    >
+                                        <td>
+                                            <div class="font-weight-bold action-title">
+                                                {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                            </div>
+                                            <div class="text-caption text-medium-emphasis">
+                                                {{ txSubtitle(tx) }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <v-chip size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
+                                                {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
+                                            </v-chip>
+                                        </td>
+                                        <td class="font-weight-bold">{{ timeAgo(tx.entered_at || tx.created_at) }}</td>
+                                    </tr>
+                                </tbody>
+                            </v-table>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </template>
         </v-row>
+        <SummaryDetailDialog
+            v-if="isSuperadmin"
+            v-model:open="detail.open"
+            :category="detail.category"
+            :process-id="detail.processId"
+            :process-name="detail.processName"
+            :origin-el="detail.originEl"
+            :query="summaryQuery"
+            :period-label="summary?.period?.label || 'Last week'"
+        />
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
-import AreaWaveChart from '@/components/AreaWaveChart.vue'
+import { useDashboardLayout } from '@/composables/useDashboardLayout'
+import CardGrip from '@/components/CardGrip.vue'
+import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
 import { isCached, CacheKeys } from '@/composables/useCache'
@@ -381,27 +379,116 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
+// ---- Movable cards: drag a card's grip onto another card to take its place ----
+// Default order; Transaction Summary is superadmin only.
+const cardIds = computed(() =>
+    ['summary', 'graph', 'start', 'recent', 'action'].filter((id) => id !== 'summary' || isSuperadmin.value)
+)
+const {
+    order: cardOrder,
+    changed: layoutChanged,
+    move: moveCard,
+    shift: shiftCard,
+    reset: resetLayout,
+} = useDashboardLayout(computed(() => auth.user.value?.id), cardIds)
+
+const dragId = ref(null)
+const overId = ref(null)
+
+// The card column an event happened in (drag events can target text nodes).
+function cardAt(e) {
+    const el = e.target.nodeType === 1 ? e.target : e.target.parentElement
+    return el?.closest('[data-card]') ?? null
+}
+
+function cardClass(id) {
+    return { 'dash-dragging': dragId.value === id, 'dash-drop-target': overId.value === id && dragId.value !== id }
+}
+
+function onDragStart(e) {
+    const col = e.target.closest?.('.card-grip') && cardAt(e)
+    if (!col) return
+    dragId.value = col.dataset.card
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', dragId.value)
+    // Carry the whole card under the pointer, not just the grip.
+    const card = col.querySelector('.v-card')
+    const box = card.getBoundingClientRect()
+    e.dataTransfer.setDragImage(card, e.clientX - box.left, e.clientY - box.top)
+}
+
+function onDragOver(e) {
+    if (!dragId.value) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    overId.value = cardAt(e)?.dataset.card ?? null
+}
+
+function onDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) overId.value = null
+}
+
+function onDrop(e) {
+    if (!dragId.value) return
+    e.preventDefault()
+    const target = cardAt(e)?.dataset.card
+    if (target) moveCard(dragId.value, target)
+    endDrag()
+}
+
+function endDrag() {
+    dragId.value = null
+    overId.value = null
+}
+
+// Keyboard: Up/Down on a focused grip moves its card one slot.
+function onGripKey(e) {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    if (!e.target.closest?.('.card-grip')) return
+    e.preventDefault()
+    const row = e.currentTarget
+    const id = cardAt(e).dataset.card
+    shiftCard(id, e.key === 'ArrowUp' ? -1 : 1)
+    // Moving the card can drop focus; put it back on the same grip.
+    nextTick(() => row.querySelector(`[data-card="${id}"] .card-grip`)?.focus())
+}
+
 // Scope: superadmin sees everything, everyone else sees their own queue.
 const scopeSource = computed(() =>
     isSuperadmin.value ? (txStore.items.value || []) : (myStore.items.value || [])
 )
 
-// Office line colors: validated categorical palette (dataviz reference
+// Series colors: validated categorical palette (dataviz reference
 // palette, adjacent-pair safe in both modes), light and dark steps.
-// Gray is reserved for the folded "Other offices" line.
-const OFFICE_PALETTE = {
+// Gray is reserved for the folded "Other processes" bar.
+const SERIES_PALETTE = {
     light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7'],
     dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9'],
 }
-const OTHER_OFFICES = 'Other offices'
+const OTHER_PROCESSES = 'Other processes'
 const OTHER_COLOR = { light: '#898781', dark: '#898781' }
-const MAX_OFFICE_LINES = OFFICE_PALETTE.light.length
+const MAX_PROCESS_BARS = SERIES_PALETTE.light.length
 
 const theme = useTheme()
 const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dark' : 'light'))
 
-// Graph period: 'last_4_weeks' (default) or a month 'YYYY-MM'. One point per week.
-const graphPeriod = ref('last_4_weeks')
+// The graph and the Transaction Summary card cover this one office only.
+const DASHBOARD_OFFICE = { code: 'CSD', name: 'Computer Service Division' }
+
+// ---- Graph: the office's transactions per process, one bar per process per week ----
+const monthValue = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
+// The last 12 months, newest first (shared with the summary card's Period).
+const monthOptions = computed(() => {
+    const now = new Date()
+    return Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        return { title: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }), value: monthValue(d) }
+    })
+})
+
+// Graph month 'YYYY-MM' (default: the current month). One group of bars per week.
+const graphPeriod = ref(monthValue(new Date()))
 const DAY_MS = 86400000
 
 function weekLabel(start, endExclusive) {
@@ -411,23 +498,13 @@ function weekLabel(start, endExclusive) {
     return start.getMonth() === last.getMonth() ? `${md(start)}–${last.getDate()}` : `${md(start)}–${md(last)}`
 }
 
-// Weekly windows for the chosen period, never reaching past today.
-// Last 4 weeks: four 7-day weeks ending today. A month: its calendar weeks
-// (1–7, 8–14, …); for the current month, only weeks that have started.
+// Weekly windows for the chosen month: its calendar weeks (1–7, 8–14, …),
+// never reaching past today. For the current month, only weeks that have started.
 const weekWindows = computed(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const endOfToday = new Date(today.getTime() + DAY_MS)
     const windows = []
-
-    if (graphPeriod.value === 'last_4_weeks') {
-        for (let i = 3; i >= 0; i--) {
-            const end = new Date(endOfToday.getTime() - i * 7 * DAY_MS)
-            const start = new Date(end.getTime() - 7 * DAY_MS)
-            windows.push({ start, end, label: weekLabel(start, end) })
-        }
-        return windows
-    }
 
     const [y, m] = graphPeriod.value.split('-').map(Number)
     const monthStart = new Date(y, m - 1, 1)
@@ -439,9 +516,10 @@ const weekWindows = computed(() => {
     }
     return windows
 })
+const graphWeeks = computed(() => weekWindows.value.map((w) => w.label))
 
 const graphPeriodLabel = computed(
-    () => periodOptions.value.find((o) => o.value === graphPeriod.value)?.title || 'Last 4 weeks',
+    () => monthOptions.value.find((o) => o.value === graphPeriod.value)?.title || graphPeriod.value,
 )
 
 function weekIndexOf(tx) {
@@ -454,182 +532,93 @@ function txTypeLabel(tx) {
     return tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
 }
 
-// All transactions in the graph period (drives the Process options).
-const windowTxAll = computed(() => scopeSource.value.filter((tx) => weekIndexOf(tx) >= 0))
-
-// Process filter (graph only): empty = office lines. Picking processes switches
-// the graph to one line per process (picked in color, the rest faded gray).
-const processFilter = ref([])
-
-// Every process with a transaction in the period, with or without an office.
-const processOptions = computed(() => {
-    const counts = new Map()
-    for (const tx of windowTxAll.value) {
-        const label = txTypeLabel(tx)
-        counts.set(label, (counts.get(label) || 0) + 1)
-    }
-    return [...counts.entries()]
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([label, n]) => ({ title: `${label} (${n})`, value: label }))
-})
-
-// Window transactions after the Process filter, split by office presence.
-const windowTx = computed(() => {
-    const picked = processFilter.value
-    if (!picked.length) return windowTxAll.value
-    return windowTxAll.value.filter((tx) => picked.includes(txTypeLabel(tx)))
-})
-const noOfficeCount = computed(() => windowTx.value.filter((tx) => !tx.office?.code).length)
-
-// Per-office weekly counts inside the window, keyed by office code.
-const officeRanking = computed(() => {
-    const byCode = new Map()
-    for (const tx of windowTx.value) {
-        const code = tx.office?.code
-        if (!code) continue
-        if (!byCode.has(code)) {
-            byCode.set(code, { code, name: tx.office.name || code, values: weekWindows.value.map(() => 0) })
-        }
-        byCode.get(code).values[weekIndexOf(tx)]++
-    }
-    return [...byCode.values()]
-        .map((o) => ({ ...o, total: o.values.reduce((s, v) => s + v, 0) }))
-        .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code))
-})
-
-// Office filter: selected offices stay full color, the rest are faded.
-const officeFilter = ref([])
-
-const officeOptions = computed(() =>
-    officeRanking.value.map((o) => ({
-        title: `${o.code} — ${o.name} (${o.total})`,
-        value: o.code,
-        props: {
-            disabled: officeFilter.value.length >= MAX_OFFICE_LINES && !officeFilter.value.includes(o.code),
-        },
-    }))
+// The office's transactions created in the chosen month.
+const graphTx = computed(() =>
+    scopeSource.value.filter(
+        (tx) => tx.office?.code?.toUpperCase() === DASHBOARD_OFFICE.code && weekIndexOf(tx) >= 0,
+    )
 )
 
-// Stable color slot per office: position among ALL offices with data in the
-// window (ignoring the Process filter), by code. So neither filter ever
-// repaints a line. Past 7 offices this can't be global, so the slot falls
-// back to the office's position among the lines currently drawn.
-const officeColorSlot = computed(() => {
-    const codes = [...new Set(windowTxAll.value.map((tx) => tx.office?.code).filter(Boolean))].sort()
-    return codes.length <= MAX_OFFICE_LINES ? new Map(codes.map((c, i) => [c, i])) : null
-})
-
-// Lines: up to 7 named offices (selected ones always included, then the
-// busiest), the rest folded into one gray "Other offices" line.
-const weeklyByOffice = computed(() => {
-    const ranked = officeRanking.value
-    const picked = new Set(officeFilter.value)
-    const named = [
-        ...ranked.filter((o) => picked.has(o.code)),
-        ...ranked.filter((o) => !picked.has(o.code)),
-    ].slice(0, MAX_OFFICE_LINES)
-    const namedCodes = new Set(named.map((o) => o.code))
-    const rest = ranked.filter((o) => !namedCodes.has(o.code))
-
-    const palette = OFFICE_PALETTE[themeMode.value]
-    const slots = officeColorSlot.value
-    const series = [...named]
-        .sort((a, b) => a.code.localeCompare(b.code))
-        .map((o, i) => ({ label: o.code, color: palette[slots ? slots.get(o.code) : i], values: o.values }))
-
-    if (rest.length) {
-        series.push({
-            label: OTHER_OFFICES,
-            color: OTHER_COLOR[themeMode.value],
-            values: weekWindows.value.map((_, wi) => rest.reduce((s, o) => s + o.values[wi], 0)),
-        })
-    }
-
-    return { weeks: weekWindows.value.map((w) => w.label), series }
-})
-
-// Weekly totals across offices (the chart's fallback when no office has data).
-const weeklyOfficeVolume = computed(() =>
-    weekWindows.value.map((w, wi) => ({
-        label: w.label,
-        value: officeRanking.value.reduce((s, o) => s + o.values[wi], 0),
-    }))
-)
-
-// ---- Process mode: one line per process while a process is picked ----
-const graphMode = computed(() => (processFilter.value.length ? 'process' : 'office'))
-
-// Unpicked lines turn this gray (still visible) instead of a faded own color.
-const FADE_GRAY = { light: '#9ca3af', dark: '#6b7280' }
-
-// Per-process weekly counts. Counts every transaction of the process (with or
-// without an office) unless offices are picked, then only those offices.
-const processLines = computed(() => {
-    const offices = officeFilter.value
+// Per-process weekly counts, busiest process first.
+const processRanking = computed(() => {
     const byName = new Map()
-    for (const tx of windowTxAll.value) {
-        if (offices.length && !offices.includes(tx.office?.code)) continue
+    for (const tx of graphTx.value) {
         const name = txTypeLabel(tx)
         if (!byName.has(name)) byName.set(name, weekWindows.value.map(() => 0))
         byName.get(name)[weekIndexOf(tx)]++
     }
-    // Color follows the process (alphabetical slot among all processes in
-    // the period), so picking or unpicking never repaints a line.
-    const allNames = [...new Set(windowTxAll.value.map(txTypeLabel))].sort()
-    const palette = OFFICE_PALETTE[themeMode.value]
     return [...byName.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([label, values]) => ({ label, values, color: palette[allNames.indexOf(label) % palette.length] }))
+        .map(([label, values]) => ({ label, values, total: values.reduce((s, v) => s + v, 0) }))
+        .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
 })
 
-const graphChart = computed(() => {
-    const weeks = weekWindows.value.map((w) => w.label)
-    if (graphMode.value === 'process') {
-        const series = processLines.value
-        return {
-            weeks,
-            series,
-            highlight: processFilter.value,
-            points: weeks.map((label, i) => ({ label, value: series.reduce((s, l) => s + l.values[i], 0) })),
-        }
+// Process filter: empty = a bar for every process. Picking processes keeps
+// only their bars.
+const processFilter = ref([])
+
+const processOptions = computed(() =>
+    processRanking.value.map((p) => ({ title: `${p.label} (${p.total})`, value: p.label }))
+)
+
+// Drop picks that have no transactions in the month now shown.
+watch(processOptions, (options) => {
+    const names = new Set(options.map((o) => o.value))
+    if (processFilter.value.some((name) => !names.has(name))) {
+        processFilter.value = processFilter.value.filter((name) => names.has(name))
     }
-    return { ...weeklyByOffice.value, highlight: officeFilter.value, points: weeklyOfficeVolume.value }
 })
 
-const graphNote = computed(() => {
-    if (graphMode.value === 'process') {
-        const where = officeFilter.value.length ? `in ${officeFilter.value.join(', ')} only` : 'across all offices'
-        return `Lines show processes while a process is selected, counted ${where}. Clear the Process filter to see offices.`
+// Stable color slot per process: alphabetical position among ALL processes
+// in the month, so the Process filter never repaints a bar. Past 7 processes
+// this can't be global, so the slot falls back to the position among the
+// bars currently drawn.
+const processColorSlot = computed(() => {
+    const names = processRanking.value.map((p) => p.label).sort()
+    return names.length <= MAX_PROCESS_BARS ? new Map(names.map((n, i) => [n, i])) : null
+})
+
+// Bars: up to 7 named processes (the busiest), the rest folded into one
+// gray "Other processes" bar.
+const graphSeries = computed(() => {
+    const picked = processFilter.value
+    const shown = picked.length
+        ? processRanking.value.filter((p) => picked.includes(p.label))
+        : processRanking.value
+    const named = shown.slice(0, MAX_PROCESS_BARS)
+    const rest = shown.slice(MAX_PROCESS_BARS)
+
+    const palette = SERIES_PALETTE[themeMode.value]
+    const slots = processColorSlot.value
+    const series = [...named]
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .map((p, i) => ({ label: p.label, color: palette[slots ? slots.get(p.label) : i], values: p.values }))
+
+    if (rest.length) {
+        series.push({
+            label: OTHER_PROCESSES,
+            color: OTHER_COLOR[themeMode.value],
+            values: weekWindows.value.map((_, wi) => rest.reduce((s, p) => s + p.values[wi], 0)),
+        })
     }
-    const n = noOfficeCount.value
-    return n ? `${n} transaction${n === 1 ? '' : 's'} without an office ${n === 1 ? 'is' : 'are'} not shown.` : ''
+    return series
 })
 
 // ---- Transaction Summary card (superadmin) ----
-// Period: last 4 weeks, or one of the last 12 months (Manila calendar).
+// Period: last week (the previous Mon–Sun week), or one of the last 12
+// months (Manila calendar).
 // Completed counts by finalize date, the rest by created date (server side).
-const summaryPeriod = ref('last_4_weeks')
-const periodOptions = computed(() => {
-    const opts = [{ title: 'Last 4 weeks', value: 'last_4_weeks' }]
-    const now = new Date()
-    for (let i = 0; i < 12; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        opts.push({
-            title: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }),
-            value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        })
-    }
-    return opts
-})
+const summaryPeriod = ref('last_week')
+const periodOptions = computed(() => [{ title: 'Last week', value: 'last_week' }, ...monthOptions.value])
 
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// Independent of the graph's Process/Office filters: the card always counts
-// every transaction for its own Period.
+// Same office as the graph, but independent of the graph's Month and
+// Process filters: the card counts the office's transactions for its own Period.
 const summaryQuery = computed(() => ({
-    month: summaryPeriod.value === 'last_4_weeks' ? undefined : summaryPeriod.value,
+    month: summaryPeriod.value === 'last_week' ? undefined : summaryPeriod.value,
+    office_code: DASHBOARD_OFFICE.code,
 }))
 
 let summaryRequest = 0
@@ -650,7 +639,7 @@ async function loadSummary() {
 watch(summaryQuery, loadSummary, { deep: true })
 
 const summaryScopeText = computed(
-    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'Last 4 weeks',
+    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'Last week',
 )
 
 // Status tiles: the icon carries the status color, the number stays in text ink.
@@ -681,7 +670,7 @@ function openDetail(category, el, processRow = null) {
 
 // By-process bars: one hue (it's a magnitude comparison); processes picked in
 // the Process filter stay full strength, the rest are faded but visible.
-const processBarColor = computed(() => OFFICE_PALETTE[themeMode.value][0])
+const processBarColor = computed(() => SERIES_PALETTE[themeMode.value][0])
 const byProcessRows = computed(() => {
     const rows = summary.value?.by_process || []
     const max = Math.max(1, ...rows.map((r) => r.count))
@@ -791,6 +780,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ---- Movable cards ---- */
+/* Each card keeps its width but grows to fill its row, so no order leaves a gap. */
+.dash-col {
+    flex-grow: 1;
+    max-width: 100%;
+}
+.dash-dragging {
+    opacity: 0.45;
+}
+.dash-drop-target > .v-card {
+    outline: 2px dashed rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
 .recent-row {
     cursor: pointer;
 }

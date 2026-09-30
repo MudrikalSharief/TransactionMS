@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Office;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,10 +15,13 @@ use Illuminate\Support\Collection;
 /**
  * Dashboard "Transaction Summary" card (superadmin).
  *
- * Period: the last 4 weeks (default) or a calendar month in Manila time.
+ * Period: last week (default: the previous Mon–Sun calendar week) or a
+ * calendar month, both in Manila time.
  * Completed counts by finalize date; everything else by created date.
  * Process/office filters narrow every count, except by_process, which
  * ignores the process filter so the card can fade unpicked processes.
+ * office_code limits everything to one office by its code (the dashboard
+ * sends the office its graph covers).
  *
  * The tile counts (__invoke) and the detail lists (details) share the same
  * queries below, so a list always has exactly as many rows as its tile.
@@ -32,6 +36,7 @@ class DashboardSummaryController extends Controller
     private array $periodMeta;
     private array $processes = [];
     private array $offices = [];
+    private ?int $officeId = null;
 
     public function __invoke(Request $request)
     {
@@ -97,17 +102,23 @@ class DashboardSummaryController extends Controller
             'processes.*' => ['integer'],
             'offices' => ['nullable', 'array'],
             'offices.*' => ['integer'],
+            'office_code' => ['nullable', 'string', 'max:50'],
         ], $extra));
 
         [$this->from, $this->to, $this->periodMeta] = $this->period($data['month'] ?? null);
         $this->processes = array_map('intval', $data['processes'] ?? []);
         $this->offices = array_map('intval', $data['offices'] ?? []);
+        // An unknown code resolves to 0, which matches no transaction (never every office).
+        $this->officeId = filled($data['office_code'] ?? null)
+            ? (int) Office::whereRaw('UPPER(code) = ?', [mb_strtoupper($data['office_code'])])->value('id')
+            : null;
     }
 
     private function filtered(Builder $q, bool $withProcess = true): Builder
     {
         if ($withProcess && $this->processes) $q->whereIn('transactions.transaction_type_id', $this->processes);
         if ($this->offices) $q->whereIn('transactions.office_id', $this->offices);
+        if ($this->officeId !== null) $q->where('transactions.office_id', $this->officeId);
 
         return $q;
     }
@@ -273,14 +284,16 @@ class DashboardSummaryController extends Controller
             ]];
         }
 
-        $end = now();
-        $start = $end->copy()->subWeeks(4);
+        // Last week: the previous full Monday–Sunday week, not the current one.
+        $end = now(self::TZ)->startOfWeek(Carbon::MONDAY);
+        $start = $end->copy()->subWeek();
+        $sunday = $end->copy()->subDay();
 
-        return [$start, $end, [
-            'key' => 'last_4_weeks',
-            'label' => 'Last 4 weeks',
-            'from' => $start->copy()->setTimezone(self::TZ)->toIso8601String(),
-            'to' => $end->copy()->setTimezone(self::TZ)->toIso8601String(),
+        return [$start->copy()->utc(), $end->copy()->utc(), [
+            'key' => 'last_week',
+            'label' => sprintf('Last week (%s–%s)', $start->format('M j'), $sunday->format($sunday->isSameMonth($start) ? 'j' : 'M j')),
+            'from' => $start->toIso8601String(),
+            'to' => $end->toIso8601String(),
         ]];
     }
 }
