@@ -62,7 +62,7 @@ class TransactionResource extends JsonResource
         $currentStepRequirements = [];
         $currentStepChecklist = [];
         if ($currentStep) {
-            $this->loadMissing(['requirementChecks.checker', 'checklistChecks.checker', 'attachments.uploader']);
+            $this->loadMissing(['requirementChecks.checker.office', 'checklistChecks.checker', 'attachments.uploader']);
             $checks = collect($this->requirementChecks ?? [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->keyBy('requirement_definition_id');
@@ -93,7 +93,7 @@ class TransactionResource extends JsonResource
                     'pivot' => [
                         'display_order' => (int) ($r->pivot?->display_order ?? 0),
                         'is_required' => (bool) ($r->pivot?->is_required ?? true),
-                        'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
+                        'is_upload_required' => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot),
                     ],
                     'checked' => (bool) $check,
                     'checked_at' => $check?->checked_at?->toISOString(),
@@ -125,11 +125,44 @@ class TransactionResource extends JsonResource
             // station and the files it uploaded, so the reviewer can see
             // what they are validating (Approvals page).
             $sourceStepByReq = [];
+            $sourceStepsByReq = [];
             foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
                 foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
                     $sourceStepByReq[(int) $reqId] ??= $pred;
+                    $sourceStepsByReq[(int) $reqId][] = $pred;
                 }
             }
+
+            // Physical-copy ticks made at predecessor stations, so the next
+            // station sees who verified each item and from which office.
+            $checksByStepReq = collect($this->requirementChecks ?? [])
+                ->keyBy(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id));
+            $sourceVerification = function (int $reqId) use ($sourceStepsByReq, $checksByStepReq) {
+                $preds = $sourceStepsByReq[$reqId] ?? [];
+                if (!$preds) return null;
+                // Merged branches: the station that actually ticked wins.
+                foreach ($preds as $pred) {
+                    $check = $checksByStepReq->get(((int) $pred->id) . ':' . $reqId);
+                    if ($check) {
+                        $office = $check->checker?->office ?? $pred->office;
+                        return [
+                            'verified' => true,
+                            'verified_at' => $check->checked_at?->toISOString(),
+                            'verified_by' => $check->checker?->only(['id', 'name']),
+                            'office' => $office?->only(['id', 'name']),
+                            'step' => ['id' => $pred->id, 'name' => $pred->name, 'order_number' => $pred->order_number],
+                        ];
+                    }
+                }
+                $pred = $preds[0];
+                return [
+                    'verified' => false,
+                    'verified_at' => null,
+                    'verified_by' => null,
+                    'office' => $pred->office?->only(['id', 'name']),
+                    'step' => ['id' => $pred->id, 'name' => $pred->name, 'order_number' => $pred->order_number],
+                ];
+            };
             $attsByStepReq = collect($this->attachments ?? [])
                 ->groupBy(fn ($a) => ((int) $a->workflow_step_id) . ':' . ((int) ($a->requirement_definition_id ?? 0)));
 
@@ -157,6 +190,9 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $cCheck,
                     'checked_at' => $cCheck?->checked_at?->toISOString(),
                     'checked_by' => $cCheck?->checker?->only(['id', 'name']),
+                    'source_verification' => $item->requirement_definition_id
+                        ? $sourceVerification((int) $item->requirement_definition_id)
+                        : null,
                     'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
@@ -239,7 +275,7 @@ class TransactionResource extends JsonResource
                         'pivot' => [
                             'display_order' => (int) ($r->pivot?->display_order ?? 0),
                             'is_required' => (bool) ($r->pivot?->is_required ?? true),
-                            'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
+                            'is_upload_required' => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot),
                         ],
                         'checked' => (bool) $check,
                         'checked_at' => $check?->checked_at?->toISOString(),

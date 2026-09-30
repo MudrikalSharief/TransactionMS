@@ -170,7 +170,7 @@ const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 
 const missingRequiredUploadLabels = computed(() =>
     (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
+        .filter((r) => r?.pivot?.is_required || r?.pivot?.is_upload_required)
         .filter((r) => {
             const existing = (r.attachments || []).length;
             const staged = wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0;
@@ -189,7 +189,7 @@ const missingRequiredChecklistLabels = computed(() => {
 });
 
 // Every required requirement (tick-only AND upload rows like AR/Payroll)
-// must be ticked: the top tick unlocks the upload card below.
+// must be ticked as physically verified; uploads are gated separately.
 const missingRequiredTickLabels = computed(() =>
     (tx.value?.current_step_requirements ?? [])
         .filter((r) => r?.pivot?.is_required)

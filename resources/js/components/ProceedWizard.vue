@@ -20,6 +20,37 @@
                     <v-divider class="my-3" />
                 </template>
 
+                <!-- Reference: what the previous station physically verified.
+                     Read-only; this station ticks its own Checklist below. -->
+                <template v-if="previousChecks.length">
+                    <div class="d-flex align-center ga-2 mb-1">
+                        <span class="text-subtitle-2 font-weight-bold">{{ previousChecksTitle }}</span>
+                        <v-chip size="x-small" variant="tonal" color="grey-darken-1" rounded="0">
+                            <v-icon start size="x-small">mdi-lock-outline</v-icon>read-only
+                        </v-chip>
+                    </div>
+                    <div class="text-caption text-medium-emphasis mb-2">
+                        Physical copies verified before this transaction reached you — for reference.
+                    </div>
+                    <v-sheet rounded="0" border class="px-3 py-1 mb-1 bg-grey-lighten-5">
+                        <div
+                            v-for="c in previousChecks"
+                            :key="`ref-${c.id}`"
+                            class="d-flex align-center flex-wrap ga-2 py-1"
+                        >
+                            <v-icon size="small" :color="c.source_verification.verified ? 'success' : 'grey'">
+                                {{ c.source_verification.verified ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline' }}
+                            </v-icon>
+                            <span class="text-body-2" :class="c.source_verification.verified ? '' : 'text-medium-emphasis'">{{ c.name }}</span>
+                            <v-spacer />
+                            <span class="text-caption" :class="c.source_verification.verified ? 'text-success' : 'text-medium-emphasis'">
+                                {{ previousCheckDetail(c.source_verification) }}
+                            </span>
+                        </div>
+                    </v-sheet>
+                    <v-divider class="my-3" />
+                </template>
+
                 <!-- Requirements status: file presence only (required = must upload). -->
                 <template v-if="hasRequirements">
                     <div class="text-subtitle-2 font-weight-bold mb-1">Requirements</div>
@@ -34,16 +65,16 @@
                         :key="`req-status-${r.definition.id}`"
                         class="d-flex align-center ga-2 py-1"
                     >
-                        <v-icon size="small" :color="hasReqFiles(r) ? 'success' : ((r?.pivot?.is_upload_required ?? r?.pivot?.is_required) && !isReturnSelected ? 'error' : 'grey')">
-                            {{ hasReqFiles(r) ? 'mdi-check-circle' : ((r?.pivot?.is_upload_required ?? r?.pivot?.is_required) && !isReturnSelected ? 'mdi-alert-circle-outline' : 'mdi-circle-outline') }}
+                        <v-icon size="small" :color="hasReqFiles(r) ? 'success' : (uploadRequired(r) && !isReturnSelected ? 'error' : 'grey')">
+                            {{ hasReqFiles(r) ? 'mdi-check-circle' : (uploadRequired(r) && !isReturnSelected ? 'mdi-alert-circle-outline' : 'mdi-circle-outline') }}
                         </v-icon>
                         <span class="text-body-2">
                             {{ r.definition.name }}
-                            <span v-if="(r?.pivot?.is_upload_required ?? r?.pivot?.is_required)" class="text-error font-weight-bold">*</span>
+                            <span v-if="uploadRequired(r)" class="text-error font-weight-bold">*</span>
                             <span v-else class="text-medium-emphasis">(optional)</span>
                         </span>
                         <v-chip v-if="hasReqFiles(r)" size="x-small" variant="tonal" color="success" rounded="0">file ready</v-chip>
-                        <v-chip v-else-if="(r?.pivot?.is_upload_required ?? r?.pivot?.is_required) && !isReturnSelected" size="x-small" variant="tonal" color="error" rounded="0">file required</v-chip>
+                        <v-chip v-else-if="uploadRequired(r) && !isReturnSelected" size="x-small" variant="tonal" color="error" rounded="0">file required</v-chip>
                     </div>
                     <v-divider class="my-3" />
                 </template>
@@ -63,8 +94,9 @@
                     <div
                         v-for="c in (checklist || [])"
                         :key="c.id"
-                        class="d-flex align-center ga-2 py-1"
+                        class="py-1"
                     >
+                    <div class="d-flex align-center ga-2">
                         <v-checkbox
                             :model-value="!!c.checked"
                             :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
@@ -90,6 +122,7 @@
                         >
                             <v-icon start size="x-small">mdi-eye</v-icon>View
                         </v-btn>
+                    </div>
                     </div>
                 </div>
 
@@ -123,15 +156,19 @@
 
                     <v-divider class="my-3" />
                 </template>
-                <div class="text-subtitle-2 font-weight-bold mb-2">Requirements to proceed</div>
-
-                <div v-if="!(isReturnSelected && !(requirements || []).length) && (requirements || []).length" class="d-flex flex-column ga-3">
-                    <!-- Tick group: every requirement (tick-only first, then uploads).
-                        Ticking a required upload row unlocks its card below. -->
-                    <div v-if="sortedRequirements.length" class="d-flex flex-column">
+                <div v-if="(requirements || []).length" class="d-flex flex-column ga-4">
+                    <!-- SECTION 1: physical verification (is_required). Independent
+                         of uploads — an item flagged both shows in both sections. -->
+                    <div v-if="checkRequirements.length">
+                        <div class="text-subtitle-2 font-weight-bold mb-1">
+                            <v-icon size="small" class="mr-1">mdi-clipboard-check-outline</v-icon>Physical verification
+                        </div>
+                        <div class="text-caption text-medium-emphasis mb-1">
+                            {{ isReturnSelected ? 'Return action — verification optional.' : "Tick each item once you've verified the physical document." }}
+                        </div>
                         <div
-                            v-for="r in sortedRequirements"
-                            :key="r.definition.id"
+                            v-for="r in checkRequirements"
+                            :key="`chk-${r.definition.id}`"
                             class="d-flex align-center ga-2 py-1"
                         >
                             <v-checkbox
@@ -145,10 +182,19 @@
                                 @update:model-value="(v) => emit('toggle-requirement', r, v)"
                             />
                             <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" color="warning" rounded="0">required</v-chip>
+                            <span v-else class="text-caption text-medium-emphasis">(optional)</span>
                         </div>
                     </div>
+
+                    <!-- SECTION 2: uploads (is_upload_required, or any required item). -->
+                    <div v-if="uploadRequirements.length">
+                        <div class="text-subtitle-2 font-weight-bold mb-1">
+                            <v-icon size="small" class="mr-1">mdi-upload</v-icon>Upload
+                        </div>
+                        <div class="text-caption text-medium-emphasis mb-2">
+                            {{ isReturnSelected ? 'Return action — uploads optional.' : 'Attach at least one file for each item.' }}
+                        </div>
                     <v-sheet
-                        v-if="uploadRequirements.length"
                         rounded="0"
                         border
                         class="pa-3"
@@ -158,15 +204,13 @@
                             :key="r.definition.id"
                         >
                             <v-divider v-if="idx > 0" class="my-3" />
-                            <div :style="isUploadLocked(r) ? 'opacity: 0.6' : ''">
-                        <!-- LINE 1: TITLE (is_required). Upload rows only reach here. -->
+                            <div>
+                        <!-- LINE 1: TITLE. Upload rows only reach here. -->
                         <div class="d-flex align-center ga-2">
                             <v-icon size="small" :color="reqStatusColor(r)">
                                 {{ reqStatusIcon(r) }}
                             </v-icon>
                             <span class="font-weight-bold text-h6">{{ r.definition.name }}</span>
-                            <span v-if="r?.pivot?.is_required" class="text-error font-weight-bold" title="Required item">*</span>
-                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" color="warning" rounded="0">required</v-chip>
                             <v-chip size="x-small" variant="tonal" color="error" rounded="0">
                                 <v-icon start size="x-small">mdi-upload</v-icon>upload required
                             </v-chip>
@@ -204,7 +248,7 @@
                             minimal
                             :show-header="false"
                             file-action="download"
-                            :disabled="isUploadLocked(r) || saving || savingChecklist"
+                            :disabled="saving || savingChecklist"
                             @update:model-value="(files) => setReqFiles(r.definition.id, files)"
                             @uploaded="() => emit('requirement-uploaded', r.definition.id)"
                             @deleted="(id) => emit('attachment-deleted', id)"
@@ -212,6 +256,7 @@
                             </div>
                         </div>
                     </v-sheet>
+                    </div>
                 </div>
                 <ProceedFooter
                     v-model:remarks="remarks"
@@ -239,6 +284,7 @@ import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import AttachmentList from '@/components/AttachmentList.vue'
 import ProceedFooter from '@/components/ProceedFooter.vue'
 import { fileViewUrl, isOfficeDoc } from '@/composables/useFileView'
+import { fmtDateTime } from '@/utils/dates'
 
 // Wizard step + remarks + move-level attachments are two-way bound to the parent
 // so staged station-info `form` (mutated in place) is never wiped.
@@ -298,8 +344,10 @@ const sortedRequirements = computed(() => {
         .map((x) => x.r)
 })
 
-// Page 2 split: tick-only rows first (plain), upload cards below.
-const tickRequirements = computed(() => sortedRequirements.value.filter((r) => !uploadRequired(r)))
+// Page 2 sections are independent: a required row appears in both (tick
+// AND file). Rows with neither flag stay visible as optional ticks so
+// nothing silently drops out of the wizard.
+const checkRequirements = computed(() => sortedRequirements.value.filter((r) => r?.pivot?.is_required || !uploadRequired(r)))
 const uploadRequirements = computed(() => sortedRequirements.value.filter((r) => uploadRequired(r)))
 
 const emit = defineEmits([
@@ -315,26 +363,14 @@ function hasReqFiles(r) {
     return mergedReqAttachments(r).length > 0
 }
 
-// Required upload cards stay disabled until their top tick is checked
-// (return mode exempts the lock; optional rows never lock).
-function isUploadLocked(r) {
-    if (props.isReturnSelected) return false
-    if (!uploadRequired(r)) return false
-    if (!r?.pivot?.is_required) return false
-    return !r.checked
-}
-
 // Inline status beside the "Upload files" header in AttachmentUploader.
-// Same visibility logic as the old below-input messages, just relocated.
 function reqHintText(r) {
-    if (isUploadLocked(r)) return `Tick ${r.definition.name} above to enable uploads.`
     if (hasReqFiles(r)) return 'File(s) attached — required condition met.'
     if (!props.isReturnSelected) return 'Attach at least one file to unlock Proceed.'
     return ''
 }
 
 function reqHintType(r) {
-    if (isUploadLocked(r)) return 'error'
     return hasReqFiles(r) ? 'success' : 'error'
 }
 
@@ -358,11 +394,10 @@ function onReqAttachmentDeleted(r, id) {
     emit('attachment-deleted', id)
 }
 
-// Row done-state: upload rows need files (plus the top tick when locked);
-// hard-copy rows need a tick.
+// Upload-card done-state: files only. The physical-verification tick is
+// tracked separately in its own section.
 function reqDone(r) {
-    if (uploadRequired(r)) return !isUploadLocked(r) && hasReqFiles(r)
-    return !!r.checked
+    return hasReqFiles(r)
 }
 
 function reqStatusColor(r) {
@@ -378,10 +413,11 @@ function reqStatusIcon(r) {
     return r?.pivot?.is_required ? 'mdi-checkbox-blank-outline' : 'mdi-circle-outline'
 }
 
-// LINE 1 marker reads is_required; LINE 2 gate reads is_upload_required
-// (falls back to is_required for payloads that predate the split).
+// Required items always need a file (physical copy ticked AND file
+// attached); optional items follow is_upload_required. Mirrors
+// RequirementDefinition::pivotNeedsUpload on the server.
 function uploadRequired(r) {
-    return !!((r?.pivot?.is_upload_required ?? r?.pivot?.is_required) ?? false)
+    return !!(r?.pivot?.is_required || r?.pivot?.is_upload_required)
 }
 
 // Files opened in a new tab: PDFs/images/text render natively, office
@@ -395,6 +431,29 @@ function isViewable(a) {
         mime.startsWith('text/')
     ) return true
     return /\.(pdf|png|jpe?g|gif|webp|svg|bmp|txt|csv|log|docx?|xlsx?|pptx?|odt|ods|odp|rtf)$/i.test(String(a?.original_name || ''))
+}
+
+// Reference block: checklist rows mirrored from a predecessor's requirement.
+const previousChecks = computed(() => (props.checklist || []).filter((c) => c.source_verification))
+
+function stepLabel(step) {
+    return step?.order_number != null ? `Step ${step.order_number}` : (step?.name || 'previous step')
+}
+
+// One predecessor → name it in the title; merged branches → per-row step.
+const previousStepIds = computed(() => new Set(previousChecks.value.map((c) => c.source_verification.step?.id)))
+const previousChecksTitle = computed(() => {
+    if (previousStepIds.value.size !== 1) return 'Checked by previous steps'
+    return `Checked by previous step (${stepLabel(previousChecks.value[0].source_verification.step)})`
+})
+
+// "Juan (Budget Office) · 9/30/26 · 2:15 PM", or "Not verified".
+function previousCheckDetail(v) {
+    const step = previousStepIds.value.size > 1 ? `${stepLabel(v.step)} · ` : ''
+    if (!v?.verified) return `${step}Not verified`
+    const who = v.verified_by?.name || 'Unknown user'
+    const office = v.office?.name ? ` (${v.office.name})` : ''
+    return `${step}${who}${office} · ${fmtDateTime(v.verified_at)}`
 }
 
 function viewableFiles(c) {

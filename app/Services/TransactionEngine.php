@@ -427,7 +427,7 @@ class TransactionEngine
 
         // Upload-required requirements keep their files on intact arrivals.
         $requiredReqs = collect($step->requirementDefinitions ?? [])
-            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
+            ->filter(fn ($r) => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot))
             ->values();
         if ($requiredReqs->isNotEmpty()) {
             $attCounts = collect($tx->attachments ?? [])

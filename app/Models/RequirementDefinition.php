@@ -39,4 +39,15 @@ class RequirementDefinition extends Model
          ->withTimestamps()
          ->orderBy('step_requirements.display_order');
     }
+
+    /**
+     * Must a file be attached for this step x requirement? Required items
+     * always need one (physical copy ticked AND file attached); for optional
+     * items the upload flag decides.
+     */
+    public static function pivotNeedsUpload($pivot): bool
+    {
+        if ((bool) ($pivot?->is_required ?? true)) return true;
+        return (bool) ($pivot?->is_upload_required ?? false);
+    }
 }

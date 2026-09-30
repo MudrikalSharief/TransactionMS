@@ -32,7 +32,7 @@ class StepRequirementController extends Controller
                         'pivot_meta' => [
                             'display_order' => (int) ($r->pivot?->display_order ?? 0),
                             'is_required' => (bool) ($r->pivot?->is_required ?? true),
-                            'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
+                            'is_upload_required' => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot),
                         ],
                     ]
                 );
@@ -69,6 +69,8 @@ class StepRequirementController extends Controller
                     ? (bool) $row['is_upload_required']
                     : (array_key_exists('is_required', $row) ? (bool) $row['is_required'] : true),
             ];
+            // Required implies upload: a verified physical copy also needs its file.
+            $sync[$rid]['is_upload_required'] = $sync[$rid]['is_upload_required'] || $sync[$rid]['is_required'];
 
             if (array_key_exists('code', $row) || array_key_exists('description', $row)) {
                 RequirementDefinition::whereKey($rid)->update(array_filter([

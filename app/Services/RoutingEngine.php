@@ -198,7 +198,7 @@ class RoutingEngine
 
         $reqs = $step->requirementDefinitions()
             ->get()
-            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
+            ->filter(fn ($r) => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot))
             ->values();
 
         if ($reqs->isEmpty()) return;
@@ -221,8 +221,8 @@ class RoutingEngine
 
     /**
      * Required requirements (tick-only AND upload rows like AR/Payroll)
-     * block Proceed until ticked. The top tick unlocks the upload card
-     * below. Optional rows never block.
+     * block Proceed until their physical copy is ticked as verified.
+     * Uploads are checked separately. Optional rows never block.
      */
     private function assertRequiredHardCopyTicks(Transaction $tx, int $stepId): void
     {

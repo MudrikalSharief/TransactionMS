@@ -258,16 +258,20 @@
                         </template>
                         <template v-slot:[`item.is_upload_required`]="{ item }">
                             <div class="d-flex align-center ga-2">
+                                <!-- Required implies upload: locked on while Required is on. -->
                                 <v-switch
-                                    v-model="bindOverrides[String(item.workflow_step_id)].is_upload_required"
+                                    :model-value="needsUpload(bindOverrides[String(item.workflow_step_id)])"
+                                    :disabled="!!bindOverrides[String(item.workflow_step_id)]?.is_required"
+                                    v-tooltip="bindOverrides[String(item.workflow_step_id)]?.is_required ? 'Required items always need a file' : undefined"
                                     color="grey-darken-3"
                                     inset
                                     density="compact"
                                     hide-details
                                     @click.stop
+                                    @update:model-value="(v) => (bindOverrides[String(item.workflow_step_id)].is_upload_required = v)"
                                 />
-                                <span class="text-caption font-weight-bold" :class="bindOverrides[String(item.workflow_step_id)]?.is_upload_required ? 'text-grey-darken-3' : 'text-medium-emphasis'">
-                                    {{ bindOverrides[String(item.workflow_step_id)]?.is_upload_required ? "Upload req." : "No upload" }}
+                                <span class="text-caption font-weight-bold" :class="needsUpload(bindOverrides[String(item.workflow_step_id)]) ? 'text-grey-darken-3' : 'text-medium-emphasis'">
+                                    {{ needsUpload(bindOverrides[String(item.workflow_step_id)]) ? "Upload req." : "No upload" }}
                                 </span>
                             </div>
                         </template>
@@ -421,6 +425,11 @@ const bindHeaders = [
     { title: "Upload req.?", key: "is_upload_required", sortable: false, width: "20%" },
 ];
 
+// Required implies upload (mirrors RequirementDefinition::pivotNeedsUpload).
+function needsUpload(ov) {
+    return !!(ov?.is_required || ov?.is_upload_required);
+}
+
 function pivotFor(sid) {
     const prev = ((bindTarget.value?.steps || [])).find((s) => Number(s.id) === Number(sid));
     return prev?.pivot_meta || prev?.pivot || {};
@@ -492,7 +501,7 @@ async function saveBind() {
             workflow_step_id: r.workflow_step_id,
             display_order: Number(r.display_order ?? 0),
             is_required: !!r.is_required,
-            is_upload_required: r.is_upload_required ?? r.is_required ?? true,
+            is_upload_required: needsUpload(r),
         }));
         await syncSteps(selectedWorkflowId.value, bindTarget.value.id, {
             steps: payload,

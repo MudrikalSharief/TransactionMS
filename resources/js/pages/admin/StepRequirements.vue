@@ -113,11 +113,15 @@
                             </template>
 
                             <template v-slot:[`item.is_upload_required`]="{ item }">
+                                <!-- Required implies upload: locked on while Required is ticked. -->
                                 <v-checkbox
-                                    v-model="item.is_upload_required"
+                                    :model-value="!!(item.is_required || item.is_upload_required)"
+                                    :disabled="!!item.is_required"
+                                    v-tooltip="item.is_required ? 'Required items always need a file' : undefined"
                                     density="compact"
                                     hide-details
                                     color="grey-darken-3"
+                                    @update:model-value="(v) => (item.is_upload_required = v)"
                                 />
                             </template>
 
@@ -153,7 +157,15 @@
                     />
                     <v-textarea v-model="addForm.description" label="Remarks (instructions for workers)" rows="3" />
                     <v-switch v-model="addForm.is_required" color="grey-darken-3" label="Required item" />
-                    <v-switch v-model="addForm.is_upload_required" color="grey-darken-3" label="Upload required (must attach file)" />
+                    <v-switch
+                        :model-value="!!(addForm.is_required || addForm.is_upload_required)"
+                        :disabled="!!addForm.is_required"
+                        :hint="addForm.is_required ? 'Required items always need a file' : ''"
+                        :persistent-hint="!!addForm.is_required"
+                        color="grey-darken-3"
+                        label="Upload required (must attach file)"
+                        @update:model-value="(v) => (addForm.is_upload_required = v)"
+                    />
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">
@@ -261,7 +273,7 @@ async function addRequirement() {
                 description: created.description,
                 display_order: assignmentRows.value.length,
                 is_required: !!addForm.value.is_required,
-                is_upload_required: !!addForm.value.is_upload_required,
+                is_upload_required: !!(addForm.value.is_required || addForm.value.is_upload_required),
             },
         ];
         addDialog.value = false;
@@ -332,7 +344,7 @@ async function save() {
             requirement_definition_id: r.requirement_definition_id,
             display_order: Number(r.display_order ?? idx),
             is_required: !!r.is_required,
-            is_upload_required: r.is_upload_required ?? r.is_required ?? true,
+            is_upload_required: !!(r.is_required || r.is_upload_required),
             code: r.code ?? "",
             description: r.description ?? "",
         }));

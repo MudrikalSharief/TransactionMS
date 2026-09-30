@@ -885,7 +885,7 @@ const flatStationItems = computed(() => {
 const missingRequiredUploadLabels = computed(() => {
     if (isReturnSelected.value) return [];
     return (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
+        .filter((r) => r?.pivot?.is_required || r?.pivot?.is_upload_required)
         .filter((r) => {
             const existing = (r.attachments || []).length;
             const staged = (wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0);
@@ -898,7 +898,7 @@ const missingRequiredUploadLabels = computed(() => {
 const missingRequiredTickLabels = computed(() => {
     if (isReturnSelected.value) return [];
     // Every required requirement (tick-only AND upload rows like AR/Payroll)
-    // must be ticked: the top tick unlocks the upload card below.
+    // must be ticked as physically verified; uploads are gated separately.
     return (tx.value?.current_step_requirements ?? [])
         .filter((r) => r?.pivot?.is_required)
         .filter((r) => !r.checked)
