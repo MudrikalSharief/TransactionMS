@@ -316,12 +316,12 @@ const isSuperadmin = computed(() => {
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
 
-// ---- APPROVALS badge: required requirements waiting for validation ----
+// ---- APPROVALS badge: required items not checked yet (uploads + validations) ----
 const approvalBadge = useApprovalBadge();
 const pendingRequirements = approvalBadge.pendingRequirements;
 const approvalsBadgeLabel = computed(() => {
     const n = pendingRequirements.value;
-    return `${n} requirement${n === 1 ? "" : "s"} waiting for your validation`;
+    return `${n} required item${n === 1 ? "" : "s"} not checked yet`;
 });
 
 function refreshApprovalBadge() {

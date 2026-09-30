@@ -19,11 +19,11 @@ class ApprovalController extends Controller
     ) {}
 
     /**
-     * Approval inbox: open transactions at a station the user works on
-     * whose checklist mirrors the previous station's requirements — the
-     * user validates what that station submitted. Start stations have no
-     * predecessor, so they never appear. Attachments are loaded so each
-     * item carries the previous station's files.
+     * Approval inbox: every open transaction waiting at a station the user
+     * works on (same set as My Transactions). A transaction is "pending"
+     * while it still has unchecked items there: a required upload of this
+     * station, or a required previous-station requirement to validate.
+     * Attachments are loaded so each item carries its files.
      */
     public function index(Request $request)
     {
@@ -31,30 +31,49 @@ class ApprovalController extends Controller
     }
 
     /**
-     * Sidebar badge: required requirements still waiting to be validated
-     * across the inbox (unticked required checklist items).
+     * Sidebar badge: unchecked required items across the inbox — missing
+     * required uploads plus unvalidated required checklist items. Same rules
+     * that block Proceed.
      */
     public function count(Request $request)
     {
         $inbox = $this->inbox($request->user());
-        $requiredByStep = [];
+        $cache = [];
 
-        $pending = $inbox->sum(function (Transaction $tx) use (&$requiredByStep) {
-            $step = $tx->state->currentStep;
-            $required = $requiredByStep[$step->id] ??= $this->checklists->ensureItems($step)
-                ->filter(fn ($item) => $item->is_required);
-            $ticked = $tx->checklistChecks
-                ->where('workflow_step_id', $step->id)
-                ->pluck('checklist_override_id')
-                ->map(fn ($id) => (int) $id);
-
-            return $required->reject(fn ($item) => $ticked->contains((int) $item->id))->count();
-        });
+        $pending = $inbox->sum(fn (Transaction $tx) => $this->uncheckedItems($tx, $cache));
 
         return response()->json([
             'pending_requirements' => $pending,
             'transactions' => $inbox->count(),
         ]);
+    }
+
+    /** Unchecked required items at the transaction's current station. */
+    private function uncheckedItems(Transaction $tx, array &$cache): int
+    {
+        $step = $tx->state?->currentStep;
+        if (!$step) return 0;
+
+        $cache[$step->id] ??= [
+            'uploads' => $step->requirementDefinitions()->wherePivot('is_required', true)->pluck('requirement_definitions.id')
+                ->map(fn ($id) => (int) $id),
+            // Step 1 -> 2 is requirements-only: the checklist isn't enforced there.
+            'checklist' => (int) $step->order_number === 1
+                ? collect()
+                : $this->checklists->ensureItems($step)->filter(fn ($i) => $i->is_required)->pluck('id')->map(fn ($id) => (int) $id),
+        ];
+
+        $uploaded = $tx->attachments
+            ->where('workflow_step_id', $step->id)
+            ->pluck('requirement_definition_id')
+            ->map(fn ($id) => (int) $id);
+        $ticked = $tx->checklistChecks
+            ->where('workflow_step_id', $step->id)
+            ->pluck('checklist_override_id')
+            ->map(fn ($id) => (int) $id);
+
+        return $cache[$step->id]['uploads']->reject(fn ($id) => $uploaded->contains($id))->count()
+            + $cache[$step->id]['checklist']->reject(fn ($id) => $ticked->contains($id))->count();
     }
 
     private function inbox(User $user): Collection
@@ -72,7 +91,7 @@ class ApprovalController extends Controller
             abort(403, 'The Approvals section is not available to end users.');
         }
 
-        $items = Transaction::query()
+        return Transaction::query()
             ->where('is_done', false)
             ->with([
                 'type',
@@ -85,16 +104,9 @@ class ApprovalController extends Controller
                 'attachments.uploader',
             ])
             ->latest()
-            ->get();
-
-        $reviewsPredecessor = [];
-
-        return $items->filter(function (Transaction $tx) use ($user, &$reviewsPredecessor) {
-            $step = $tx->state?->currentStep;
-            if (!$step || !$this->routing->userCanWorkOnCurrentStep($tx, $user)) return false;
-
-            return $reviewsPredecessor[$step->id] ??= $this->checklists->ensureItems($step)
-                ->contains(fn ($item) => $item->requirement_definition_id !== null);
-        })->values();
+            ->get()
+            ->filter(fn (Transaction $tx) => $tx->state?->currentStep
+                && $this->routing->userCanWorkOnCurrentStep($tx, $user))
+            ->values();
     }
 }

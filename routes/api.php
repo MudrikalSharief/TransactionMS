@@ -154,6 +154,8 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
 
         // Dashboard - Transaction Summary card
         Route::get('/dashboard/summary', DashboardSummaryController::class);
+        Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
+            ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process']);
 
         // Transactions
         Route::get('/transactions', [TransactionController::class, 'index']);

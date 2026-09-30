@@ -103,7 +103,8 @@
                                         :color="isPending(tx) ? 'warning' : 'success'"
                                         class="mr-2"
                                     >
-                                        {{ progress(tx).done }}/{{ progress(tx).total }} validated
+                                        <template v-if="progress(tx).total">{{ progress(tx).done }}/{{ progress(tx).total }} checked</template>
+                                        <template v-else>Nothing to check</template>
                                     </v-chip>
                                     <v-btn
                                         color="grey-darken-3"
@@ -115,12 +116,12 @@
                                         Review &amp; Proceed
                                     </v-btn>
                                 </div>
-                                <div class="text-caption text-medium-emphasis mt-1">
-                                    <template v-for="(src, j) in sources(tx)" :key="src">
-                                        <span v-if="j > 0"> · </span>Requirements from {{ src }}
-                                    </template>
+                                <div class="text-caption mt-1">
                                     <span v-if="missingRequired(tx).length" class="text-warning">
-                                        — to validate: {{ missingRequired(tx).join(", ") }}
+                                        Needs: {{ missingRequired(tx).join(", ") }}
+                                    </span>
+                                    <span v-else class="text-medium-emphasis">
+                                        All required items checked. Ready to proceed.
                                     </span>
                                 </div>
                             </v-list-item>
@@ -166,7 +167,8 @@ const guideSections = [
     {
         title: "HOW IT WORKS",
         rows: [
-            { term: "INBOX", text: "TRANSACTIONS AT YOUR STATION WAITING FOR YOU TO CHECK WHAT THE PREVIOUS STATION SUBMITTED" },
+            { term: "INBOX", text: "EVERY TRANSACTION WAITING AT YOUR STATION" },
+            { term: "PENDING", text: "NOT CHECKED YET: A REQUIRED UPLOAD OR A PREVIOUS-STATION REQUIREMENT TO VALIDATE IS STILL MISSING" },
             { term: "REVIEW & PROCEED", text: "OPENS THE PROCEED MODAL: UPLOAD THIS STATION'S FILES, TICK THE PREVIOUS STATION'S REQUIREMENTS, THEN PROCEED" },
             { term: "PROCEED", text: "MOVES THE TRANSACTION TO THE NEXT STATION — IT THEN LEAVES THIS LIST" },
             { term: "OPEN TRANSACTION", text: "FOR RETURNS, JUMPS AND HISTORY, USE THE TRANSACTION PAGE" },
@@ -174,28 +176,38 @@ const guideSections = [
     },
 ];
 
+// Everything to check at the transaction's current station, using the same
+// rules that block Proceed: this station's uploads (done = a file is attached)
+// and the previous station's requirements to validate (done = ticked). The
+// checklist isn't enforced at station 1 (step 1 -> 2 is requirements-only).
+function checkItems(tx) {
+    const uploads = (tx.current_step_requirements || []).map((r) => ({
+        name: r.definition?.name,
+        kind: "upload",
+        required: !!r.pivot?.is_required,
+        done: (r.attachment_count ?? (r.attachments || []).length) > 0,
+    }));
+    const enforceChecklist = Number(tx.current_step?.order_number) !== 1;
+    const validations = enforceChecklist
+        ? (tx.current_step_checklist || []).map((c) => ({ name: c.name, kind: "validate", required: !!c.is_required, done: !!c.checked }))
+        : [];
+    return [...uploads, ...validations];
+}
+
 function missingRequired(tx) {
-    return (tx.current_step_checklist || [])
-        .filter((i) => i.is_required && !i.checked)
-        .map((i) => i.name);
+    return checkItems(tx)
+        .filter((i) => i.required && !i.done)
+        .map((i) => `${i.name} (${i.kind})`);
 }
 
 function progress(tx) {
-    const all = tx.current_step_checklist || [];
-    return { done: all.filter((i) => i.checked).length, total: all.length };
+    const all = checkItems(tx);
+    return { done: all.filter((i) => i.done).length, total: all.length };
 }
 
+// Pending = not checked yet: a required upload or validation is still missing.
 function isPending(tx) {
     return missingRequired(tx).length > 0;
-}
-
-// Names of the previous station(s) whose requirements this row validates.
-function sources(tx) {
-    const names = new Set();
-    for (const item of tx.current_step_checklist || []) {
-        if (item.source_step?.name) names.add(item.source_step.name);
-    }
-    return [...names];
 }
 
 const processOptions = computed(() => {

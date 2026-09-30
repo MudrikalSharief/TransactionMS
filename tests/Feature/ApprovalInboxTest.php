@@ -140,16 +140,23 @@ class ApprovalInboxTest extends TestCase
             ->assertJsonPath('data.0.current_step_checklist.0.attachments.0.original_name', 'dtr.pdf');
     }
 
-    public function test_start_station_transactions_are_not_listed(): void
+    public function test_start_station_transactions_are_listed_with_their_uploads_pending(): void
     {
         $clerk = $this->userWithRole($this->clerk);
-        $this->makeTransactionAt($this->collect, $clerk);
+        $tx = $this->makeTransactionAt($this->collect, $clerk);
 
         Sanctum::actingAs($clerk);
 
+        // Listed even though there's nothing from a previous station to validate.
         $this->getJson('/api/approvals')
             ->assertOk()
-            ->assertJsonCount(0, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+
+        // Its required upload (DTR collected) isn't done yet -> 1 unchecked item.
+        $this->getJson('/api/approvals/count')
+            ->assertOk()
+            ->assertExactJson(['pending_requirements' => 1, 'transactions' => 1]);
     }
 
     public function test_user_without_station_role_sees_nothing(): void

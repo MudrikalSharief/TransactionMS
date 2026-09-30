@@ -13,10 +13,7 @@
                     v-for="layer in layers"
                     :key="layer.label"
                     class="wave-legend-item"
-                    :class="{
-                        active: isolateLabel === layer.label,
-                        dimmed: isolateLabel ? isolateLabel !== layer.label : isFaded(layer),
-                    }"
+                    :class="{ active: isolateLabel === layer.label, dimmed: isolateLabel && isolateLabel !== layer.label }"
                     @mouseenter="legendHover = layer.label"
                     @mouseleave="legendHover = null"
                 >
@@ -60,11 +57,11 @@
                     <path :d="baseLine" fill="none" stroke="#334155" stroke-width="2.5" stroke-linejoin="round" />
                     <!-- thin colored line per type -->
                     <path
-                        v-for="layer in layers"
+                        v-for="layer in drawLayers"
                         :key="layer.label"
                         :d="typeLine(layer)"
                         fill="none"
-                        :stroke="layer.color"
+                        :stroke="colorFor(layer)"
                         stroke-width="2"
                         stroke-linejoin="round"
                         :opacity="lineOpacity(layer)"
@@ -82,13 +79,13 @@
                     />
                     <!-- hover dots on each type line -->
                     <circle
-                        v-for="layer in layers"
+                        v-for="layer in drawLayers"
                         v-show="hoverIndex >= 0"
                         :key="'d' + layer.label"
                         :cx="hoverX"
                         :cy="yFor(layer.values[hoverIndex] || 0)"
                         r="4"
-                        :fill="layer.color"
+                        :fill="colorFor(layer)"
                         stroke="#fff"
                         stroke-width="2"
                         :opacity="dotOpacity(layer)"
@@ -143,6 +140,9 @@ const props = defineProps({
     isolate: { type: String, default: null }, // externally isolated type label (e.g. from donut hover)
     // Labels to emphasize (e.g. from a filter). Others stay drawn but faded.
     highlight: { type: Array, default: () => [] },
+    // When set, lines outside `highlight` are drawn in this gray (still
+    // visible) instead of a faded version of their own color.
+    fadeColor: { type: String, default: null },
     ariaLabel: { type: String, default: 'Transactions per week by type' },
 })
 
@@ -163,17 +163,26 @@ function isFaded(layer) {
     return props.highlight.length > 0 && !props.highlight.includes(layer.label)
 }
 
+function colorFor(layer) {
+    return isFaded(layer) && props.fadeColor ? props.fadeColor : layer.color
+}
+
 function lineOpacity(layer) {
     if (isolateLabel.value && isolateLabel.value !== layer.label) return 0.07
-    if (isFaded(layer)) return 0.25
+    if (isFaded(layer)) return props.fadeColor ? 0.55 : 0.25
     if (hoverIndex.value >= 0 && (layer.values[hoverIndex.value] || 0) === 0) return 0.2
     return 0.9
 }
 
 function dotOpacity(layer) {
     if (isolateLabel.value && isolateLabel.value !== layer.label) return 0.15
-    return isFaded(layer) ? 0.3 : 1
+    return isFaded(layer) ? (props.fadeColor ? 0.7 : 0.3) : 1
 }
+
+// Faded lines go underneath so highlighted ones are never covered.
+const drawLayers = computed(() =>
+    [...layers.value].sort((a, b) => Number(isFaded(b)) - Number(isFaded(a))),
+)
 
 // Render the SVG in true pixels (viewBox matches rendered size 1:1)
 // so strokes and text stay crisp at any container size.
