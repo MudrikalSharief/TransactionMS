@@ -80,7 +80,7 @@
                         </div>
                         <div v-for="a in (r.attachments || [])" :key="a.id" class="d-flex align-center ga-1 ml-4">
                             <v-icon size="x-small">mdi-paperclip</v-icon>
-                            <a :href="a.download_url" class="text-caption hover-file" @click.stop>{{ a.original_name }}</a>
+                            <a :href="fileViewUrl(a)" target="_blank" rel="noopener" class="text-caption hover-file" @click.stop>{{ a.original_name }}</a>
                             <span class="text-caption text-medium-emphasis">({{ formatSize(a.size_bytes) }})</span>
                         </div>
                     </div>
@@ -106,7 +106,7 @@
                     <div class="text-caption font-weight-bold">Attached files</div>
                     <div v-for="a in detail.attachments" :key="a.id" class="d-flex align-center ga-1 mt-1">
                         <v-icon size="x-small">mdi-paperclip</v-icon>
-                        <a :href="a.download_url" class="text-caption hover-file" @click.stop>{{ a.original_name }}</a>
+                        <a :href="fileViewUrl(a)" target="_blank" rel="noopener" class="text-caption hover-file" @click.stop>{{ a.original_name }}</a>
                         <span class="text-caption text-medium-emphasis">({{ formatSize(a.size_bytes) }})</span>
                     </div>
                 </div>
@@ -120,6 +120,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { fileViewUrl } from '@/composables/useFileView'
 
 const props = defineProps({
     s: { type: Object, required: true },

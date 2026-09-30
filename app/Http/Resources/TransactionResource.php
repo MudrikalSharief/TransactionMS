@@ -93,6 +93,7 @@ class TransactionResource extends JsonResource
                     'pivot' => [
                         'display_order' => (int) ($r->pivot?->display_order ?? 0),
                         'is_required' => (bool) ($r->pivot?->is_required ?? true),
+                        'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                     ],
                     'checked' => (bool) $check,
                     'checked_at' => $check?->checked_at?->toISOString(),
@@ -108,6 +109,7 @@ class TransactionResource extends JsonResource
                         'uploaded_by' => $a->uploader?->only(['id','name']),
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                        'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
                     ])->all(),
                     'attachment_count' => $reqAtts->count(),
                 ];
@@ -237,6 +239,7 @@ class TransactionResource extends JsonResource
                         'pivot' => [
                             'display_order' => (int) ($r->pivot?->display_order ?? 0),
                             'is_required' => (bool) ($r->pivot?->is_required ?? true),
+                            'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                         ],
                         'checked' => (bool) $check,
                         'checked_at' => $check?->checked_at?->toISOString(),
@@ -253,6 +256,7 @@ class TransactionResource extends JsonResource
                             'uploaded_by' => $a->uploader?->only(['id','name']),
                             'created_at' => $a->created_at?->toISOString(),
                             'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                            'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
                         ])->all(),
                     ];
                 }
@@ -276,6 +280,7 @@ class TransactionResource extends JsonResource
                         'uploaded_by' => $a->uploader?->only(['id','name']),
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                        'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
                     ])->all(),
                     'fields' => collect($s->fieldDefinitions ?? [])
                         ->sortBy(fn ($f) => (int) ($f->order_number ?? 0))

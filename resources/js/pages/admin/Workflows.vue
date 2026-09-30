@@ -165,6 +165,19 @@
                             sub of {{ item.parent_name }}
                         </div>
                     </template>
+                    <template v-slot:[`item.sla_minutes`]="{ item }">
+                        <v-chip
+                            rounded="0"
+                            size="small"
+                            variant="tonal"
+                            color="grey-darken-3"
+                            class="font-weight-bold"
+                            :title="`${item.sla_minutes ?? 0} min`"
+                        >
+                            {{ formatSlaMinutes(item.sla_minutes) }}
+                        </v-chip>
+                        <div class="text-caption text-medium-emphasis">{{ item.sla_minutes ?? 0 }} min</div>
+                    </template>
                     <template v-slot:[`item.office_id`]="{ item }">
                         <v-chip
                             v-if="officeName(item)"
@@ -418,11 +431,71 @@
                         label="Stage"
                         placeholder="e.g. Planning"
                     />
-                    <v-text-field
-                        v-model="stepForm.sla_minutes"
-                        type="number"
-                        label="SLA Minutes"
-                    />
+                    <div class="mb-1">
+                        <div class="text-subtitle-2 font-weight-bold">SLA Duration</div>
+                        <div class="text-caption text-medium-emphasis">Tap the clock to pick hours/minutes, set days separately. No manual typing.</div>
+                    </div>
+                    <div class="d-flex align-center flex-wrap ga-2 mb-2">
+                        <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
+                            {{ slaHuman }} = {{ slaTotal }} min
+                        </v-chip>
+                        <v-chip-group class="pa-0 ma-0">
+                            <v-chip
+                                v-for="p in slaPresets"
+                                :key="p.label"
+                                rounded="0"
+                                size="small"
+                                variant="outlined"
+                                color="grey-darken-3"
+                                class="font-weight-bold"
+                                @click="applySlaPreset(p)"
+                            >
+                                {{ p.label }}
+                            </v-chip>
+                        </v-chip-group>
+                    </div>
+                    <v-row dense>
+                        <v-col cols="12" sm="4">
+                            <div class="d-flex align-center ga-1">
+                                <v-btn icon="mdi-minus" size="small" variant="outlined" color="grey-darken-3" :disabled="slaDays <= 0" @click="slaDays = Math.max(0, Number(slaDays || 0) - 1)" />
+                                <v-text-field
+                                    :model-value="slaDays"
+                                    label="Days (0-30)"
+                                    type="number"
+                                    readonly
+                                    hide-spin-buttons
+                                    density="compact"
+                                    class="text-center"
+                                    @update:model-value="() => {}"
+                                />
+                                <v-btn icon="mdi-plus" size="small" variant="outlined" color="grey-darken-3" :disabled="slaDays >= SLA_MAX_DAYS" @click="slaDays = Math.min(SLA_MAX_DAYS, Number(slaDays || 0) + 1)" />
+                            </div>
+                            <v-slider v-model="slaDays" :min="0" :max="SLA_MAX_DAYS" :step="1" density="compact" hide-details color="grey-darken-3" />
+                        </v-col>
+                        <v-col cols="12" sm="8">
+                            <v-menu v-model="slaTimeMenu" :close-on-content-click="false" location="bottom">
+                                <template #activator="{ props }">
+                                    <v-text-field
+                                        :model-value="slaTimeDisplay"
+                                        label="Hours : Minutes (tap clock)"
+                                        prepend-inner-icon="mdi-clock-outline"
+                                        readonly
+                                        v-bind="props"
+                                    />
+                                </template>
+                                <v-card rounded="0">
+                                    <v-time-picker v-model="slaTime" format="24hr" />
+                                    <v-divider />
+                                    <v-card-actions class="justify-end">
+                                        <v-btn variant="text" @click="slaTimeMenu = false">Done</v-btn>
+                                    </v-card-actions>
+                                </v-card>
+                            </v-menu>
+                        </v-col>
+                    </v-row>
+                    <v-alert v-if="slaError" type="error" variant="tonal" density="compact" class="mb-2">
+                        {{ slaError }}
+                    </v-alert>
                     <v-switch v-model="stepForm.is_start" label="Is Start" />
                     <v-switch v-model="stepForm.is_end" label="Is End" />
 
@@ -1010,8 +1083,90 @@ function viewDef(def) {
 const stepDialog = ref(false);
 const stepForm = ref({});
 
+// SLA duration picker (picker-only, up to 30 days).
+// Backend still stores total minutes (integer >= 0);
+// the clock dial is reinterpreted as HH:MM duration + Days.
+const SLA_MAX_DAYS = 30;
+const SLA_MAX_TOTAL = SLA_MAX_DAYS * 24 * 60; // 43200
+const slaDays = ref(0);
+const slaTime = ref("01:00");
+const slaTimeMenu = ref(false);
+const slaPresets = [
+    { label: "30m", days: 0, time: "00:30" },
+    { label: "2h", days: 0, time: "02:00" },
+    { label: "8h", days: 0, time: "08:00" },
+    { label: "1d", days: 1, time: "00:00" },
+    { label: "3d", days: 3, time: "00:00" },
+    { label: "7d", days: 7, time: "00:00" },
+];
+
+function parseSlaTime(t) {
+    const m = String(t || "00:00").match(/^(\d{1,2}):(\d{1,2})/);
+    if (!m) return { h: 0, min: 0 };
+    return {
+        h: Math.min(23, Math.max(0, Number(m[1] || 0))),
+        min: Math.min(59, Math.max(0, Number(m[2] || 0))),
+    };
+}
+
+function minutesToSla(total) {
+    const t = Math.max(0, Number(total || 0));
+    const days = Math.floor(t / 1440);
+    const rest = t - days * 1440;
+    const h = String(Math.floor(rest / 60)).padStart(2, "0");
+    const min = String(rest % 60).padStart(2, "0");
+    return { days, time: `${h}:${min}` };
+}
+
+const slaTotal = computed(() => {
+    const { h, min } = parseSlaTime(slaTime.value);
+    return Number(slaDays.value || 0) * 1440 + h * 60 + min;
+});
+
+const slaTimeDisplay = computed(() => {
+    const { h, min } = parseSlaTime(slaTime.value);
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+});
+
+const slaHuman = computed(() => {
+    const d = Number(slaDays.value || 0);
+    const { h, min } = parseSlaTime(slaTime.value);
+    const parts = [];
+    if (d) parts.push(`${d}d`);
+    if (h) parts.push(`${h}h`);
+    if (min) parts.push(`${min}m`);
+    return parts.length ? parts.join(" ") : "0m";
+});
+
+const slaError = computed(() => {
+    if (Number(slaDays.value || 0) < 0 || Number(slaDays.value || 0) > SLA_MAX_DAYS)
+        return `Days must be 0-${SLA_MAX_DAYS}.`;
+    if (slaTotal.value > SLA_MAX_TOTAL)
+        return `Max SLA is 30 days (${SLA_MAX_TOTAL} min).`;
+    return "";
+});
+
+function applySlaPreset(p) {
+    slaDays.value = p.days;
+    slaTime.value = p.time;
+}
+
+function formatSlaMinutes(total) {
+    const { days, time } = minutesToSla(total);
+    const [h, m] = time.split(":").map(Number);
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (h) parts.push(`${h}h`);
+    if (m) parts.push(`${m}m`);
+    return parts.length ? parts.join(" ") : "0m";
+}
+
 function openStepDialog(step = null) {
     error.value = "";
+    const init = minutesToSla(step?.sla_minutes ?? 60);
+    slaDays.value = Math.min(SLA_MAX_DAYS, init.days);
+    slaTime.value = init.time;
+    slaTimeMenu.value = false;
     if (step) {
         stepForm.value = {
             id: step.id,
@@ -1034,7 +1189,7 @@ function openStepDialog(step = null) {
             name: "",
             stage: "",
             office_id: null,
-            sla_minutes: 0,
+            sla_minutes: 60,
             is_start: false,
             is_end: false,
             role_ids: [],
@@ -1048,13 +1203,17 @@ async function saveStep() {
     error.value = "";
     notice.value = "";
     try {
+        if (slaError.value) {
+            error.value = slaError.value;
+            return;
+        }
         const payload = {
             parent_id: stepForm.value.parent_id ?? null,
             order_number: Number(stepForm.value.order_number),
             name: stepForm.value.name,
             stage: stepForm.value.stage || null,
             office_id: stepForm.value.office_id ?? null,
-            sla_minutes: Number(stepForm.value.sla_minutes || 0),
+            sla_minutes: slaTotal.value,
             is_start: !!stepForm.value.is_start,
             is_end: !!stepForm.value.is_end,
             role_ids: stepForm.value.role_ids || [],

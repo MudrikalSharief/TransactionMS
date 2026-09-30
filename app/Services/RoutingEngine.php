@@ -168,6 +168,7 @@ class RoutingEngine
         // must not be blocked by its own incomplete items.
         if (!$route->is_return_route) {
             $this->assertRequiredRequirementsUploaded($tx, $currentStepId);
+            $this->assertRequiredHardCopyTicks($tx, $currentStepId);
             // Step 1 → step 2 shows requirements only: no checklist gate.
             // (Checklists mirror the previous station's requirements, so
             // step 1 has none anyway; this also guards custom items an
@@ -196,8 +197,9 @@ class RoutingEngine
         if (!$step) return;
 
         $reqs = $step->requirementDefinitions()
-            ->wherePivot('is_required', true)
-            ->get();
+            ->get()
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
+            ->values();
 
         if ($reqs->isEmpty()) return;
 
@@ -213,7 +215,41 @@ class RoutingEngine
             ->values();
 
         if ($missing->isNotEmpty()) {
-            abort(422, 'Required items missing files: ' . $missing->implode(', '));
+            abort(422, 'Upload-required items missing files: ' . $missing->implode(', '));
+        }
+    }
+
+    /**
+     * Required requirements (tick-only AND upload rows like AR/Payroll)
+     * block Proceed until ticked. The top tick unlocks the upload card
+     * below. Optional rows never block.
+     */
+    private function assertRequiredHardCopyTicks(Transaction $tx, int $stepId): void
+    {
+        $step = $tx->state?->currentStep;
+        if (!$step) return;
+
+        $reqs = $step->requirementDefinitions()
+            ->get()
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->values();
+
+        if ($reqs->isEmpty()) return;
+
+        $checkedIds = collect($tx->requirementChecks ?? [])
+            ->where('workflow_step_id', $stepId)
+            ->pluck('requirement_definition_id')
+            ->map(fn ($v) => (int) $v)
+            ->unique()
+            ->values();
+
+        $missing = $reqs
+            ->filter(fn ($r) => !$checkedIds->contains((int) $r->id))
+            ->pluck('name')
+            ->values();
+
+        if ($missing->isNotEmpty()) {
+            abort(422, 'Required hard-copy items not ticked: ' . $missing->implode(', '));
         }
     }
 
