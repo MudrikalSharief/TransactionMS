@@ -18,6 +18,8 @@ class GotoStationRequest extends FormRequest
             // Jumps always go back to a passed station, so the reason
             // for going back is required.
             'remarks' => ['required', 'string', 'max:2000'],
+            // Why it went back; drives the history label. Omitted = plain revisit.
+            'reason' => ['nullable', 'string', 'in:missing_requirements'],
         ];
     }
 }

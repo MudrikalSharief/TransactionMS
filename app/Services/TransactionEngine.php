@@ -266,9 +266,9 @@ class TransactionEngine
      * gating — callers validate the destination. Complete destinations
      * keep their saved work via the intact-arrival rule; gappy ones reset.
      */
-    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId): Transaction
+    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId, string $actionCode = 'revisit'): Transaction
     {
-        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId) {
+        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId, $actionCode) {
             $tx->loadMissing(['state.currentStep', 'workflow', 'workflow.steps']);
 
             $currentStepId = (int) $tx->state?->current_step_id;
@@ -286,7 +286,7 @@ class TransactionEngine
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
                 'to_step_id' => $toStepId,
-                'action_code' => 'revisit',
+                'action_code' => $actionCode,
                 'remarks' => $remarks ?? 'Jumped to a passed station',
                 'performed_by' => $userId,
                 'performed_at' => now(),

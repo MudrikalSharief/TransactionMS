@@ -53,11 +53,18 @@ class TransactionGotoController extends Controller
             abort(422, 'You can only go back to a passed station; move forward step by step.');
         }
 
+        // Sent back from the proceed modal because the previous station's
+        // items were missing: recorded as its own history action.
+        $actionCode = ($request->validated()['reason'] ?? null) === 'missing_requirements'
+            ? 'return_missing'
+            : 'revisit';
+
         $tx = $engine->jumpToStep(
             $transaction,
             $toStepId,
             $request->validated()['remarks'] ?? null,
-            (int) $request->user()->id
+            (int) $request->user()->id,
+            $actionCode
         );
 
         $tx->load([

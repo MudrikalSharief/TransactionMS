@@ -28,6 +28,23 @@
                         <v-chip size="x-small" variant="tonal" color="grey-darken-1" rounded="0">
                             <v-icon start size="x-small">mdi-lock-outline</v-icon>read-only
                         </v-chip>
+                        <v-spacer />
+                        <!-- Something from the previous station is missing:
+                             send the transaction back there with remarks. -->
+                        <template v-if="!returnForm.open">
+                            <v-btn
+                                v-for="s in previousSteps"
+                                :key="`ret-${s.id}`"
+                                size="small"
+                                variant="tonal"
+                                color="deep-orange-darken-2"
+                                rounded="0"
+                                :disabled="saving || savingChecklist"
+                                @click="openReturnForm(s)"
+                            >
+                                <v-icon start size="small">mdi-arrow-u-left-top</v-icon>Return to {{ stepLabel(s) }}
+                            </v-btn>
+                        </template>
                     </div>
                     <div class="text-caption text-medium-emphasis mb-2">
                         Physical copies verified before this transaction reached you — for reference.
@@ -46,6 +63,53 @@
                             <span class="text-caption" :class="c.source_verification.verified ? 'text-success' : 'text-medium-emphasis'">
                                 {{ previousCheckDetail(c.source_verification) }}
                             </span>
+                        </div>
+                    </v-sheet>
+
+                    <!-- Return form: pick what is missing, explain, send back. -->
+                    <v-sheet v-if="returnForm.open" rounded="0" border class="pa-3 mt-2" style="border-color: rgb(var(--v-theme-warning)) !important">
+                        <div class="text-subtitle-2 font-weight-bold mb-1">
+                            Return to {{ stepLabel(returnForm.step) }}: missing requirements
+                        </div>
+                        <div class="text-caption text-medium-emphasis mb-2">
+                            Tick what is missing. The transaction goes back to {{ stepLabel(returnForm.step) }} with your remarks, and that station must verify again.
+                        </div>
+                        <v-checkbox
+                            v-for="c in returnFormItems"
+                            :key="`miss-${c.id}`"
+                            :model-value="returnForm.missingIds.includes(c.id)"
+                            :label="c.name"
+                            density="compact"
+                            hide-details
+                            @update:model-value="(v) => toggleMissing(c, v)"
+                        />
+                        <v-textarea
+                            v-model="returnForm.remarks"
+                            label="Remarks (required)"
+                            rows="2"
+                            auto-grow
+                            density="compact"
+                            variant="outlined"
+                            rounded="0"
+                            class="mt-2"
+                            hide-details="auto"
+                            @update:model-value="returnForm.remarksEdited = true"
+                        />
+                        <v-alert v-if="executeError" type="error" variant="tonal" density="compact" rounded="0" class="mt-2">
+                            {{ executeError }}
+                        </v-alert>
+                        <div class="d-flex justify-end ga-2 mt-2">
+                            <v-btn variant="text" size="small" :disabled="saving" @click="closeReturnForm">Cancel</v-btn>
+                            <v-btn
+                                color="deep-orange-darken-2"
+                                size="small"
+                                rounded="0"
+                                :loading="saving"
+                                :disabled="!returnForm.missingIds.length || !returnForm.remarks.trim()"
+                                @click="submitReturn"
+                            >
+                                <v-icon start size="small">mdi-arrow-u-left-top</v-icon>Return to {{ stepLabel(returnForm.step) }}
+                            </v-btn>
                         </div>
                     </v-sheet>
                     <v-divider class="my-3" />
@@ -353,6 +417,8 @@ const uploadRequirements = computed(() => sortedRequirements.value.filter((r) =>
 const emit = defineEmits([
     'toggle-requirement',
     'toggle-checklist',
+    // { toStepId, remarks } — parent calls the goto API with reason missing_requirements.
+    'return-missing',
     'requirement-uploaded',
     'attachment-deleted',
     'update:remarks',
@@ -447,6 +513,55 @@ const previousChecksTitle = computed(() => {
     return `Checked by previous step (${stepLabel(previousChecks.value[0].source_verification.step)})`
 })
 
+// Distinct predecessor stations, one Return button each (merged branches).
+const previousSteps = computed(() => {
+    const seen = new Map()
+    for (const c of previousChecks.value) {
+        const s = c.source_verification.step
+        if (s?.id != null && !seen.has(s.id)) seen.set(s.id, s)
+    }
+    return [...seen.values()]
+})
+
+// Return-for-missing form. Unverified items start ticked as missing and the
+// remarks follow the ticks until the user types their own.
+const returnForm = ref({ open: false, step: null, missingIds: [], remarks: '', remarksEdited: false })
+
+const returnFormItems = computed(() =>
+    previousChecks.value.filter((c) => c.source_verification.step?.id === returnForm.value.step?.id),
+)
+
+function missingRemarks() {
+    const names = returnFormItems.value
+        .filter((c) => returnForm.value.missingIds.includes(c.id))
+        .map((c) => c.name)
+    return names.length ? `Missing from ${stepLabel(returnForm.value.step)}: ${names.join(', ')}.` : ''
+}
+
+function openReturnForm(step) {
+    returnForm.value = { open: true, step, missingIds: [], remarks: '', remarksEdited: false }
+    returnForm.value.missingIds = returnFormItems.value
+        .filter((c) => !c.source_verification.verified)
+        .map((c) => c.id)
+    returnForm.value.remarks = missingRemarks()
+}
+
+function closeReturnForm() {
+    returnForm.value = { open: false, step: null, missingIds: [], remarks: '', remarksEdited: false }
+}
+
+function toggleMissing(c, on) {
+    const ids = returnForm.value.missingIds.filter((id) => id !== c.id)
+    returnForm.value.missingIds = on ? [...ids, c.id] : ids
+    if (!returnForm.value.remarksEdited) returnForm.value.remarks = missingRemarks()
+}
+
+function submitReturn() {
+    const f = returnForm.value
+    if (!f.step?.id || !f.missingIds.length || !f.remarks.trim()) return
+    emit('return-missing', { toStepId: f.step.id, remarks: f.remarks.trim() })
+}
+
 // "Juan (Budget Office) · 9/30/26 · 2:15 PM", or "Not verified".
 function previousCheckDetail(v) {
     const step = previousStepIds.value.size > 1 ? `${stepLabel(v.step)} · ` : ''
@@ -472,8 +587,10 @@ function setReqFiles(id, files) {
     reqFiles.value = { ...reqFiles.value, [id]: [...(files || [])] }
 }
 
+// Called by the parent each time the modal opens: fresh session state.
 function clearReqFiles() {
     reqFiles.value = {}
+    closeReturnForm()
 }
 
 defineExpose({ clearReqFiles, getReqFiles })

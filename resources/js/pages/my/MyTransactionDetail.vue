@@ -473,6 +473,7 @@
                         :saving-checklist-item-id="savingChecklistItemId"
                         :saving-requirement-id="savingRequirementId"
                         @toggle-requirement="onWizardToggle"
+                        @return-missing="returnForMissing"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
                         @attachment-deleted="removeAttachment"
@@ -1136,6 +1137,30 @@ async function gotoStation(remarksText) {
         hydrateForm();
     } catch (e) {
         error.value = formatApiError(e, "Jump failed.");
+    } finally {
+        saving.value = false;
+    }
+}
+// Proceed modal → "Return to Step N": the previous station's items were
+// missing, so send it back there with remarks (goto, reason recorded).
+async function returnForMissing({ toStepId, remarks }) {
+    if (saving.value) return;
+    saving.value = true;
+    executeError.value = "";
+    try {
+        const res = await gotoStationApi(route.params.id, {
+            to_step_id: toStepId,
+            remarks,
+            reason: "missing_requirements",
+        });
+        tx.value = res.tx;
+        availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        selectedRouteId.value = null;
+        hydrateForm();
+        remarksDialog.value = false;
+    } catch (e) {
+        executeError.value = formatApiError(e, "Return failed.");
     } finally {
         saving.value = false;
     }

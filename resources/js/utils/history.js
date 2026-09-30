@@ -48,6 +48,7 @@ const ACTION_CONFIGS = {
     reopen: { label: 'Reopened', icon: 'mdi-restore', color: 'teal-darken-2' },
     complete: { label: 'Completed', icon: 'mdi-flag-checkered', color: 'green-darken-2' },
     revisit: { label: 'Revisited', icon: 'mdi-history', color: 'blue-grey-darken-1' },
+    return_missing: { label: 'Returned — missing requirements', icon: 'mdi-file-alert-outline', color: 'deep-orange-darken-2' },
 };
 
 function titleCaseAction(code) {
