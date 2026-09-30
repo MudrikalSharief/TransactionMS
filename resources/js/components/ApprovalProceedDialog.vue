@@ -2,8 +2,7 @@
     <v-dialog v-model="open" max-width="800" scrollable>
         <v-card rounded="0">
             <v-card-title>
-                {{ !selectedRouteId || isFirstStepTransition || isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
-                <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
+                {{ proceedModalTitle }}
                 <div v-if="tx" class="text-caption text-medium-emphasis">
                     {{ tx.reference_number }} · {{ tx.title || 'N/A' }} · at {{ tx.current_step?.name }}
                 </div>
@@ -53,12 +52,15 @@
                             :is-return-selected="false"
                             :show-checklist="!isFirstStepTransition"
                             :missing-required-upload-labels="missingRequiredUploadLabels"
+                            :missing-required-tick-labels="missingRequiredTickLabels"
                             :missing-required-checklist-labels="missingRequiredChecklistLabels"
                             :missing-required-fields="missingRequiredFields"
                             :execute-error="executeError"
                             :saving="saving"
                             :saving-checklist="savingChecklist"
                             :saving-checklist-item-id="savingChecklistItemId"
+                            :saving-requirement-id="savingRequirementId"
+                            @toggle-requirement="onRequirementToggle"
                             @toggle-checklist="onChecklistToggle"
                             @requirement-uploaded="refreshTxPreservingForm"
                             @attachment-deleted="refreshTxPreservingForm"
@@ -78,7 +80,7 @@
                 <template v-if="tx && selectedRouteId">
                     <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition" variant="text" @click="wizardStep = 1">Back</v-btn>
                     <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || isFirstStepTransition || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0" @click="executeSelected">Proceed</v-btn>
+                    <v-btn v-if="wizardStep === 2 || isFirstStepTransition || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0" @click="executeSelected">Proceed</v-btn>
                 </template>
             </v-card-actions>
         </v-card>
@@ -123,6 +125,7 @@ const proceedAttachments = ref([]);
 const form = ref({});
 const savingChecklist = ref(false);
 const savingChecklistItemId = ref(null);
+const savingRequirementId = ref(null);
 
 function formatApiError(e, fallback) {
     const errs = e?.response?.data?.errors;
@@ -150,6 +153,13 @@ const selectedAction = computed(() =>
 );
 const selectedActionLabel = computed(() => (selectedAction.value ? labelForAction(selectedAction.value) : ""));
 
+// Single-line Proceed modal title: destination step number only.
+const proceedModalTitle = computed(() => {
+    const n = selectedAction.value?.to_step?.order_number;
+    if (!selectedRouteId.value || !selectedAction.value || n == null || n === "") return "Proceed";
+    return `Proceed to Step ${n}`;
+});
+
 // Step 1 → step 2 shows requirements only (same rule as the transaction page).
 const isFirstStepTransition = computed(() =>
     Number(tx.value?.current_step?.order_number) === 1 &&
@@ -160,7 +170,7 @@ const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 
 const missingRequiredUploadLabels = computed(() =>
     (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
         .filter((r) => {
             const existing = (r.attachments || []).length;
             const staged = wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0;
@@ -177,6 +187,16 @@ const missingRequiredChecklistLabels = computed(() => {
         .map((c) => c.name)
         .filter(Boolean);
 });
+
+// Every required requirement (tick-only AND upload rows like AR/Payroll)
+// must be ticked: the top tick unlocks the upload card below.
+const missingRequiredTickLabels = computed(() =>
+    (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => !r.checked)
+        .map((r) => r.definition?.name)
+        .filter(Boolean),
+);
 
 const missingRequiredFields = computed(() => {
     const out = [];
@@ -280,6 +300,24 @@ async function onChecklistToggle(item, checked) {
     } finally {
         savingChecklist.value = false;
         savingChecklistItemId.value = null;
+    }
+}
+
+async function onRequirementToggle(req, checked) {
+    if (!req?.definition?.id || !!req.checked === !!checked) return;
+    savingChecklist.value = true;
+    savingRequirementId.value = req.definition.id;
+    error.value = "";
+    try {
+        const url = `/api/transactions/${props.txId}/requirements/${req.definition.id}/check`;
+        const res = checked ? await api.post(url) : await api.delete(url);
+        applyResponse(res.data.data ?? res.data, res.data.meta);
+        emit("changed", tx.value);
+    } catch (e) {
+        error.value = formatApiError(e, checked ? "Requirement check failed." : "Requirement uncheck failed.");
+    } finally {
+        savingChecklist.value = false;
+        savingRequirementId.value = null;
     }
 }
 

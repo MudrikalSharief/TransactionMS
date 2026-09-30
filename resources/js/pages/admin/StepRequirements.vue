@@ -112,6 +112,15 @@
                                 />
                             </template>
 
+                            <template v-slot:[`item.is_upload_required`]="{ item }">
+                                <v-checkbox
+                                    v-model="item.is_upload_required"
+                                    density="compact"
+                                    hide-details
+                                    color="grey-darken-3"
+                                />
+                            </template>
+
                             <template v-slot:[`item.actions`]="{ item }">
                                 <v-btn
                                     icon="mdi-delete"
@@ -143,7 +152,8 @@
                         persistent-hint
                     />
                     <v-textarea v-model="addForm.description" label="Remarks (instructions for workers)" rows="3" />
-                    <v-switch v-model="addForm.is_required" color="grey-darken-3" label="Required (blocks transition)" />
+                    <v-switch v-model="addForm.is_required" color="grey-darken-3" label="Required item" />
+                    <v-switch v-model="addForm.is_upload_required" color="grey-darken-3" label="Upload required (must attach file)" />
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">
@@ -207,6 +217,7 @@ const assignHeaders = [
     { title: "Name", key: "name", sortable: false },
     { title: "Code", key: "code", sortable: false },
     { title: "Required?", key: "is_required", sortable: false },
+    { title: "Upload required?", key: "is_upload_required", sortable: false },
     { title: "", key: "actions", sortable: false },
 ];
 
@@ -214,7 +225,7 @@ const assignHeaders = [
 const addDialog = ref(false);
 const adding = ref(false);
 const addError = ref("");
-const addForm = ref({ name: "", code: "", description: "", is_required: true });
+const addForm = ref({ name: "", code: "", description: "", is_required: true, is_upload_required: true });
 
 const stepOptions = computed(() =>
     steps.value.map((s) => ({
@@ -225,7 +236,7 @@ const stepOptions = computed(() =>
 
 function openAdd() {
     addError.value = "";
-    addForm.value = { name: "", code: "", description: "", is_required: true };
+    addForm.value = { name: "", code: "", description: "", is_required: true, is_upload_required: true };
     addDialog.value = true;
 }
 
@@ -250,6 +261,7 @@ async function addRequirement() {
                 description: created.description,
                 display_order: assignmentRows.value.length,
                 is_required: !!addForm.value.is_required,
+                is_upload_required: !!addForm.value.is_upload_required,
             },
         ];
         addDialog.value = false;
@@ -305,6 +317,7 @@ async function loadAssigned() {
             description: a.description ?? "",
             display_order: a.pivot_meta?.display_order ?? 0,
             is_required: a.pivot_meta?.is_required ?? true,
+            is_upload_required: a.pivot_meta?.is_upload_required ?? a.pivot_meta?.is_required ?? true,
         }));
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load assigned requirements.";
@@ -319,6 +332,7 @@ async function save() {
             requirement_definition_id: r.requirement_definition_id,
             display_order: Number(r.display_order ?? idx),
             is_required: !!r.is_required,
+            is_upload_required: r.is_upload_required ?? r.is_required ?? true,
             code: r.code ?? "",
             description: r.description ?? "",
         }));

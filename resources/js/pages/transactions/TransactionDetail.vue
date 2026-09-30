@@ -274,7 +274,7 @@
                         class="mb-3"
                     >
                         <div v-if="missingRequiredUploadLabels.length">
-                            Missing files for required items:
+                            Missing files for upload-required items:
                             {{ missingRequiredUploadLabels.join(", ") }}.
                         </div>
                         <div v-if="missingRequiredChecklistLabels.length">
@@ -496,8 +496,7 @@
         <v-dialog v-model="remarksDialog" max-width="800">
             <v-card rounded="0">
                 <v-card-title>
-                    {{ isFirstStepTransition || isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
-                    <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
+                    {{ proceedModalTitle }}
                 </v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -517,12 +516,14 @@
                         :is-return-selected="isReturnSelected"
                         :show-checklist="!isFirstStepTransition"
                         :missing-required-upload-labels="missingRequiredUploadLabels"
+                        :missing-required-tick-labels="missingRequiredTickLabels"
                         :missing-required-checklist-labels="missingRequiredChecklistLabels"
                         :missing-required-fields="missingRequiredFields"
                         :execute-error="executeError"
                         :saving="saving"
                         :saving-checklist="savingChecklist"
                         :saving-checklist-item-id="savingChecklistItemId"
+                        :saving-requirement-id="savingRequirementId"
                         @toggle-requirement="onWizardToggle"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
@@ -551,7 +552,7 @@
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
-                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0"
+                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0"
                         @click="executeSelected"
                         >Proceed</v-btn
                     >
@@ -591,6 +592,7 @@
                         :requirement-id="checkTarget?.definition?.id"
                         v-model="checkAttachments"
                         :disabled="isDone"
+                        file-action="download"
                         @deleted="removeAttachment"
                     />
                     <v-expansion-panels variant="accordion" class="mt-3">
@@ -934,12 +936,23 @@ const flatStationItems = computed(() => {
 const missingRequiredUploadLabels = computed(() => {
     if (isReturnSelected.value) return [];
     return (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
         .filter((r) => {
             const existing = (r.attachments || []).length;
             const staged = (stagedReqFileCount(r) || 0);
             return existing + staged === 0;
         })
+        .map((r) => r.definition?.name)
+        .filter(Boolean);
+});
+
+const missingRequiredTickLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    // Every required requirement (tick-only AND upload rows like AR/Payroll)
+    // must be ticked: the top tick unlocks the upload card below.
+    return (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => !r.checked)
         .map((r) => r.definition?.name)
         .filter(Boolean);
 });
@@ -1369,6 +1382,18 @@ const mainActionButtonLabel = computed(() => {
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
     return `Proceed to Station ${selectedStepNumber.value}`;
+});
+
+// Single-line Proceed modal title: destination step number only.
+const proceedModalTitle = computed(() => {
+    if (!selectedRouteId.value) return "Proceed";
+    if (isJumpSelected.value) {
+        const n = selectedJumpOption.value?.to_number ?? "";
+        return n !== "" ? `Proceed to Step ${n}` : "Proceed";
+    }
+    if (!selectedAction.value) return "Proceed";
+    if (isReturnSelected.value) return `Return to Step ${selectedStepNumber.value}`;
+    return `Proceed to Step ${selectedStepNumber.value}`;
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so

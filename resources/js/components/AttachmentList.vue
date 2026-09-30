@@ -1,11 +1,31 @@
 <template>
     <div v-if="items?.length">
         <div v-if="compact" class="d-flex flex-wrap ga-1">
-            <span v-for="a in items" :key="a.id" class="d-inline-flex align-center">
+            <span v-for="a in items" :key="a.id" class="d-inline-flex align-center ga-1 border rounded-0 pa-1">
                 <v-tooltip location="top" max-width="320">
                     <template #activator="{ props }">
                         <a
-                            :href="a.view_url || a.download_url"
+                            v-if="action === 'download'"
+                            :href="a.download_url"
+                            class="text-decoration-none"
+                            :title="a.original_name"
+                            v-bind="props"
+                            @click.stop
+                        >
+                            <v-btn
+                                icon
+                                size="x-small"
+                                variant="tonal"
+                                color="grey-darken-3"
+                                :aria-label="a.original_name"
+                                :title="a.original_name"
+                            >
+                                <v-icon size="small">{{ fileIconFor(a) }}</v-icon>
+                            </v-btn>
+                        </a>
+                        <a
+                            v-else
+                            :href="fileViewUrl(a)"
                             target="_blank"
                             rel="noopener"
                             class="text-decoration-none"
@@ -30,7 +50,8 @@
                         <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] · </template>{{ formatSize(a.size_bytes) }}
                     </div>
                     <div class="text-caption mt-1">
-                        <a :href="a.download_url" class="text-white" @click.stop>Download</a>
+                        <a v-if="action === 'download'" :href="a.download_url" class="text-white" @click.stop>Download</a>
+                        <a v-else :href="fileViewUrl(a)" target="_blank" rel="noopener" class="text-white" @click.stop>View</a>
                     </div>
                 </v-tooltip>
                 <v-btn
@@ -39,7 +60,6 @@
                     size="x-small"
                     variant="text"
                     color="error"
-                    class="ml-1"
                     title="Delete (superadmin only)"
                     :loading="deletingId === a.id"
                     :disabled="deletingId !== null"
@@ -69,12 +89,14 @@
             {{ a.original_name }}
             <span class="text-caption ml-1">({{ formatSize(a.size_bytes) }})</span>
             <a
-                :href="a.download_url"
+                :href="fileViewUrl(a)"
+                target="_blank"
+                rel="noopener"
                 class="ml-1 text-decoration-none"
-                title="Download"
+                title="View"
                 @click.stop
             >
-                <v-icon size="small">mdi-download</v-icon>
+                <v-icon size="small">mdi-eye</v-icon>
             </a>
             <v-btn
                 v-if="canDelete"
@@ -96,7 +118,7 @@
         <div v-if="!compact && showDetails" class="mt-1">
             <div v-for="a in items" :key="'d-' + a.id" class="text-caption text-medium-emphasis">
                 <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] </template>{{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
-                <a :href="a.download_url">Download</a>
+                <a :href="fileViewUrl(a)" target="_blank" rel="noopener">View</a>
                 <template v-if="canDelete">
                     •
                     <a href="#" class="text-error" @click.prevent="askDelete(a)">Delete</a>
@@ -140,6 +162,7 @@
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
+import { fileViewUrl } from "@/composables/useFileView";
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
@@ -149,6 +172,9 @@ const props = defineProps({
     showDetails: { type: Boolean, default: true },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
+    // 'view' opens a preview tab; 'download' fetches the file directly.
+    // Upload pickers use 'download'.
+    action: { type: String, default: 'view' },
 });
 const emit = defineEmits(["deleted"]);
 

@@ -181,6 +181,7 @@ class WorkflowVersioningService
                 $reqPayload[$reqMap[$req->id]] = [
                     'display_order' => $req->pivot->display_order ?? 0,
                     'is_required' => (bool) ($req->pivot->is_required ?? true),
+                    'is_upload_required' => (bool) ($req->pivot->is_upload_required ?? $req->pivot->is_required ?? true),
                 ];
             }
             if (count($reqPayload)) {

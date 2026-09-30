@@ -91,7 +91,7 @@ class WorkflowStep extends Model
             'step_requirements',
             'workflow_step_id',
             'requirement_definition_id'
-        )->withPivot(['display_order', 'is_required'])
+        )->withPivot(['display_order', 'is_required', 'is_upload_required'])
             ->withTimestamps()
             ->orderBy('step_requirements.display_order')
             ->orderBy('requirement_definitions.order_number');
