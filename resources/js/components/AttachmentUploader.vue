@@ -11,7 +11,7 @@
             </span>
         </div>
         <!-- Minimal picker: small button + inline hint (used in grouped upload sections). -->
-        <div v-if="minimal" class="d-flex align-center ga-2 mt-2">
+        <div v-if="minimal" class="d-flex align-center ga-2 mb-2">
             <v-btn
                 size="small"
                 variant="tonal"

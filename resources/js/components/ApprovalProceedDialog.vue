@@ -50,7 +50,7 @@
                             :selected-action-label="selectedActionLabel"
                             :selected-route-id="selectedRouteId"
                             :is-return-selected="false"
-                            :show-checklist="!isFirstStepTransition"
+                            :show-checklist="!skipReview"
                             :missing-required-upload-labels="missingRequiredUploadLabels"
                             :missing-required-tick-labels="missingRequiredTickLabels"
                             :missing-required-checklist-labels="missingRequiredChecklistLabels"
@@ -78,9 +78,9 @@
                 <v-spacer />
                 <v-btn variant="text" @click="open = false">Cancel</v-btn>
                 <template v-if="tx && selectedRouteId">
-                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition" variant="text" @click="wizardStep = 1">Back</v-btn>
-                    <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || isFirstStepTransition || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0" @click="executeSelected">Proceed</v-btn>
+                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="text" @click="wizardStep = 1">Back</v-btn>
+                    <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !skipReview" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
+                    <v-btn v-if="wizardStep === 2 || skipReview || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0" @click="executeSelected">Proceed</v-btn>
                 </template>
             </v-card-actions>
         </v-card>
@@ -165,6 +165,10 @@ const isFirstStepTransition = computed(() =>
     Number(tx.value?.current_step?.order_number) === 1 &&
     Number(selectedAction.value?.to_step?.order_number) === 2,
 );
+// Step 1 stations skip the Review page entirely: step 1 holds no
+// predecessor checklist, so Review would only ever be its empty state.
+const isAtFirstStep = computed(() => Number(tx.value?.current_step?.order_number) === 1);
+const skipReview = computed(() => isFirstStepTransition.value || isAtFirstStep.value);
 const hasProceedRequirements = computed(() => (tx.value?.current_step_requirements || []).length > 0);
 const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 
@@ -181,7 +185,7 @@ const missingRequiredUploadLabels = computed(() =>
 );
 
 const missingRequiredChecklistLabels = computed(() => {
-    if (isFirstStepTransition.value) return [];
+    if (skipReview.value) return [];
     return (tx.value?.current_step_checklist ?? [])
         .filter((c) => c.is_required && !c.checked)
         .map((c) => c.name)
@@ -228,9 +232,13 @@ function applyResponse(nextTx, meta) {
 }
 
 // Files already saved on this station, prefilled when re-walking a station.
+// Move-level only: requirement files already show in their requirement
+// sections above, so they are excluded from the below-remarks list.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
-    return (tx.value?.attachments || []).filter((a) => Number(a.workflow_step_id) === cur);
+    return (tx.value?.attachments || [])
+        .filter((a) => Number(a.workflow_step_id) === cur)
+        .filter((a) => a.requirement_definition_id == null || Number(a.requirement_definition_id) === 0);
 }
 
 function resetWizardForRoute() {
@@ -240,7 +248,7 @@ function resetWizardForRoute() {
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the
     // Requirements page (now page 2). Otherwise start on Review (page 1).
-    wizardStep.value = isFirstStepTransition.value ? 2 : 1;
+    wizardStep.value = skipReview.value ? 2 : 1;
     wizardRef.value?.clearReqFiles?.();
 }
 

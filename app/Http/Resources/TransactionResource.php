@@ -78,9 +78,46 @@ class TransactionResource extends JsonResource
                 ->orderBy('requirement_definitions.order_number')
                 ->get();
 
+            // Previous-station ticks for the two-column verify layout: the
+            // first column mirrors what the predecessor station(s) checked.
+            // Matched by requirement CODE, not ID: every station owns its
+            // own definitions (same names/codes, different IDs), so an ID
+            // match across stations never hits. Keyed by step + requirement
+            // so the current step's own checks (above) stay untouched.
+            $checksByStepReq = collect($this->requirementChecks ?? [])
+                ->keyBy(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id));
+            $checklistServiceForPrev = \app(\App\Services\ChecklistService::class);
+            $predSteps = $checklistServiceForPrev->predecessorsFor($currentStep)->values();
+            $predReqIdsByCode = [];
+            foreach ($predSteps as $pred) {
+                foreach ($pred->requirementDefinitions()->get(['requirement_definitions.id', 'requirement_definitions.code']) as $pr) {
+                    $predReqIdsByCode[strtolower(trim((string) $pr->code))][$pred->id] ??= (int) $pr->id;
+                }
+            }
+
             foreach ($reqs as $r) {
                 $check = $checks->get($r->id);
                 $reqAtts = $attsByReq->get((int) $r->id, collect())->values();
+
+                $prevCheck = null;
+                $prevStep = null;
+                $codeKey = strtolower(trim((string) $r->code));
+                foreach ($predSteps as $pred) {
+                    $predReqId = $predReqIdsByCode[$codeKey][(int) $pred->id] ?? null;
+                    if (!$predReqId) continue;
+                    $candidate = $checksByStepReq->get(((int) $pred->id) . ':' . $predReqId);
+                    if ($candidate) {
+                        $prevCheck = $candidate;
+                        $prevStep = $pred;
+                        break;
+                    }
+                }
+                // Predecessor owns a matching requirement but left it
+                // unticked: still show the Prev column (empty box) so the
+                // mirror is honest instead of collapsing to one column.
+                if (!$prevStep && isset($predReqIdsByCode[$codeKey])) {
+                    $prevStep = $predSteps->first(fn ($p) => isset($predReqIdsByCode[$codeKey][(int) $p->id]));
+                }
 
                 $currentStepRequirements[] = [
                     'definition' => [
@@ -98,6 +135,9 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $check,
                     'checked_at' => $check?->checked_at?->toISOString(),
                     'checked_by' => $check?->checker?->only(['id','name','email']),
+                    'prev_checked' => (bool) $prevCheck,
+                    'prev_checked_by' => $prevCheck?->checker?->only(['id','name']),
+                    'prev_step' => $prevStep ? $prevStep->only(['id','name','order_number']) : null,
                     'attachments' => $reqAtts->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
@@ -142,6 +182,12 @@ class TransactionResource extends JsonResource
             foreach ($checklistItems as $item) {
                 $cCheck = $checklistChecks->get($item->id);
                 $sourceStep = $sourceStepByReq[(int) ($item->requirement_definition_id ?? 0)] ?? null;
+                // Previous-station requirement tick for the two-column
+                // verify layout: direct ID match — the override stores its
+                // predecessor requirement's own definition ID.
+                $prevReqCheck = ($sourceStep && $item->requirement_definition_id)
+                    ? $checksByStepReq->get(((int) $sourceStep->id) . ':' . ((int) $item->requirement_definition_id))
+                    : null;
                 $sourceAtts = $sourceStep
                     ? $attsByStepReq->get(((int) $sourceStep->id) . ':' . ((int) $item->requirement_definition_id), collect())->values()
                     : collect();
@@ -157,6 +203,9 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $cCheck,
                     'checked_at' => $cCheck?->checked_at?->toISOString(),
                     'checked_by' => $cCheck?->checker?->only(['id', 'name']),
+                    'prev_checked' => (bool) $prevReqCheck,
+                    'prev_checked_by' => $prevReqCheck?->checker?->only(['id', 'name']),
+                    'prev_step' => $sourceStep && $item->requirement_definition_id ? $sourceStep->only(['id', 'name', 'order_number']) : null,
                     'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
