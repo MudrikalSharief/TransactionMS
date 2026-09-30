@@ -32,6 +32,7 @@ class StepRequirementController extends Controller
                         'pivot_meta' => [
                             'display_order' => (int) ($r->pivot?->display_order ?? 0),
                             'is_required' => (bool) ($r->pivot?->is_required ?? true),
+                            'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                         ],
                     ]
                 );
@@ -52,6 +53,7 @@ class StepRequirementController extends Controller
             'requirements.*.requirement_definition_id' => ['required','integer'],
             'requirements.*.display_order' => ['nullable','integer','min:0'],
             'requirements.*.is_required' => ['nullable','boolean'],
+            'requirements.*.is_upload_required' => ['nullable','boolean'],
             // Optional inline edits of the definition itself (code/remarks).
             'requirements.*.code' => ['nullable','string','max:64'],
             'requirements.*.description' => ['nullable','string'],
@@ -63,6 +65,9 @@ class StepRequirementController extends Controller
             $sync[$rid] = [
                 'display_order' => (int) ($row['display_order'] ?? 0),
                 'is_required' => array_key_exists('is_required', $row) ? (bool) $row['is_required'] : true,
+                'is_upload_required' => array_key_exists('is_upload_required', $row)
+                    ? (bool) $row['is_upload_required']
+                    : (array_key_exists('is_required', $row) ? (bool) $row['is_required'] : true),
             ];
 
             if (array_key_exists('code', $row) || array_key_exists('description', $row)) {

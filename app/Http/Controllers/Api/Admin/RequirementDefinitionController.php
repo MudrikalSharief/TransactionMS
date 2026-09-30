@@ -74,6 +74,7 @@ class RequirementDefinitionController extends Controller
             'steps.*.workflow_step_id' => ['required', 'integer'],
             'steps.*.display_order' => ['nullable', 'integer', 'min:0'],
             'steps.*.is_required' => ['nullable', 'boolean'],
+            'steps.*.is_upload_required' => ['nullable', 'boolean'],
         ]);
 
         $sync = [];
@@ -82,6 +83,9 @@ class RequirementDefinitionController extends Controller
             $sync[$sid] = [
                 'display_order' => (int) ($row['display_order'] ?? 0),
                 'is_required' => array_key_exists('is_required', $row) ? (bool) $row['is_required'] : true,
+                'is_upload_required' => array_key_exists('is_upload_required', $row)
+                    ? (bool) $row['is_upload_required']
+                    : (array_key_exists('is_required', $row) ? (bool) $row['is_required'] : true),
             ];
         }
 

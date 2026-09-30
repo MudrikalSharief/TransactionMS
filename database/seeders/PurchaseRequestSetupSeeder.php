@@ -236,6 +236,7 @@ class PurchaseRequestSetupSeeder extends Seeder
                     [
                         'display_order' => $index + 1,
                         'is_required' => true,
+                        'is_upload_required' => true,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]

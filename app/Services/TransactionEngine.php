@@ -418,15 +418,16 @@ class TransactionEngine
             'workflow.steps.fieldDefinitions',
             'fieldValues.fieldDefinition',
             'attachments',
+            'requirementChecks',
             'checklistChecks',
         ]);
 
         $step = $tx->workflow->steps->firstWhere('id', $stepId);
         if (!$step) return false;
 
-        // Required requirements keep their files on intact arrivals.
+        // Upload-required requirements keep their files on intact arrivals.
         $requiredReqs = collect($step->requirementDefinitions ?? [])
-            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
             ->values();
         if ($requiredReqs->isNotEmpty()) {
             $attCounts = collect($tx->attachments ?? [])
@@ -451,6 +452,23 @@ class TransactionEngine
                 ->values();
             foreach ($requiredItems as $item) {
                 if (!$checkedIds->contains((int) $item->id)) return false;
+            }
+        }
+
+        // Required requirement ticks (tick-only AND upload rows like
+        // AR/Payroll) must still be present.
+        $tickReqs = collect($step->requirementDefinitions ?? [])
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->values();
+        if ($tickReqs->isNotEmpty()) {
+            $checkedReqIds = collect($tx->requirementChecks ?? [])
+                ->where('workflow_step_id', $stepId)
+                ->pluck('requirement_definition_id')
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values();
+            foreach ($tickReqs as $r) {
+                if (!$checkedReqIds->contains((int) $r->id)) return false;
             }
         }
 
