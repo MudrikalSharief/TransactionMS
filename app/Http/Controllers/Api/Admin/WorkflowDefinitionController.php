@@ -22,7 +22,7 @@ class WorkflowDefinitionController extends Controller
         $typeId = $request->query('transaction_type_id');
 
         $q = WorkflowDefinition::query()
-            ->with(['steps.roles', 'routes'])
+            ->with(['steps.roles', 'steps.office', 'routes'])
             ->orderByDesc('version');
 
         if ($typeId) $q->where('transaction_type_id', $typeId);
@@ -33,7 +33,7 @@ class WorkflowDefinitionController extends Controller
     public function show(WorkflowDefinition $workflowDefinition)
     {
         return new WorkflowDefinitionResource(
-            $workflowDefinition->load(['steps.roles', 'routes'])
+            $workflowDefinition->load(['steps.roles', 'steps.office', 'routes'])
         );
     }
 
@@ -56,7 +56,7 @@ class WorkflowDefinitionController extends Controller
         }
 
         if (Transaction::where('workflow_definition_id', $workflowDefinition->id)->exists()) {
-            return response()->json(['message' => 'Cannot delete: transactions use this process.'], 422);
+            return response()->json(['message' => 'Cannot delete: transactions use this transaction type.'], 422);
         }
 
         return DB::transaction(function () use ($request, $workflowDefinition, $audit) {

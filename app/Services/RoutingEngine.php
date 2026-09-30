@@ -29,6 +29,10 @@ class RoutingEngine
         // Finalized transactions are view-only — no actions at all.
         if ((bool) ($tx->is_done ?? false)) return [];
 
+        // Pending receipt locks the station: destination office must click
+        // Receive before any Proceed/return/jump action is offered.
+        if ($this->hasPendingReceipt($tx)) return [];
+
         if (!$this->userCanWorkOnStep($tx, $user, (int) $currentStep->id)) {
             return [];
         }
@@ -96,6 +100,27 @@ class RoutingEngine
         return $this->userCanWorkOnStep($tx, $user, $stepId);
     }
 
+    /**
+     * True when the latest forward has not been received yet.
+     * Used to lock Proceed actions until the destination office receives.
+     */
+    public function hasPendingReceipt(Transaction $tx): bool
+    {
+        return \App\Models\TransactionStepRun::where('transaction_id', $tx->id)
+            ->whereNull('received_at')
+            ->exists();
+    }
+
+    public function pendingReceipt(Transaction $tx): ?\App\Models\TransactionStepRun
+    {
+        return \App\Models\TransactionStepRun::where('transaction_id', $tx->id)
+            ->whereNull('received_at')
+            ->with(['fromStep:id,code,name', 'toStep:id,code,name,office_id', 'performer:id,name', 'receivedOffice:id,code,name'])
+            ->orderByDesc('performed_at')
+            ->orderByDesc('id')
+            ->first();
+    }
+
     public function assertUserCanExecute(Transaction $tx, User $user): void
     {
         if ((bool) ($tx->is_done ?? false)) {
@@ -112,12 +137,17 @@ class RoutingEngine
     public function assertRouteExecutable(Transaction $tx, int $routeId, User $user): WorkflowRoute
     {
         $this->assertUserCanExecute($tx, $user);
+        if ($this->hasPendingReceipt($tx)) {
+            abort(422, 'Please receive the step first before acting.');
+        }
         $tx->loadMissing([
             'workflow.routes',
             'workflow.steps',
             'state.currentStep',
             'state.currentStep.requirementDefinitions',
             'requirementChecks',
+            'checklistChecks',
+            'attachments',
             'fieldValues.fieldDefinition',
             'type',
         ]);
@@ -137,7 +167,15 @@ class RoutingEngine
         // Returns never require the checklist: a station sending work back
         // must not be blocked by its own incomplete items.
         if (!$route->is_return_route) {
-            $this->assertRequiredRequirementsChecked($tx, $currentStepId);
+            $this->assertRequiredRequirementsUploaded($tx, $currentStepId);
+            $this->assertRequiredHardCopyTicks($tx, $currentStepId);
+            // Step 1 → step 2 shows requirements only: no checklist gate.
+            // (Checklists mirror the previous station's requirements, so
+            // step 1 has none anyway; this also guards custom items an
+            // admin may have added to a start step.)
+            if (!$this->isFirstStepTransition($tx, $route)) {
+                $this->assertRequiredChecklistTicked($tx, $currentStepId);
+            }
         }
 
         $context = $this->buildContext($tx);
@@ -149,31 +187,115 @@ class RoutingEngine
         return $route;
     }
 
-    private function assertRequiredRequirementsChecked(Transaction $tx, int $stepId): void
+    /**
+     * Required requirements block Proceed until at least one file is
+     * attached for that item. Optional requirements never block.
+     */
+    private function assertRequiredRequirementsUploaded(Transaction $tx, int $stepId): void
     {
         $step = $tx->state?->currentStep;
         if (!$step) return;
 
         $reqs = $step->requirementDefinitions()
-            ->wherePivot('is_required', true)
-            ->get();
+            ->get()
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
+            ->values();
 
         if ($reqs->isEmpty()) return;
 
-        $requiredIds = $reqs->pluck('id')->values();
+        $tx->loadMissing('attachments');
+        $attCounts = collect($tx->attachments ?? [])
+            ->where('workflow_step_id', $stepId)
+            ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0))
+            ->map(fn ($g) => $g->count());
+
+        $missing = $reqs
+            ->filter(fn ($r) => ($attCounts->get((int) $r->id, 0) ?? 0) < 1)
+            ->pluck('name')
+            ->values();
+
+        if ($missing->isNotEmpty()) {
+            abort(422, 'Upload-required items missing files: ' . $missing->implode(', '));
+        }
+    }
+
+    /**
+     * Required requirements (tick-only AND upload rows like AR/Payroll)
+     * block Proceed until ticked. The top tick unlocks the upload card
+     * below. Optional rows never block.
+     */
+    private function assertRequiredHardCopyTicks(Transaction $tx, int $stepId): void
+    {
+        $step = $tx->state?->currentStep;
+        if (!$step) return;
+
+        $reqs = $step->requirementDefinitions()
+            ->get()
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->values();
+
+        if ($reqs->isEmpty()) return;
 
         $checkedIds = collect($tx->requirementChecks ?? [])
             ->where('workflow_step_id', $stepId)
             ->pluck('requirement_definition_id')
+            ->map(fn ($v) => (int) $v)
             ->unique()
             ->values();
 
-        $missingIds = $requiredIds->diff($checkedIds)->values();
+        $missing = $reqs
+            ->filter(fn ($r) => !$checkedIds->contains((int) $r->id))
+            ->pluck('name')
+            ->values();
 
-        if ($missingIds->isNotEmpty()) {
-            $missingNames = $reqs->whereIn('id', $missingIds)->pluck('name')->values();
+        if ($missing->isNotEmpty()) {
+            abort(422, 'Required hard-copy items not ticked: ' . $missing->implode(', '));
+        }
+    }
+
+    /**
+     * Required checklist items block Proceed until ticked. Optional
+     * checklist items never block — same shape as the old requirement ticks.
+     */
+    private function assertRequiredChecklistTicked(Transaction $tx, int $stepId): void
+    {
+        $step = $tx->state?->currentStep;
+        if (!$step) return;
+
+        $items = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $required = $items->filter(fn ($i) => (bool) $i->is_required)->values();
+        if ($required->isEmpty()) return;
+
+        $checkedIds = collect($tx->checklistChecks ?? [])
+            ->where('workflow_step_id', $stepId)
+            ->pluck('checklist_override_id')
+            ->filter()
+            ->map(fn ($v) => (int) $v)
+            ->unique()
+            ->values();
+
+        $missingNames = $required
+            ->filter(fn ($i) => !$checkedIds->contains((int) $i->id))
+            ->pluck('name')
+            ->values();
+
+        if ($missingNames->isNotEmpty()) {
             abort(422, 'Required checklist items not completed: ' . $missingNames->implode(', '));
         }
+    }
+
+    /**
+     * The step 1 → step 2 transition shows requirements only, so the
+     * checklist is neither displayed nor enforced. Returns and every
+     * other transition keep the checklist gate.
+     */
+    private function isFirstStepTransition(Transaction $tx, WorkflowRoute $route): bool
+    {
+        $from = $tx->workflow->steps->firstWhere('id', (int) $route->from_step_id);
+        $to = $tx->workflow->steps->firstWhere('id', (int) $route->to_step_id);
+
+        return (int) ($from?->order_number ?? 0) === 1
+            && (int) ($to?->order_number ?? 0) === 2;
     }
 
     private function userCanWorkOnStep(Transaction $tx, User $user, int $stepId): bool

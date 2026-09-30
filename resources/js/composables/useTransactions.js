@@ -57,6 +57,14 @@ export function useTransactions() {
     }
   }
 
+  async function receive(id) {
+    const res = await api.post(`/api/admin/transactions/${id}/receive`)
+    return {
+      tx: res.data.data ?? res.data,
+      meta: res.data.meta ?? {},
+    }
+  }
+
   async function gotoStation(id, payload) {
     const res = await api.post(`/api/admin/transactions/${id}/goto`, payload)
     return {
@@ -96,5 +104,5 @@ export function useTransactions() {
     return res.data.data ?? res.data
   }
 
-  return { items, loading, fetchAll, create, getOne, updateOffice, execute, gotoStation, finalize, checkRequirement, destroy, uploadAttachment }
+  return { items, loading, fetchAll, create, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, destroy, uploadAttachment }
 }

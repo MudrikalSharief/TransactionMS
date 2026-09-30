@@ -25,7 +25,7 @@ class WorkflowVersioningService
                 ->first();
 
             if ($existing) {
-                return $existing->load(['steps.roles', 'routes']);
+                return $existing->load(['steps.roles', 'steps.office', 'routes']);
             }
 
             $clone = (bool)($data['clone_latest_published'] ?? true);
@@ -55,7 +55,7 @@ class WorkflowVersioningService
                 }
             }
 
-            return $draft->load(['steps.roles', 'routes']);
+            return $draft->load(['steps.roles', 'steps.office', 'routes']);
         });
     }
 
@@ -71,7 +71,7 @@ class WorkflowVersioningService
 
             if ($startCount < 1 || $endCount < 1) {
                 throw ValidationException::withMessages([
-                    'steps' => 'Process Version must have at least one start step and one end step before publishing.',
+                    'steps' => 'Transaction Type Version must have at least one start step and one end step before publishing.',
                 ]);
             }
 
@@ -82,7 +82,7 @@ class WorkflowVersioningService
                 'published_by' => $userId,
             ]);
 
-            return $definition->fresh()->load(['steps.roles', 'routes']);
+            return $definition->fresh()->load(['steps.roles', 'steps.office', 'routes']);
         });
     }
 
@@ -103,6 +103,7 @@ class WorkflowVersioningService
                 'code' => $step->code,
                 'name' => $step->name,
                 'stage' => $step->stage,
+                'office_id' => $step->office_id,
                 'sla_minutes' => $step->sla_minutes,
                 'is_start' => $step->is_start,
                 'is_end' => $step->is_end,
@@ -180,10 +181,26 @@ class WorkflowVersioningService
                 $reqPayload[$reqMap[$req->id]] = [
                     'display_order' => $req->pivot->display_order ?? 0,
                     'is_required' => (bool) ($req->pivot->is_required ?? true),
+                    'is_upload_required' => (bool) ($req->pivot->is_upload_required ?? $req->pivot->is_required ?? true),
                 ];
             }
             if (count($reqPayload)) {
                 WorkflowStep::find($newStepId)->requirementDefinitions()->sync($reqPayload);
+            }
+
+            // Carry the free-edited checklist so publish never blanks a step.
+            $newStep = WorkflowStep::find($newStepId);
+            foreach ($step->checklistOverrides()->get() as $item) {
+                $newStep->checklistOverrides()->create([
+                    'requirement_definition_id' => isset($reqMap[$item->requirement_definition_id])
+                        ? $reqMap[$item->requirement_definition_id]
+                        : null,
+                    'name' => $item->name,
+                    'code' => $item->code,
+                    'description' => $item->description,
+                    'is_required' => (bool) $item->is_required,
+                    'display_order' => (int) $item->display_order,
+                ]);
             }
         }
     }

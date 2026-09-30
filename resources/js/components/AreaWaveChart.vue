@@ -8,7 +8,7 @@
             <div class="mt-2 font-weight-bold">No data yet</div>
         </div>
         <template v-else>
-            <div v-if="layers.length > 1" class="wave-legend">
+            <div v-if="inStackMode && layers.length" class="wave-legend">
                 <span
                     v-for="layer in layers"
                     :key="layer.label"
@@ -28,7 +28,7 @@
                     width="100%"
                     height="100%"
                     role="img"
-                    aria-label="Transactions per week by type"
+                    :aria-label="ariaLabel"
                 >
                     <!-- gridlines + y labels at every tick -->
                     <line
@@ -57,11 +57,11 @@
                     <path :d="baseLine" fill="none" stroke="#334155" stroke-width="2.5" stroke-linejoin="round" />
                     <!-- thin colored line per type -->
                     <path
-                        v-for="layer in layers"
+                        v-for="layer in drawLayers"
                         :key="layer.label"
                         :d="typeLine(layer)"
                         fill="none"
-                        :stroke="layer.color"
+                        :stroke="colorFor(layer)"
                         stroke-width="2"
                         stroke-linejoin="round"
                         :opacity="lineOpacity(layer)"
@@ -79,16 +79,16 @@
                     />
                     <!-- hover dots on each type line -->
                     <circle
-                        v-for="layer in layers"
+                        v-for="layer in drawLayers"
                         v-show="hoverIndex >= 0"
                         :key="'d' + layer.label"
                         :cx="hoverX"
                         :cy="yFor(layer.values[hoverIndex] || 0)"
                         r="4"
-                        :fill="layer.color"
+                        :fill="colorFor(layer)"
                         stroke="#fff"
                         stroke-width="2"
-                        :opacity="isolateLabel && isolateLabel !== layer.label ? 0.15 : 1"
+                        :opacity="dotOpacity(layer)"
                     />
                     <!-- x labels, edge-anchored so nothing clips -->
                     <text
@@ -134,9 +134,16 @@ const props = defineProps({
     points: { type: Array, default: () => [] }, // fallback [{ label, value }]
     series: { type: Array, default: () => [] }, // per-type [{ label, color, values: [] }]
     weekLabels: { type: Array, default: () => [] },
+    totals: { type: Array, default: null }, // optional weekly totals incl. series not drawn; else sum of series
     loading: { type: Boolean, default: false },
     height: { type: Number, default: 190 },
     isolate: { type: String, default: null }, // externally isolated type label (e.g. from donut hover)
+    // Labels to emphasize (e.g. from a filter). Others stay drawn but faded.
+    highlight: { type: Array, default: () => [] },
+    // When set, lines outside `highlight` are drawn in this gray (still
+    // visible) instead of a faded version of their own color.
+    fadeColor: { type: String, default: null },
+    ariaLabel: { type: String, default: 'Transactions per week by type' },
 })
 
 const wrapRef = ref(null)
@@ -151,11 +158,31 @@ let observer = null
 // Isolated type: external prop (donut hover) wins, else wave legend hover.
 const isolateLabel = computed(() => props.isolate ?? legendHover.value)
 
+// Faded by the highlight filter: still visible, just pushed back.
+function isFaded(layer) {
+    return props.highlight.length > 0 && !props.highlight.includes(layer.label)
+}
+
+function colorFor(layer) {
+    return isFaded(layer) && props.fadeColor ? props.fadeColor : layer.color
+}
+
 function lineOpacity(layer) {
     if (isolateLabel.value && isolateLabel.value !== layer.label) return 0.07
+    if (isFaded(layer)) return props.fadeColor ? 0.55 : 0.25
     if (hoverIndex.value >= 0 && (layer.values[hoverIndex.value] || 0) === 0) return 0.2
     return 0.9
 }
+
+function dotOpacity(layer) {
+    if (isolateLabel.value && isolateLabel.value !== layer.label) return 0.15
+    return isFaded(layer) ? (props.fadeColor ? 0.7 : 0.3) : 1
+}
+
+// Faded lines go underneath so highlighted ones are never covered.
+const drawLayers = computed(() =>
+    [...layers.value].sort((a, b) => Number(isFaded(b)) - Number(isFaded(a))),
+)
 
 // Render the SVG in true pixels (viewBox matches rendered size 1:1)
 // so strokes and text stay crisp at any container size.
@@ -191,6 +218,7 @@ const weekCount = computed(() => layers.value[0]?.values?.length || 0)
 
 const weekTotals = computed(() => {
     const n = weekCount.value
+    if (props.totals?.length === n) return props.totals
     const totals = Array(n).fill(0)
     for (const layer of layers.value) {
         ;(layer.values || []).forEach((v, i) => {
@@ -262,8 +290,11 @@ const tipRows = computed(() => {
     if (hoverIndex.value < 0) return []
     let rows = [...layers.value]
     if (isolateLabel.value) rows = rows.filter((l) => l.label === isolateLabel.value)
+    // Highlighted lines first, then busiest this week.
     return rows
-        .sort((a, b) => (b.values[hoverIndex.value] || 0) - (a.values[hoverIndex.value] || 0))
+        .sort((a, b) =>
+            Number(isFaded(a)) - Number(isFaded(b)) ||
+            (b.values[hoverIndex.value] || 0) - (a.values[hoverIndex.value] || 0))
         .slice(0, 5)
 })
 

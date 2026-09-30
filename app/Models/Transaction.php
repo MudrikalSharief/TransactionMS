@@ -80,6 +80,11 @@ class Transaction extends Model
         return $this->hasMany(TransactionRequirementCheck::class);
     }
 
+    public function checklistChecks(): HasMany
+    {
+        return $this->hasMany(TransactionChecklistCheck::class);
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(TransactionAttachment::class)->orderByDesc('created_at');

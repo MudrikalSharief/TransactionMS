@@ -7,11 +7,76 @@
                         <v-avatar color="#7C3AED" rounded="0" size="34" class="mr-3">
                             <v-icon color="white" size="22">mdi-chart-areaspline</v-icon>
                         </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Transactions per Week</span>
+                        <span class="text-subtitle-1 font-weight-bold">
+                            {{ graphMode === 'process' ? 'Transactions per Process' : 'Transactions per Office' }}
+                        </span>
+                        <v-spacer />
+                        <v-select
+                            v-model="graphPeriod"
+                            :items="periodOptions"
+                            label="Period"
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            class="process-filter mr-2"
+                        />
+                        <v-select
+                            v-model="processFilter"
+                            :items="processOptions"
+                            label="Process"
+                            placeholder="All processes"
+                            persistent-placeholder
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            multiple
+                            clearable
+                            class="process-filter mr-2"
+                        >
+                            <template v-slot:selection="{ item, index }">
+                                <span v-if="index === 0" class="text-truncate">
+                                    {{ processFilter.length === 1 ? item.raw.value : `${processFilter.length} processes` }}
+                                </span>
+                            </template>
+                        </v-select>
+                        <v-select
+                            v-model="officeFilter"
+                            :items="officeOptions"
+                            label="Office"
+                            placeholder="All offices"
+                            persistent-placeholder
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            multiple
+                            clearable
+                            class="process-filter"
+                        >
+                            <template v-slot:selection="{ item, index }">
+                                <span v-if="index === 0" class="text-truncate">
+                                    {{ officeFilter.length === 1 ? item.raw.value : `${officeFilter.length} offices` }}
+                                </span>
+                            </template>
+                        </v-select>
                     </v-card-title>
                     <v-divider />
                     <v-card-text class="pa-3 d-flex flex-column" style="flex: 1 1 auto">
-                        <AreaWaveChart :points="weeklyVolume" :series="weeklyStack.series" :week-labels="weeklyStack.weeks" :loading="loading" :height="190" />
+                        <AreaWaveChart
+                            :points="graphChart.points"
+                            :series="graphChart.series"
+                            :week-labels="graphChart.weeks"
+                            :highlight="graphChart.highlight"
+                            :fade-color="FADE_GRAY[themeMode]"
+                            :loading="loading"
+                            :height="190"
+                            :aria-label="`Transactions per ${graphMode} per week, ${graphPeriodLabel}`"
+                        />
+                        <div v-if="!loading && graphNote" class="text-caption text-medium-emphasis mt-1">
+                            {{ graphNote }}
+                        </div>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -43,6 +108,117 @@
                         </div>
                     </v-card-text>
                 </v-card>
+            </v-col>
+        </v-row>
+
+        <v-row v-if="isSuperadmin" class="mt-2">
+            <v-col cols="12">
+                <v-card rounded="0" elevation="1" class="lgu-card summary-card">
+                    <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4">
+                        <v-avatar color="#4A3AA7" rounded="0" size="34" class="mr-1">
+                            <v-icon color="white" size="22">mdi-clipboard-text-clock-outline</v-icon>
+                        </v-avatar>
+                        <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
+                        <span class="text-caption text-medium-emphasis ml-1">{{ summaryScopeText }}</span>
+                        <v-spacer />
+                        <v-select
+                            v-model="summaryPeriod"
+                            :items="periodOptions"
+                            label="Period"
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            class="process-filter"
+                        />
+                    </v-card-title>
+                    <v-divider />
+                    <v-card-text class="pa-4">
+                        <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
+                            {{ summaryError }}
+                        </v-alert>
+                        <v-row :class="{ 'summary-stale': summaryLoading && summary }">
+                            <v-col cols="12" md="7">
+                                <div class="summary-tiles">
+                                    <div
+                                        v-for="tile in summaryTiles"
+                                        :key="tile.key"
+                                        :ref="(el) => (tileEls[tile.key] = el)"
+                                        class="summary-tile"
+                                        :style="{ '--tile-accent': tile.accent }"
+                                        role="button"
+                                        tabindex="0"
+                                        :aria-label="`${tile.label}: ${tile.value}. Press Enter for the full list`"
+                                        @keydown.enter.prevent="openDetail(tile.key, tileEls[tile.key])"
+                                        @keydown.space.prevent="openDetail(tile.key, tileEls[tile.key])"
+                                    >
+                                        <SummaryPopover
+                                            :category="tile.key"
+                                            :query="summaryQuery"
+                                            :period-label="summaryScopeText"
+                                            :disabled="!summary"
+                                            @expand="openDetail(tile.key, tileEls[tile.key])"
+                                        />
+                                        <div class="d-flex align-center ga-2 summary-tile-label">
+                                            <v-icon :color="tile.color" size="20" class="summary-tile-icon">{{ tile.icon }}</v-icon>
+                                            {{ tile.label }}
+                                        </div>
+                                        <div class="summary-tile-value">
+                                            <v-progress-circular v-if="summaryLoading && !summary" indeterminate size="22" width="3" color="grey" />
+                                            <template v-else>{{ tile.value }}</template>
+                                        </div>
+                                        <div class="text-caption text-medium-emphasis">{{ tile.hint }}</div>
+                                        <div class="summary-tile-cta">
+                                            Show list <v-icon size="14">mdi-chevron-down</v-icon>
+                                        </div>
+                                    </div>
+                                </div>
+                            </v-col>
+                            <v-col cols="12" md="5">
+                                <div class="summary-tile-label mb-2">
+                                    <v-icon size="20" color="grey-darken-1">mdi-format-list-bulleted-type</v-icon>
+                                    Transactions by process
+                                </div>
+                                <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
+                                    No transactions created in this period.
+                                </div>
+                                <div
+                                    v-for="row in byProcessRows"
+                                    :key="row.id"
+                                    :ref="(el) => (barEls[row.id] = el)"
+                                    class="process-bar-row"
+                                    role="button"
+                                    tabindex="0"
+                                    :aria-label="`${row.name}: ${row.count} transactions. Press Enter for the full list`"
+                                    @keydown.enter.prevent="openDetail('process', barEls[row.id], row)"
+                                >
+                                    <SummaryPopover
+                                        category="process"
+                                        :process-id="row.id"
+                                        :process-name="`${row.name} transactions`"
+                                        :query="summaryQuery"
+                                        :period-label="summaryScopeText"
+                                        @expand="openDetail('process', barEls[row.id], row)"
+                                    />
+                                    <div class="process-bar-name text-truncate">{{ row.name }}</div>
+                                    <div class="process-bar-track">
+                                        <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
+                                    </div>
+                                    <div class="process-bar-count">{{ row.count }}</div>
+                                </div>
+                            </v-col>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+                <SummaryDetailDialog
+                    v-model:open="detail.open"
+                    :category="detail.category"
+                    :process-id="detail.processId"
+                    :process-name="detail.processName"
+                    :origin-el="detail.originEl"
+                    :query="summaryQuery"
+                    :period-label="summary?.period?.label || 'Last 4 weeks'"
+                />
             </v-col>
         </v-row>
 
@@ -144,7 +320,6 @@
                                     <th class="text-left">Transaction</th>
                                     <th class="text-left">Current Step</th>
                                     <th class="text-left">Waiting</th>
-                                    <th class="text-left">SLA</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -167,17 +342,7 @@
                                             {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
                                         </v-chip>
                                     </td>
-                                    <td class="font-weight-bold">{{ timeAgo(tx.created_at) }}</td>
-                                    <td>
-                                        <v-chip
-                                            size="small"
-                                            variant="tonal"
-                                            :color="slaStatus(tx).color"
-                                            class="font-weight-bold"
-                                        >
-                                            {{ slaStatus(tx).label }}
-                                        </v-chip>
-                                    </td>
+                                    <td class="font-weight-bold">{{ timeAgo(tx.entered_at || tx.created_at) }}</td>
                                 </tr>
                             </tbody>
                         </v-table>
@@ -189,16 +354,21 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useTheme } from 'vuetify'
 import { useAuth } from '@/composables/useAuth'
+import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
 import AreaWaveChart from '@/components/AreaWaveChart.vue'
+import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
+import SummaryPopover from '@/components/SummaryPopover.vue'
 import { isCached, CacheKeys } from '@/composables/useCache'
 
 const router = useRouter()
 const auth = useAuth()
+const { api } = useApi()
 
 const txStore = useTransactions()
 const myStore = useMyTransactions()
@@ -216,74 +386,309 @@ const scopeSource = computed(() =>
     isSuperadmin.value ? (txStore.items.value || []) : (myStore.items.value || [])
 )
 
-// Shared palette for the wave type layers.
-const PALETTE = [
-    '#7C3AED', '#26A69A', '#4CAF50', '#FFB300',
-    '#EC407A', '#5C6BC0', '#FF7043', '#9E9E9E',
-]
+// Office line colors: validated categorical palette (dataviz reference
+// palette, adjacent-pair safe in both modes), light and dark steps.
+// Gray is reserved for the folded "Other offices" line.
+const OFFICE_PALETTE = {
+    light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7'],
+    dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9'],
+}
+const OTHER_OFFICES = 'Other offices'
+const OTHER_COLOR = { light: '#898781', dark: '#898781' }
+const MAX_OFFICE_LINES = OFFICE_PALETTE.light.length
+
+const theme = useTheme()
+const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dark' : 'light'))
+
+// Graph period: 'last_4_weeks' (default) or a month 'YYYY-MM'. One point per week.
+const graphPeriod = ref('last_4_weeks')
+const DAY_MS = 86400000
+
+function weekLabel(start, endExclusive) {
+    const last = new Date(endExclusive.getTime() - DAY_MS)
+    const md = (d) => d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+    if (last.getTime() <= start.getTime()) return md(start)
+    return start.getMonth() === last.getMonth() ? `${md(start)}–${last.getDate()}` : `${md(start)}–${md(last)}`
+}
+
+// Weekly windows for the chosen period, never reaching past today.
+// Last 4 weeks: four 7-day weeks ending today. A month: its calendar weeks
+// (1–7, 8–14, …); for the current month, only weeks that have started.
+const weekWindows = computed(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const endOfToday = new Date(today.getTime() + DAY_MS)
+    const windows = []
+
+    if (graphPeriod.value === 'last_4_weeks') {
+        for (let i = 3; i >= 0; i--) {
+            const end = new Date(endOfToday.getTime() - i * 7 * DAY_MS)
+            const start = new Date(end.getTime() - 7 * DAY_MS)
+            windows.push({ start, end, label: weekLabel(start, end) })
+        }
+        return windows
+    }
+
+    const [y, m] = graphPeriod.value.split('-').map(Number)
+    const monthStart = new Date(y, m - 1, 1)
+    const monthEnd = new Date(y, m, 1)
+    for (let start = monthStart; start < monthEnd && start < endOfToday;) {
+        const end = new Date(Math.min(start.getTime() + 7 * DAY_MS, monthEnd.getTime()))
+        windows.push({ start, end, label: weekLabel(start, end) })
+        start = end
+    }
+    return windows
+})
+
+const graphPeriodLabel = computed(
+    () => periodOptions.value.find((o) => o.value === graphPeriod.value)?.title || 'Last 4 weeks',
+)
+
+function weekIndexOf(tx) {
+    if (!tx.created_at) return -1
+    const t = new Date(tx.created_at).getTime()
+    return weekWindows.value.findIndex((w) => t >= w.start.getTime() && t < w.end.getTime())
+}
 
 function txTypeLabel(tx) {
     return tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
 }
 
-const byType = computed(() => {
-    const counts = {}
-    for (const tx of scopeSource.value) {
+// All transactions in the graph period (drives the Process options).
+const windowTxAll = computed(() => scopeSource.value.filter((tx) => weekIndexOf(tx) >= 0))
+
+// Process filter (graph only): empty = office lines. Picking processes switches
+// the graph to one line per process (picked in color, the rest faded gray).
+const processFilter = ref([])
+
+// Every process with a transaction in the period, with or without an office.
+const processOptions = computed(() => {
+    const counts = new Map()
+    for (const tx of windowTxAll.value) {
         const label = txTypeLabel(tx)
-        counts[label] = (counts[label] || 0) + 1
+        counts.set(label, (counts.get(label) || 0) + 1)
     }
-    return Object.entries(counts).map(([label, value], idx) => ({
-        label,
-        value,
-        color: label === 'Unclassified' ? '#9E9E9E' : PALETTE[idx % PALETTE.length],
-    }))
+    return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([label, n]) => ({ title: `${label} (${n})`, value: label }))
 })
 
-// 10 full 7-day windows ending today, shared by the wave totals + type stack.
-const weekWindows = computed(() => {
-    const windows = []
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    for (let w = 9; w >= 0; w--) {
-        const start = new Date(now.getTime() - w * 7 * 86400000)
-        start.setHours(0, 0, 0, 0)
-        windows.push({
-            start,
-            end: new Date(start.getTime() + 7 * 86400000),
-            label: start.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
-        })
+// Window transactions after the Process filter, split by office presence.
+const windowTx = computed(() => {
+    const picked = processFilter.value
+    if (!picked.length) return windowTxAll.value
+    return windowTxAll.value.filter((tx) => picked.includes(txTypeLabel(tx)))
+})
+const noOfficeCount = computed(() => windowTx.value.filter((tx) => !tx.office?.code).length)
+
+// Per-office weekly counts inside the window, keyed by office code.
+const officeRanking = computed(() => {
+    const byCode = new Map()
+    for (const tx of windowTx.value) {
+        const code = tx.office?.code
+        if (!code) continue
+        if (!byCode.has(code)) {
+            byCode.set(code, { code, name: tx.office.name || code, values: weekWindows.value.map(() => 0) })
+        }
+        byCode.get(code).values[weekIndexOf(tx)]++
     }
-    return windows
+    return [...byCode.values()]
+        .map((o) => ({ ...o, total: o.values.reduce((s, v) => s + v, 0) }))
+        .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code))
 })
 
-// Transactions created per week, last 10 full 7-day windows ending today.
-const weeklyVolume = computed(() =>
-    weekWindows.value.map((w) => ({
-        label: w.label,
-        value: scopeSource.value.filter((tx) => {
-            if (!tx.created_at) return false
-            const t = new Date(tx.created_at).getTime()
-            return t >= w.start.getTime() && t < w.end.getTime()
-        }).length,
+// Office filter: selected offices stay full color, the rest are faded.
+const officeFilter = ref([])
+
+const officeOptions = computed(() =>
+    officeRanking.value.map((o) => ({
+        title: `${o.code} — ${o.name} (${o.total})`,
+        value: o.code,
+        props: {
+            disabled: officeFilter.value.length >= MAX_OFFICE_LINES && !officeFilter.value.includes(o.code),
+        },
     }))
 )
 
-// Per-type weekly series for the stacked wave (colors match the donut).
-const weeklyStack = computed(() => {
-    const order = byType.value
-    const valuesByLabel = new Map(order.map((t) => [t.label, weekWindows.value.map(() => 0)]))
-    for (const tx of scopeSource.value) {
-        if (!tx.created_at) continue
-        const t = new Date(tx.created_at).getTime()
-        const wi = weekWindows.value.findIndex((w) => t >= w.start.getTime() && t < w.end.getTime())
-        if (wi < 0) continue
-        const arr = valuesByLabel.get(txTypeLabel(tx))
-        if (arr) arr[wi]++
+// Stable color slot per office: position among ALL offices with data in the
+// window (ignoring the Process filter), by code. So neither filter ever
+// repaints a line. Past 7 offices this can't be global, so the slot falls
+// back to the office's position among the lines currently drawn.
+const officeColorSlot = computed(() => {
+    const codes = [...new Set(windowTxAll.value.map((tx) => tx.office?.code).filter(Boolean))].sort()
+    return codes.length <= MAX_OFFICE_LINES ? new Map(codes.map((c, i) => [c, i])) : null
+})
+
+// Lines: up to 7 named offices (selected ones always included, then the
+// busiest), the rest folded into one gray "Other offices" line.
+const weeklyByOffice = computed(() => {
+    const ranked = officeRanking.value
+    const picked = new Set(officeFilter.value)
+    const named = [
+        ...ranked.filter((o) => picked.has(o.code)),
+        ...ranked.filter((o) => !picked.has(o.code)),
+    ].slice(0, MAX_OFFICE_LINES)
+    const namedCodes = new Set(named.map((o) => o.code))
+    const rest = ranked.filter((o) => !namedCodes.has(o.code))
+
+    const palette = OFFICE_PALETTE[themeMode.value]
+    const slots = officeColorSlot.value
+    const series = [...named]
+        .sort((a, b) => a.code.localeCompare(b.code))
+        .map((o, i) => ({ label: o.code, color: palette[slots ? slots.get(o.code) : i], values: o.values }))
+
+    if (rest.length) {
+        series.push({
+            label: OTHER_OFFICES,
+            color: OTHER_COLOR[themeMode.value],
+            values: weekWindows.value.map((_, wi) => rest.reduce((s, o) => s + o.values[wi], 0)),
+        })
     }
-    return {
-        weeks: weekWindows.value.map((w) => w.label),
-        series: order.map((t) => ({ label: t.label, color: t.color, values: valuesByLabel.get(t.label) })),
+
+    return { weeks: weekWindows.value.map((w) => w.label), series }
+})
+
+// Weekly totals across offices (the chart's fallback when no office has data).
+const weeklyOfficeVolume = computed(() =>
+    weekWindows.value.map((w, wi) => ({
+        label: w.label,
+        value: officeRanking.value.reduce((s, o) => s + o.values[wi], 0),
+    }))
+)
+
+// ---- Process mode: one line per process while a process is picked ----
+const graphMode = computed(() => (processFilter.value.length ? 'process' : 'office'))
+
+// Unpicked lines turn this gray (still visible) instead of a faded own color.
+const FADE_GRAY = { light: '#9ca3af', dark: '#6b7280' }
+
+// Per-process weekly counts. Counts every transaction of the process (with or
+// without an office) unless offices are picked, then only those offices.
+const processLines = computed(() => {
+    const offices = officeFilter.value
+    const byName = new Map()
+    for (const tx of windowTxAll.value) {
+        if (offices.length && !offices.includes(tx.office?.code)) continue
+        const name = txTypeLabel(tx)
+        if (!byName.has(name)) byName.set(name, weekWindows.value.map(() => 0))
+        byName.get(name)[weekIndexOf(tx)]++
     }
+    // Color follows the process (alphabetical slot among all processes in
+    // the period), so picking or unpicking never repaints a line.
+    const allNames = [...new Set(windowTxAll.value.map(txTypeLabel))].sort()
+    const palette = OFFICE_PALETTE[themeMode.value]
+    return [...byName.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([label, values]) => ({ label, values, color: palette[allNames.indexOf(label) % palette.length] }))
+})
+
+const graphChart = computed(() => {
+    const weeks = weekWindows.value.map((w) => w.label)
+    if (graphMode.value === 'process') {
+        const series = processLines.value
+        return {
+            weeks,
+            series,
+            highlight: processFilter.value,
+            points: weeks.map((label, i) => ({ label, value: series.reduce((s, l) => s + l.values[i], 0) })),
+        }
+    }
+    return { ...weeklyByOffice.value, highlight: officeFilter.value, points: weeklyOfficeVolume.value }
+})
+
+const graphNote = computed(() => {
+    if (graphMode.value === 'process') {
+        const where = officeFilter.value.length ? `in ${officeFilter.value.join(', ')} only` : 'across all offices'
+        return `Lines show processes while a process is selected, counted ${where}. Clear the Process filter to see offices.`
+    }
+    const n = noOfficeCount.value
+    return n ? `${n} transaction${n === 1 ? '' : 's'} without an office ${n === 1 ? 'is' : 'are'} not shown.` : ''
+})
+
+// ---- Transaction Summary card (superadmin) ----
+// Period: last 4 weeks, or one of the last 12 months (Manila calendar).
+// Completed counts by finalize date, the rest by created date (server side).
+const summaryPeriod = ref('last_4_weeks')
+const periodOptions = computed(() => {
+    const opts = [{ title: 'Last 4 weeks', value: 'last_4_weeks' }]
+    const now = new Date()
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        opts.push({
+            title: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }),
+            value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        })
+    }
+    return opts
+})
+
+const summary = ref(null)
+const summaryLoading = ref(false)
+const summaryError = ref('')
+
+// Independent of the graph's Process/Office filters: the card always counts
+// every transaction for its own Period.
+const summaryQuery = computed(() => ({
+    month: summaryPeriod.value === 'last_4_weeks' ? undefined : summaryPeriod.value,
+}))
+
+let summaryRequest = 0
+async function loadSummary() {
+    if (!isSuperadmin.value) return
+    const mine = ++summaryRequest
+    summaryLoading.value = true
+    summaryError.value = ''
+    try {
+        const res = await api.get('/api/admin/dashboard/summary', { params: summaryQuery.value })
+        if (mine === summaryRequest) summary.value = res.data
+    } catch (e) {
+        if (mine === summaryRequest) summaryError.value = e?.response?.data?.message || 'Failed to load the summary.'
+    } finally {
+        if (mine === summaryRequest) summaryLoading.value = false
+    }
+}
+watch(summaryQuery, loadSummary, { deep: true })
+
+const summaryScopeText = computed(
+    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'Last 4 weeks',
+)
+
+// Status tiles: the icon carries the status color, the number stays in text ink.
+const summaryTiles = computed(() => {
+    const s = summary.value || {}
+    const dark = themeMode.value === 'dark'
+    return [
+        { key: 'completed', label: 'Completed', icon: 'mdi-check-circle', color: 'success', accent: dark ? '#2fa84f' : '#008300', value: s.completed ?? '—', hint: 'Finalized in this period' },
+        { key: 'in_process', label: 'In-process', icon: 'mdi-progress-clock', color: 'grey-darken-1', accent: dark ? '#3987e5' : '#2a78d6', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
+        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', color: 'warning', accent: dark ? '#e0a526' : '#c98500', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
+        { key: 'deleted', label: 'Deleted', icon: 'mdi-delete-outline', color: 'grey', accent: dark ? '#a3a19b' : '#6f6d68', value: s.deleted ?? '—', hint: 'Created in this period, then deleted' },
+    ]
+})
+
+// ---- Detail pop-up: grows out of the tile / process bar that was clicked ----
+const tileEls = {}
+const barEls = {}
+const detail = reactive({ open: false, category: null, processId: null, processName: '', originEl: null })
+
+function openDetail(category, el, processRow = null) {
+    if (!summary.value) return
+    detail.category = category
+    detail.processId = processRow?.id ?? null
+    detail.processName = processRow?.name ?? ''
+    detail.originEl = el
+    detail.open = true
+}
+
+// By-process bars: one hue (it's a magnitude comparison); processes picked in
+// the Process filter stay full strength, the rest are faded but visible.
+const processBarColor = computed(() => OFFICE_PALETTE[themeMode.value][0])
+const byProcessRows = computed(() => {
+    const rows = summary.value?.by_process || []
+    const max = Math.max(1, ...rows.map((r) => r.count))
+    return rows.map((r) => ({
+        ...r,
+        pct: Math.max(4, Math.round((r.count / max) * 100)),
+    }))
 })
 
 // Oldest first: longest-waiting items the user can act on (max 5).
@@ -340,18 +745,6 @@ function timeAgo(iso) {
     return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function slaStatus(tx) {
-    const sla = Number(tx.current_step?.sla_minutes)
-    if (!sla || sla <= 0) return { label: 'No SLA', color: 'grey' }
-    const base = tx.entered_at || tx.created_at
-    if (!base) return { label: 'No SLA', color: 'grey' }
-    const elapsedMin = (Date.now() - new Date(base).getTime()) / 60000
-    const remaining = sla - elapsedMin
-    if (remaining <= 0) return { label: 'Overdue', color: 'error' }
-    if (remaining <= sla * 0.25) return { label: 'Due soon', color: 'warning' }
-    return { label: 'On track', color: 'success' }
-}
-
 function openTx(tx) {
     router.push(isSuperadmin.value ? `/transactions/${tx.id}` : `/my/transactions/${tx.id}`)
 }
@@ -376,6 +769,7 @@ onMounted(async () => {
         (isSuperadmin.value && isCached(CacheKeys.transactions))
     loading.value = !warm
     const opts = { silent: warm }
+    loadSummary()
 
     try {
         if (isSuperadmin.value) {
@@ -437,6 +831,131 @@ onUnmounted(() => {
 .action-table :deep(td) {
     padding-top: 6px;
     padding-bottom: 6px;
+}
+.process-filter {
+    flex: 0 1 240px;
+    min-width: 160px;
+}
+/* ---- Transaction Summary card ---- */
+.summary-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+.summary-tile {
+    position: relative;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    padding: 12px 14px 26px;
+    min-width: 0;
+    cursor: pointer;
+    background: rgb(var(--v-theme-surface));
+    transition: transform 0.22s cubic-bezier(.2, .9, .25, 1), box-shadow 0.22s, border-color 0.22s;
+}
+.summary-tile:hover,
+.summary-tile:focus-visible {
+    transform: translateY(-3px);
+    border-color: var(--tile-accent);
+    box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--tile-accent) 55%, transparent);
+    outline: none;
+}
+.summary-tile:focus-visible {
+    box-shadow: 0 0 0 2px var(--tile-accent);
+}
+.summary-tile-icon {
+    transition: transform 0.3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.summary-tile:hover .summary-tile-icon {
+    transform: scale(1.18) rotate(-6deg);
+}
+.summary-tile-cta {
+    position: absolute;
+    left: 14px;
+    bottom: 7px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--tile-accent);
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.2s, transform 0.2s;
+}
+.summary-tile:hover .summary-tile-cta,
+.summary-tile:focus-visible .summary-tile-cta {
+    opacity: 1;
+    transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .summary-tile,
+    .summary-tile-icon,
+    .summary-tile-cta {
+        transition: none;
+    }
+    .summary-tile:hover,
+    .summary-tile:focus-visible,
+    .summary-tile:hover .summary-tile-icon {
+        transform: none;
+    }
+}
+.summary-tile-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.summary-tile-value {
+    font-size: 2.1rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin: 6px 0 2px;
+    min-height: 2.4rem;
+    color: rgb(var(--v-theme-on-surface));
+}
+.summary-stale {
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+.process-bar-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 120px) 1fr 32px;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 6px;
+    margin: 0 -6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.process-bar-row:hover,
+.process-bar-row:focus-visible {
+    background: rgba(var(--v-theme-on-surface), 0.05);
+    outline: none;
+}
+.process-bar-row.faded {
+    opacity: 0.3;
+}
+.process-bar-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: rgb(var(--v-theme-on-surface));
+}
+.process-bar-track {
+    height: 10px;
+    background: rgba(var(--v-theme-on-surface), 0.06);
+    border-radius: 0 4px 4px 0;
+    overflow: hidden;
+}
+.process-bar-fill {
+    height: 100%;
+    border-radius: 0 4px 4px 0;
+}
+.process-bar-count {
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-align: right;
+    color: rgb(var(--v-theme-on-surface));
 }
 .start-row {
     cursor: pointer;

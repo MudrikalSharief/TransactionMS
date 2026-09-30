@@ -333,7 +333,7 @@ const adminSteps = [
         icon: 'mdi-format-list-bulleted-type',
         title: 'Transaction Types',
         hint: 'Kinds of requests',
-        text: 'Define the kinds of requests (e.g. Communication). Each type gets its own steps.',
+        text: 'Define the kinds of requests (e.g. Communication). Each transaction type gets its own steps.',
         to: '/admin/transaction-types',
     },
     {
@@ -361,7 +361,7 @@ const adminSteps = [
         icon: 'mdi-bank',
         title: 'Gov References',
         hint: 'RA, IRR, COA citations',
-        text: 'Attach the governing references (RA, IRR, COA…) so the process cites its legal basis.',
+        text: 'Attach the governing references (RA, IRR, COA…) so the transaction type cites its legal basis.',
         to: '/admin/government-references',
     },
     {
@@ -384,7 +384,7 @@ const notes = [
         icon: 'mdi-source-branch',
         title: 'Which flow is followed?',
         hint: 'Pinned to starting version',
-        body: 'Each transaction stays on the process it started with. Saves go live for <b>new transactions only</b>.',
+        body: 'Each transaction stays on the transaction type it started with. Saves go live for <b>new transactions only</b>.',
     },
     {
         icon: 'mdi-undo-variant',

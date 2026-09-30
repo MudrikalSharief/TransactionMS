@@ -65,7 +65,7 @@
                 <div v-else>
                     <v-alert type="info" variant="tonal" class="mb-3">
                         You are editing builder configuration. This affects
-                        transactions only when this process is
+                        transactions only when this transaction type is
                         published and pinned by a transaction.
                     </v-alert>
 

@@ -127,13 +127,39 @@
             >
                 <template #actions v-if="tx">
                     <v-alert
+                        v-if="pendingReceipt"
+                        type="warning"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
+                        <div class="text-caption">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <v-btn color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
+                            <v-icon start>mdi-inbox-arrow-down</v-icon>
+                            Receive Step
+                        </v-btn>
+                    </v-alert>
+                    <v-alert
                         v-if="isDone"
                         type="success"
                         variant="tonal"
                         class="mb-3"
                     >
                         <v-icon start size="small">mdi-flag-checkered</v-icon>
-                        This process has been finalized — view only.
+                        This transaction has been finalized — view only.
+                    </v-alert>
+                    <v-alert
+                        v-else-if="noOutgoingRoutes"
+                        type="error"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <div class="font-weight-bold">This step has no outgoing routes — the transaction can't move forward.</div>
+                        <div class="text-caption">Link the steps in Workflows (Routes), then publish. Transactions already created stay on the old version — create a new one after publishing.</div>
+                        <v-btn v-if="isSuperadmin()" :to="workflowsLink" color="error" variant="outlined" rounded="0" size="small" class="mt-2">
+                            <v-icon start size="small">mdi-source-branch</v-icon>
+                            Open Workflows
+                        </v-btn>
                     </v-alert>
                     <v-alert
                         v-else-if="!hasActionOptions && !showFinalize"
@@ -143,6 +169,7 @@
                     >
                         No actions available for your role on this step (or route
                         conditions not satisfied).
+                        <span v-if="currentStepRoles.length" class="d-block mt-1 text-caption">This step requires role(s): <b>{{ currentStepRoles.join(', ') }}</b>.</span>
                     </v-alert>
 
                     <div v-else>
@@ -171,7 +198,7 @@
                                     :loading="saving"
                                     @click="finalizeDialog = true"
                                 >
-                                    Finalize Process
+                                    Finalize Transaction
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
@@ -236,19 +263,25 @@
                     variant="tonal"
                     class="mb-3"
                 >
-                    No stations in this process yet.
+                    No stations in this transaction type yet.
                 </v-alert>
 
                 <div v-else class="mb-3">
                     <v-alert
-                        v-if="missingRequiredLabels.length"
+                        v-if="missingRequiredUploadLabels.length || missingRequiredChecklistLabels.length"
                         type="warning"
                         variant="tonal"
                         class="mb-3"
                     >
-                        Required items missing:
-                        {{ missingRequiredLabels.join(", ") }}. You will not be
-                        able to execute any action until these are checked.
+                        <div v-if="missingRequiredUploadLabels.length">
+                            Missing files for upload-required items:
+                            {{ missingRequiredUploadLabels.join(", ") }}.
+                        </div>
+                        <div v-if="missingRequiredChecklistLabels.length">
+                            Required checklist items not ticked:
+                            {{ missingRequiredChecklistLabels.join(", ") }}.
+                        </div>
+                        You will not be able to proceed until these are done.
                     </v-alert>
 
                     <div class="d-flex flex-column" style="min-height: 510px">
@@ -437,45 +470,14 @@
             </v-card-text>
         </v-card>
 
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-history</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">History</span>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <div class="d-flex flex-column" style="min-height: 510px">
-                <v-data-table
-                    v-show="!loading"
-                    :headers="runHeaders"
-                    :items="tx.runs || []"
-                    item-key="id"
-                    density="compact"
-                    height="450"
-                    fixed-header
-                    :items-per-page="25"
-                    hover
-                    class="lgu-table"
-                >
-                    <template v-slot:[`item.from_step`]="{ item }">
-                        {{ item.from_step?.name }} ({{ item.from_step?.code }})
-                    </template>
-                    <template v-slot:[`item.to_step`]="{ item }">
-                        {{ item.to_step?.name }} ({{ item.to_step?.code }})
-                    </template>
-                    <template v-slot:[`item.performed_by`]="{ item }">
-                        {{ item.performed_by?.name }}
-                    </template>
-                    <template v-slot:[`item.files`]="{ item }">
-                        <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" is-admin compact @deleted="removeAttachment" />
-                    </template>
-                </v-data-table>
-                <TableLoader v-if="loading" label="history" compact style="flex: 1 1 auto" />
-                </div>
-            </v-card-text>
-        </v-card>
+        <TransactionHistory
+            v-if="tx || loading"
+            :runs="tx?.runs || []"
+            :loading="loading"
+            :tx-id="route.params.id"
+            is-admin
+            @deleted="removeAttachment"
+        />
 
         <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
             <v-card-title class="d-flex align-center pa-5">
@@ -494,8 +496,7 @@
         <v-dialog v-model="remarksDialog" max-width="800">
             <v-card rounded="0">
                 <v-card-title>
-                    {{ isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
-                    <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
+                    {{ proceedModalTitle }}
                 </v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -507,18 +508,24 @@
                         :tx-id="route.params.id"
                         is-admin
                         :requirements="tx?.current_step_requirements || []"
+                        :checklist="tx?.current_step_checklist || []"
                         :fields="tx?.current_step_fields"
                         :form="form"
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
-                        :missing-required-labels="missingRequiredLabels"
+                        :show-checklist="!isFirstStepTransition"
+                        :missing-required-upload-labels="missingRequiredUploadLabels"
+                        :missing-required-tick-labels="missingRequiredTickLabels"
+                        :missing-required-checklist-labels="missingRequiredChecklistLabels"
                         :missing-required-fields="missingRequiredFields"
                         :execute-error="executeError"
                         :saving="saving"
                         :saving-checklist="savingChecklist"
+                        :saving-checklist-item-id="savingChecklistItemId"
                         :saving-requirement-id="savingRequirementId"
                         @toggle-requirement="onWizardToggle"
+                        @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
                         @attachment-deleted="removeAttachment"
                     />
@@ -529,23 +536,23 @@
                         >Cancel</v-btn
                     >
                     <v-btn
-                        v-if="wizardStep === 2 && !isSingleStepProceed"
+                        v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition"
                         variant="text"
                         @click="wizardStep = 1"
                     >Back</v-btn>
                     <v-btn
-                        v-if="wizardStep === 1 && !isSingleStepProceed"
+                        v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition"
                         color="grey-darken-3"
                         rounded="0"
                         :disabled="saving || savingChecklist"
                         @click="goWizardNext"
                     >Next</v-btn>
                     <v-btn
-                        v-if="wizardStep === 2"
+                        v-if="wizardStep === 2 || isFirstStepTransition"
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
-                        :disabled="!selectedRouteId || (!isReturnSelected && missingRequiredLabels.length > 0) || missingRequiredFields.length > 0"
+                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0"
                         @click="executeSelected"
                         >Proceed</v-btn
                     >
@@ -564,9 +571,9 @@
 
         <ConfirmActionDialog
             v-model:open="finalizeDialog"
-            title="Finalize process?"
+            title="Finalize transaction?"
             message="This marks the transaction done and locks it to view-only."
-            confirm-label="Finalize Process"
+            confirm-label="Finalize Transaction"
             confirm-color="success"
             :saving="saving"
             @confirm="finalizeTx"
@@ -585,6 +592,7 @@
                         :requirement-id="checkTarget?.definition?.id"
                         v-model="checkAttachments"
                         :disabled="isDone"
+                        file-action="download"
                         @deleted="removeAttachment"
                     />
                     <v-expansion-panels variant="accordion" class="mt-3">
@@ -651,10 +659,12 @@ import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
+import TransactionHistory from '@/components/history/TransactionHistory.vue';
+import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
 const { api } = useApi();
-const { getOne, execute, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
+const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
@@ -682,7 +692,7 @@ const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value);
+const showFinalize = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
 const hasActionOptions = computed(() =>
     (availableActions.value || []).length > 0 || (jumpRouteOptions.value || []).length > 0,
 );
@@ -699,6 +709,14 @@ const isReturnSelected = computed(() =>
     (availableActions.value || []).some(
         (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
     ),
+);
+// Step 1 → step 2 shows requirements only: hide the checklist in the wizard
+// and skip its gating. Every other transition is unchanged.
+const isFirstStepTransition = computed(() =>
+    !isReturnSelected.value &&
+    !isJumpSelected.value &&
+    Number(tx.value?.current_step?.order_number) === 1 &&
+    Number(selectedAction.value?.to_step?.order_number) === 2,
 );
 // Drop a selection that no longer exists in the refreshed action list.
 // Otherwise the closed select renders the raw route id (e.g. "42") with
@@ -733,6 +751,7 @@ const form = ref({});
 const auth = useAuth();
 
 const savingChecklist = ref(false);
+const savingChecklistItemId = ref(null);
 const savingRequirementId = ref(null);
 
 const reqHeaders = [
@@ -806,15 +825,50 @@ function waitText(row) {
     return `Waiting — handled at Station ${st.order_number} · ${st.name}${who ? ` (${who})` : ""}.`;
 }
 
-const runHeaders = [
-    { title: "From", key: "from_step", sortable: false },
-    { title: "To", key: "to_step", sortable: false },
-    { title: "Action", key: "action_code" },
-    { title: "Remarks", key: "remarks" },
-    { title: "Files", key: "files", sortable: false },
-    { title: "By", key: "performed_by", sortable: false },
-    { title: "At", key: "performed_at" },
-];
+const receiving = ref(false);
+const pendingReceipt = computed(
+    () => tx.value?.pending_receipt || (tx.value?.runs || []).find((r) => !r.received_at) || null,
+);
+
+// Safety net: fail visibly when the transaction type itself is unfinished.
+// Counts outgoing routes of the CURRENT step in the PINNED workflow version.
+const outgoingRoutesCount = computed(() => {
+    const cid = tx.value?.current_step?.id;
+    if (cid == null) return 0;
+    return (tx.value?.workflow_routes || []).filter((r) => Number(r.from_step_id) === Number(cid)).length;
+});
+const noOutgoingRoutes = computed(() => {
+    if (!tx.value || isDone.value || showFinalize.value || pendingReceipt.value) return false;
+    if (!Array.isArray(tx.value?.workflow_routes)) return false;
+    return outgoingRoutesCount.value === 0;
+});
+const workflowsLink = computed(() => {
+    const id = tx.value?.transaction_type?.id;
+    return id ? `/admin/workflows?type=${id}` : '/admin/workflows';
+});
+// Roles allowed on the current step (from station checklist) — shown when
+// routes exist but the viewer still has no actions (role mismatch).
+const currentStepRoles = computed(() => {
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
+});
+
+async function receiveStep() {
+    receiving.value = true;
+    executeError.value = "";
+    try {
+        const { tx: fresh, meta } = await receive(route.params.id);
+        tx.value = fresh;
+        availableActions.value = meta?.available_actions || [];
+        visitedStepIds.value = meta?.visited_step_ids || [];
+    } catch (e) {
+        executeError.value = formatApiError(e, "Receive failed.");
+    } finally {
+        receiving.value = false;
+    }
+}
 
 function componentFor(type) {
     switch (type) {
@@ -879,13 +933,44 @@ const flatStationItems = computed(() => {
     return out;
 });
 
-const missingRequiredLabels = computed(() => {
-    const out = (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_required && !r.checked)
+const missingRequiredUploadLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    return (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
+        .filter((r) => {
+            const existing = (r.attachments || []).length;
+            const staged = (stagedReqFileCount(r) || 0);
+            return existing + staged === 0;
+        })
         .map((r) => r.definition?.name)
         .filter(Boolean);
-    return out;
 });
+
+const missingRequiredTickLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    // Every required requirement (tick-only AND upload rows like AR/Payroll)
+    // must be ticked: the top tick unlocks the upload card below.
+    return (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => !r.checked)
+        .map((r) => r.definition?.name)
+        .filter(Boolean);
+});
+
+const missingRequiredChecklistLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    if (isFirstStepTransition.value) return [];
+    return (tx.value?.current_step_checklist ?? [])
+        .filter((c) => c.is_required && !c.checked)
+        .map((c) => c.name)
+        .filter(Boolean);
+});
+
+// Instant staged-file counts from the open wizard (uploads persist server-side
+// immediately; this is only for the pre-refresh badge on page 1).
+function stagedReqFileCount(r) {
+    return wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0;
+}
 
 // Required station-info fields still empty in the draft form. These fail
 // server-side validation on Proceed (e.g. Request Title, Office Name,
@@ -949,8 +1034,9 @@ function openProceed() {
             ? [...currentStepAttachments()]
             : [];
     executeError.value = "";
-    // Skip page 1 when there are no requirements — go straight to checklist/remarks.
-    wizardStep.value = hasProceedRequirements.value ? 1 : 2;
+    // Single-page mode (step 1 → step 2): everything happens on the
+    // Requirements page (now page 2). Otherwise start on Review (page 1).
+    wizardStep.value = isFirstStepTransition.value ? 2 : 1;
     wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
 }
@@ -985,6 +1071,52 @@ async function onWizardToggle(req, checked) {
     if (!req?.definition?.id) return;
     if (checked && !req.checked) await checkRequirement(req.definition.id);
     else if (!checked && req.checked) await uncheckRequirement(req.definition.id);
+}
+
+async function onWizardChecklistToggle(item, checked) {
+    if (!item?.id) return;
+    if (checked && !item.checked) await checkChecklistItem(item.id);
+    else if (!checked && item.checked) await uncheckChecklistItem(item.id);
+}
+
+async function checkChecklistItem(itemId) {
+    savingChecklist.value = true;
+    savingChecklistItemId.value = itemId;
+    error.value = "";
+    try {
+        const res = await api.post(
+            `/api/transactions/${route.params.id}/checklist/${itemId}/check`,
+        );
+        tx.value = res.data.data ?? res.data;
+        availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Checklist check failed.";
+    } finally {
+        savingChecklist.value = false;
+        savingChecklistItemId.value = null;
+    }
+}
+
+async function uncheckChecklistItem(itemId) {
+    savingChecklist.value = true;
+    savingChecklistItemId.value = itemId;
+    error.value = "";
+    try {
+        const res = await api.delete(
+            `/api/transactions/${route.params.id}/checklist/${itemId}/check`,
+        );
+        tx.value = res.data.data ?? res.data;
+        availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Checklist uncheck failed.";
+    } finally {
+        savingChecklist.value = false;
+        savingChecklistItemId.value = null;
+    }
 }
 
 async function executeSelected() {
@@ -1044,7 +1176,7 @@ async function executeSelected() {
     }
 }
 
-// Finalize the process on the last station. No requirements — the
+// Finalize the transaction on the last station. No requirements — the
 // backend enforces end-step + once-only. Afterwards view-only.
 const jumpDialog = ref(false);
 async function finalizeTx() {
@@ -1190,6 +1322,8 @@ const unifiedRouteOptions = computed(() => [
 // collide with numeric route ids. Forward moves always go step by step
 // through the assigned routes — never by jump.
 const jumpRouteOptions = computed(() => {
+    // Locked until received — backend rejects jumps on pending receipt.
+    if (pendingReceipt.value) return [];
     const visited = new Set((visitedStepIds.value || []).map((v) => Number(v)));
     const cur = Number(tx.value?.current_step?.id);
     const curOrder = Number(
@@ -1248,6 +1382,18 @@ const mainActionButtonLabel = computed(() => {
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
     return `Proceed to Station ${selectedStepNumber.value}`;
+});
+
+// Single-line Proceed modal title: destination step number only.
+const proceedModalTitle = computed(() => {
+    if (!selectedRouteId.value) return "Proceed";
+    if (isJumpSelected.value) {
+        const n = selectedJumpOption.value?.to_number ?? "";
+        return n !== "" ? `Proceed to Step ${n}` : "Proceed";
+    }
+    if (!selectedAction.value) return "Proceed";
+    if (isReturnSelected.value) return `Return to Step ${selectedStepNumber.value}`;
+    return `Proceed to Step ${selectedStepNumber.value}`;
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so

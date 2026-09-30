@@ -6,7 +6,7 @@
                     <v-icon color="white">mdi-source-branch</v-icon>
                 </v-avatar>
                 <div>
-                    <span class="text-h6 font-weight-bold">Workflows</span>
+                    <span class="text-h6 font-weight-bold">WORKFLOW STEPS</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
                     <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
@@ -17,7 +17,7 @@
                             :color="activeDef.status === 'published' ? 'success' : activeDef.status === 'draft' ? 'warning' : 'grey'"
                             class="font-weight-bold"
                         >
-                            {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current process" : "Previous" }}
+                            {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current version" : "Previous" }}
                         </v-chip>
                         <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
                             {{ (activeDef.steps || []).length }} steps
@@ -65,7 +65,7 @@
                     class="mb-3"
                 >
                     No transaction type selected. Pick one below, or go to
-                    <b>Transaction Types</b> and open <b>Steps</b> for one type.
+                    <b>Transaction Types</b> and open <b>Steps</b> for one transaction type.
                 </v-alert>
                 <v-select
                     v-if="!selectedTypeId && !loading && (types || []).length"
@@ -100,14 +100,14 @@
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <v-alert v-else type="info" variant="tonal" class="mb-3">
-                            No process yet for this transaction type — click <b>Add Step</b> to create step 1.
+                            No workflow yet for this transaction type — click <b>Add Step</b> to create step 1.
                         </v-alert>
                     </div>
 
                     <v-divider class="my-3" />
 
                     <div class="d-flex align-center mb-2 mt-6">
-                        <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                        <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
                         <template v-if="loading">
@@ -135,7 +135,7 @@
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <v-alert v-if="!loading && activeDef && !flatStepRows.length" type="info" variant="tonal" class="mb-3">
-                    This process has no steps yet — click <b>Add Step</b> to create step 1.
+                    This transaction type has no steps yet — click <b>Add Step</b> to create step 1.
                 </v-alert>
                 <v-data-table
                     v-show="!loading"
@@ -165,6 +165,48 @@
                             sub of {{ item.parent_name }}
                         </div>
                     </template>
+                    <template v-slot:[`item.sla_minutes`]="{ item }">
+                        <v-chip
+                            rounded="0"
+                            size="small"
+                            variant="tonal"
+                            color="grey-darken-3"
+                            class="font-weight-bold"
+                            :title="`${item.sla_minutes ?? 0} min`"
+                        >
+                            {{ formatSlaMinutes(item.sla_minutes) }}
+                        </v-chip>
+                        <div class="text-caption text-medium-emphasis">{{ item.sla_minutes ?? 0 }} min</div>
+                    </template>
+                    <template v-slot:[`item.office_id`]="{ item }">
+                        <v-chip
+                            v-if="officeName(item)"
+                            rounded="0"
+                            size="small"
+                            variant="tonal"
+                            color="primary"
+                            class="font-weight-bold"
+                        >
+                            {{ officeName(item) }}
+                        </v-chip>
+                        <span v-else class="text-medium-emphasis">—</span>
+                    </template>
+                    <template v-slot:[`item.role_ids`]="{ item }">
+                        <div class="d-flex flex-wrap ga-1">
+                            <v-chip
+                                v-for="r in roleNames(item)"
+                                :key="r"
+                                rounded="0"
+                                size="x-small"
+                                variant="tonal"
+                                color="grey-darken-3"
+                                class="font-weight-bold"
+                            >
+                                {{ r }}
+                            </v-chip>
+                            <span v-if="!roleNames(item).length" class="text-medium-emphasis">—</span>
+                        </div>
+                    </template>
                     <template v-slot:[`item.flags`]="{ item }">
                         <v-chip
                             v-if="item.is_start"
@@ -183,20 +225,20 @@
                     <template v-slot:[`item.actions`]="{ item }">
                         <div class="d-flex ga-3 justify-end">
                             <v-btn
-                                icon="mdi-table-column"
-                                v-tooltip="'Step fields'"
+                                icon="mdi-clipboard-list-outline"
+                                v-tooltip="'Requirements'"
                                 size="small"
                                 variant="outlined"
                                 color="grey-darken-3"
-                                @click="goStepFields(item)"
+                                @click="goStepRequirements(item)"
                             />
                             <v-btn
                                 icon="mdi-clipboard-check-outline"
-                                v-tooltip="'Step requirements'"
+                                v-tooltip="'Checklist'"
                                 size="small"
                                 variant="outlined"
                                 color="info"
-                                @click="goStepRequirements(item)"
+                                @click="goStepChecklist(item)"
                             />
                             <v-btn
                                 icon="mdi-pencil"
@@ -232,7 +274,7 @@
                 <v-divider class="my-3" />
 
                 <div class="d-flex align-center mb-2 mt-6">
-                    <div class="text-subtitle-1 font-weight-bold">Routes</div>
+                    <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     <v-spacer />
                     <v-btn
                         color="grey-darken-3"
@@ -325,7 +367,7 @@
                 </div>
 
                 <v-expansion-panels v-if="!loading && historyDefs.length" variant="accordion" class="mt-4">
-                    <v-expansion-panel rounded="0" title="History (previous processes, read-only)">
+                    <v-expansion-panel rounded="0" title="History (previous versions, read-only)">
                         <template #text>
                             <v-list density="compact" class="py-0">
                                 <v-list-item
@@ -338,7 +380,7 @@
                                         <v-icon :color="wfStatusColor(d.status)" size="small">{{ wfStatusIcon(d.status) }}</v-icon>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
-                                        {{ d.name || "Process" }} · {{ (d.steps || []).length }} steps
+                                        {{ d.name || "Workflow" }} · {{ (d.steps || []).length }} steps
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ wfStatusLabel(d.status) }}</v-list-item-subtitle>
                                     <template #append>
@@ -386,15 +428,87 @@
                     <v-text-field v-model="stepForm.name" label="Name" />
                     <v-text-field
                         v-model="stepForm.stage"
-                        label="Stage (Budget/Accounting/...)"
+                        label="Stage"
+                        placeholder="e.g. Planning"
                     />
-                    <v-text-field
-                        v-model="stepForm.sla_minutes"
-                        type="number"
-                        label="SLA Minutes"
-                    />
+                    <div class="mb-1">
+                        <div class="text-subtitle-2 font-weight-bold">SLA Duration</div>
+                        <div class="text-caption text-medium-emphasis">Tap the clock to pick hours/minutes, set days separately. No manual typing.</div>
+                    </div>
+                    <div class="d-flex align-center flex-wrap ga-2 mb-2">
+                        <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
+                            {{ slaHuman }} = {{ slaTotal }} min
+                        </v-chip>
+                        <v-chip-group class="pa-0 ma-0">
+                            <v-chip
+                                v-for="p in slaPresets"
+                                :key="p.label"
+                                rounded="0"
+                                size="small"
+                                variant="outlined"
+                                color="grey-darken-3"
+                                class="font-weight-bold"
+                                @click="applySlaPreset(p)"
+                            >
+                                {{ p.label }}
+                            </v-chip>
+                        </v-chip-group>
+                    </div>
+                    <v-row dense>
+                        <v-col cols="12" sm="4">
+                            <div class="d-flex align-center ga-1">
+                                <v-btn icon="mdi-minus" size="small" variant="outlined" color="grey-darken-3" :disabled="slaDays <= 0" @click="slaDays = Math.max(0, Number(slaDays || 0) - 1)" />
+                                <v-text-field
+                                    :model-value="slaDays"
+                                    label="Days (0-30)"
+                                    type="number"
+                                    readonly
+                                    hide-spin-buttons
+                                    density="compact"
+                                    class="text-center"
+                                    @update:model-value="() => {}"
+                                />
+                                <v-btn icon="mdi-plus" size="small" variant="outlined" color="grey-darken-3" :disabled="slaDays >= SLA_MAX_DAYS" @click="slaDays = Math.min(SLA_MAX_DAYS, Number(slaDays || 0) + 1)" />
+                            </div>
+                            <v-slider v-model="slaDays" :min="0" :max="SLA_MAX_DAYS" :step="1" density="compact" hide-details color="grey-darken-3" />
+                        </v-col>
+                        <v-col cols="12" sm="8">
+                            <v-menu v-model="slaTimeMenu" :close-on-content-click="false" location="bottom">
+                                <template #activator="{ props }">
+                                    <v-text-field
+                                        :model-value="slaTimeDisplay"
+                                        label="Hours : Minutes (tap clock)"
+                                        prepend-inner-icon="mdi-clock-outline"
+                                        readonly
+                                        v-bind="props"
+                                    />
+                                </template>
+                                <v-card rounded="0">
+                                    <v-time-picker v-model="slaTime" format="24hr" />
+                                    <v-divider />
+                                    <v-card-actions class="justify-end">
+                                        <v-btn variant="text" @click="slaTimeMenu = false">Done</v-btn>
+                                    </v-card-actions>
+                                </v-card>
+                            </v-menu>
+                        </v-col>
+                    </v-row>
+                    <v-alert v-if="slaError" type="error" variant="tonal" density="compact" class="mb-2">
+                        {{ slaError }}
+                    </v-alert>
                     <v-switch v-model="stepForm.is_start" label="Is Start" />
                     <v-switch v-model="stepForm.is_end" label="Is End" />
+
+                    <v-select
+                        v-model="stepForm.office_id"
+                        :items="officeOptions"
+                        item-title="label"
+                        item-value="id"
+                        label="Destination Office"
+                        hint="The office this step will be sent to"
+                        persistent-hint
+                        clearable
+                    />
 
                     <v-select
                         v-model="stepForm.role_ids"
@@ -486,6 +600,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useWorkflows } from "@/composables/useWorkflows";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
+import { useOffices } from "@/composables/useOffices";
 import TableLoader from '@/components/TableLoader.vue';
 import GuideTable from '@/components/GuideTable.vue';
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus';
@@ -506,6 +621,7 @@ const {
 
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes();
 const { roles, fetchRoles } = useRoles();
+const { items: offices, fetchAll: fetchOffices } = useOffices();
 
 const selectedTypeId = ref(null);
 const activeDef = ref(null);
@@ -517,11 +633,11 @@ const router = useRouter();
 
 const guideSections = [
     {
-        title: "PROCESSES",
+        title: "TRANSACTION TYPES",
         rows: [
-            { term: "PROCESS", text: "CURRENT = LIVE FLOW, DRAFT = EDITABLE, PREVIOUS = RETIRED" },
+            { term: "TRANSACTION TYPE", text: "CURRENT = LIVE FLOW, DRAFT = EDITABLE, PREVIOUS = RETIRED" },
             { term: "STATUS", text: "DRAFT = EDITABLE, PUBLISHED = LIVE, ARCHIVED = RETIRED" },
-            { term: "NAME", text: "PROCESS LABEL" },
+            { term: "NAME", text: "TRANSACTION TYPE LABEL" },
         ],
     },
     {
@@ -547,6 +663,36 @@ const conditionHint =
 const roleOptions = computed(
     () => (roles.value || []).map((r) => ({ id: r.id, label: `${r.name}` })), // use ${r.code} to show Role Code
 );
+
+const officeOptions = computed(
+    () => (offices.value || []).map((o) => ({ id: o.id, label: `${o.name}` })),
+);
+
+const roleNameById = computed(() => {
+    const m = new Map();
+    for (const r of (roles.value || [])) m.set(Number(r.id), r.name || r.code);
+    return m;
+});
+
+const officeNameById = computed(() => {
+    const m = new Map();
+    for (const o of (offices.value || [])) m.set(Number(o.id), o.name || o.code);
+    return m;
+});
+
+function officeName(item) {
+    if (item?.office?.name) return item.office.name;
+    if (item?.office_id == null) return "";
+    return officeNameById.value.get(Number(item.office_id)) || "";
+}
+
+function roleNames(item) {
+    if (Array.isArray(item?.roles) && item.roles.length)
+        return item.roles.map((r) => r.name || r.code);
+    return (item?.role_ids || []).map(
+        (id) => roleNameById.value.get(Number(id)) || `#${id}`,
+    );
+}
 
 const selectedTypeName = computed(() => {
     const t = (types.value || []).find((x) => Number(x.id) === Number(selectedTypeId.value));
@@ -690,6 +836,8 @@ const stepHeaders = [
     { title: "Name", key: "name" },
     { title: "Stage", key: "stage" },
     { title: "SLA (min)", key: "sla_minutes" },
+    { title: "Destination Office", key: "office_id", sortable: false },
+    { title: "Roles", key: "role_ids", sortable: false },
     { title: "Flags", key: "flags", sortable: false },
     { title: "", key: "actions", sortable: false },
 ];
@@ -728,7 +876,7 @@ watch(selectedTypeId, async (id) => {
         await fetchDefinitions(id);
         selectEffective();
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load processes.";
+        error.value = e?.response?.data?.message || "Failed to load transaction types.";
         activeDef.value = null;
     }
 });
@@ -858,17 +1006,41 @@ async function goStepFields(item) {
     }
 }
 
+function liveEditableTarget() {
+    // Requirements/checklist apply to running papers immediately, so
+    // open them on the published transaction type — not an open draft clone.
+    return currentDef.value || activeDef.value;
+}
+
+function stepOnDef(def, item) {
+    return (def?.steps || []).find((s) => s.code && s.code === item?.code) || item;
+}
+
 async function goStepRequirements(item) {
     error.value = "";
     notice.value = "";
     try {
-        const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
-        const fresh = stepInDraft(oldSteps, item);
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
         const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-        router.push({ path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/requirements`, query: q });
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/requirements`, query: q });
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to open step requirements.";
+    }
+}
+
+async function goStepChecklist(item) {
+    error.value = "";
+    notice.value = "";
+    try {
+        const target = liveEditableTarget();
+        if (!target?.id || !item?.id) return;
+        const fresh = stepOnDef(target, item);
+        const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/checklist`, query: q });
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Failed to open step checklist.";
     }
 }
 
@@ -911,8 +1083,90 @@ function viewDef(def) {
 const stepDialog = ref(false);
 const stepForm = ref({});
 
+// SLA duration picker (picker-only, up to 30 days).
+// Backend still stores total minutes (integer >= 0);
+// the clock dial is reinterpreted as HH:MM duration + Days.
+const SLA_MAX_DAYS = 30;
+const SLA_MAX_TOTAL = SLA_MAX_DAYS * 24 * 60; // 43200
+const slaDays = ref(0);
+const slaTime = ref("01:00");
+const slaTimeMenu = ref(false);
+const slaPresets = [
+    { label: "30m", days: 0, time: "00:30" },
+    { label: "2h", days: 0, time: "02:00" },
+    { label: "8h", days: 0, time: "08:00" },
+    { label: "1d", days: 1, time: "00:00" },
+    { label: "3d", days: 3, time: "00:00" },
+    { label: "7d", days: 7, time: "00:00" },
+];
+
+function parseSlaTime(t) {
+    const m = String(t || "00:00").match(/^(\d{1,2}):(\d{1,2})/);
+    if (!m) return { h: 0, min: 0 };
+    return {
+        h: Math.min(23, Math.max(0, Number(m[1] || 0))),
+        min: Math.min(59, Math.max(0, Number(m[2] || 0))),
+    };
+}
+
+function minutesToSla(total) {
+    const t = Math.max(0, Number(total || 0));
+    const days = Math.floor(t / 1440);
+    const rest = t - days * 1440;
+    const h = String(Math.floor(rest / 60)).padStart(2, "0");
+    const min = String(rest % 60).padStart(2, "0");
+    return { days, time: `${h}:${min}` };
+}
+
+const slaTotal = computed(() => {
+    const { h, min } = parseSlaTime(slaTime.value);
+    return Number(slaDays.value || 0) * 1440 + h * 60 + min;
+});
+
+const slaTimeDisplay = computed(() => {
+    const { h, min } = parseSlaTime(slaTime.value);
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+});
+
+const slaHuman = computed(() => {
+    const d = Number(slaDays.value || 0);
+    const { h, min } = parseSlaTime(slaTime.value);
+    const parts = [];
+    if (d) parts.push(`${d}d`);
+    if (h) parts.push(`${h}h`);
+    if (min) parts.push(`${min}m`);
+    return parts.length ? parts.join(" ") : "0m";
+});
+
+const slaError = computed(() => {
+    if (Number(slaDays.value || 0) < 0 || Number(slaDays.value || 0) > SLA_MAX_DAYS)
+        return `Days must be 0-${SLA_MAX_DAYS}.`;
+    if (slaTotal.value > SLA_MAX_TOTAL)
+        return `Max SLA is 30 days (${SLA_MAX_TOTAL} min).`;
+    return "";
+});
+
+function applySlaPreset(p) {
+    slaDays.value = p.days;
+    slaTime.value = p.time;
+}
+
+function formatSlaMinutes(total) {
+    const { days, time } = minutesToSla(total);
+    const [h, m] = time.split(":").map(Number);
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (h) parts.push(`${h}h`);
+    if (m) parts.push(`${m}m`);
+    return parts.length ? parts.join(" ") : "0m";
+}
+
 function openStepDialog(step = null) {
     error.value = "";
+    const init = minutesToSla(step?.sla_minutes ?? 60);
+    slaDays.value = Math.min(SLA_MAX_DAYS, init.days);
+    slaTime.value = init.time;
+    slaTimeMenu.value = false;
     if (step) {
         stepForm.value = {
             id: step.id,
@@ -920,6 +1174,7 @@ function openStepDialog(step = null) {
             parent_id: step.parent_id ?? null,
             name: step.name,
             stage: step.stage ?? "",
+            office_id: step.office_id ?? null,
             sla_minutes: step.sla_minutes ?? 0,
             is_start: !!step.is_start,
             is_end: !!step.is_end,
@@ -933,7 +1188,8 @@ function openStepDialog(step = null) {
             parent_id: null,
             name: "",
             stage: "",
-            sla_minutes: 0,
+            office_id: null,
+            sla_minutes: 60,
             is_start: false,
             is_end: false,
             role_ids: [],
@@ -947,12 +1203,17 @@ async function saveStep() {
     error.value = "";
     notice.value = "";
     try {
+        if (slaError.value) {
+            error.value = slaError.value;
+            return;
+        }
         const payload = {
             parent_id: stepForm.value.parent_id ?? null,
             order_number: Number(stepForm.value.order_number),
             name: stepForm.value.name,
             stage: stepForm.value.stage || null,
-            sla_minutes: Number(stepForm.value.sla_minutes || 0),
+            office_id: stepForm.value.office_id ?? null,
+            sla_minutes: slaTotal.value,
             is_start: !!stepForm.value.is_start,
             is_end: !!stepForm.value.is_end,
             role_ids: stepForm.value.role_ids || [],
@@ -1105,6 +1366,7 @@ watch(
 onMounted(async () => {
     await fetchTypes();
     await fetchRoles();
+    await fetchOffices();
     applyTypeFromQuery();
 });
 </script>
