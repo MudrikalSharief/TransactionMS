@@ -489,7 +489,7 @@
             </v-card-title>
             <v-divider />
             <v-card-text class="pa-4">
-                <AttachmentList :items="tx.attachments || []" :tx-id="route.params.id" is-admin @deleted="removeAttachment" />
+                <AttachmentList :items="tx.attachments || []" :tx-id="route.params.id" is-admin :show-details="false" @deleted="removeAttachment" />
             </v-card-text>
         </v-card>
 
@@ -497,6 +497,10 @@
             <v-card rounded="0">
                 <v-card-title>
                     {{ proceedModalTitle }}
+                    <div v-if="autoReturnInfo" class="text-caption mt-1">
+                        <span class="text-medium-emphasis">Returned{{ autoReturnInfo.fromStep?.order_number ? ` from Step ${autoReturnInfo.fromStep.order_number}` : '' }}{{ autoReturnInfo.sender ? ` by ${autoReturnInfo.sender}` : '' }}:</span>
+                        <span class="font-italic"> "{{ autoReturnInfo.remarks }}"</span>
+                    </div>
                 </v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -514,7 +518,7 @@
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
-                        :show-checklist="!isFirstStepTransition"
+                        :show-checklist="!skipReview"
                         :missing-required-upload-labels="missingRequiredUploadLabels"
                         :missing-required-tick-labels="missingRequiredTickLabels"
                         :missing-required-checklist-labels="missingRequiredChecklistLabels"
@@ -536,19 +540,19 @@
                         >Cancel</v-btn
                     >
                     <v-btn
-                        v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition"
+                        v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview"
                         variant="text"
                         @click="wizardStep = 1"
                     >Back</v-btn>
                     <v-btn
-                        v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition"
+                        v-if="wizardStep === 1 && !isSingleStepProceed && !skipReview"
                         color="grey-darken-3"
                         rounded="0"
                         :disabled="saving || savingChecklist"
                         @click="goWizardNext"
                     >Next</v-btn>
                     <v-btn
-                        v-if="wizardStep === 2 || isFirstStepTransition"
+                        v-if="wizardStep === 2 || skipReview"
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
@@ -645,7 +649,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
@@ -683,6 +687,11 @@ function formatApiError(e, fallback) {
 }
 
 const remarksDialog = ref(false);
+// Return reason captured when a backward receive auto-opens Proceed.
+// Shown under the modal title; cleared whenever the modal closes so
+// manual Proceed opens never show a stale banner.
+const autoReturnInfo = ref(null);
+watch(remarksDialog, (open) => { if (!open) autoReturnInfo.value = null; });
 const wizardStep = ref(1);
 const wizardRef = ref(null);
 const selectedRouteId = ref(null);
@@ -718,6 +727,10 @@ const isFirstStepTransition = computed(() =>
     Number(tx.value?.current_step?.order_number) === 1 &&
     Number(selectedAction.value?.to_step?.order_number) === 2,
 );
+// Step 1 stations skip the Review page entirely: step 1 holds no
+// predecessor checklist, so Review would only ever be its empty state.
+const isAtFirstStep = computed(() => Number(tx.value?.current_step?.order_number) === 1);
+const skipReview = computed(() => isFirstStepTransition.value || isAtFirstStep.value);
 // Drop a selection that no longer exists in the refreshed action list.
 // Otherwise the closed select renders the raw route id (e.g. "42") with
 // no matching label after a move or a condition flip.
@@ -858,11 +871,35 @@ const currentStepRoles = computed(() => {
 async function receiveStep() {
     receiving.value = true;
     executeError.value = "";
+    // Snapshot the pending run before claiming: a backward arrival
+    // (returns / jump-backs) auto-opens Proceed with its return reason
+    // shown under the modal title. Forward receives just open Proceed.
+    const pend = pendingReceipt.value;
+    const fromOrd = Number(pend?.from_step?.order_number);
+    const toOrd = Number(pend?.to_step?.order_number);
+    const wasBackward = Number.isFinite(fromOrd) && Number.isFinite(toOrd) && fromOrd > toOrd;
+    const retRemarks = (pend?.remarks || '').trim();
     try {
         const { tx: fresh, meta } = await receive(route.params.id);
         tx.value = fresh;
         availableActions.value = meta?.available_actions || [];
         visitedStepIds.value = meta?.visited_step_ids || [];
+        // Drop stale selections from the previous station, then pre-select
+        // the next step when it is the only forward route — otherwise the
+        // modal opens with no action and Proceed stays disabled no matter
+        // how complete the requirements are. Returns/jumps are never
+        // auto-picked; multiple forward routes stay a manual choice.
+        pruneSelectedRoute();
+        const forwards = (availableActions.value || []).filter((a) => !a.is_return_route);
+        if (selectedRouteId.value == null && forwards.length === 1) {
+            selectedRouteId.value = forwards[0].route_id;
+        }
+        // Claimed — drop straight into the Proceed modal when an onward
+        // action exists so receiving flows into proceeding in one gesture.
+        autoReturnInfo.value = (wasBackward && retRemarks)
+            ? { remarks: retRemarks, sender: pend?.performed_by?.name || '', fromStep: pend?.from_step || null }
+            : null;
+        if ((availableActions.value || []).length) openProceed();
     } catch (e) {
         executeError.value = formatApiError(e, "Receive failed.");
     } finally {
@@ -959,7 +996,7 @@ const missingRequiredTickLabels = computed(() => {
 
 const missingRequiredChecklistLabels = computed(() => {
     if (isReturnSelected.value) return [];
-    if (isFirstStepTransition.value) return [];
+    if (skipReview.value) return [];
     return (tx.value?.current_step_checklist ?? [])
         .filter((c) => c.is_required && !c.checked)
         .map((c) => c.name)
@@ -1036,16 +1073,20 @@ function openProceed() {
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the
     // Requirements page (now page 2). Otherwise start on Review (page 1).
-    wizardStep.value = isFirstStepTransition.value ? 2 : 1;
+    wizardStep.value = skipReview.value ? 2 : 1;
     wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
 }
 
 // Files previously saved on the current station, for prefill when
-// re-proceeding through already-passed stations.
+// re-proceeding through already-passed stations. Move-level only:
+// requirement files already show in their requirement sections above,
+// so they are excluded from the below-remarks list.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
-    return (tx.value?.attachments || []).filter((a) => Number(a.workflow_step_id) === cur);
+    return (tx.value?.attachments || [])
+        .filter((a) => Number(a.workflow_step_id) === cur)
+        .filter((a) => a.requirement_definition_id == null || Number(a.requirement_definition_id) === 0);
 }
 
 // Re-fetch tx without wiping staged station-info `form` (uploads and

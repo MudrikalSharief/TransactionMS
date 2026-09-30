@@ -20,34 +20,6 @@
                     <v-divider class="my-3" />
                 </template>
 
-                <!-- Requirements status: file presence only (required = must upload). -->
-                <template v-if="hasRequirements">
-                    <div class="text-subtitle-2 font-weight-bold mb-1">Requirements</div>
-                    <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
-                        Return action — uploads optional.
-                    </div>
-                    <div v-else class="text-caption text-medium-emphasis mb-2">
-                        Required items show as ready only when a file is attached — press Next to upload.
-                    </div>
-                    <div
-                        v-for="r in (requirements || [])"
-                        :key="`req-status-${r.definition.id}`"
-                        class="d-flex align-center ga-2 py-1"
-                    >
-                        <v-icon size="small" :color="hasReqFiles(r) ? 'success' : ((r?.pivot?.is_upload_required ?? r?.pivot?.is_required) && !isReturnSelected ? 'error' : 'grey')">
-                            {{ hasReqFiles(r) ? 'mdi-check-circle' : ((r?.pivot?.is_upload_required ?? r?.pivot?.is_required) && !isReturnSelected ? 'mdi-alert-circle-outline' : 'mdi-circle-outline') }}
-                        </v-icon>
-                        <span class="text-body-2">
-                            {{ r.definition.name }}
-                            <span v-if="(r?.pivot?.is_upload_required ?? r?.pivot?.is_required)" class="text-error font-weight-bold">*</span>
-                            <span v-else class="text-medium-emphasis">(optional)</span>
-                        </span>
-                        <v-chip v-if="hasReqFiles(r)" size="x-small" variant="tonal" color="success" rounded="0">file ready</v-chip>
-                        <v-chip v-else-if="(r?.pivot?.is_upload_required ?? r?.pivot?.is_required) && !isReturnSelected" size="x-small" variant="tonal" color="error" rounded="0">file required</v-chip>
-                    </div>
-                    <v-divider class="my-3" />
-                </template>
-
                 <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
                 <div class="text-subtitle-2 font-weight-bold mb-1">Checklist</div>
                 <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
@@ -57,14 +29,33 @@
                     No checklist items for this station.
                 </div>
                 <div v-else>
-                    <div class="text-caption text-medium-emphasis mb-2">
+                    <div v-if="hasPrevColumnChecklist" class="text-caption text-medium-emphasis mb-2">
+                        <b>Prev</b> shows what the previous station ticked (read-only).
+                        <b>Verify</b> is your tick — mark it only when you've seen the hard copy. Required items must be verified before you can Proceed.
+                    </div>
+                    <div v-else class="text-caption text-medium-emphasis mb-2">
                         Tick each item as done. Required items must be ticked before you can Proceed.
+                    </div>
+                    <div v-if="hasPrevColumnChecklist" class="d-flex align-center ga-2">
+                        <span style="width: 44px" class="text-caption text-medium-emphasis text-center">Prev</span>
+                        <span class="text-caption text-medium-emphasis">Verify</span>
                     </div>
                     <div
                         v-for="c in (checklist || [])"
                         :key="c.id"
                         class="d-flex align-center ga-2 py-1"
                     >
+                        <div v-if="hasPrevColumnChecklist" style="width: 44px" class="d-flex justify-center">
+                        <v-checkbox
+                            :model-value="!!c.prev_checked"
+                            :class="{ 'prev-tick-done': c.prev_checked }"
+                            disabled
+                            density="compact"
+                            hide-details="auto"
+                            style="flex: 0 0 auto; margin: 0"
+                            :title="prevCheckTitle(c)"
+                        />
+                        </div>
                         <v-checkbox
                             :model-value="!!c.checked"
                             :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
@@ -126,14 +117,31 @@
                 <div class="text-subtitle-2 font-weight-bold mb-2">Requirements to proceed</div>
 
                 <div v-if="!(isReturnSelected && !(requirements || []).length) && (requirements || []).length" class="d-flex flex-column ga-3">
-                    <!-- Tick group: every requirement (tick-only first, then uploads).
-                        Ticking a required upload row unlocks its card below. -->
+                    <!-- Tick group: previous-station mirror (Prev, display-only)
+                        + current verify tick. Ticking a required row unlocks
+                        its section below. Step 1 has no predecessor, so it
+                        renders today's single checkbox. -->
                     <div v-if="sortedRequirements.length" class="d-flex flex-column">
+                        <div v-if="hasPrevColumn" class="d-flex align-center ga-2">
+                            <span style="width: 44px" class="text-caption text-medium-emphasis text-center">Prev</span>
+                            <span class="text-caption text-medium-emphasis">Verify</span>
+                        </div>
                         <div
                             v-for="r in sortedRequirements"
                             :key="r.definition.id"
                             class="d-flex align-center ga-2 py-1"
                         >
+                            <div v-if="hasPrevColumn" style="width: 44px" class="d-flex justify-center">
+                            <v-checkbox
+                                :model-value="!!r.prev_checked"
+                                :class="{ 'prev-tick-done': r.prev_checked }"
+                                disabled
+                                density="compact"
+                                hide-details="auto"
+                                style="flex: 0 0 auto; margin: 0"
+                                :title="prevTickTitle(r)"
+                            />
+                            </div>
                             <v-checkbox
                                 :model-value="!!r.checked"
                                 :label="r.definition.name"
@@ -144,32 +152,29 @@
                                 :loading="savingChecklist && savingRequirementId === r.definition.id"
                                 @update:model-value="(v) => emit('toggle-requirement', r, v)"
                             />
-                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" color="warning" rounded="0">required</v-chip>
+                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" :color="r.checked ? 'success' : 'warning'" rounded="0"><v-icon v-if="r.checked" start size="x-small">mdi-check</v-icon>required</v-chip>
+                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="0">optional</v-chip>
                         </div>
                     </div>
                     <v-sheet
-                        v-if="uploadRequirements.length"
+                        v-if="sortedRequirements.length"
                         rounded="0"
                         border
                         class="pa-3"
                     >
                         <div
-                            v-for="(r, idx) in uploadRequirements"
+                            v-for="(r, idx) in uploadFirstRequirements"
                             :key="r.definition.id"
                         >
                             <v-divider v-if="idx > 0" class="my-3" />
                             <div :style="isUploadLocked(r) ? 'opacity: 0.6' : ''">
-                        <!-- LINE 1: TITLE (is_required). Upload rows only reach here. -->
+                        <!-- Upload rows: status flip chip. Tick-only rows: optional chip. -->
                         <div class="d-flex align-center ga-2">
-                            <v-icon size="small" :color="reqStatusColor(r)">
-                                {{ reqStatusIcon(r) }}
-                            </v-icon>
                             <span class="font-weight-bold text-h6">{{ r.definition.name }}</span>
-                            <span v-if="r?.pivot?.is_required" class="text-error font-weight-bold" title="Required item">*</span>
-                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" color="warning" rounded="0">required</v-chip>
-                            <v-chip size="x-small" variant="tonal" color="error" rounded="0">
-                                <v-icon start size="x-small">mdi-upload</v-icon>upload required
+                            <v-chip v-if="uploadRequired(r)" size="x-small" variant="tonal" :color="hasReqFiles(r) ? 'success' : 'error'" rounded="0">
+                                <v-icon start size="x-small">{{ hasReqFiles(r) ? 'mdi-check' : 'mdi-upload' }}</v-icon>{{ hasReqFiles(r) ? 'file uploaded' : 'upload required' }}
                             </v-chip>
+                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="0">optional</v-chip>
                             <v-spacer />
                             <v-chip
                                 v-if="mergedReqAttachments(r).length"
@@ -181,24 +186,13 @@
                                 <v-icon start size="x-small">mdi-paperclip</v-icon>{{ mergedReqAttachments(r).length }}
                             </v-chip>
                         </div>
-                        <div v-if="r.definition.description" class="text-caption text-medium-emphasis mt-1 mb-2">
-                            {{ r.definition.description }}
-                        </div>
-                        <!-- LINE 2: FILE INPUT (is_upload_required) -->
-                        <AttachmentList
-                            :items="mergedReqAttachments(r)"
-                            :tx-id="txId"
-                            :is-admin="isAdmin"
-                            compact
-                            action="download"
-                            @deleted="(id) => onReqAttachmentDeleted(r, id)"
-                        />
+                        <!-- LINE 2: picker above, uploaded files at the bottom. -->
                         <AttachmentUploader
                             :tx-id="txId"
                             :is-admin="isAdmin"
                             :requirement-id="r.definition.id"
                             :model-value="getReqFiles(r.definition.id)"
-                            :hint-text="reqHintText(r)"
+                            :hint-text="uploadRequired(r) ? reqHintText(r) : ''"
                             :hint-type="reqHintType(r)"
                             :show-list="false"
                             minimal
@@ -208,6 +202,14 @@
                             @update:model-value="(files) => setReqFiles(r.definition.id, files)"
                             @uploaded="() => emit('requirement-uploaded', r.definition.id)"
                             @deleted="(id) => emit('attachment-deleted', id)"
+                        />
+                        <AttachmentList
+                            :items="mergedReqAttachments(r)"
+                            :tx-id="txId"
+                            :is-admin="isAdmin"
+                            compact
+                            action="download"
+                            @deleted="(id) => onReqAttachmentDeleted(r, id)"
                         />
                             </div>
                         </div>
@@ -280,13 +282,16 @@ const hasProceedContent = computed(
     () => hasRequirements.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
 )
 
-// Page 2 display order: tick-only ("Received hard copy") cards first,
-// file-input (uploader) cards below. Within each group preserve backend
+// Page 2 display order: required first, then tick-only rows before
+// file-input (uploader) rows within each band. Further ties keep backend
 // display_order, then name. Length/empty checks keep using props.requirements.
 const sortedRequirements = computed(() => {
     return [...(props.requirements || [])]
         .map((r, i) => ({ r, i }))
         .sort((a, b) => {
+            const ar = a.r?.pivot?.is_required ? 0 : 1
+            const br = b.r?.pivot?.is_required ? 0 : 1
+            if (ar !== br) return ar - br
             const au = uploadRequired(a.r) ? 1 : 0
             const bu = uploadRequired(b.r) ? 1 : 0
             if (au !== bu) return au - bu
@@ -298,9 +303,34 @@ const sortedRequirements = computed(() => {
         .map((x) => x.r)
 })
 
-// Page 2 split: tick-only rows first (plain), upload cards below.
-const tickRequirements = computed(() => sortedRequirements.value.filter((r) => !uploadRequired(r)))
-const uploadRequirements = computed(() => sortedRequirements.value.filter((r) => uploadRequired(r)))
+// First (Prev) column shows only when some requirement carries a
+// previous-station tick — step 1 has no predecessor, so it keeps the
+// single-checkbox layout.
+const hasPrevColumn = computed(() => (props.requirements || []).some((r) => !!r.prev_step))
+
+function prevTickTitle(r) {
+    if (!r.prev_step) return 'No previous station'
+    const who = r.prev_checked_by?.name ? ` by ${r.prev_checked_by.name}` : ''
+    const where = r.prev_step?.name ? ` at ${r.prev_step.name}` : ''
+    return r.prev_checked ? `Checked${where}${who}` : `Not checked${where}`
+}
+
+// Same mirror for the Review checklist: first column shows only when
+// some item carries its predecessor requirement's tick.
+const hasPrevColumnChecklist = computed(() => (props.checklist || []).some((c) => !!c.prev_step))
+
+function prevCheckTitle(c) {
+    if (!c.prev_step) return 'No previous station'
+    const who = c.prev_checked_by?.name ? ` by ${c.prev_checked_by.name}` : ''
+    const where = c.prev_step?.name ? ` at ${c.prev_step.name}` : ''
+    return c.prev_checked ? `Checked${where}${who}` : `Not checked${where}`
+}
+
+// Group card order: true upload inputs first, then tick-only sections.
+// Stable sort preserves the required-first order inside each band.
+const uploadFirstRequirements = computed(() => [...sortedRequirements.value].sort(
+    (a, b) => (uploadRequired(a) ? 0 : 1) - (uploadRequired(b) ? 0 : 1),
+))
 
 const emit = defineEmits([
     'toggle-requirement',
@@ -315,27 +345,26 @@ function hasReqFiles(r) {
     return mergedReqAttachments(r).length > 0
 }
 
-// Required upload cards stay disabled until their top tick is checked
-// (return mode exempts the lock; optional rows never lock).
+// Required rows stay locked until their top tick is checked
+// (upload cards + optional pickers alike; return mode exempts the
+// lock; optional rows never lock).
 function isUploadLocked(r) {
     if (props.isReturnSelected) return false
-    if (!uploadRequired(r)) return false
     if (!r?.pivot?.is_required) return false
     return !r.checked
 }
 
-// Inline status beside the "Upload files" header in AttachmentUploader.
-// Same visibility logic as the old below-input messages, just relocated.
+// Inline status beside the picker button. Success shows no text — the
+// section and top chips flip to their done states instead.
 function reqHintText(r) {
     if (isUploadLocked(r)) return `Tick ${r.definition.name} above to enable uploads.`
-    if (hasReqFiles(r)) return 'File(s) attached — required condition met.'
+    if (hasReqFiles(r)) return ''
     if (!props.isReturnSelected) return 'Attach at least one file to unlock Proceed.'
     return ''
 }
 
 function reqHintType(r) {
-    if (isUploadLocked(r)) return 'error'
-    return hasReqFiles(r) ? 'success' : 'error'
+    return 'error'
 }
 
 // Single list above the input: server files + staged session files,
@@ -356,26 +385,6 @@ function onReqAttachmentDeleted(r, id) {
         return
     }
     emit('attachment-deleted', id)
-}
-
-// Row done-state: upload rows need files (plus the top tick when locked);
-// hard-copy rows need a tick.
-function reqDone(r) {
-    if (uploadRequired(r)) return !isUploadLocked(r) && hasReqFiles(r)
-    return !!r.checked
-}
-
-function reqStatusColor(r) {
-    if (reqDone(r)) return 'success'
-    if (props.isReturnSelected) return 'grey'
-    if (uploadRequired(r)) return 'error'
-    return r?.pivot?.is_required ? 'warning' : 'grey'
-}
-
-function reqStatusIcon(r) {
-    if (reqDone(r)) return 'mdi-check-circle'
-    if (uploadRequired(r)) return props.isReturnSelected ? 'mdi-clock-outline' : 'mdi-alert-circle-outline'
-    return r?.pivot?.is_required ? 'mdi-checkbox-blank-outline' : 'mdi-circle-outline'
 }
 
 // LINE 1 marker reads is_required; LINE 2 gate reads is_upload_required
@@ -423,5 +432,17 @@ defineExpose({ clearReqFiles, getReqFiles })
 <style scoped>
 .wizard-stepper {
     background: transparent;
+}
+
+/* Auto-filled Prev ticks: subtle green when checked. Unchecked Prev
+   boxes keep Vuetify's default grey. Dynamic class (not Vuetify state
+   classes) so only checked mirrors are recolored. */
+:deep(.prev-tick-done.v-input--disabled),
+:deep(.prev-tick-done.v-selection-control--disabled) {
+    opacity: 1;
+}
+:deep(.prev-tick-done .v-selection-control__input > .v-icon) {
+    color: #81C784;
+    opacity: .9;
 }
 </style>
