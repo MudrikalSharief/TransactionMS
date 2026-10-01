@@ -1,20 +1,30 @@
 import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
+import { readCache, writeCache, invalidatePrefix, CacheKeys } from "@/composables/useCache";
 
 export function useRequirementDefinitions() {
     const { api } = useApi();
     const items = ref([]);
     const loading = ref(true);
+    const touch = () => invalidatePrefix(CacheKeys.requirementDefs);
 
-    async function fetchAll(workflowDefinitionId) {
-        loading.value = true;
+    async function fetchAll(workflowDefinitionId, { silent = false } = {}) {
+        const key = `${CacheKeys.requirementDefs}:${workflowDefinitionId}`;
+        const cached = readCache(key);
+        const quiet = silent || cached != null;
+        if (cached != null) {
+            items.value = cached;
+            loading.value = false; // painted: drop the loader, refresh silently
+        }
+        if (!quiet) loading.value = true;
         try {
             const res = await api.get(
                 `/api/admin/workflow-definitions/${workflowDefinitionId}/requirements`,
             );
             items.value = res.data.data ?? res.data;
+            writeCache(key, items.value);
         } finally {
-            loading.value = false;
+            if (!quiet) loading.value = false;
         }
     }
 
@@ -23,6 +33,7 @@ export function useRequirementDefinitions() {
             `/api/admin/workflow-definitions/${workflowDefinitionId}/requirements`,
             payload,
         );
+        touch();
         return res.data.data ?? res.data;
     }
 
@@ -31,6 +42,7 @@ export function useRequirementDefinitions() {
             `/api/admin/workflow-definitions/${workflowDefinitionId}/requirements/${requirementId}`,
             payload,
         );
+        touch();
         return res.data.data ?? res.data;
     }
 
@@ -38,6 +50,7 @@ export function useRequirementDefinitions() {
         await api.delete(
             `/api/admin/workflow-definitions/${workflowDefinitionId}/requirements/${requirementId}`,
         );
+        touch();
     }
 
     async function syncSteps(workflowDefinitionId, requirementId, payload) {
@@ -45,6 +58,7 @@ export function useRequirementDefinitions() {
             `/api/admin/workflow-definitions/${workflowDefinitionId}/requirements/${requirementId}/steps/sync`,
             payload,
         );
+        touch();
     }
 
     return { items, loading, fetchAll, create, update, destroy, syncSteps };

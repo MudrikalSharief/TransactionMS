@@ -16,6 +16,8 @@ function safeParse(raw) {
     }
 }
 
+// Generalized to any JSON value (arrays, objects, numbers): miss returns
+// null, so callers must check `!= null` (a cached 0/false is valid data).
 export function readCache(key) {
     if (memory.has(key)) return memory.get(key)
 
@@ -23,7 +25,7 @@ export function readCache(key) {
         const raw = localStorage.getItem(PREFIX + key)
         if (!raw) return null
         const parsed = safeParse(raw)
-        if (!parsed || !Array.isArray(parsed.d)) return null
+        if (!parsed || typeof parsed !== 'object' || !('d' in parsed)) return null
         if (Date.now() - parsed.t > TTL_MS) {
             try {
                 localStorage.removeItem(PREFIX + key)
@@ -38,7 +40,7 @@ export function readCache(key) {
 }
 
 export function writeCache(key, data) {
-    if (!Array.isArray(data)) return
+    if (data === undefined) return
     memory.set(key, data)
     try {
         localStorage.setItem(PREFIX + key, JSON.stringify({ t: Date.now(), d: data }))
@@ -56,10 +58,46 @@ export function invalidateCache(key) {
     } catch { /* ignore */ }
 }
 
+// Drop every cached entry under a base key (e.g. all `workflows:<id>`
+// variants after an admin mutation), in memory and in localStorage.
+export function invalidatePrefix(base) {
+    const full = PREFIX + base
+    try {
+        for (const k of [...memory.keys()]) {
+            if (k === base || k.startsWith(base + ':')) memory.delete(k)
+        }
+    } catch { /* ignore */ }
+    try {
+        const drop = []
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i)
+            if (k && (k === full || k.startsWith(full + ':'))) drop.push(k)
+        }
+        drop.forEach((k) => localStorage.removeItem(k))
+    } catch { /* quota / private mode: memory already cleared */ }
+}
+
 export const CacheKeys = {
     transactions: 'tx-all',
     myTransactions: 'tx-my',
     transactionTypes: 'tx-types',
+    offices: 'offices',
+    roles: 'roles',
+    users: 'admin-users',
+    // Param-keyed lookups append ':' + id (workflows by type, requirement
+    // defs by workflow, step data by step/workflow). Detail-level rows are
+    // small; the 10-min TTL keeps admin config pages instant.
+    workflows: 'workflows',
+    govRefs: 'gov-refs',
+    fields: 'fields',
+    requirementDefs: 'req-defs',
+    stepFields: 'step-fields',
+    stepRequirements: 'step-reqs',
+    stepChecklist: 'step-checklist',
+    officeSteps: 'office-steps',
+    summary: 'dash-summary',
+    approvalCount: 'approval-count',
+    authUser: 'auth-user',
 }
 
 // Slim projection: list/table/dashboard/search only need these fields.

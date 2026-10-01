@@ -41,35 +41,42 @@ Route::prefix('auth')->group(function () {
 });
 
 // Public: current weather in Zamboanga City (proxied via Open-Meteo, no key needed)
+// 30min server cache: previously every AppShell mount hit upstream with an 8s
+// timeout — brutal on bad networks. Now one upstream call per 30min max.
 Route::get('/weather', function () {
-    try {
-        $res = Http::timeout(8)->get('https://api.open-meteo.com/v1/forecast', [
-            'latitude' => 6.9214,
-            'longitude' => 122.0790,
-            'current' => 'temperature_2m,weather_code,is_day',
-            'timezone' => 'Asia/Manila',
-        ]);
+    $data = \Illuminate\Support\Facades\Cache::remember('weather:zamboanga', 1800, function () {
+        try {
+            $res = Http::timeout(4)->get('https://api.open-meteo.com/v1/forecast', [
+                'latitude' => 6.9214,
+                'longitude' => 122.0790,
+                'current' => 'temperature_2m,weather_code,is_day',
+                'timezone' => 'Asia/Manila',
+            ]);
 
-        if ($res->failed()) throw new \Exception('weather upstream failed');
+            if ($res->failed()) throw new \Exception('weather upstream failed');
 
-        $current = $res->json('current', []);
+            $current = $res->json('current', []);
 
-        return response()->json([
-            'temperature' => $current['temperature_2m'] ?? null,
-            'code' => $current['weather_code'] ?? null,
-            'is_day' => $current['is_day'] ?? 1,
-            'time' => $current['time'] ?? null,
-            'place' => 'Zamboanga City',
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'temperature' => null,
-            'code' => null,
-            'is_day' => 1,
-            'time' => null,
-            'place' => 'Zamboanga City',
-        ], 200);
-    }
+            return [
+                'temperature' => $current['temperature_2m'] ?? null,
+                'code' => $current['weather_code'] ?? null,
+                'is_day' => $current['is_day'] ?? 1,
+                'time' => $current['time'] ?? null,
+                'place' => 'Zamboanga City',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'temperature' => null,
+                'code' => null,
+                'is_day' => 1,
+                'time' => null,
+                'place' => 'Zamboanga City',
+            ];
+        }
+    });
+
+    return response()->json($data)
+        ->header('Cache-Control', 'public, max-age=600');
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {

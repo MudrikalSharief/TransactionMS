@@ -363,7 +363,7 @@ import CardGrip from '@/components/CardGrip.vue'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
-import { isCached, CacheKeys } from '@/composables/useCache'
+import { isCached, readCache, writeCache, CacheKeys } from '@/composables/useCache'
 
 const router = useRouter()
 const auth = useAuth()
@@ -626,13 +626,23 @@ let summaryRequest = 0
 async function loadSummary() {
     if (!isSuperadmin.value) return
     const mine = ++summaryRequest
-    summaryLoading.value = true
+    // Instant illusion: last summary for this period/office paints at once
+    // (template already dims stale tiles via .summary-stale), then the
+    // network refreshes silently. Spinner only shows with zero cached data.
+    const cacheKey = `${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`
+    const cached = readCache(cacheKey)
+    if (cached != null && mine === summaryRequest) summary.value = cached
+    const quiet = cached != null
+    if (!quiet) summaryLoading.value = true
     summaryError.value = ''
     try {
         const res = await api.get('/api/admin/dashboard/summary', { params: summaryQuery.value })
-        if (mine === summaryRequest) summary.value = res.data
+        if (mine === summaryRequest) {
+            summary.value = res.data
+            writeCache(cacheKey, res.data)
+        }
     } catch (e) {
-        if (mine === summaryRequest) summaryError.value = e?.response?.data?.message || 'Failed to load the summary.'
+        if (mine === summaryRequest && summary.value == null) summaryError.value = e?.response?.data?.message || 'Failed to load the summary.'
     } finally {
         if (mine === summaryRequest) summaryLoading.value = false
     }

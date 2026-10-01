@@ -34,13 +34,13 @@
                         class="font-weight-bold text-primary"
                         style="font-size: 1.25rem; line-height: 1"
                     >
-                        TrMS
+                        TrMF
                     </div>
                     <div
                         class="font-weight-bold text-medium-emphasis"
                         style="font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; margin-top: 3px"
                     >
-                        Management System
+                        Management Framework
                     </div>
                 </div>
             </div>
@@ -117,7 +117,7 @@
                     icon="mdi-logout"
                     v-tooltip="'Log out'"
                     color="primary"
-                    @click="onLogout"
+                    @click="confirmLogout = true"
                 />
             </div>
         </v-app-bar>
@@ -261,6 +261,21 @@
                 <router-view />
             </template>
         </v-main>
+
+        <v-dialog v-model="confirmLogout" max-width="420">
+            <v-card rounded="0">
+                <v-card-title>Log out?</v-card-title>
+                <v-divider />
+                <v-card-text>
+                    Are you sure you want to log out of TrMF?
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="justify-end">
+                    <v-btn variant="text" @click="confirmLogout = false">Cancel</v-btn>
+                    <v-btn color="error" rounded="0" :loading="loggingOut" @click="onLogout">Log out</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </v-app>
 </template>
 
@@ -343,9 +358,18 @@ const userTooltip = computed(() => {
     return roles ? `${u.email || u.name} (${roles})` : u.email || u.name || "User";
 });
 
+const confirmLogout = ref(false);
+const loggingOut = ref(false);
+
 async function onLogout() {
-    await auth.logout();
-    await router.push({ name: "login" });
+    loggingOut.value = true;
+    try {
+        await auth.logout();
+        confirmLogout.value = false;
+        await router.push({ name: "login" });
+    } finally {
+        loggingOut.value = false;
+    }
 }
 
 // ---- Global navbar search (transactions + pages) ----
@@ -425,12 +449,12 @@ async function ensureSearchData() {
     try {
         if (isSuperadmin.value) {
             try {
-                await allTx.fetchAll();
+                await allTx.fetchAll({ q: searchText.value });
             } catch {
-                await myTx.fetchAll().catch(() => {});
+                await myTx.fetchAll({ q: searchText.value }).catch(() => {});
             }
         } else {
-            await myTx.fetchAll();
+            await myTx.fetchAll({ q: searchText.value });
         }
     } catch {
         /* search stays page-only */
@@ -439,6 +463,34 @@ async function ensureSearchData() {
         searchLoaded = true;
     }
 }
+
+// Debounced server search: typing queries ?q= (ref/title) instead of
+// filtering a stale page-1 snapshot — correct results on large datasets
+// with one small 25-row payload per pause, not per keystroke.
+let searchTimer = null;
+watch(searchText, (q) => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+        const query = String(q || "").trim();
+        if (!query) return;
+        searchLoading.value = true;
+        try {
+            if (isSuperadmin.value) {
+                try {
+                    await allTx.fetchAll({ q: query, silent: true });
+                } catch {
+                    await myTx.fetchAll({ q: query, silent: true }).catch(() => {});
+                }
+            } else {
+                await myTx.fetchAll({ q: query, silent: true });
+            }
+        } catch {
+            /* keep previous suggestions */
+        } finally {
+            searchLoading.value = false;
+        }
+    }, 400);
+});
 
 const searchResults = computed(() => {
     const q = (searchText.value || "").trim().toLowerCase();
@@ -493,11 +545,12 @@ const MANILA_TZ = "Asia/Manila";
 let clockTimer = null;
 
 const tickClock = () => {
+    // Minute precision pairs with the 30s timer above — cheaper on low-end
+    // devices than a per-second re-render, still accurate to the minute.
     clock.value = new Date().toLocaleTimeString("en-PH", {
         timeZone: MANILA_TZ,
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit",
         hour12: true,
     });
 };
@@ -627,11 +680,30 @@ onMounted(() => {
         /* ignore */
     }
     if (saved === "pixivDark" || saved === "pixivLight") applyTheme(saved);
+    // Low-end tuning: clock at 30s (minute precision is enough; 1s forces a
+    // re-render every second on weak CPUs). Weather + badge are deferred
+    // until after first paint and skipped on hidden tabs / offline / 2g.
+    const slowNet =
+        (typeof navigator !== "undefined" &&
+            (navigator.connection?.saveData ||
+                ["slow-2g", "2g"].includes(navigator.connection?.effectiveType))) ||
+        false;
     tickClock();
-    clockTimer = setInterval(tickClock, 1000);
-    loadTemperature();
-    weatherTimer = setInterval(loadTemperature, 10 * 60 * 1000);
-    approvalBadgeTimer = setInterval(refreshApprovalBadge, 60 * 1000);
+    clockTimer = setInterval(tickClock, 30 * 1000);
+    const boot = (fn, delay) => {
+        if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout: delay });
+        else setTimeout(fn, delay);
+    };
+    boot(() => {
+        if (!document.hidden && navigator.onLine) loadTemperature();
+        refreshApprovalBadge();
+    }, 2500);
+    weatherTimer = setInterval(() => {
+        if (!document.hidden && navigator.onLine) loadTemperature();
+    }, (slowNet ? 30 : 10) * 60 * 1000);
+    approvalBadgeTimer = setInterval(() => {
+        if (!document.hidden && navigator.onLine) refreshApprovalBadge();
+    }, (slowNet ? 5 : 1) * 60 * 1000);
 });
 
 onUnmounted(() => {

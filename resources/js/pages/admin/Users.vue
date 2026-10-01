@@ -244,9 +244,11 @@ async function deactivate(item) {
   }
 }
 
-onMounted(async () => {
-  await fetchRoles()
-  await fetchOffices()
-  await fetchUsers()
+onMounted(() => {
+  // Independent lookups: run in parallel so one slow endpoint never blocks
+  // the others. Each paints cache first, then revalidates silently.
+  fetchRoles().catch(() => {})
+  fetchOffices().catch(() => {})
+  fetchUsers().catch(() => {})
 })
 </script>

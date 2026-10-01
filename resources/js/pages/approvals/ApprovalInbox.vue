@@ -128,6 +128,9 @@
                         </template>
                     </v-list>
                 </v-card>
+                <div v-if="meta.lastPage > 1 && !loading" class="d-flex justify-center py-3">
+                    <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
+                </div>
             </v-card-text>
         </v-card>
 
@@ -153,13 +156,23 @@ import TableLoader from "@/components/TableLoader.vue";
 import GuideTable from "@/components/GuideTable.vue";
 import ApprovalProceedDialog from "@/components/ApprovalProceedDialog.vue";
 
-const { items, loading, fetchAll } = useApprovals();
+const { items, loading, meta, fetchAll } = useApprovals();
 const approvalBadge = useApprovalBadge();
+const page = ref(1);
 
 const error = ref("");
 const ALL_PROCESSES = "all";
 const processFilter = ref(ALL_PROCESSES);
 const pendingOnly = ref(true);
+
+async function goToPage(p) {
+    page.value = p;
+    try {
+        await fetchAll({ page: p });
+    } catch {
+        /* keep current rows */
+    }
+}
 const dialogOpen = ref(false);
 const dialogTxId = ref(null);
 const snack = reactive({ show: false, text: "", color: "success" });
@@ -270,7 +283,7 @@ function waited(iso) {
 async function load() {
     error.value = "";
     try {
-        await fetchAll();
+        await fetchAll({ page: page.value });
         approvalBadge.refresh();
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load approvals.";
@@ -285,7 +298,7 @@ onMounted(load);
 useSmartPoll(
     async () => {
         try {
-            await fetchAll({ silent: true });
+            await fetchAll({ silent: true, page: page.value });
             approvalBadge.refresh();
         } catch {
             /* next tick retries */

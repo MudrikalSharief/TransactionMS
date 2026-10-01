@@ -332,13 +332,11 @@ async function resetToRequirements() {
     }
 }
 
-onMounted(async () => {
-    await loadSteps();
-
+onMounted(() => {
+    // Steps list and checklist are independent endpoints: fetch in parallel.
     const sid = stepIdFromUrl.value;
-    if (sid && !Number.isNaN(sid)) {
-        selectedStepId.value = sid;
-        await loadChecklist();
-    }
+    if (sid && !Number.isNaN(sid)) selectedStepId.value = sid;
+    loadSteps().catch(() => {});
+    if (sid && !Number.isNaN(sid)) loadChecklist().catch(() => {});
 });
 </script>

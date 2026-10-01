@@ -1,31 +1,34 @@
 import { createRouter as _createRouter, createWebHistory } from "vue-router";
 import Login from "@/pages/Login.vue";
-import Dashboard from "@/pages/Dashboard.vue";
+// Lazy-load everything below so /login (and first paint on slow devices /
+// bad networks) only downloads the shell + login chunk. Each page becomes
+// its own async chunk via Vite code-splitting.
+const Dashboard = () => import("@/pages/Dashboard.vue");
 
-import AdminUsers from "@/pages/admin/Users.vue";
-import AdminRoles from "@/pages/admin/Roles.vue";
-import AdminOffices from "@/pages/admin/Offices.vue";
-import AdminOfficeSteps from "@/pages/admin/OfficeSteps.vue";
-import AdminTransactionTypes from "@/pages/admin/TransactionTypes.vue";
-import AdminGovernmentReferences from "@/pages/admin/GovernmentReferences.vue";
-import AdminWorkflows from "@/pages/admin/Workflows.vue";
-import AdminFields from "@/pages/admin/Fields.vue";
-import AdminStepFields from "@/pages/admin/StepFields.vue";
+const AdminUsers = () => import("@/pages/admin/Users.vue");
+const AdminRoles = () => import("@/pages/admin/Roles.vue");
+const AdminOffices = () => import("@/pages/admin/Offices.vue");
+const AdminOfficeSteps = () => import("@/pages/admin/OfficeSteps.vue");
+const AdminTransactionTypes = () => import("@/pages/admin/TransactionTypes.vue");
+const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
+const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
+const AdminFields = () => import("@/pages/admin/Fields.vue");
+const AdminStepFields = () => import("@/pages/admin/StepFields.vue");
 
-import AdminRequirements from "@/pages/admin/Requirements.vue";
-import AdminStepRequirements from "@/pages/admin/StepRequirements.vue";
-import AdminStepChecklist from "@/pages/admin/StepChecklist.vue";
-import AdminRequirementsIndex from "@/pages/admin/RequirementsIndex.vue";
+const AdminRequirements = () => import("@/pages/admin/Requirements.vue");
+const AdminStepRequirements = () => import("@/pages/admin/StepRequirements.vue");
+const AdminStepChecklist = () => import("@/pages/admin/StepChecklist.vue");
+const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue");
 
-import TransactionsList from "@/pages/transactions/TransactionList.vue";
-import TransactionDetail from "@/pages/transactions/TransactionDetail.vue";
+const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
+const TransactionDetail = () => import("@/pages/transactions/TransactionDetail.vue");
 
-import MyTransactionsList from "@/pages/my/MyTransactionList.vue";
-import MyTransactionDetail from "@/pages/my/MyTransactionDetail.vue";
+const MyTransactionsList = () => import("@/pages/my/MyTransactionList.vue");
+const MyTransactionDetail = () => import("@/pages/my/MyTransactionDetail.vue");
 
-import ApprovalInbox from "@/pages/approvals/ApprovalInbox.vue";
+const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
-import Help from "@/pages/Help.vue";
+const Help = () => import("@/pages/Help.vue");
 
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
 
@@ -173,8 +176,8 @@ export function createRouter() {
     });
 
     router.afterEach((to) => {
-        const base = "TrMS Management System";
-        document.title = to.meta?.title ? `${base} | ${to.meta.title}` : `${base} | Dashboard`;
+        const base = "TRMF";
+        document.title = to.meta?.title ? `${base} | ${to.meta.title}` : base;
     });
 
     return router;

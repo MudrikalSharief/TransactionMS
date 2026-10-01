@@ -158,8 +158,11 @@ class TransactionResource extends JsonResource
             // Per-step checklist (seeded from requirements, then free-edited).
             // Required items block Proceed when unticked — same idea as the
             // old requirement ticks; uploads are a requirements-only concern.
+            // Read-only on GET (itemsFor, no sync): rows are synced on write
+            // paths (requirements/routes/checklist admins + transitions), so
+            // list/detail reads never WRITE — critical for bad-network retries.
             $checklistService = \app(\App\Services\ChecklistService::class);
-            $checklistItems = $checklistService->ensureItems($currentStep);
+            $checklistItems = $checklistService->itemsFor($currentStep);
 
             // Items mirrored from a predecessor's requirement carry that
             // station and the files it uploaded, so the reviewer can see

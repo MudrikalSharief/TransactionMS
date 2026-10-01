@@ -1,8 +1,9 @@
-import 'vuetify/styles'
+// NOTE: no `vuetify/styles` and no wholesale `vuetify/components` import —
+// vite-plugin-vuetify auto-imports only the components/directives used in
+// templates, with per-component styles. Keep the MDI font CSS (icon-font
+// decision unchanged).
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
 
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import {
@@ -17,8 +18,7 @@ import {
 
 export function createVuetifyInstance() {
   return createVuetify({
-    components,
-    directives,
+    // components + directives auto-imported by vite-plugin-vuetify
     icons: {
       defaultSet: 'mdi',
       aliases: {

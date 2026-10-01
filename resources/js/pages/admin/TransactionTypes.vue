@@ -410,9 +410,11 @@ async function removeRow(item) {
   }
 }
 
-onMounted(async () => {
-  await fetchAll()
-  await fetchDefinitions()
-  await fetchOffices()
+onMounted(() => {
+  // Independent lookups: run in parallel so one slow endpoint never blocks
+  // the others. Each paints cache first, then revalidates silently.
+  fetchAll().catch(() => {})
+  fetchDefinitions().catch(() => {})
+  fetchOffices().catch(() => {})
 })
 </script>

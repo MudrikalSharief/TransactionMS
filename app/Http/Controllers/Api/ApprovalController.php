@@ -27,7 +27,15 @@ class ApprovalController extends Controller
      */
     public function index(Request $request)
     {
-        return TransactionResource::collection($this->inbox($request->user()));
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return TransactionResource::collection(
+            $this->inbox($request->user(), $data)
+        );
     }
 
     /**
@@ -37,15 +45,51 @@ class ApprovalController extends Controller
      */
     public function count(Request $request)
     {
-        $inbox = $this->inbox($request->user());
-        $cache = [];
+        // Badge totals need the whole inbox, not one page — but the badge now
+        // polls every 1-5min (AppShell) so a 60s server cache is safe and
+        // keeps weak devices / bad networks from rescanning on every poll.
+        $userId = $request->user()->id;
+        $cached = \Illuminate\Support\Facades\Cache::remember(
+            "approvals:count:u{$userId}",
+            60,
+            function () use ($request) {
+                $txs = $this->allInboxRows($request->user());
+                $cache = [];
+                $pending = $txs->sum(fn (Transaction $tx) => $this->uncheckedItems($tx, $cache));
 
-        $pending = $inbox->sum(fn (Transaction $tx) => $this->uncheckedItems($tx, $cache));
+                return [
+                    'pending_requirements' => $pending,
+                    'transactions' => $txs->count(),
+                ];
+            }
+        );
 
-        return response()->json([
-            'pending_requirements' => $pending,
-            'transactions' => $inbox->count(),
-        ]);
+        return response()->json($cached);
+    }
+
+    /** Full inbox collection for the badge (minimal columns, no pagination). */
+    private function allInboxRows(User $user): Collection
+    {
+        $user->loadMissing('roles');
+        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
+        $isSuperadmin = $user->roles->pluck('code')->contains('superadmin');
+
+        $query = Transaction::query()
+            ->where('is_done', false)
+            ->with(['state.currentStep', 'attachments', 'checklistChecks'])
+            ->latest();
+
+        if (!$isSuperadmin) {
+            if (empty($roleIds)) return collect();
+            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
+                $r->whereIn('roles.id', $roleIds);
+            });
+        }
+
+        return $query->get()
+            ->filter(fn (Transaction $tx) => $tx->state?->currentStep
+                && $this->routing->userCanWorkOnCurrentStep($tx, $user))
+            ->values();
     }
 
     /** Unchecked required items at the transaction's current station. */
@@ -58,9 +102,12 @@ class ApprovalController extends Controller
             'uploads' => $step->requirementDefinitions()->wherePivot('is_required', true)->pluck('requirement_definitions.id')
                 ->map(fn ($id) => (int) $id),
             // Step 1 -> 2 is requirements-only: the checklist isn't enforced there.
+            // Read-only (itemsFor, no sync): checklist rows are synced on write
+            // paths (requirements/routes/checklist admins + transitions), so
+            // GETs never WRITE — faster lists + safe on bad networks/retries.
             'checklist' => (int) $step->order_number === 1
                 ? collect()
-                : $this->checklists->ensureItems($step)->filter(fn ($i) => $i->is_required)->pluck('id')->map(fn ($id) => (int) $id),
+                : $this->checklists->itemsFor($step)->filter(fn ($i) => $i->is_required)->pluck('id')->map(fn ($id) => (int) $id),
         ];
 
         $uploaded = $tx->attachments
@@ -76,7 +123,7 @@ class ApprovalController extends Controller
             + $cache[$step->id]['checklist']->reject(fn ($id) => $ticked->contains($id))->count();
     }
 
-    private function inbox(User $user): Collection
+    private function inbox(User $user, array $filters = [])
     {
         $user->loadMissing('roles');
 
@@ -91,22 +138,56 @@ class ApprovalController extends Controller
             abort(403, 'The Approvals section is not available to end users.');
         }
 
-        return Transaction::query()
+        $isSuperadmin = $roleCodes->contains('superadmin');
+        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
+        $perPage = (int) ($filters['per_page'] ?? 25);
+        $perPage = max(1, min(100, $perPage));
+        $q = trim($filters['q'] ?? '');
+
+        $query = Transaction::query()
             ->where('is_done', false)
+            // Eager-load everything TransactionResource reads on lists so the
+            // 25 rows on this page don't fan out to N*5 lazy queries.
             ->with([
-                'type',
-                'office',
-                'workflow',
+                'type:id,code,name',
+                'office:id,code,name',
+                'workflow.steps.office:id,code,name',
+                'workflow.routes',
                 'workflow.stepRoles.role',
-                'state.currentStep',
-                'creator',
+                'state.currentStep.office',
+                'creator:id,name,email',
+                'fieldValues.fieldDefinition',
+                'requirementChecks.checker',
                 'checklistChecks.checker',
                 'attachments.uploader',
+                'attachments.step',
+                'attachments.requirement',
             ])
-            ->latest()
-            ->get()
-            ->filter(fn (Transaction $tx) => $tx->state?->currentStep
+            ->latest();
+
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('reference_number', 'like', "%{$q}%")
+                    ->orWhere('title', 'like', "%{$q}%");
+            });
+        }
+
+        if (!$isSuperadmin) {
+            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
+                $r->whereIn('roles.id', $roleIds);
+            });
+        }
+
+        $page = $query->paginate($perPage);
+
+        // Final in-memory guard preserves exact RoutingEngine semantics for
+        // the rows on this page (cheap: max 25 rows, unlike whole-table).
+        $page->setCollection(
+            $page->getCollection()->filter(fn (Transaction $tx) => $tx->state?->currentStep
                 && $this->routing->userCanWorkOnCurrentStep($tx, $user))
-            ->values();
+                ->values()
+        );
+
+        return $page;
     }
 }

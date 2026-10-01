@@ -7,21 +7,47 @@ export function useMyTransactions() {
 
     const items = ref([]);
     const loading = ref(true);
+    const meta = ref({ total: 0, page: 1, lastPage: 1, perPage: 25 });
 
-    // Cache-first: cached rows are available instantly, then refreshed.
-    // Loading is raised on every non-silent fetch so the TableLoader
-    // takes priority over the table; pass { silent: true } for
-    // invisible background refreshes (dashboard warm loads).
-    async function fetchAll({ silent = false } = {}) {
-        const cached = readCache(CacheKeys.myTransactions);
-        if (cached) items.value = cached;
-        if (!silent) loading.value = true;
+    function applyPayload(res) {
+        const raw = res.data;
+        const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+        items.value = rows;
+        if (raw && typeof raw === "object" && (raw.meta || raw.total !== undefined)) {
+            meta.value = {
+                total: raw.meta?.total ?? raw.total ?? rows.length,
+                page: raw.meta?.current_page ?? 1,
+                lastPage: raw.meta?.last_page ?? 1,
+                perPage: raw.meta?.per_page ?? rows.length ?? 25,
+            };
+        } else {
+            meta.value = { total: rows.length, page: 1, lastPage: 1, perPage: rows.length || 25 };
+        }
+        return items.value;
+    }
+
+    async function fetchAll({ silent = false, q = "", page = 1, per_page = 25 } = {}) {
+        const isDefault = !String(q || "").trim() && Number(page) === 1;
+        let painted = false;
+        if (isDefault) {
+            const cached = readCache(CacheKeys.myTransactions);
+            if (cached != null) {
+                items.value = cached;
+                meta.value = { total: cached.length, page: 1, lastPage: 1, perPage: per_page };
+                loading.value = false; // painted: drop the loader, refresh silently
+                painted = true;
+            }
+        }
+        const quiet = silent || painted;
+        if (!quiet) loading.value = true;
         try {
-            const res = await api.get("/api/transactions");
-            items.value = res.data.data ?? res.data;
-            writeCache(CacheKeys.myTransactions, (items.value || []).map(slimTx));
+            const params = { page, per_page };
+            if (String(q || "").trim()) params.q = String(q).trim();
+            const res = await api.get("/api/transactions", { params });
+            applyPayload(res);
+            if (isDefault) writeCache(CacheKeys.myTransactions, (items.value || []).map(slimTx));
         } finally {
-            if (!silent) loading.value = false;
+            if (!quiet) loading.value = false;
         }
         return items.value;
     }
@@ -97,6 +123,7 @@ export function useMyTransactions() {
     return {
         items,
         loading,
+        meta,
         fetchAll,
         getOne,
         execute,

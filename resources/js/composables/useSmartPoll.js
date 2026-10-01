@@ -12,6 +12,14 @@ const MAX_BACKOFF_MS = 60000;
 // loader/spinner flashes and the page never reloads.
 export function useSmartPoll(onChanged, { interval = POLL_INTERVAL_MS, enabled = null } = {}) {
     const { api } = useApi();
+    // Bad-network adaptation: stretch the version-check interval on 2g /
+    // saveData so weak devices + poor links aren't woken every 20s.
+    try {
+        const conn = navigator.connection;
+        if (conn && (conn.saveData || ["slow-2g", "2g"].includes(conn.effectiveType))) {
+            interval = Math.max(interval, 60000);
+        }
+    } catch { /* ignore */ }
 
     let timer = null;
     let stopped = false;

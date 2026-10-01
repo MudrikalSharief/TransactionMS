@@ -1601,9 +1601,9 @@ watch(
 );
 
 onMounted(async () => {
-    await fetchTypes();
-    await fetchRoles();
-    await fetchOffices();
+    // Lookups run in parallel (each paints cache first); the query-derived
+    // selection applies once the batch settles.
+    await Promise.allSettled([fetchTypes(), fetchRoles(), fetchOffices()]);
     applyTypeFromQuery();
 });
 </script>

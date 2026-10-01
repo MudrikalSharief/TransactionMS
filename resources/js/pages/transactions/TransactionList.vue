@@ -130,6 +130,9 @@
             <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
           </template>
         </v-data-table>
+        <div v-if="meta.lastPage > 1 && !loading" class="d-flex justify-center py-3">
+          <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
+        </div>
         <TableLoader v-if="loading" label="transactions" icon="mdi-swap-horizontal" style="flex: 1 1 auto" />
         </div>
       </v-card-text>
@@ -187,7 +190,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
@@ -199,7 +202,8 @@ import StepProgress from '@/components/StepProgress.vue'
 import GuideTable from '@/components/GuideTable.vue'
 
 const router = useRouter()
-const { items, loading, fetchAll, create, destroy } = useTransactions()
+const { items, loading, meta, fetchAll, create, destroy } = useTransactions()
+const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 const auth = useAuth()
@@ -262,25 +266,35 @@ const headers = computed(() =>
     : baseHeaders
 )
 
-const filtered = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return items.value || []
-  return (items.value || []).filter((tx) =>
-    [
-      tx.reference_number,
-      tx.title,
-      tx.transaction_type?.name,
-      tx.transaction_type_name,
-      tx.office?.name,
-      tx.current_step?.name,
-      tx.current_step?.code,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(q)
-  )
+// Server-filtered: the API already applies ?q= (ref/title) and paginates to
+// 25 slim rows, so the table renders one light page instead of filtering
+// thousands of heavy rows on a weak CPU. Keeps the `filtered` name so the
+// template is untouched.
+const filtered = computed(() => items.value || [])
+
+let searchTimer = null
+watch(search, () => {
+  // Debounced server search: one request per pause, not per keystroke —
+  // critical on bad networks. Resets to page 1.
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(async () => {
+    page.value = 1
+    try {
+      await fetchAll({ q: search.value, page: 1 })
+    } catch {
+      /* error banner stays from last load */
+    }
+  }, 400)
 })
+
+async function goToPage(p) {
+  page.value = p
+  try {
+    await fetchAll({ q: search.value, page: p })
+  } catch {
+    /* keep current rows */
+  }
+}
 
 function stepColor(step) {
   if (!step) return 'grey'
@@ -336,7 +350,7 @@ async function createTx() {
       title: form.value.title || null,
     })
     dialog.value = false
-    await fetchAll()
+    await fetchAll({ q: search.value, page: page.value })
     go(tx.id)
   } catch (e) {
     error.value = e?.response?.data?.message || 'Create failed.'
@@ -359,7 +373,7 @@ async function removeTx() {
     await destroy(removeTarget.value.id)
     confirmDialog.value = false
     removeTarget.value = null
-    await fetchAll()
+    await fetchAll({ q: search.value, page: page.value })
   } catch (e) {
     error.value = e?.response?.data?.message || 'Delete failed.'
   } finally {
@@ -367,10 +381,12 @@ async function removeTx() {
   }
 }
 
-onMounted(async () => {
-  await fetchTypes()
-  await fetchOffices().catch(() => {})
-  await fetchAll()
+onMounted(() => {
+  // Fire together: each paints its cache synchronously on invocation and
+  // revalidates in parallel, so the table never waits behind the lookups.
+  fetchTypes().catch(() => {})
+  fetchOffices().catch(() => {})
+  fetchAll({ q: search.value, page: page.value }).catch(() => {})
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,
@@ -379,7 +395,7 @@ useSmartPoll(async () => {
   // Skip while creating/deleting to avoid clobbering the dialogs.
   if (saving.value || removing.value || dialog.value || confirmDialog.value) return
   try {
-    await fetchAll({ silent: true })
+    await fetchAll({ silent: true, q: search.value, page: page.value })
   } catch {
     /* next tick retries */
   }

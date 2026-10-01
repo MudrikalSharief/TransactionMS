@@ -353,8 +353,8 @@ watch(selectedStepId, () => {
 });
 
 onMounted(async () => {
-    await fetchReqs(workflowDefinitionId.value);
-    await loadSteps();
+    // Requirement catalog and step list are independent: fetch in parallel.
+    await Promise.allSettled([fetchReqs(workflowDefinitionId.value), loadSteps()]);
 
     const sid = stepIdFromUrl.value;
     if (sid && !Number.isNaN(sid)) {

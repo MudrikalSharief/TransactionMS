@@ -335,8 +335,8 @@ watch(
 );
 
 onMounted(async () => {
-    await fetchFields();
-    await loadSteps();
+    // Field catalog and step list are independent: fetch in parallel.
+    await Promise.allSettled([fetchFields(), loadSteps()]);
 
     const sid = stepIdFromUrl.value;
     if (sid && !Number.isNaN(sid)) {

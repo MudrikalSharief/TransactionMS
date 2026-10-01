@@ -14,9 +14,13 @@ class OfficeController extends Controller
 {
     public function index()
     {
-        return OfficeResource::collection(
-            Office::query()->withCount('steps')->orderBy('name')->get()
+        $items = \Illuminate\Support\Facades\Cache::remember(
+            'lookup:offices',
+            600,
+            fn () => Office::query()->withCount('steps')->orderBy('name')->get()
         );
+
+        return OfficeResource::collection($items);
     }
 
     public function store(StoreOfficeRequest $request, AuditService $audit)
@@ -26,6 +30,8 @@ class OfficeController extends Controller
         $audit->log($request, 'offices.create', $office, [
             'payload' => $request->validated(),
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget('lookup:offices');
 
         return (new OfficeResource($office))->response()->setStatusCode(201);
     }
@@ -41,6 +47,8 @@ class OfficeController extends Controller
             'after' => $office->only(['code', 'name', 'description', 'is_active']),
         ]);
 
+        \Illuminate\Support\Facades\Cache::forget('lookup:offices');
+
         return new OfficeResource($office);
     }
 
@@ -52,6 +60,8 @@ class OfficeController extends Controller
         $audit->log($request, 'offices.delete', $office, [
             'note' => 'Soft deleted office; members unassigned',
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget('lookup:offices');
 
         return response()->json(['message' => 'Deleted.']);
     }
