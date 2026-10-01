@@ -77,6 +77,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/approvals/count', [ApprovalController::class, 'count']);
 
     Route::get('/transactions', [UserTransactionController::class, 'index']);
+    // Static path must precede {transaction} or "version" binds as a model id.
+    Route::get('/transactions/version', [UserTransactionController::class, 'version']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
     Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
@@ -117,6 +119,8 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'show']);
         Route::delete('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'destroy']);
         Route::post('workflow-definitions/{workflowDefinition}/publish', [WorkflowDefinitionController::class, 'publish']);
+        Route::post('workflow-definitions/{workflowDefinition}/make-live', [WorkflowDefinitionController::class, 'makeLive']);
+        Route::post('workflow-definitions/{workflowDefinition}/save-as', [WorkflowDefinitionController::class, 'saveAs']);
 
         // Workflows - Routes
         Route::post('workflow-definitions/{workflowDefinition}/routes', [WorkflowRouteController::class, 'store']);

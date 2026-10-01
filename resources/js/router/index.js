@@ -161,6 +161,14 @@ export function createRouter() {
             return { name: "dashboard" };
         if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
+        // My Transactions is redundant for superadmin (bypass returns all rows,
+        // same as Transactions) — send them to the admin list instead.
+        const roles = auth.user.value?.roles ?? [];
+        const isSuperadmin = roles.some((r) => r.code === "superadmin");
+        if (isSuperadmin && to.path.startsWith("/my/transactions")) {
+            const rest = to.path.slice("/my/transactions".length);
+            return rest ? `/transactions${rest}` : "/transactions";
+        }
         return true;
     });
 

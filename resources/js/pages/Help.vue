@@ -276,14 +276,22 @@ function openWindow(key) {
     windowOpen.value = true
 }
 
-const userSteps = [
-    {
-        icon: 'mdi-file-document-multiple',
-        title: 'My Transactions',
-        hint: 'Your personal queue by role',
-        text: 'This is your personal queue — only requests waiting on your role appear here.',
-        to: '/my/transactions',
-    },
+const userSteps = computed(() => [
+    isSuperadmin.value
+        ? {
+            icon: 'mdi-swap-horizontal',
+            title: 'Transactions',
+            hint: 'All requests in the system',
+            text: 'This is the full queue — every request in the system appears here, with New Transaction and delete actions.',
+            to: '/transactions',
+        }
+        : {
+            icon: 'mdi-file-document-multiple',
+            title: 'My Transactions',
+            hint: 'Your personal queue by role',
+            text: 'This is your personal queue — only requests waiting on your role appear here.',
+            to: '/my/transactions',
+        },
     {
         icon: 'mdi-mouse-left-click-outline',
         title: 'Open a request',
@@ -312,7 +320,7 @@ const userSteps = [
         text: 'Hover the Current Step chip to see the step-by-step progress. The ? button explains the colors. Green Final Step means done.',
         to: null,
     },
-]
+])
 
 const adminSteps = [
     {

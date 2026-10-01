@@ -37,6 +37,21 @@ export function useWorkflows() {
         await api.delete(`/api/admin/workflow-definitions/${defId}`);
     }
 
+    async function makeLive(defId) {
+        const res = await api.post(
+            `/api/admin/workflow-definitions/${defId}/make-live`,
+        );
+        return res.data.data ?? res.data;
+    }
+
+    async function saveAs(defId, payload) {
+        const res = await api.post(
+            `/api/admin/workflow-definitions/${defId}/save-as`,
+            payload,
+        );
+        return res.data.data ?? res.data;
+    }
+
     async function addStep(defId, payload) {
         const res = await api.post(
             `/api/admin/workflow-definitions/${defId}/steps`,
@@ -87,6 +102,8 @@ export function useWorkflows() {
         fetchDefinitions,
         createDraft,
         publish,
+        makeLive,
+        saveAs,
         deleteDefinition,
         addStep,
         updateStep,

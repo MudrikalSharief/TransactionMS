@@ -75,14 +75,116 @@ class WorkflowVersioningService
                 ]);
             }
 
+            // Publishing goes live: the flag moves here, old versions kept.
+            WorkflowDefinition::where('transaction_type_id', $definition->transaction_type_id)
+                ->where('id', '!=', $definition->id)
+                ->update(['is_live' => false]);
+
             $definition->update([
                 'status' => 'published',
+                'is_live' => true,
                 'notes' => $notes ?? $definition->notes,
                 'published_at' => now(),
                 'published_by' => $userId,
             ]);
 
             return $definition->fresh()->load(['steps.roles', 'steps.office', 'routes']);
+        });
+    }
+
+    /**
+     * Switch the live version to an older published def ("change from and
+     * to"). Old versions are kept — only the is_live flag moves. Running
+     * transactions stay pinned to their own workflow_definition_id; only
+     * new transactions use the newly-live version.
+     */
+    public function makeLive(WorkflowDefinition $definition): WorkflowDefinition
+    {
+        if ($definition->status !== 'published') {
+            throw ValidationException::withMessages([
+                'status' => 'Only published versions can be made live. Publish the draft first.',
+            ]);
+        }
+
+        if ($definition->is_live) {
+            return $definition->load(['steps.roles', 'steps.office', 'routes']);
+        }
+
+        return DB::transaction(function () use ($definition) {
+            $draftExists = WorkflowDefinition::where('transaction_type_id', $definition->transaction_type_id)
+                ->where('status', 'draft')
+                ->exists();
+
+            if ($draftExists) {
+                throw ValidationException::withMessages([
+                    'status' => 'There is an open draft for this transaction type. Publish or delete it first.',
+                ]);
+            }
+
+            WorkflowDefinition::where('transaction_type_id', $definition->transaction_type_id)
+                ->where('id', '!=', $definition->id)
+                ->update(['is_live' => false]);
+
+            $definition->update(['is_live' => true]);
+
+            return $definition->fresh()->load(['steps.roles', 'steps.office', 'routes']);
+        });
+    }
+
+    /**
+     * Save the viewed version under a user-typed name as a brand-new live
+     * version ("Save version" button). Pressing it again with another name
+     * creates yet another live version — old ones are always kept.
+     * Running transactions stay pinned; only new ones use the new live.
+     *
+     * - Published source → cloned as version max+1 with the given name,
+     *   published, and made live.
+     * - Draft source → renamed and published (goes live).
+     */
+    public function saveAs(WorkflowDefinition $source, int $userId, string $name, ?string $notes = null): WorkflowDefinition
+    {
+        if ($source->status === 'draft') {
+            return DB::transaction(function () use ($source, $userId, $name, $notes) {
+                $source->update([
+                    'name' => $name,
+                    'notes' => $notes ?? $source->notes,
+                ]);
+
+                return $this->publish($source->fresh(), $userId);
+            });
+        }
+
+        if ($source->status !== 'published') {
+            throw ValidationException::withMessages([
+                'status' => 'Only draft or published versions can be saved as a new version.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($source, $userId, $name, $notes) {
+            $draftExists = WorkflowDefinition::where('transaction_type_id', $source->transaction_type_id)
+                ->where('status', 'draft')
+                ->exists();
+
+            if ($draftExists) {
+                throw ValidationException::withMessages([
+                    'status' => 'There is an open draft for this transaction type. Publish or delete it first.',
+                ]);
+            }
+
+            $nextVersion = (int) (WorkflowDefinition::where('transaction_type_id', $source->transaction_type_id)
+                ->max('version') ?? 0) + 1;
+
+            $draft = WorkflowDefinition::create([
+                'transaction_type_id' => $source->transaction_type_id,
+                'version' => $nextVersion,
+                'status' => 'draft',
+                'name' => $name,
+                'notes' => $notes,
+            ]);
+
+            $this->cloneFrom($source, $draft);
+
+            return $this->publish($draft, $userId);
         });
     }
 

@@ -193,6 +193,7 @@ import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
+import { useSmartPoll } from '@/composables/useSmartPoll'
 import TableLoader from '@/components/TableLoader.vue'
 import StepProgress from '@/components/StepProgress.vue'
 import GuideTable from '@/components/GuideTable.vue'
@@ -370,5 +371,17 @@ onMounted(async () => {
   await fetchTypes()
   await fetchOffices().catch(() => {})
   await fetchAll()
+})
+
+// Silent 20s smart-poll: refresh rows in place without loader flash,
+// page reload, or losing search/sort/pagination/scroll.
+useSmartPoll(async () => {
+  // Skip while creating/deleting to avoid clobbering the dialogs.
+  if (saving.value || removing.value || dialog.value || confirmDialog.value) return
+  try {
+    await fetchAll({ silent: true })
+  } catch {
+    /* next tick retries */
+  }
 })
 </script>

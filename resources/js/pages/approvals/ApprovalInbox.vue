@@ -148,6 +148,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useApprovals } from "@/composables/useApprovals";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
+import { useSmartPoll } from "@/composables/useSmartPoll";
 import TableLoader from "@/components/TableLoader.vue";
 import GuideTable from "@/components/GuideTable.vue";
 import ApprovalProceedDialog from "@/components/ApprovalProceedDialog.vue";
@@ -277,6 +278,21 @@ async function load() {
 }
 
 onMounted(load);
+
+// Silent 20s smart-poll: someone else's tick/upload/move refreshes the
+// inbox rows + badge in place. Skipped while the proceed dialog is open
+// so staged uploads/remarks are never wiped; no loader flash, no reload.
+useSmartPoll(
+    async () => {
+        try {
+            await fetchAll({ silent: true });
+            approvalBadge.refresh();
+        } catch {
+            /* next tick retries */
+        }
+    },
+    { enabled: () => !dialogOpen.value },
+);
 </script>
 
 <style scoped>

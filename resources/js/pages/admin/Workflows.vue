@@ -10,15 +10,80 @@
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
                     <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
                     <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
-                        <v-chip
-                            rounded="0"
-                            size="small"
-                            variant="tonal"
-                            :color="activeDef.status === 'published' ? 'success' : activeDef.status === 'draft' ? 'warning' : 'grey'"
-                            class="font-weight-bold"
-                        >
-                            {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current version" : "Previous" }}
-                        </v-chip>
+                        <v-menu open-on-hover location="bottom" open-delay="250">
+                            <template #activator="{ props }">
+                                <v-chip
+                                    rounded="0"
+                                    size="small"
+                                    variant="tonal"
+                                    :color="activeDef.status === 'published' ? 'success' : activeDef.status === 'draft' ? 'warning' : 'grey'"
+                                    class="font-weight-bold"
+                                    v-bind="props"
+                                >
+                                    {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current version" : "Previous" }}
+                                </v-chip>
+                            </template>
+                            <v-card rounded="0" min-width="340" max-width="420">
+                                <v-card-title class="text-subtitle-2 font-weight-bold pa-3">
+                                    Workflow versions · {{ selectedTypeName }}
+                                    <div class="text-caption text-medium-emphasis font-weight-medium">
+                                        New transactions use the live version · old versions are kept
+                                    </div>
+                                </v-card-title>
+                                <v-divider />
+                                <v-list density="compact" class="py-1">
+                                    <v-list-item
+                                        v-for="d in (defs || [])"
+                                        :key="d.id"
+                                        :active="isLiveDef(d)"
+                                        rounded="lg"
+                                    >
+                                        <template #prepend>
+                                            <v-icon :color="wfStatusColor(d.status)" size="small">{{ wfStatusIcon(d.status) }}</v-icon>
+                                        </template>
+                                        <v-list-item-title class="font-weight-bold">
+                                            v{{ d.version }}<span v-if="d.name"> · {{ d.name }}</span> · {{ (d.steps || []).length }} steps
+                                            <v-chip
+                                                v-if="isLiveDef(d)"
+                                                color="success"
+                                                variant="flat"
+                                                rounded="0"
+                                                size="x-small"
+                                                class="ml-1 font-weight-bold"
+                                            >
+                                                LIVE
+                                            </v-chip>
+                                        </v-list-item-title>
+                                        <v-list-item-subtitle>
+                                            {{ wfStatusLabel(d.status) }}<span v-if="d.published_at"> · {{ fmtLiveDate(d.published_at) }}</span><span v-else-if="d.status === 'draft'"> · publish first to go live</span>
+                                        </v-list-item-subtitle>
+                                        <template #append>
+                                            <v-btn
+                                                v-if="d.status === 'published' && !isLiveDef(d)"
+                                                size="x-small"
+                                                variant="outlined"
+                                                color="grey-darken-3"
+                                                rounded="0"
+                                                class="font-weight-bold"
+                                                v-tooltip="'Make this version live for new transactions'"
+                                                @click="askMakeLive(d)"
+                                            >
+                                                Make live
+                                            </v-btn>
+                                            <v-btn
+                                                v-else
+                                                icon="mdi-eye"
+                                                v-tooltip="'View (read-only)'"
+                                                size="x-small"
+                                                variant="text"
+                                                color="primary"
+                                                @click="viewDef(d)"
+                                            />
+                                        </template>
+                                    </v-list-item>
+                                </v-list>
+                            </v-card>
+                        </v-menu>
                         <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
                             {{ (activeDef.steps || []).length }} steps
                         </v-chip>
@@ -33,6 +98,18 @@
                         @click="$router.push('/admin/transaction-types')"
                     >
                         Back
+                    </v-btn>
+                    <v-btn
+                        variant="outlined"
+                        color="grey-darken-3"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-content-save-plus-outline"
+                        :disabled="!activeDef"
+                        v-tooltip="'Save what you are viewing as a new live version under a name you type'"
+                        @click="openSaveDialog"
+                    >
+                        Save version
                     </v-btn>
                     <v-tooltip location="bottom" max-width="480">
                         <template #activator="{ props }">
@@ -384,14 +461,28 @@
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ wfStatusLabel(d.status) }}</v-list-item-subtitle>
                                     <template #append>
-                                        <v-btn
-                                            icon="mdi-eye"
-                                            v-tooltip="'View (read-only)'"
-                                            size="small"
-                                            variant="text"
-                                            color="primary"
-                                            @click.stop="viewDef(d)"
-                                        />
+                                        <div class="d-flex align-center ga-1">
+                                            <v-btn
+                                                v-if="d.status === 'published' && !isLiveDef(d)"
+                                                size="small"
+                                                variant="outlined"
+                                                color="grey-darken-3"
+                                                rounded="0"
+                                                class="font-weight-bold"
+                                                v-tooltip="'Make this version live for new transactions'"
+                                                @click.stop="askMakeLive(d)"
+                                            >
+                                                Make live
+                                            </v-btn>
+                                            <v-btn
+                                                icon="mdi-eye"
+                                                v-tooltip="'View (read-only)'"
+                                                size="small"
+                                                variant="text"
+                                                color="primary"
+                                                @click.stop="viewDef(d)"
+                                            />
+                                        </div>
                                     </template>
                                 </v-list-item>
                             </v-list>
@@ -591,6 +682,62 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <!-- Save as new live version -->
+        <v-dialog v-model="saveDialog" max-width="500">
+            <v-card rounded="0">
+                <v-card-title>Save as new version</v-card-title>
+                <v-divider />
+                <v-card-text>
+                    <div class="text-caption text-medium-emphasis mb-3">
+                        v{{ activeDef?.version }} ({{ (activeDef?.steps || []).length }} steps,
+                        {{ (activeDef?.routes || []).length }} routes) will be stored as a
+                        new live version. Old versions are kept.
+                    </div>
+                    <v-text-field
+                        v-model="saveName"
+                        label="Version name"
+                        placeholder="e.g. Holiday rush flow"
+                        maxlength="200"
+                        counter
+                        autofocus
+                    />
+                    <v-textarea
+                        v-model="saveNotes"
+                        label="Notes (optional)"
+                        rows="2"
+                    />
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="justify-end">
+                    <v-btn variant="text" @click="saveDialog = false">Cancel</v-btn>
+                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" :disabled="!saveName.trim()" @click="confirmSave">Save</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
+        <!-- Switch live version -->
+        <v-dialog v-model="liveDialog" max-width="500">
+            <v-card rounded="0">
+                <v-card-title>Switch live version?</v-card-title>
+                <v-divider />
+                <v-card-text>
+                    Change live from
+                    <b>v{{ currentDef?.version ?? "—" }}</b> to
+                    <b>v{{ liveTarget?.version }}</b>
+                    for <b>{{ selectedTypeName }}</b>?
+                    <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+                        New transactions will use v{{ liveTarget?.version }}. Running
+                        transactions stay on their version. Old versions are kept.
+                    </v-alert>
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="justify-end">
+                    <v-btn variant="text" @click="liveDialog = false">Cancel</v-btn>
+                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="confirmMakeLive">Switch</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
@@ -611,6 +758,8 @@ const {
     fetchDefinitions,
     createDraft,
     publish,
+    makeLive,
+    saveAs,
     addStep,
     updateStep,
     deleteStep: apiDeleteStep,
@@ -889,7 +1038,51 @@ const publishedDefs = computed(() =>
     (defs.value || []).filter((d) => d.status === "published"),
 );
 
-const currentDef = computed(() => publishedDefs.value[0] || null);
+// Live-flagged version wins; fallback to the highest published version
+// for rows predating the backfill.
+const currentDef = computed(
+    () => (defs.value || []).find((d) => d.is_live) || publishedDefs.value[0] || null,
+);
+
+function fmtLiveDate(iso) {
+    if (!iso) return "N/A";
+    return new Date(iso).toLocaleDateString("en-PH", {
+        timeZone: "Asia/Manila",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+const liveDialog = ref(false);
+const liveTarget = ref(null);
+
+function askMakeLive(d) {
+    error.value = "";
+    notice.value = "";
+    liveTarget.value = d;
+    liveDialog.value = true;
+}
+
+async function confirmMakeLive() {
+    if (!liveTarget.value) return;
+    error.value = "";
+    notice.value = "";
+    saving.value = true;
+    try {
+        await makeLive(liveTarget.value.id);
+        liveDialog.value = false;
+        liveTarget.value = null;
+        await fetchDefinitions(selectedTypeId.value);
+        selectEffective();
+        notice.value = "Live version switched — new transactions use it. Old versions kept.";
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Switching live version failed.";
+        liveDialog.value = false;
+    } finally {
+        saving.value = false;
+    }
+}
 
 function isLiveDef(def) {
     return !!def && def.status === "published" && currentDef.value && Number(currentDef.value.id) === Number(def.id);
@@ -1077,6 +1270,50 @@ async function editRoute(route) {
 
 function viewDef(def) {
     activeDef.value = def;
+}
+
+// Save version: names what you are viewing and stores it as a brand-new
+// live version (steps + routes cloned). Press again with another name
+// for another live version — old ones are always kept.
+const saveDialog = ref(false);
+const saveName = ref("");
+const saveNotes = ref("");
+
+function openSaveDialog() {
+    const def = activeDef.value;
+    if (!def) return;
+    error.value = "";
+    notice.value = "";
+    saveName.value = def.name ?? "";
+    saveNotes.value = "";
+    saveDialog.value = true;
+}
+
+async function confirmSave() {
+    const def = activeDef.value;
+    if (!def) return;
+    const name = saveName.value.trim();
+    if (!name) {
+        error.value = "Give the version a name first.";
+        return;
+    }
+    error.value = "";
+    notice.value = "";
+    saving.value = true;
+    try {
+        const saved = await saveAs(def.id, {
+            name,
+            notes: saveNotes.value.trim() || undefined,
+        });
+        saveDialog.value = false;
+        await fetchDefinitions(selectedTypeId.value);
+        selectEffective();
+        notice.value = `Saved as v${saved.version} "${saved.name}" — now live. Old versions kept.`;
+    } catch (e) {
+        error.value = e?.response?.data?.message || e?.response?.data?.errors?.name?.[0] || "Saving the version failed.";
+    } finally {
+        saving.value = false;
+    }
 }
 
 // Steps

@@ -10,13 +10,16 @@ export function useApprovals() {
     const items = ref([]);
     const loading = ref(true);
 
-    async function fetchAll() {
-        loading.value = true;
+    // Silent background refreshes (smart-poll) must not flash the loader
+    // or the Refresh button spinner — same convention as the transaction
+    // list composables.
+    async function fetchAll({ silent = false } = {}) {
+        if (!silent) loading.value = true;
         try {
             const res = await api.get("/api/approvals");
             items.value = res.data.data ?? res.data;
         } finally {
-            loading.value = false;
+            if (!silent) loading.value = false;
         }
         return items.value;
     }

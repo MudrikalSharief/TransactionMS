@@ -79,10 +79,83 @@
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
-          <v-chip :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
-            <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
-            {{ item.is_active ? 'Active' : 'Inactive' }}
-          </v-chip>
+          <v-menu open-on-hover location="end" open-delay="250">
+            <template #activator="{ props }">
+              <v-chip
+                :color="item.is_active ? 'success' : 'error'"
+                rounded="0"
+                size="small"
+                variant="tonal"
+                v-bind="props"
+              >
+                <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
+                {{ item.is_active ? 'Active' : 'Inactive' }}
+              </v-chip>
+            </template>
+            <v-card rounded="0" min-width="340" max-width="420">
+              <v-card-title class="text-subtitle-2 font-weight-bold pa-3">
+                Workflow versions · {{ item.name || item.code }}
+                <div class="text-caption text-medium-emphasis font-weight-medium">
+                  New transactions use the live version · old versions are kept
+                </div>
+              </v-card-title>
+              <v-divider />
+              <v-list density="compact" class="py-1">
+                <v-list-item v-if="!defsOf(item).length">
+                  <v-list-item-title class="text-medium-emphasis">No workflow yet</v-list-item-title>
+                  <v-list-item-subtitle>Open Steps to create version 1</v-list-item-subtitle>
+                </v-list-item>
+                <v-list-item
+                  v-for="d in defsOf(item)"
+                  :key="d.id"
+                  :active="isLiveDef(d, item)"
+                  rounded="lg"
+                >
+                  <template #prepend>
+                    <v-icon :color="wfStatusColor(d.status)" size="small">{{ wfStatusIcon(d.status) }}</v-icon>
+                  </template>
+                  <v-list-item-title class="font-weight-bold">
+                    v{{ d.version }}<span v-if="d.name"> · {{ d.name }}</span> · {{ (d.steps || []).length }} steps
+                    <v-chip
+                      v-if="isLiveDef(d, item)"
+                      color="success"
+                      variant="flat"
+                      rounded="0"
+                      size="x-small"
+                      class="ml-1 font-weight-bold"
+                    >
+                      LIVE
+                    </v-chip>
+                  </v-list-item-title>
+                  <v-list-item-subtitle>
+                    {{ wfStatusLabel(d.status) }}<span v-if="d.published_at"> · {{ fmtDate(d.published_at) }}</span><span v-else-if="d.status === 'draft'"> · publish first to go live</span>
+                  </v-list-item-subtitle>
+                  <template #append>
+                    <v-btn
+                      v-if="d.status === 'published' && !isLiveDef(d, item)"
+                      size="x-small"
+                      variant="outlined"
+                      color="grey-darken-3"
+                      rounded="0"
+                      class="font-weight-bold"
+                      v-tooltip="'Make this version live for new transactions'"
+                      @click="askMakeLive(item, d)"
+                    >
+                      Make live
+                    </v-btn>
+                    <v-btn
+                      icon="mdi-eye"
+                      v-tooltip="'View steps'"
+                      size="x-small"
+                      variant="text"
+                      color="primary"
+                      @click="goSteps(item)"
+                    />
+                  </template>
+                </v-list-item>
+              </v-list>
+            </v-card>
+          </v-menu>
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
@@ -132,9 +205,31 @@
         <v-switch v-model="form.is_active" label="Active" />
       </v-card-text>
       <v-divider />
+    <v-card-actions class="justify-end">
+      <v-btn variant="text" @click="dialog = false">Cancel</v-btn>
+      <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="save">Save</v-btn>
+    </v-card-actions>
+  </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="liveDialog" max-width="500">
+    <v-card rounded="0">
+      <v-card-title>Switch live version?</v-card-title>
+      <v-divider />
+      <v-card-text>
+        Change live from
+        <b>v{{ liveFrom?.version ?? '—' }}</b> to
+        <b>v{{ liveTarget?.version }}</b>
+        for <b>{{ liveType?.name || liveType?.code }}</b>?
+        <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+          New transactions will use v{{ liveTarget?.version }}. Running
+          transactions stay on their version. Old versions are kept.
+        </v-alert>
+      </v-card-text>
+      <v-divider />
       <v-card-actions class="justify-end">
-        <v-btn variant="text" @click="dialog = false">Cancel</v-btn>
-        <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="save">Save</v-btn>
+        <v-btn variant="text" @click="liveDialog = false">Cancel</v-btn>
+        <v-btn color="grey-darken-3" rounded="0" :loading="switching" @click="confirmMakeLive">Switch</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -146,11 +241,12 @@ import { useRouter } from 'vue-router'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useWorkflows } from '@/composables/useWorkflows'
 import { useOffices } from '@/composables/useOffices'
+import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus'
 import TableLoader from '@/components/TableLoader.vue'
 
 const router = useRouter()
 const { items, loading, fetchAll, create, update, remove } = useTransactionTypes()
-const { defs, loading: defsLoading, fetchDefinitions } = useWorkflows()
+const { defs, loading: defsLoading, fetchDefinitions, makeLive } = useWorkflows()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 
 const officeOptions = computed(() =>
@@ -179,9 +275,74 @@ const latestByType = computed(() => {
 })
 
 function stepsOf(item) {
-  const d = latestByType.value[item.id]
+  // Live version's steps (what new transactions follow); fallback to
+  // the latest version when nothing is live yet.
+  const d = liveDefOf(item) || latestByType.value[item.id]
   if (!d) return null
   return { version: d.version, status: d.status, count: (d.steps || []).length }
+}
+
+// All workflow versions for a type, newest first — shown in the
+// Status-chip hover menu so live can be switched from and to.
+function defsOf(item) {
+  return (defs.value || [])
+    .filter((d) => Number(d.transaction_type_id) === Number(item.id))
+    .sort((a, b) => Number(b.version) - Number(a.version))
+}
+
+// Live version: the is_live flag wins; fallback to the highest
+// published version for rows predating the backfill.
+function liveDefOf(item) {
+  const list = defsOf(item)
+  return list.find((d) => d.is_live)
+    || list.filter((d) => d.status === 'published').sort((a, b) => Number(b.version) - Number(a.version))[0]
+    || null
+}
+
+function isLiveDef(d, item) {
+  const live = liveDefOf(item)
+  return !!live && Number(live.id) === Number(d.id)
+}
+
+function fmtDate(iso) {
+  if (!iso) return 'N/A'
+  return new Date(iso).toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+const liveDialog = ref(false)
+const liveTarget = ref(null)
+const liveFrom = ref(null)
+const liveType = ref(null)
+const switching = ref(false)
+
+function askMakeLive(item, d) {
+  error.value = ''
+  liveType.value = item
+  liveTarget.value = d
+  liveFrom.value = liveDefOf(item)
+  liveDialog.value = true
+}
+
+async function confirmMakeLive() {
+  if (!liveTarget.value) return
+  switching.value = true
+  error.value = ''
+  try {
+    await makeLive(liveTarget.value.id)
+    liveDialog.value = false
+    liveTarget.value = null
+    await fetchDefinitions()
+  } catch (e) {
+    error.value = e?.response?.data?.message || 'Switching live version failed.'
+    liveDialog.value = false
+  } finally {
+    switching.value = false
+  }
 }
 
 const stepsLoading = computed(() => defsLoading.value)

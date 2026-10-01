@@ -135,6 +135,7 @@
                     <v-list-item-title>DASHBOARD</v-list-item-title>
                 </v-list-item>
                 <v-list-item
+                    v-if="!isSuperadmin"
                     to="/my/transactions"
                     prepend-icon="mdi-file-document-multiple"
                     rounded="lg"
@@ -359,14 +360,16 @@ const allTx = useTransactions();
 const searchPages = computed(() => {
     const pages = [
         { title: "Dashboard", subtitle: "Page", icon: "mdi-view-dashboard", to: "/" },
-        {
+        { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
+    ];
+    if (!isSuperadmin.value) {
+        pages.splice(1, 0, {
             title: "My Transactions",
             subtitle: "Page",
             icon: "mdi-file-document-multiple",
             to: "/my/transactions",
-        },
-        { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
-    ];
+        });
+    }
     if (showApprovals.value) {
         pages.splice(2, 0, {
             title: "Approvals",
@@ -420,13 +423,14 @@ async function ensureSearchData() {
     if (searchLoaded || searchLoading.value) return;
     searchLoading.value = true;
     try {
-        await myTx.fetchAll();
         if (isSuperadmin.value) {
             try {
                 await allTx.fetchAll();
             } catch {
-                /* my list is enough */
+                await myTx.fetchAll().catch(() => {});
             }
+        } else {
+            await myTx.fetchAll();
         }
     } catch {
         /* search stays page-only */
@@ -459,9 +463,10 @@ const searchResults = computed(() => {
         });
     };
 
-    (myTx.items.value || []).forEach((tx) => pushTx(tx, "/my/transactions"));
     if (isSuperadmin.value) {
         (allTx.items.value || []).forEach((tx) => pushTx(tx, "/transactions"));
+    } else {
+        (myTx.items.value || []).forEach((tx) => pushTx(tx, "/my/transactions"));
     }
 
     return [

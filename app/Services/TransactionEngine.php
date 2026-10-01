@@ -21,8 +21,11 @@ class TransactionEngine
     public function create(int $transactionTypeId, ?string $title, int $userId, ?int $officeId = null): Transaction
     {
         return DB::transaction(function () use ($transactionTypeId, $title, $userId, $officeId) {
+            // Live-flagged version wins; fallback to the highest published
+            // version for rows predating the is_live backfill.
             $workflow = WorkflowDefinition::where('transaction_type_id', $transactionTypeId)
                 ->where('status', 'published')
+                ->orderByDesc('is_live')
                 ->orderByDesc('version')
                 ->with('steps')
                 ->first();

@@ -136,6 +136,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
+import { useSmartPoll } from "@/composables/useSmartPoll";
 import TableLoader from '@/components/TableLoader.vue';
 import StepProgress from '@/components/StepProgress.vue';
 import GuideTable from '@/components/GuideTable.vue';
@@ -237,4 +238,15 @@ function open(tx) {
 }
 
 onMounted(load);
+
+// Silent 20s smart-poll: version changed → refresh rows in place.
+// Silent fetch keeps search text, sort, pagination, and scroll untouched;
+// no loader flash, no page reload.
+useSmartPoll(async () => {
+    try {
+        await fetchAll({ silent: true });
+    } catch {
+        /* next tick retries */
+    }
+});
 </script>

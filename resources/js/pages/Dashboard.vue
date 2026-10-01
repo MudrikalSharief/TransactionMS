@@ -358,6 +358,7 @@ import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
+import { useSmartPoll } from '@/composables/useSmartPoll'
 import CardGrip from '@/components/CardGrip.vue'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
@@ -681,15 +682,11 @@ const byProcessRows = computed(() => {
 })
 
 // Oldest first: longest-waiting items the user can act on (max 5).
-// Superadmins with an empty personal queue fall back to the oldest overall.
+// Superadmin uses the full queue (My Transactions is hidden as redundant).
 const actionQueue = computed(() => {
-    const mine = [...(myStore.items.value || [])]
-    const base =
-        mine.length > 0
-            ? mine
-            : isSuperadmin.value
-              ? [...(txStore.items.value || [])]
-              : []
+    const base = isSuperadmin.value
+        ? [...(txStore.items.value || [])]
+        : [...(myStore.items.value || [])]
     base.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
     return base.slice(0, 5)
 })
@@ -704,7 +701,9 @@ const recent = computed(() => {
 const startLinks = computed(() => {
     const links = [
         { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#5C6BC0', go: goToHelp },
-        { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#26A69A', go: goToQueue },
+        isSuperadmin.value
+            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#26A69A', go: goToQueue }
+            : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#26A69A', go: goToQueue },
     ]
     if (isSuperadmin.value) {
         links.push({
@@ -754,8 +753,9 @@ onMounted(async () => {
     // then refresh everything silently in the background.
     const warm =
         isCached(CacheKeys.transactionTypes) ||
-        isCached(CacheKeys.myTransactions) ||
-        (isSuperadmin.value && isCached(CacheKeys.transactions))
+        (isSuperadmin.value
+            ? isCached(CacheKeys.transactions)
+            : isCached(CacheKeys.myTransactions))
     loading.value = !warm
     const opts = { silent: warm }
     loadSummary()
@@ -763,15 +763,31 @@ onMounted(async () => {
     try {
         if (isSuperadmin.value) {
             await txStore.fetchAll(opts)
+        } else {
+            await myStore.fetchAll(opts)
         }
     } catch { /* keep defaults */ }
 
-    try {
-        await myStore.fetchAll(opts)
-    } catch { /* ignore */ }
-
     refreshedAt.value = new Date()
     loading.value = false
+})
+
+// Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
+// All fetches are silent so cards never flash, drag order and filters
+// are preserved, and the page never reloads or scrolls.
+useSmartPoll(async () => {
+    const opts = { silent: true }
+    try {
+        if (isSuperadmin.value) {
+            await txStore.fetchAll(opts)
+            loadSummary()
+        } else {
+            await myStore.fetchAll(opts)
+        }
+        refreshedAt.value = new Date()
+    } catch {
+        /* next tick retries */
+    }
 })
 
 onUnmounted(() => {
