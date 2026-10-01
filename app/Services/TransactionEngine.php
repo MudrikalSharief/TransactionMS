@@ -268,9 +268,11 @@ class TransactionEngine
     }
 
     /**
-     * Jump to an already-visited station (free navigation). No checklist
-     * gating — callers validate the destination. Complete destinations
-     * keep their saved work via the intact-arrival rule; gappy ones reset.
+     * Return to an already-visited station (free navigation, the only way
+     * back now that return routes are retired). No checklist gating —
+     * callers validate the destination. Complete destinations keep their
+     * saved work via the intact-arrival rule; gappy ones reset.
+     * Recorded as Returned in history (old rows keep Revisited).
      */
     public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId): Transaction
     {
@@ -292,8 +294,8 @@ class TransactionEngine
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
                 'to_step_id' => $toStepId,
-                'action_code' => 'revisit',
-                'remarks' => $remarks ?? 'Jumped to a passed station',
+                'action_code' => 'return',
+                'remarks' => $remarks ?? 'Returned to a passed station',
                 'performed_by' => $userId,
                 'performed_at' => now(),
                 'received_at' => null,
