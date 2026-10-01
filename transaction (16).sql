@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 6.0.0-dev+20260914.9e4dc5b5f4
+-- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost:3306
--- Generation Time: Oct 01, 2026 at 03:07 AM
--- Server version: 8.4.3
--- PHP Version: 8.3.33
+-- Host: 127.0.0.1
+-- Generation Time: Oct 01, 2026 at 06:34 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -26,16 +26,17 @@ SET time_zone = "+00:00";
 --
 -- Table structure for table `audit_logs`
 --
+
 CREATE TABLE `audit_logs` (
-  `id` bigint UNSIGNED NOT NULL,
-  `actor_user_id` bigint UNSIGNED DEFAULT NULL,
-  `event` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `entity_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `entity_id` bigint UNSIGNED DEFAULT NULL,
-  `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `ip` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `user_agent` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `actor_user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `event` varchar(255) NOT NULL,
+  `entity_type` varchar(255) DEFAULT NULL,
+  `entity_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `ip` varchar(255) DEFAULT NULL,
+  `user_agent` varchar(512) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -115,17 +116,24 @@ INSERT INTO `audit_logs` (`id`, `actor_user_id`, `event`, `entity_type`, `entity
 (70, 1, 'transactions.delete', 'App\\Models\\Transaction', 32, '{\"reference_number\":\"ROQO-Z1YN-DW1W\",\"transaction_type_id\":1}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-09-30 16:08:57'),
 (71, 1, 'transactions.delete', 'App\\Models\\Transaction', 35, '{\"reference_number\":\"EIWE-HTYG-FUJ8\",\"transaction_type_id\":1}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-09-30 16:09:00'),
 (72, 1, 'transactions.delete', 'App\\Models\\Transaction', 38, '{\"reference_number\":\"BNWR-79LJ-VBVP\",\"transaction_type_id\":11}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-09-30 16:09:04'),
-(73, 1, 'transactions.delete', 'App\\Models\\Transaction', 39, '{\"reference_number\":\"MWY6-RWFW-BF41\",\"transaction_type_id\":11}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-09-30 17:07:23');
+(73, 1, 'transactions.delete', 'App\\Models\\Transaction', 39, '{\"reference_number\":\"MWY6-RWFW-BF41\",\"transaction_type_id\":11}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '2026-09-30 17:07:23'),
+(74, 1, 'workflow_definitions.delete_draft', 'App\\Models\\WorkflowDefinition', 6, '{\"deleted\":{\"transaction_type_id\":2,\"version\":2,\"status\":\"draft\",\"name\":null}}', '127.0.0.1', 'draft-cleanup-script', '2026-09-30 20:16:32'),
+(75, 1, 'workflow_definitions.delete_draft', 'App\\Models\\WorkflowDefinition', 18, '{\"deleted\":{\"transaction_type_id\":3,\"version\":5,\"status\":\"draft\",\"name\":null}}', '127.0.0.1', 'draft-cleanup-script', '2026-09-30 20:16:32'),
+(76, 1, 'workflow_definitions.save_as', 'App\\Models\\WorkflowDefinition', 62, '{\"source_id\":62,\"source_version\":5,\"to_version\":5,\"name\":\"Bryan\"}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0', '2026-09-30 20:32:13'),
+(77, 1, 'workflow_definitions.save_as', 'App\\Models\\WorkflowDefinition', 64, '{\"source_id\":63,\"source_version\":6,\"to_version\":7,\"name\":\"bry\"}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0', '2026-09-30 20:33:37'),
+(78, 1, 'workflow_definitions.make_live', 'App\\Models\\WorkflowDefinition', 16, '{\"from_version\":7,\"from_id\":64,\"to_version\":4,\"to_id\":16}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0', '2026-09-30 20:33:50'),
+(79, 1, 'workflow_definitions.make_live', 'App\\Models\\WorkflowDefinition', 62, '{\"from_version\":4,\"from_id\":16,\"to_version\":5,\"to_id\":62}', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0', '2026-09-30 20:34:10');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `cache`
 --
+
 CREATE TABLE `cache` (
-  `key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `value` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `expiration` int NOT NULL
+  `key` varchar(255) NOT NULL,
+  `value` mediumtext NOT NULL,
+  `expiration` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -139,20 +147,21 @@ INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
 ('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790824063;', 1790824063),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81', 'i:5;', 1789364911),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81:timer', 'i:1789364911;', 1789364911),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:1;', 1790215150),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790215150;', 1790215150),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:4;', 1790216042),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790216042;', 1790216042);
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790824386),
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790824386;', 1790824386),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:1;', 1790829340),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790829340;', 1790829340);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `cache_locks`
 --
+
 CREATE TABLE `cache_locks` (
-  `key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `owner` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `expiration` int NOT NULL
+  `key` varchar(255) NOT NULL,
+  `owner` varchar(255) NOT NULL,
+  `expiration` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -160,15 +169,16 @@ CREATE TABLE `cache_locks` (
 --
 -- Table structure for table `checklist_overrides`
 --
+
 CREATE TABLE `checklist_overrides` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint UNSIGNED DEFAULT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `code` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `is_required` tinyint(1) NOT NULL DEFAULT '1',
-  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `code` varchar(120) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `is_required` tinyint(1) NOT NULL DEFAULT 1,
+  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -178,7 +188,6 @@ CREATE TABLE `checklist_overrides` (
 --
 
 INSERT INTO `checklist_overrides` (`id`, `workflow_step_id`, `requirement_definition_id`, `name`, `code`, `description`, `is_required`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 75, 33, 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, 1, '2026-09-22 18:26:50', '2026-09-22 18:26:50'),
 (11, 40, 19, 'Uploaded to Google Drive', 'drive_uploaded', NULL, 1, 1, '2026-09-24 18:48:06', '2026-09-24 18:48:06'),
 (12, 3, 28, 'DTR validated', 'dtr_validated', 'Tick once DTRs are validated.', 1, 1, '2026-09-24 18:48:06', '2026-09-24 18:48:06'),
 (13, 71, 25, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-24 18:48:06', '2026-09-24 18:48:06'),
@@ -217,21 +226,25 @@ INSERT INTO `checklist_overrides` (`id`, `workflow_step_id`, `requirement_defini
 (49, 396, 70, 'CTO approve PR', 'cto_app', NULL, 1, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
 (50, 397, 71, 'CTO approved PR', 'cto_app_pr', NULL, 1, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
 (51, 398, 68, 'CBO approve PR', 'cbo_app', NULL, 1, 0, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
-(52, 399, 77, 'Mayor Office Approve PR', 'mo_app_pr', NULL, 1, 0, '2026-09-30 01:16:33', '2026-09-30 01:16:33');
+(52, 399, 77, 'Mayor Office Approve PR', 'mo_app_pr', NULL, 1, 0, '2026-09-30 01:16:33', '2026-09-30 01:16:33'),
+(53, 401, 80, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59'),
+(54, 403, 82, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33'),
+(55, 406, 84, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `failed_jobs`
 --
+
 CREATE TABLE `failed_jobs` (
-  `id` bigint UNSIGNED NOT NULL,
-  `uuid` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `connection` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `queue` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `exception` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `failed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `uuid` varchar(255) NOT NULL,
+  `connection` text NOT NULL,
+  `queue` text NOT NULL,
+  `payload` longtext NOT NULL,
+  `exception` longtext NOT NULL,
+  `failed_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -239,24 +252,25 @@ CREATE TABLE `failed_jobs` (
 --
 -- Table structure for table `field_definitions`
 --
+
 CREATE TABLE `field_definitions` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint UNSIGNED DEFAULT NULL,
-  `order_number` int UNSIGNED NOT NULL DEFAULT '0',
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `group` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
-  `required` tinyint(1) NOT NULL DEFAULT '0',
-  `unique` tinyint(1) NOT NULL DEFAULT '0',
-  `sensitive` tinyint(1) NOT NULL DEFAULT '0',
-  `min_length` int UNSIGNED DEFAULT NULL,
-  `max_length` int UNSIGNED DEFAULT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `type` varchar(255) NOT NULL,
+  `group` varchar(255) DEFAULT NULL,
+  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `required` tinyint(1) NOT NULL DEFAULT 0,
+  `unique` tinyint(1) NOT NULL DEFAULT 0,
+  `sensitive` tinyint(1) NOT NULL DEFAULT 0,
+  `min_length` int(10) UNSIGNED DEFAULT NULL,
+  `max_length` int(10) UNSIGNED DEFAULT NULL,
   `min_value` decimal(18,4) DEFAULT NULL,
   `max_value` decimal(18,4) DEFAULT NULL,
-  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `validation_rules` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `validation_rules` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -280,11 +294,12 @@ INSERT INTO `field_definitions` (`id`, `workflow_definition_id`, `order_number`,
 --
 -- Table structure for table `field_definition_workflow_step`
 --
+
 CREATE TABLE `field_definition_workflow_step` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `field_definition_id` bigint UNSIGNED NOT NULL,
-  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `field_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `required_override` tinyint(1) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -295,16 +310,17 @@ CREATE TABLE `field_definition_workflow_step` (
 --
 -- Table structure for table `field_values`
 --
+
 CREATE TABLE `field_values` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `field_definition_id` bigint UNSIGNED NOT NULL,
-  `value_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `value_text` text COLLATE utf8mb4_unicode_ci,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `field_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `value_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `value_text` text DEFAULT NULL,
   `value_number` decimal(18,2) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
-  `updated_by` bigint UNSIGNED DEFAULT NULL
+  `updated_by` bigint(20) UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -336,14 +352,15 @@ INSERT INTO `field_values` (`id`, `transaction_id`, `field_definition_id`, `valu
 --
 -- Table structure for table `government_references`
 --
+
 CREATE TABLE `government_references` (
-  `id` bigint UNSIGNED NOT NULL,
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `source` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `notes` text COLLATE utf8mb4_unicode_ci,
-  `is_verified` tinyint(1) NOT NULL DEFAULT '0',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `code` varchar(255) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `source` varchar(255) DEFAULT NULL,
+  `url` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `is_verified` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -364,14 +381,15 @@ INSERT INTO `government_references` (`id`, `code`, `title`, `source`, `url`, `no
 --
 -- Table structure for table `jobs`
 --
+
 CREATE TABLE `jobs` (
-  `id` bigint UNSIGNED NOT NULL,
-  `queue` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `attempts` tinyint UNSIGNED NOT NULL,
-  `reserved_at` int UNSIGNED DEFAULT NULL,
-  `available_at` int UNSIGNED NOT NULL,
-  `created_at` int UNSIGNED NOT NULL
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `queue` varchar(255) NOT NULL,
+  `payload` longtext NOT NULL,
+  `attempts` tinyint(3) UNSIGNED NOT NULL,
+  `reserved_at` int(10) UNSIGNED DEFAULT NULL,
+  `available_at` int(10) UNSIGNED NOT NULL,
+  `created_at` int(10) UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -379,17 +397,18 @@ CREATE TABLE `jobs` (
 --
 -- Table structure for table `job_batches`
 --
+
 CREATE TABLE `job_batches` (
-  `id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `total_jobs` int NOT NULL,
-  `pending_jobs` int NOT NULL,
-  `failed_jobs` int NOT NULL,
-  `failed_job_ids` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `options` mediumtext COLLATE utf8mb4_unicode_ci,
-  `cancelled_at` int DEFAULT NULL,
-  `created_at` int NOT NULL,
-  `finished_at` int DEFAULT NULL
+  `id` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `total_jobs` int(11) NOT NULL,
+  `pending_jobs` int(11) NOT NULL,
+  `failed_jobs` int(11) NOT NULL,
+  `failed_job_ids` longtext NOT NULL,
+  `options` mediumtext DEFAULT NULL,
+  `cancelled_at` int(11) DEFAULT NULL,
+  `created_at` int(11) NOT NULL,
+  `finished_at` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -397,10 +416,11 @@ CREATE TABLE `job_batches` (
 --
 -- Table structure for table `migrations`
 --
+
 CREATE TABLE `migrations` (
-  `id` int UNSIGNED NOT NULL,
-  `migration` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `batch` int NOT NULL
+  `id` int(10) UNSIGNED NOT NULL,
+  `migration` varchar(255) NOT NULL,
+  `batch` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -460,19 +480,21 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (50, '2026_10_01_000001_add_receive_tracking_to_transaction_step_runs_table', 20),
 (51, '2026_10_02_000001_fix_rogue_on_update_timestamps', 21),
 (52, '2026_10_02_000002_repair_clobbered_step_run_timestamps', 22),
-(53, '2026_10_03_000001_add_is_upload_required_to_step_requirements_table', 23);
+(53, '2026_10_03_000001_add_is_upload_required_to_step_requirements_table', 23),
+(54, '2026_10_01_120000_add_is_live_to_workflow_definitions_table', 24);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `offices`
 --
+
 CREATE TABLE `offices` (
-  `id` bigint UNSIGNED NOT NULL,
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -515,15 +537,16 @@ INSERT INTO `offices` (`id`, `code`, `name`, `description`, `is_active`, `create
 --
 -- Table structure for table `office_steps`
 --
+
 CREATE TABLE `office_steps` (
-  `id` bigint UNSIGNED NOT NULL,
-  `office_id` bigint UNSIGNED NOT NULL,
-  `parent_id` bigint UNSIGNED DEFAULT NULL,
-  `order_number` int UNSIGNED NOT NULL DEFAULT '1',
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `office_id` bigint(20) UNSIGNED NOT NULL,
+  `parent_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 1,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -534,10 +557,11 @@ CREATE TABLE `office_steps` (
 --
 -- Table structure for table `office_transaction_type`
 --
+
 CREATE TABLE `office_transaction_type` (
-  `id` bigint UNSIGNED NOT NULL,
-  `office_id` bigint UNSIGNED NOT NULL,
-  `transaction_type_id` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `office_id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -557,9 +581,10 @@ INSERT INTO `office_transaction_type` (`id`, `office_id`, `transaction_type_id`,
 --
 -- Table structure for table `password_reset_tokens`
 --
+
 CREATE TABLE `password_reset_tokens` (
-  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `token` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `token` varchar(255) NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -568,11 +593,12 @@ CREATE TABLE `password_reset_tokens` (
 --
 -- Table structure for table `permissions`
 --
+
 CREATE TABLE `permissions` (
-  `id` bigint UNSIGNED NOT NULL,
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -583,9 +609,10 @@ CREATE TABLE `permissions` (
 --
 -- Table structure for table `permission_role`
 --
+
 CREATE TABLE `permission_role` (
-  `permission_id` bigint UNSIGNED NOT NULL,
-  `role_id` bigint UNSIGNED NOT NULL,
+  `permission_id` bigint(20) UNSIGNED NOT NULL,
+  `role_id` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -595,15 +622,16 @@ CREATE TABLE `permission_role` (
 --
 -- Table structure for table `requirement_definitions`
 --
+
 CREATE TABLE `requirement_definitions` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint UNSIGNED NOT NULL,
-  `order_number` int UNSIGNED NOT NULL DEFAULT '0',
-  `code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `label` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `code` varchar(64) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `label` varchar(120) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -622,14 +650,6 @@ INSERT INTO `requirement_definitions` (`id`, `workflow_definition_id`, `order_nu
 (6, 2, 6, 'treasurer_signed', 'Treasurer signed', NULL, NULL, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
 (7, 2, 7, 'doc_validated', 'Document validated (untampered)', NULL, NULL, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
 (8, 2, 8, 'earmark_completed', 'Earmark completed', NULL, NULL, 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(9, 6, 5, 'city_admin_signed', 'City Admin signed', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(10, 6, 7, 'doc_validated', 'Document validated (untampered)', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(11, 6, 2, 'drive_uploaded', 'Uploaded to Google Drive', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(12, 6, 3, 'dts_created', 'DTS created', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(13, 6, 8, 'earmark_completed', 'Earmark completed', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(14, 6, 4, 'pr_encoded', 'PR Number encoded', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(15, 6, 1, 'signed_pr_pdf', 'Signed PR PDF attached', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
-(16, 6, 6, 'treasurer_signed', 'Treasurer signed', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
 (17, 7, 5, 'city_admin_signed', 'City Admin signed', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
 (18, 7, 7, 'doc_validated', 'Document validated (untampered)', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
 (19, 7, 2, 'drive_uploaded', 'Uploaded to Google Drive', NULL, NULL, 1, '2026-09-13 17:39:26', '2026-09-13 17:39:26', NULL),
@@ -646,8 +666,6 @@ INSERT INTO `requirement_definitions` (`id`, `workflow_definition_id`, `order_nu
 (30, 17, 1, 'dtr_collected', 'DTR collected', NULL, 'Tick once DTRs are collected.', 1, '2026-09-14 00:53:40', '2026-09-28 21:35:09', NULL),
 (31, 17, 2, 'dtr_validated', 'DTR validated', NULL, 'Tick once DTRs are validated.', 1, '2026-09-14 00:53:40', '2026-09-29 23:11:13', NULL),
 (32, 17, 3, 'payroll_finalized', 'Payroll finalized', NULL, 'Tick once payroll is finalized.', 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(33, 18, 1, 'comm_logged', 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
-(34, 18, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
 (35, 17, 0, 'ar', 'AR', 'AR', 'AR remarks', 1, '2026-09-22 18:27:31', '2026-09-28 21:35:09', NULL),
 (36, 1, 0, 'ar', 'AR', NULL, 'AR remarks', 1, '2026-09-23 03:13:05', '2026-09-23 03:13:05', NULL),
 (37, 17, 0, 'payroll', 'Payroll', NULL, NULL, 1, '2026-09-28 21:30:45', '2026-09-28 21:35:09', NULL),
@@ -689,18 +707,25 @@ INSERT INTO `requirement_definitions` (`id`, `workflow_definition_id`, `order_nu
 (75, 61, 0, 'pr_number', 'PR with Number', NULL, NULL, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
 (76, 61, 0, 'pr_with_number', 'PR with number', NULL, NULL, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
 (77, 61, 0, 'mo_app_pr', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-09-30 01:16:32', '2026-09-30 01:16:33', NULL),
-(79, 61, 0, 'mo_app_prs', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-09-30 01:23:00', '2026-09-30 01:23:00', NULL);
+(79, 61, 0, 'mo_app_prs', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-09-30 01:23:00', '2026-09-30 01:23:00', NULL),
+(80, 62, 1, 'comm_logged', 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59', NULL),
+(81, 62, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59', NULL),
+(82, 63, 1, 'comm_logged', 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
+(83, 63, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
+(84, 64, 1, 'comm_logged', 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(85, 64, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `roles`
 --
+
 CREATE TABLE `roles` (
-  `id` bigint UNSIGNED NOT NULL,
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -733,9 +758,10 @@ INSERT INTO `roles` (`id`, `code`, `name`, `description`, `created_at`, `updated
 --
 -- Table structure for table `role_user`
 --
+
 CREATE TABLE `role_user` (
-  `role_id` bigint UNSIGNED NOT NULL,
-  `user_id` bigint UNSIGNED NOT NULL,
+  `role_id` bigint(20) UNSIGNED NOT NULL,
+  `user_id` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -761,13 +787,14 @@ INSERT INTO `role_user` (`role_id`, `user_id`, `created_at`, `updated_at`) VALUE
 --
 -- Table structure for table `sessions`
 --
+
 CREATE TABLE `sessions` (
-  `id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `user_id` bigint UNSIGNED DEFAULT NULL,
-  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `user_agent` text COLLATE utf8mb4_unicode_ci,
-  `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
-  `last_activity` int NOT NULL
+  `id` varchar(255) NOT NULL,
+  `user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `payload` longtext NOT NULL,
+  `last_activity` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -775,6 +802,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
+('D4Gqyqs47bYY2CFBcpCx6RwHShzXW2t3bh5xL1eK', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiTUJsS2ljakdUUEV0YXFPbGNxdHFmVU1WZGFmYkJpcWtDZHdBdE1RWSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790829280),
 ('MM4Y0bIbJXGorl35MMgcH4dXvES7zzRfzAYCqbpq', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiNG9oSWlta2NRSWIwWFVLdUNIT1RCRzBIdUNIaEpsMVVlalpJYk1CQyI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiOWIzYTI0N2FkNTM2NDY5ZmEyNjVjYjQxZDkwZDI3Mzc0NTMyMjI1MjJhODdhMWZhYTRmM2Y0MmU3MjAxZjliZCI7fQ==', 1790824003);
 
 -- --------------------------------------------------------
@@ -782,13 +810,14 @@ INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, 
 --
 -- Table structure for table `step_requirements`
 --
+
 CREATE TABLE `step_requirements` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint UNSIGNED NOT NULL,
-  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
-  `is_required` tinyint(1) NOT NULL DEFAULT '1',
-  `is_upload_required` tinyint(1) NOT NULL DEFAULT '0',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `is_required` tinyint(1) NOT NULL DEFAULT 1,
+  `is_upload_required` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -806,14 +835,6 @@ INSERT INTO `step_requirements` (`id`, `workflow_step_id`, `requirement_definiti
 (6, 12, 6, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (7, 15, 7, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (8, 16, 8, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(9, 36, 13, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(10, 35, 10, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(11, 30, 9, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(12, 26, 12, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(13, 24, 15, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(14, 28, 14, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(15, 32, 16, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(16, 25, 11, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (17, 50, 21, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (18, 49, 18, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (19, 44, 17, 1, 1, 1, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
@@ -830,8 +851,6 @@ INSERT INTO `step_requirements` (`id`, `workflow_step_id`, `requirement_definiti
 (30, 72, 30, 1, 1, 0, '2026-09-14 00:53:40', '2026-09-28 21:35:09'),
 (31, 74, 32, 1, 1, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
 (32, 73, 31, 1, 1, 1, '2026-09-14 00:53:40', '2026-09-29 23:11:13'),
-(33, 75, 33, 1, 1, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10'),
-(34, 76, 34, 1, 1, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10'),
 (35, 72, 35, 1, 0, 1, '2026-09-22 18:27:31', '2026-09-28 21:35:09'),
 (36, 1, 36, 2, 1, 1, '2026-09-23 03:13:05', '2026-09-23 03:13:05'),
 (37, 72, 37, 2, 1, 1, '2026-09-28 21:30:46', '2026-09-28 21:35:09'),
@@ -867,17 +886,24 @@ INSERT INTO `step_requirements` (`id`, `workflow_step_id`, `requirement_definiti
 (70, 396, 71, 1, 1, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
 (71, 397, 68, 0, 1, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
 (72, 398, 77, 0, 1, 1, '2026-09-30 01:16:33', '2026-09-30 01:16:33'),
-(73, 399, 79, 0, 1, 1, '2026-09-30 01:23:00', '2026-09-30 01:23:00');
+(73, 399, 79, 0, 1, 1, '2026-09-30 01:23:00', '2026-09-30 01:23:00'),
+(74, 400, 80, 1, 1, 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59'),
+(75, 401, 81, 1, 1, 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59'),
+(76, 402, 82, 1, 1, 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33'),
+(77, 403, 83, 1, 1, 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33'),
+(78, 405, 84, 1, 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
+(79, 406, 85, 1, 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `step_roles`
 --
+
 CREATE TABLE `step_roles` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `role_id` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `role_id` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -901,20 +927,6 @@ INSERT INTO `step_roles` (`id`, `workflow_step_id`, `role_id`, `created_at`, `up
 (12, 15, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (13, 16, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (14, 17, 13, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(15, 24, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(16, 25, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(17, 26, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(18, 27, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(19, 28, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(20, 29, 7, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(21, 30, 8, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(22, 31, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(23, 32, 10, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(24, 33, 9, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(25, 34, 11, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(26, 35, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(27, 36, 12, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
-(28, 37, 13, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (29, 38, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (30, 39, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
 (31, 40, 6, '2026-09-23 17:27:37', '2026-09-23 17:27:37'),
@@ -939,8 +951,6 @@ INSERT INTO `step_roles` (`id`, `workflow_step_id`, `role_id`, `created_at`, `up
 (50, 73, 3, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
 (51, 73, 4, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
 (52, 74, 4, '2026-09-14 00:53:40', '2026-09-14 00:53:40'),
-(53, 75, 3, '2026-09-21 23:27:10', '2026-09-21 23:27:10'),
-(54, 76, 4, '2026-09-21 23:27:10', '2026-09-21 23:27:10'),
 (83, 98, 6, '2026-09-25 22:58:07', '2026-09-25 22:58:07'),
 (84, 99, 3, '2026-09-25 22:59:10', '2026-09-25 22:59:10'),
 (85, 100, 3, '2026-09-25 23:01:04', '2026-09-25 23:01:04'),
@@ -1224,22 +1234,31 @@ INSERT INTO `step_roles` (`id`, `workflow_step_id`, `role_id`, `created_at`, `up
 (385, 396, 14, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
 (386, 397, 14, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
 (387, 398, 14, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
-(388, 399, 14, '2026-09-30 01:15:05', '2026-09-30 01:15:05');
+(388, 399, 14, '2026-09-30 01:15:05', '2026-09-30 01:15:05'),
+(389, 400, 3, '2026-09-30 20:31:59', '2026-09-30 20:31:59'),
+(390, 401, 4, '2026-09-30 20:31:59', '2026-09-30 20:31:59'),
+(391, 402, 3, '2026-09-30 20:32:32', '2026-09-30 20:32:32'),
+(392, 403, 4, '2026-09-30 20:32:32', '2026-09-30 20:32:32'),
+(393, 404, 11, '2026-09-30 20:33:10', '2026-09-30 20:33:10'),
+(394, 405, 3, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
+(395, 406, 4, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
+(396, 407, 11, '2026-09-30 20:33:37', '2026-09-30 20:33:37');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transactions`
 --
+
 CREATE TABLE `transactions` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_type_id` bigint UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint UNSIGNED NOT NULL,
-  `office_id` bigint UNSIGNED DEFAULT NULL,
-  `reference_number` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `is_done` tinyint(1) NOT NULL DEFAULT '0',
-  `created_by` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `reference_number` varchar(255) NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `is_done` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1292,18 +1311,19 @@ INSERT INTO `transactions` (`id`, `transaction_type_id`, `workflow_definition_id
 --
 -- Table structure for table `transaction_attachments`
 --
+
 CREATE TABLE `transaction_attachments` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint UNSIGNED DEFAULT NULL,
-  `step_run_id` bigint UNSIGNED DEFAULT NULL,
-  `original_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `stored_path` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `disk` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'local',
-  `mime` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `size_bytes` bigint UNSIGNED NOT NULL DEFAULT '0',
-  `uploaded_by` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `step_run_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `original_name` varchar(255) NOT NULL,
+  `stored_path` varchar(255) NOT NULL,
+  `disk` varchar(255) NOT NULL DEFAULT 'local',
+  `mime` varchar(255) DEFAULT NULL,
+  `size_bytes` bigint(20) UNSIGNED NOT NULL DEFAULT 0,
+  `uploaded_by` bigint(20) UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1363,12 +1383,13 @@ INSERT INTO `transaction_attachments` (`id`, `transaction_id`, `workflow_step_id
 --
 -- Table structure for table `transaction_checklist_checks`
 --
+
 CREATE TABLE `transaction_checklist_checks` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `checklist_override_id` bigint UNSIGNED DEFAULT NULL,
-  `checked_by` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `checklist_override_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `checked_by` bigint(20) UNSIGNED NOT NULL,
   `checked_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1415,12 +1436,13 @@ INSERT INTO `transaction_checklist_checks` (`id`, `transaction_id`, `workflow_st
 --
 -- Table structure for table `transaction_requirement_checks`
 --
+
 CREATE TABLE `transaction_requirement_checks` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint UNSIGNED NOT NULL,
-  `checked_by` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `checked_by` bigint(20) UNSIGNED NOT NULL,
   `checked_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1487,10 +1509,11 @@ INSERT INTO `transaction_requirement_checks` (`id`, `transaction_id`, `workflow_
 --
 -- Table structure for table `transaction_states`
 --
+
 CREATE TABLE `transaction_states` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `current_step_id` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `current_step_id` bigint(20) UNSIGNED NOT NULL,
   `entered_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1543,11 +1566,12 @@ INSERT INTO `transaction_states` (`id`, `transaction_id`, `current_step_id`, `en
 --
 -- Table structure for table `transaction_station_touches`
 --
+
 CREATE TABLE `transaction_station_touches` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `workflow_step_id` bigint UNSIGNED NOT NULL,
-  `touched_by` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
+  `touched_by` bigint(20) UNSIGNED NOT NULL,
   `touched_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1558,19 +1582,20 @@ CREATE TABLE `transaction_station_touches` (
 --
 -- Table structure for table `transaction_step_runs`
 --
+
 CREATE TABLE `transaction_step_runs` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_id` bigint UNSIGNED NOT NULL,
-  `from_step_id` bigint UNSIGNED NOT NULL,
-  `to_step_id` bigint UNSIGNED DEFAULT NULL,
-  `action_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `remarks` text COLLATE utf8mb4_unicode_ci,
-  `performed_by` bigint UNSIGNED NOT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_id` bigint(20) UNSIGNED NOT NULL,
+  `from_step_id` bigint(20) UNSIGNED NOT NULL,
+  `to_step_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `action_code` varchar(255) NOT NULL,
+  `remarks` text DEFAULT NULL,
+  `performed_by` bigint(20) UNSIGNED NOT NULL,
   `performed_at` timestamp NULL DEFAULT NULL,
   `received_at` timestamp NULL DEFAULT NULL,
-  `received_by` bigint UNSIGNED DEFAULT NULL,
-  `received_office_id` bigint UNSIGNED DEFAULT NULL,
-  `sla_minutes_snapshot` int UNSIGNED NOT NULL DEFAULT '0',
+  `received_by` bigint(20) UNSIGNED DEFAULT NULL,
+  `received_office_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `sla_minutes_snapshot` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1781,12 +1806,13 @@ INSERT INTO `transaction_step_runs` (`id`, `transaction_id`, `from_step_id`, `to
 --
 -- Table structure for table `transaction_types`
 --
+
 CREATE TABLE `transaction_types` (
-  `id` bigint UNSIGNED NOT NULL,
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1809,15 +1835,16 @@ INSERT INTO `transaction_types` (`id`, `code`, `name`, `description`, `is_active
 --
 -- Table structure for table `users`
 --
+
 CREATE TABLE `users` (
-  `id` bigint UNSIGNED NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `office_id` bigint UNSIGNED DEFAULT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `remember_token` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `password` varchar(255) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `remember_token` varchar(100) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1843,15 +1870,17 @@ INSERT INTO `users` (`id`, `name`, `email`, `office_id`, `email_verified_at`, `p
 --
 -- Table structure for table `workflow_definitions`
 --
+
 CREATE TABLE `workflow_definitions` (
-  `id` bigint UNSIGNED NOT NULL,
-  `transaction_type_id` bigint UNSIGNED NOT NULL,
-  `version` int UNSIGNED NOT NULL DEFAULT '1',
-  `status` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `notes` text COLLATE utf8mb4_unicode_ci,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
+  `version` int(10) UNSIGNED NOT NULL DEFAULT 1,
+  `status` varchar(255) NOT NULL DEFAULT 'draft',
+  `is_live` tinyint(1) NOT NULL DEFAULT 0,
+  `name` varchar(255) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
   `published_at` timestamp NULL DEFAULT NULL,
-  `published_by` bigint UNSIGNED DEFAULT NULL,
+  `published_by` bigint(20) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1861,67 +1890,69 @@ CREATE TABLE `workflow_definitions` (
 -- Dumping data for table `workflow_definitions`
 --
 
-INSERT INTO `workflow_definitions` (`id`, `transaction_type_id`, `version`, `status`, `name`, `notes`, `published_at`, `published_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 1, 1, 'published', 'Payroll v1', 'Seeded sample workflow (TO VERIFY actual process)', '2026-03-09 21:24:39', 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(2, 2, 1, 'published', 'Purchase Request v1', 'Seeded full PR workflow based on executive summary flow image', '2026-03-09 21:24:39', 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
-(3, 3, 1, 'published', NULL, NULL, '2026-03-09 23:51:30', 1, '2026-03-09 23:49:10', '2026-03-09 23:51:30', NULL),
-(4, 3, 2, 'published', NULL, NULL, '2026-03-09 23:57:22', 1, '2026-03-09 23:56:26', '2026-03-09 23:57:22', NULL),
-(5, 3, 3, 'published', NULL, NULL, '2026-09-13 22:43:18', 1, '2026-03-10 00:30:24', '2026-09-13 22:43:18', NULL),
-(6, 2, 2, 'draft', NULL, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(7, 2, 3, 'published', NULL, NULL, '2026-09-11 20:12:13', 1, '2026-09-11 20:07:42', '2026-09-11 20:12:13', NULL),
-(16, 3, 4, 'published', NULL, NULL, '2026-09-13 22:43:45', 1, '2026-09-13 22:43:22', '2026-09-13 22:43:45', NULL),
-(17, 1, 2, 'published', NULL, NULL, '2026-09-24 19:04:26', 1, '2026-09-14 00:53:40', '2026-09-24 19:04:26', NULL),
-(18, 3, 5, 'draft', NULL, NULL, NULL, NULL, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
-(26, 9, 1, 'published', NULL, NULL, '2026-09-25 23:09:34', 1, '2026-09-25 22:56:43', '2026-09-25 23:09:34', NULL),
-(27, 9, 2, 'published', NULL, NULL, '2026-09-25 23:13:21', 1, '2026-09-25 23:12:20', '2026-09-25 23:13:21', NULL),
-(28, 9, 3, 'published', NULL, NULL, '2026-09-25 23:13:46', 1, '2026-09-25 23:13:32', '2026-09-25 23:13:46', NULL),
-(29, 9, 4, 'published', NULL, NULL, '2026-09-25 23:15:25', 1, '2026-09-25 23:14:13', '2026-09-25 23:15:25', NULL),
-(30, 9, 5, 'published', NULL, NULL, '2026-09-25 23:15:44', 1, '2026-09-25 23:15:34', '2026-09-25 23:15:44', NULL),
-(31, 9, 6, 'published', NULL, NULL, '2026-09-25 23:15:55', 1, '2026-09-25 23:15:47', '2026-09-25 23:15:55', NULL),
-(32, 9, 7, 'published', NULL, NULL, '2026-09-25 23:16:10', 1, '2026-09-25 23:15:59', '2026-09-25 23:16:10', NULL),
-(33, 9, 8, 'published', NULL, NULL, '2026-09-25 23:16:23', 1, '2026-09-25 23:16:13', '2026-09-25 23:16:23', NULL),
-(34, 9, 9, 'published', NULL, NULL, '2026-09-25 23:16:37', 1, '2026-09-25 23:16:28', '2026-09-25 23:16:37', NULL),
-(35, 9, 10, 'published', NULL, NULL, '2026-09-25 23:16:52', 1, '2026-09-25 23:16:41', '2026-09-25 23:16:52', NULL),
-(36, 9, 11, 'published', NULL, NULL, '2026-09-25 23:17:09', 1, '2026-09-25 23:16:57', '2026-09-25 23:17:09', NULL),
-(37, 9, 12, 'published', NULL, NULL, '2026-09-25 23:17:30', 1, '2026-09-25 23:17:13', '2026-09-25 23:17:30', NULL),
-(38, 9, 13, 'published', NULL, NULL, '2026-09-25 23:17:42', 1, '2026-09-25 23:17:34', '2026-09-25 23:17:42', NULL),
-(39, 9, 14, 'published', NULL, NULL, '2026-09-25 23:17:55', 1, '2026-09-25 23:17:45', '2026-09-25 23:17:55', NULL),
-(40, 9, 15, 'published', NULL, NULL, '2026-09-27 22:14:18', 1, '2026-09-27 22:13:53', '2026-09-27 22:14:18', NULL),
-(41, 9, 16, 'published', NULL, NULL, '2026-09-27 22:14:45', 1, '2026-09-27 22:14:30', '2026-09-27 22:14:45', NULL),
-(42, 9, 17, 'published', NULL, NULL, '2026-09-27 22:15:13', 1, '2026-09-27 22:15:04', '2026-09-27 22:15:13', NULL),
-(43, 9, 18, 'published', NULL, NULL, '2026-09-27 22:15:48', 1, '2026-09-27 22:15:25', '2026-09-27 22:15:48', NULL),
-(44, 9, 19, 'published', NULL, NULL, '2026-09-28 17:20:39', 1, '2026-09-28 17:20:34', '2026-09-28 17:20:39', NULL),
-(45, 9, 20, 'published', NULL, NULL, '2026-09-28 17:28:14', 1, '2026-09-28 17:27:45', '2026-09-28 17:28:14', NULL),
-(46, 9, 21, 'published', NULL, NULL, '2026-09-28 17:32:00', 1, '2026-09-28 17:31:40', '2026-09-28 17:32:00', NULL),
-(47, 9, 22, 'published', NULL, NULL, '2026-09-29 23:27:23', 1, '2026-09-28 17:32:11', '2026-09-29 23:27:23', NULL),
-(48, 10, 1, 'published', NULL, NULL, '2026-09-29 23:37:12', 1, '2026-09-29 23:34:04', '2026-09-29 23:37:12', NULL),
-(49, 10, 2, 'draft', NULL, NULL, NULL, NULL, '2026-09-29 23:37:52', '2026-09-29 23:37:52', NULL),
-(50, 9, 23, 'published', NULL, NULL, '2026-09-30 00:24:42', 1, '2026-09-30 00:23:40', '2026-09-30 00:24:42', NULL),
-(53, 11, 1, 'published', NULL, NULL, '2026-09-30 00:42:35', 1, '2026-09-30 00:30:31', '2026-09-30 00:42:35', NULL),
-(54, 11, 2, 'published', NULL, NULL, '2026-09-30 00:55:15', 1, '2026-09-30 00:52:28', '2026-09-30 00:55:15', NULL),
-(55, 11, 3, 'published', NULL, NULL, '2026-09-30 00:55:25', 1, '2026-09-30 00:55:17', '2026-09-30 00:55:25', NULL),
-(56, 11, 4, 'published', NULL, NULL, '2026-09-30 00:55:35', 1, '2026-09-30 00:55:27', '2026-09-30 00:55:35', NULL),
-(57, 11, 5, 'published', NULL, NULL, '2026-09-30 00:55:46', 1, '2026-09-30 00:55:37', '2026-09-30 00:55:46', NULL),
-(58, 11, 6, 'published', NULL, NULL, '2026-09-30 00:55:57', 1, '2026-09-30 00:55:49', '2026-09-30 00:55:57', NULL),
-(59, 11, 7, 'published', NULL, NULL, '2026-09-30 00:56:17', 1, '2026-09-30 00:56:08', '2026-09-30 00:56:17', NULL),
-(60, 11, 8, 'published', NULL, NULL, '2026-09-30 00:56:30', 1, '2026-09-30 00:56:20', '2026-09-30 00:56:30', NULL),
-(61, 11, 9, 'published', NULL, NULL, '2026-09-30 01:15:16', 1, '2026-09-30 01:15:05', '2026-09-30 01:15:16', NULL);
+INSERT INTO `workflow_definitions` (`id`, `transaction_type_id`, `version`, `status`, `is_live`, `name`, `notes`, `published_at`, `published_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 1, 1, 'published', 0, 'Payroll v1', 'Seeded sample workflow (TO VERIFY actual process)', '2026-03-09 21:24:39', 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(2, 2, 1, 'published', 0, 'Purchase Request v1', 'Seeded full PR workflow based on executive summary flow image', '2026-03-09 21:24:39', 1, '2026-03-09 21:24:39', '2026-03-09 21:24:39', NULL),
+(3, 3, 1, 'published', 0, NULL, NULL, '2026-03-09 23:51:30', 1, '2026-03-09 23:49:10', '2026-09-30 20:34:10', NULL),
+(4, 3, 2, 'published', 0, NULL, NULL, '2026-03-09 23:57:22', 1, '2026-03-09 23:56:26', '2026-09-30 20:34:10', NULL),
+(5, 3, 3, 'published', 0, NULL, NULL, '2026-09-13 22:43:18', 1, '2026-03-10 00:30:24', '2026-09-30 20:34:10', NULL),
+(7, 2, 3, 'published', 1, NULL, NULL, '2026-09-11 20:12:13', 1, '2026-09-11 20:07:42', '2026-09-11 20:12:13', NULL),
+(16, 3, 4, 'published', 0, NULL, NULL, '2026-09-13 22:43:45', 1, '2026-09-13 22:43:22', '2026-09-30 20:34:10', NULL),
+(17, 1, 2, 'published', 1, NULL, NULL, '2026-09-24 19:04:26', 1, '2026-09-14 00:53:40', '2026-09-24 19:04:26', NULL),
+(26, 9, 1, 'published', 0, NULL, NULL, '2026-09-25 23:09:34', 1, '2026-09-25 22:56:43', '2026-09-25 23:09:34', NULL),
+(27, 9, 2, 'published', 0, NULL, NULL, '2026-09-25 23:13:21', 1, '2026-09-25 23:12:20', '2026-09-25 23:13:21', NULL),
+(28, 9, 3, 'published', 0, NULL, NULL, '2026-09-25 23:13:46', 1, '2026-09-25 23:13:32', '2026-09-25 23:13:46', NULL),
+(29, 9, 4, 'published', 0, NULL, NULL, '2026-09-25 23:15:25', 1, '2026-09-25 23:14:13', '2026-09-25 23:15:25', NULL),
+(30, 9, 5, 'published', 0, NULL, NULL, '2026-09-25 23:15:44', 1, '2026-09-25 23:15:34', '2026-09-25 23:15:44', NULL),
+(31, 9, 6, 'published', 0, NULL, NULL, '2026-09-25 23:15:55', 1, '2026-09-25 23:15:47', '2026-09-25 23:15:55', NULL),
+(32, 9, 7, 'published', 0, NULL, NULL, '2026-09-25 23:16:10', 1, '2026-09-25 23:15:59', '2026-09-25 23:16:10', NULL),
+(33, 9, 8, 'published', 0, NULL, NULL, '2026-09-25 23:16:23', 1, '2026-09-25 23:16:13', '2026-09-25 23:16:23', NULL),
+(34, 9, 9, 'published', 0, NULL, NULL, '2026-09-25 23:16:37', 1, '2026-09-25 23:16:28', '2026-09-25 23:16:37', NULL),
+(35, 9, 10, 'published', 0, NULL, NULL, '2026-09-25 23:16:52', 1, '2026-09-25 23:16:41', '2026-09-25 23:16:52', NULL),
+(36, 9, 11, 'published', 0, NULL, NULL, '2026-09-25 23:17:09', 1, '2026-09-25 23:16:57', '2026-09-25 23:17:09', NULL),
+(37, 9, 12, 'published', 0, NULL, NULL, '2026-09-25 23:17:30', 1, '2026-09-25 23:17:13', '2026-09-25 23:17:30', NULL),
+(38, 9, 13, 'published', 0, NULL, NULL, '2026-09-25 23:17:42', 1, '2026-09-25 23:17:34', '2026-09-25 23:17:42', NULL),
+(39, 9, 14, 'published', 0, NULL, NULL, '2026-09-25 23:17:55', 1, '2026-09-25 23:17:45', '2026-09-25 23:17:55', NULL),
+(40, 9, 15, 'published', 0, NULL, NULL, '2026-09-27 22:14:18', 1, '2026-09-27 22:13:53', '2026-09-27 22:14:18', NULL),
+(41, 9, 16, 'published', 0, NULL, NULL, '2026-09-27 22:14:45', 1, '2026-09-27 22:14:30', '2026-09-27 22:14:45', NULL),
+(42, 9, 17, 'published', 0, NULL, NULL, '2026-09-27 22:15:13', 1, '2026-09-27 22:15:04', '2026-09-27 22:15:13', NULL),
+(43, 9, 18, 'published', 0, NULL, NULL, '2026-09-27 22:15:48', 1, '2026-09-27 22:15:25', '2026-09-27 22:15:48', NULL),
+(44, 9, 19, 'published', 0, NULL, NULL, '2026-09-28 17:20:39', 1, '2026-09-28 17:20:34', '2026-09-28 17:20:39', NULL),
+(45, 9, 20, 'published', 0, NULL, NULL, '2026-09-28 17:28:14', 1, '2026-09-28 17:27:45', '2026-09-28 17:28:14', NULL),
+(46, 9, 21, 'published', 0, NULL, NULL, '2026-09-28 17:32:00', 1, '2026-09-28 17:31:40', '2026-09-28 17:32:00', NULL),
+(47, 9, 22, 'published', 0, NULL, NULL, '2026-09-29 23:27:23', 1, '2026-09-28 17:32:11', '2026-09-29 23:27:23', NULL),
+(48, 10, 1, 'published', 1, NULL, NULL, '2026-09-29 23:37:12', 1, '2026-09-29 23:34:04', '2026-09-29 23:37:12', NULL),
+(49, 10, 2, 'draft', 0, NULL, NULL, NULL, NULL, '2026-09-29 23:37:52', '2026-09-29 23:37:52', NULL),
+(50, 9, 23, 'published', 1, NULL, NULL, '2026-09-30 00:24:42', 1, '2026-09-30 00:23:40', '2026-09-30 00:24:42', NULL),
+(53, 11, 1, 'published', 0, NULL, NULL, '2026-09-30 00:42:35', 1, '2026-09-30 00:30:31', '2026-09-30 00:42:35', NULL),
+(54, 11, 2, 'published', 0, NULL, NULL, '2026-09-30 00:55:15', 1, '2026-09-30 00:52:28', '2026-09-30 00:55:15', NULL),
+(55, 11, 3, 'published', 0, NULL, NULL, '2026-09-30 00:55:25', 1, '2026-09-30 00:55:17', '2026-09-30 00:55:25', NULL),
+(56, 11, 4, 'published', 0, NULL, NULL, '2026-09-30 00:55:35', 1, '2026-09-30 00:55:27', '2026-09-30 00:55:35', NULL),
+(57, 11, 5, 'published', 0, NULL, NULL, '2026-09-30 00:55:46', 1, '2026-09-30 00:55:37', '2026-09-30 00:55:46', NULL),
+(58, 11, 6, 'published', 0, NULL, NULL, '2026-09-30 00:55:57', 1, '2026-09-30 00:55:49', '2026-09-30 00:55:57', NULL),
+(59, 11, 7, 'published', 0, NULL, NULL, '2026-09-30 00:56:17', 1, '2026-09-30 00:56:08', '2026-09-30 00:56:17', NULL),
+(60, 11, 8, 'published', 0, NULL, NULL, '2026-09-30 00:56:30', 1, '2026-09-30 00:56:20', '2026-09-30 00:56:30', NULL),
+(61, 11, 9, 'published', 1, NULL, NULL, '2026-09-30 01:15:16', 1, '2026-09-30 01:15:05', '2026-09-30 01:15:16', NULL),
+(62, 3, 5, 'published', 1, 'Bryan', NULL, '2026-09-30 20:32:13', 1, '2026-09-30 20:31:59', '2026-09-30 20:34:10', NULL),
+(63, 3, 6, 'published', 0, NULL, NULL, '2026-09-30 20:33:11', 1, '2026-09-30 20:32:32', '2026-09-30 20:34:10', NULL),
+(64, 3, 7, 'published', 0, 'bry', 's', '2026-09-30 20:33:37', 1, '2026-09-30 20:33:36', '2026-09-30 20:34:10', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `workflow_routes`
 --
+
 CREATE TABLE `workflow_routes` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint UNSIGNED NOT NULL,
-  `from_step_id` bigint UNSIGNED NOT NULL,
-  `to_step_id` bigint UNSIGNED NOT NULL,
-  `action_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_return_route` tinyint(1) NOT NULL DEFAULT '0',
-  `condition_expression` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  `route_group` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `required_approvals_count` int UNSIGNED DEFAULT NULL,
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `from_step_id` bigint(20) UNSIGNED NOT NULL,
+  `to_step_id` bigint(20) UNSIGNED NOT NULL,
+  `action_code` varchar(255) NOT NULL,
+  `is_return_route` tinyint(1) NOT NULL DEFAULT 0,
+  `condition_expression` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `route_group` varchar(255) DEFAULT NULL,
+  `required_approvals_count` int(10) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1954,20 +1985,6 @@ INSERT INTO `workflow_routes` (`id`, `workflow_definition_id`, `from_step_id`, `
 (20, 4, 21, 20, 'submit', 0, NULL, NULL, NULL, '2026-03-09 23:56:48', '2026-03-09 23:56:48', NULL),
 (21, 5, 22, 23, 'submit', 0, NULL, NULL, NULL, '2026-03-10 00:30:24', '2026-03-10 00:30:24', NULL),
 (22, 5, 23, 22, 'submit', 0, NULL, NULL, NULL, '2026-03-10 00:30:24', '2026-03-10 00:30:24', NULL),
-(23, 6, 29, 24, 'return', 1, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(24, 6, 24, 25, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(25, 6, 25, 26, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(26, 6, 26, 27, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(27, 6, 27, 28, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(28, 6, 28, 29, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(29, 6, 29, 30, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(30, 6, 30, 31, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(31, 6, 31, 32, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(32, 6, 32, 33, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(33, 6, 33, 34, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(34, 6, 34, 35, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(35, 6, 35, 36, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(36, 6, 36, 37, 'submit', 0, NULL, NULL, NULL, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
 (37, 7, 43, 38, 'return', 1, NULL, NULL, NULL, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
 (38, 7, 38, 39, 'submit', 0, NULL, NULL, NULL, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
 (39, 7, 39, 40, 'submit', 0, NULL, NULL, NULL, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
@@ -1987,8 +2004,6 @@ INSERT INTO `workflow_routes` (`id`, `workflow_definition_id`, `from_step_id`, `
 (56, 17, 73, 74, 'approve', 0, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (57, 17, 73, 72, 'return', 1, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (58, 17, 72, 73, 'submit', 0, NULL, NULL, NULL, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(59, 18, 76, 75, 'return', 1, NULL, NULL, NULL, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
-(60, 18, 75, 76, 'submit', 0, NULL, NULL, NULL, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
 (64, 32, 146, 147, 'submit', 0, NULL, NULL, NULL, '2026-09-25 23:16:09', '2026-09-25 23:16:09', NULL),
 (65, 33, 154, 155, 'submit', 0, NULL, NULL, NULL, '2026-09-25 23:16:13', '2026-09-25 23:16:13', NULL),
 (66, 33, 155, 156, 'submit', 0, NULL, NULL, NULL, '2026-09-25 23:16:22', '2026-09-25 23:16:22', NULL),
@@ -2119,25 +2134,32 @@ INSERT INTO `workflow_routes` (`id`, `workflow_definition_id`, `from_step_id`, `
 (191, 61, 395, 396, 'submit', 0, NULL, NULL, NULL, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
 (192, 61, 396, 397, 'submit', 0, NULL, NULL, NULL, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
 (193, 61, 397, 398, 'submit', 0, NULL, NULL, NULL, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
-(194, 61, 398, 399, 'submit', 0, NULL, NULL, NULL, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL);
+(194, 61, 398, 399, 'submit', 0, NULL, NULL, NULL, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
+(195, 62, 401, 400, 'return', 1, NULL, NULL, NULL, '2026-09-30 20:31:59', '2026-09-30 20:31:59', NULL),
+(196, 62, 400, 401, 'submit', 0, NULL, NULL, NULL, '2026-09-30 20:31:59', '2026-09-30 20:31:59', NULL),
+(197, 63, 403, 402, 'return', 1, NULL, NULL, NULL, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
+(198, 63, 402, 403, 'submit', 0, NULL, NULL, NULL, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
+(199, 64, 406, 405, 'return', 1, NULL, NULL, NULL, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(200, 64, 405, 406, 'submit', 0, NULL, NULL, NULL, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `workflow_steps`
 --
+
 CREATE TABLE `workflow_steps` (
-  `id` bigint UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint UNSIGNED NOT NULL,
-  `parent_id` bigint UNSIGNED DEFAULT NULL,
-  `order_number` int UNSIGNED NOT NULL DEFAULT '1',
-  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `stage` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `office_id` bigint UNSIGNED DEFAULT NULL,
-  `sla_minutes` int UNSIGNED NOT NULL DEFAULT '0',
-  `is_start` tinyint(1) NOT NULL DEFAULT '0',
-  `is_end` tinyint(1) NOT NULL DEFAULT '0',
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
+  `parent_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 1,
+  `code` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `stage` varchar(255) DEFAULT NULL,
+  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `sla_minutes` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `is_start` tinyint(1) NOT NULL DEFAULT 0,
+  `is_end` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -2171,20 +2193,6 @@ INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `orde
 (21, 4, NULL, 2, 'station_2', 'Station 2', NULL, NULL, 60, 0, 1, '2026-03-09 23:56:26', '2026-03-09 23:56:26', NULL),
 (22, 5, NULL, 1, 'ridz', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-03-10 00:30:24', '2026-09-13 22:43:17', NULL),
 (23, 5, NULL, 2, 'station_2', 'Station 2', NULL, NULL, 60, 0, 1, '2026-03-10 00:30:24', '2026-03-10 00:30:24', NULL),
-(24, 6, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', NULL, 2880, 1, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(25, 6, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(26, 6, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(27, 6, NULL, 4, 'email_gso', 'Email Document to GSO', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(28, 6, NULL, 5, 'gso_input_pr_no', 'Input PR Number', 'gso', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(29, 6, NULL, 6, 'gso_return_esig', 'Return to End User to Re-attach E-Sig', 'gso', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(30, 6, NULL, 7, 'city_admin_sign', 'City Administrator Attaches E-Signature', 'city_admin', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(31, 6, NULL, 8, 'email_cto', 'Email Document to CTO', 'end_user', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(32, 6, NULL, 9, 'treasurer_sign', 'City Treasurer Attaches E-Signature', 'city_treasurer', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(33, 6, NULL, 10, 'email_cadmin', 'CTO Emails Document to CAdmin', 'cto', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(34, 6, NULL, 11, 'email_cbo', 'CAdmin Emails Document to CBO', 'cadmin', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(35, 6, NULL, 12, 'cbo_validate', 'CBO Downloads Valid & Untampered Document', 'cbo', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(36, 6, NULL, 13, 'cbo_earmark', 'CBO Prints & Fills Earmark Details', 'cbo', NULL, 2880, 0, 0, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
-(37, 6, NULL, 14, 'submit_bac_paad', 'CBO Submits Documents to BAC-PAAD', 'bac_paad', NULL, 2880, 0, 1, '2026-09-11 19:51:53', '2026-09-11 19:51:53', NULL),
 (38, 7, NULL, 1, 'create_pr', 'Create Purchase Request + Attach E-Signature', 'end_user', NULL, 2880, 1, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
 (39, 7, NULL, 2, 'upload_drive', 'Upload to Google Drive (Get File Link)', 'end_user', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
 (40, 7, NULL, 3, 'create_dts', 'Create DTS Transaction + Attach Drive Link', 'end_user', NULL, 2880, 0, 0, '2026-09-11 20:07:42', '2026-09-11 20:07:42', NULL),
@@ -2204,8 +2212,6 @@ INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `orde
 (72, 17, NULL, 1, 'collect_dtr', 'Collect DTR', 'HR', NULL, 2880, 1, 0, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
 (73, 17, NULL, 2, 'validate_dtr', 'Validate DTR', 'HR', 4, 2880, 0, 0, '2026-09-14 00:53:40', '2026-09-24 19:04:24', NULL),
 (74, 17, NULL, 3, 'finalize_payroll', 'Finalize Payroll', 'Accounting', NULL, 4320, 0, 1, '2026-09-14 00:53:40', '2026-09-14 00:53:40', NULL),
-(75, 18, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
-(76, 18, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-21 23:27:10', '2026-09-21 23:27:10', NULL),
 (98, 26, NULL, 1, 'it_procurements_1', 'Create Annual Investment Plan', 'Planning', 24, 100, 1, 0, '2026-09-25 22:58:07', '2026-09-25 22:58:07', NULL),
 (99, 26, NULL, 2, 'it_procurements_2', 'Return Approve AIP to end user', 'Planning', 10, 20, 0, 0, '2026-09-25 22:59:10', '2026-09-25 22:59:10', NULL),
 (100, 26, NULL, 3, 'it_procurements_3', 'Create PPMP', 'Planning', 24, 10, 0, 0, '2026-09-25 23:01:04', '2026-09-25 23:01:04', NULL),
@@ -2479,8 +2485,7 @@ INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `orde
 (386, 60, NULL, 3, 'procurement_it_equipment_3', 'Submit PR to CTO', 'Availability of funds', 5, 120, 0, 0, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL),
 (387, 60, NULL, 4, 'procurement_it_equipment_4', 'CTO  Return approve PR to  End user', 'Availability of funds', 24, 120, 0, 0, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL),
 (388, 60, NULL, 5, 'procurement_it_equipment_5', 'Submit PR to CBO', 'Availability of Appropriation', 9, 120, 0, 0, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL),
-(389, 60, NULL, 6, 'procurement_it_equipment_6', 'Submit Pr to Mayor Office', 'Mayor Approval', 1, 120, 0, 0, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL);
-INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `order_number`, `code`, `name`, `stage`, `office_id`, `sla_minutes`, `is_start`, `is_end`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(389, 60, NULL, 6, 'procurement_it_equipment_6', 'Submit Pr to Mayor Office', 'Mayor Approval', 1, 120, 0, 0, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL),
 (390, 60, NULL, 7, 'procurement_it_equipment_7', 'CMO return approve PR to CBO', 'Mayor Approval', 9, 120, 0, 0, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL),
 (391, 60, NULL, 8, 'procurement_it_equipment_8', 'Submit PR to PAAD', 'PR submission', 26, 120, 0, 1, '2026-09-30 00:56:20', '2026-09-30 00:56:20', NULL),
 (392, 61, NULL, 1, 'procurement_it_equipment_1', 'Submit PR to GSO', 'PR numbering', 8, 0, 1, 0, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
@@ -2490,7 +2495,16 @@ INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `orde
 (396, 61, NULL, 5, 'procurement_it_equipment_5', 'Submit PR to CBO', 'Availability of Appropriation', 9, 120, 0, 0, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
 (397, 61, NULL, 6, 'procurement_it_equipment_6', 'Submit Pr to Mayor Office', 'Mayor Approval', 1, 120, 0, 0, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
 (398, 61, NULL, 7, 'procurement_it_equipment_7', 'Mayor Office return approve PR to CBO', 'Mayor Approval', 9, 120, 0, 0, '2026-09-30 01:15:05', '2026-09-30 01:15:15', NULL),
-(399, 61, NULL, 8, 'procurement_it_equipment_8', 'Submit PR to PAAD', 'PR submission', 26, 120, 0, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL);
+(399, 61, NULL, 8, 'procurement_it_equipment_8', 'Submit PR to PAAD', 'PR submission', 26, 120, 0, 1, '2026-09-30 01:15:05', '2026-09-30 01:15:05', NULL),
+(400, 62, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-30 20:31:59', '2026-09-30 20:31:59', NULL),
+(401, 62, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59', NULL),
+(402, 63, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-30 20:32:32', '2026-09-30 20:32:32', NULL),
+(403, 63, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-30 20:32:32', '2026-09-30 20:32:32', NULL),
+(404, 63, 402, 3, 'communication_3', 'bry', NULL, 23, 60, 0, 0, '2026-09-30 20:33:10', '2026-09-30 20:33:10', NULL);
+INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `order_number`, `code`, `name`, `stage`, `office_id`, `sla_minutes`, `is_start`, `is_end`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(405, 64, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(406, 64, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(407, 64, NULL, 3, 'communication_3', 'bry', NULL, 23, 60, 0, 0, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL);
 
 --
 -- Indexes for dumped tables
@@ -2800,175 +2814,175 @@ ALTER TABLE `workflow_steps`
 -- AUTO_INCREMENT for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
 
 --
 -- AUTO_INCREMENT for table `checklist_overrides`
 --
 ALTER TABLE `checklist_overrides`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
 
 --
 -- AUTO_INCREMENT for table `failed_jobs`
 --
 ALTER TABLE `failed_jobs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `field_definitions`
 --
 ALTER TABLE `field_definitions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `field_definition_workflow_step`
 --
 ALTER TABLE `field_definition_workflow_step`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `field_values`
 --
 ALTER TABLE `field_values`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `government_references`
 --
 ALTER TABLE `government_references`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `jobs`
 --
 ALTER TABLE `jobs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
 --
 -- AUTO_INCREMENT for table `offices`
 --
 ALTER TABLE `offices`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `office_steps`
 --
 ALTER TABLE `office_steps`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `office_transaction_type`
 --
 ALTER TABLE `office_transaction_type`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `permissions`
 --
 ALTER TABLE `permissions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `requirement_definitions`
 --
 ALTER TABLE `requirement_definitions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=86;
 
 --
 -- AUTO_INCREMENT for table `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `step_requirements`
 --
 ALTER TABLE `step_requirements`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
 
 --
 -- AUTO_INCREMENT for table `step_roles`
 --
 ALTER TABLE `step_roles`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=389;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=397;
 
 --
 -- AUTO_INCREMENT for table `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- AUTO_INCREMENT for table `transaction_attachments`
 --
 ALTER TABLE `transaction_attachments`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- AUTO_INCREMENT for table `transaction_checklist_checks`
 --
 ALTER TABLE `transaction_checklist_checks`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- AUTO_INCREMENT for table `transaction_requirement_checks`
 --
 ALTER TABLE `transaction_requirement_checks`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=125;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=125;
 
 --
 -- AUTO_INCREMENT for table `transaction_states`
 --
 ALTER TABLE `transaction_states`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- AUTO_INCREMENT for table `transaction_station_touches`
 --
 ALTER TABLE `transaction_station_touches`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=202;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=202;
 
 --
 -- AUTO_INCREMENT for table `transaction_types`
 --
 ALTER TABLE `transaction_types`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `workflow_definitions`
 --
 ALTER TABLE `workflow_definitions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- AUTO_INCREMENT for table `workflow_routes`
 --
 ALTER TABLE `workflow_routes`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=195;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=201;
 
 --
 -- AUTO_INCREMENT for table `workflow_steps`
 --
 ALTER TABLE `workflow_steps`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=400;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=408;
 
 --
 -- Constraints for dumped tables
