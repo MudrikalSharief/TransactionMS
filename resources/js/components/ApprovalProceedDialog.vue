@@ -9,6 +9,9 @@
             </v-card-title>
             <v-divider />
             <v-card-text>
+                <div v-if="currentStepMiniTitle" class="text-caption text-medium-emphasis mb-3">
+                    {{ currentStepMiniTitle }}
+                </div>
                 <TableLoader v-if="loading" label="transaction" compact />
 
                 <template v-else-if="tx">
@@ -153,11 +156,57 @@ const selectedAction = computed(() =>
 );
 const selectedActionLabel = computed(() => (selectedAction.value ? labelForAction(selectedAction.value) : ""));
 
-// Single-line Proceed modal title: destination step number only.
+// Proceed modal title: Proceed to "stepname" (office code). Name comes from
+// the destination step (workflow_routes.to_step_id → workflow_steps); office
+// code comes from the CURRENT step's Destination Office (where the paper is
+// being sent from, e.g. General Service Office when on step 1).
+function destStepForTitle() {
+    const direct = selectedAction.value?.to_step;
+    const routeId = Number(selectedRouteId.value);
+    const route = (tx.value?.workflow_routes || []).find((r) => Number(r.id) === routeId);
+    const toId = direct?.id ?? route?.to_step_id;
+    if (toId != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(toId));
+        if (s) return { ...direct, ...s, office: s.office ?? direct?.office ?? null };
+    }
+    return direct ?? null;
+}
+function currentOfficeForTitle() {
+    const cur = tx.value?.current_step;
+    if (cur?.office?.code || cur?.office?.name || cur?.stage) return cur;
+    const cid = cur?.id;
+    if (cid != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(cid));
+        if (s) return s;
+    }
+    return cur ?? null;
+}
+
+// Single-line Proceed modal title: destination step name + current office code.
 const proceedModalTitle = computed(() => {
-    const n = selectedAction.value?.to_step?.order_number;
-    if (!selectedRouteId.value || !selectedAction.value || n == null || n === "") return "Proceed";
-    return `Proceed to Step ${n}`;
+    if (!selectedRouteId.value || !selectedAction.value) return "Proceed";
+    const dest = destStepForTitle();
+    const n = dest?.order_number;
+    const name = dest?.name || dest?.code || (n != null && n !== "" ? `Step ${n}` : "");
+    if (!name) return "Proceed";
+    const cur = currentOfficeForTitle();
+    const office = String(
+        cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
+        dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
+    ).trim();
+    return office ? `Proceed to "${name}" (${office})` : `Proceed to "${name}"`;
+});
+
+// Mini title below the divider: where the paper currently sits.
+const currentStepMiniTitle = computed(() => {
+    const c = tx.value?.current_step;
+    if (!c) return "";
+    const n = c.order_number ?? "";
+    const name = c.name || c.code || "";
+    if (n !== "" && n != null && name) return `You are in Step ${n} · ${name}`;
+    if (name) return `You are in ${name}`;
+    if (n !== "" && n != null) return `You are in Step ${n}`;
+    return "";
 });
 
 // Step 1 → step 2 shows requirements only (same rule as the transaction page).

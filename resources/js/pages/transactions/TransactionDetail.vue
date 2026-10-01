@@ -267,8 +267,11 @@
                 </v-alert>
 
                 <div v-else class="mb-3">
+                    <!-- Station-card missing-files warning hidden: blocking stays in the
+                         Proceed modal (upload-required chips + disabled Proceed + backend 422).
+                         Remove v-if="false" to restore. -->
                     <v-alert
-                        v-if="missingRequiredUploadLabels.length || missingRequiredChecklistLabels.length"
+                        v-if="false && (missingRequiredUploadLabels.length || missingRequiredChecklistLabels.length)"
                         type="warning"
                         variant="tonal"
                         class="mb-3"
@@ -504,6 +507,9 @@
                 </v-card-title>
                 <v-divider />
                 <v-card-text>
+                    <div v-if="currentStepMiniTitle" class="text-caption text-medium-emphasis mb-3">
+                        {{ currentStepMiniTitle }}
+                    </div>
                     <ProceedWizard
                         ref="wizardRef"
                         v-model:step="wizardStep"
@@ -1425,16 +1431,71 @@ const mainActionButtonLabel = computed(() => {
     return `Proceed to Station ${selectedStepNumber.value}`;
 });
 
-// Single-line Proceed modal title: destination step number only.
+// Proceed modal title: Proceed to "stepname" (office code). Name comes from
+// the destination step (workflow_routes.to_step_id → workflow_steps); office
+// code comes from the CURRENT step's Destination Office (where the paper is
+// being sent from, e.g. General Service Office when on step 1).
+function destStepForTitle() {
+    if (isJumpSelected.value) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(jumpStepId.value));
+        if (s) return s;
+        return null;
+    }
+    const direct = selectedAction.value?.to_step;
+    const routeId = Number(selectedRouteId.value);
+    const route = (tx.value?.workflow_routes || []).find((r) => Number(r.id) === routeId);
+    const toId = direct?.id ?? route?.to_step_id ?? selectedAction.value?.to_step_id;
+    if (toId != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(toId));
+        if (s) return { ...direct, ...s, office: s.office ?? direct?.office ?? null };
+    }
+    return direct ?? null;
+}
+function currentOfficeForTitle() {
+    const cur = tx.value?.current_step;
+    if (cur?.office?.code || cur?.office?.name || cur?.stage) return cur;
+    const cid = cur?.id;
+    if (cid != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(cid));
+        if (s) return s;
+    }
+    return cur ?? null;
+}
+function proceedTitle(prefix) {
+    const dest = destStepForTitle();
+    const n = dest?.order_number ?? selectedStepNumber.value ?? "";
+    const name = dest?.name || dest?.code || (n !== "" && n != null ? `Step ${n}` : "");
+    if (!name) return "Proceed";
+    const cur = currentOfficeForTitle();
+    const office = String(
+        cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
+        dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
+    ).trim();
+    return office ? `${prefix} "${name}" (${office})` : `${prefix} "${name}"`;
+}
+
+// Single-line Proceed modal title: destination step name + office.
 const proceedModalTitle = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {
-        const n = selectedJumpOption.value?.to_number ?? "";
-        return n !== "" ? `Proceed to Step ${n}` : "Proceed";
+        if (!selectedJumpOption.value) return "Proceed";
+        return proceedTitle("Proceed to");
     }
     if (!selectedAction.value) return "Proceed";
-    if (isReturnSelected.value) return `Return to Step ${selectedStepNumber.value}`;
-    return `Proceed to Step ${selectedStepNumber.value}`;
+    if (isReturnSelected.value) return proceedTitle("Return to");
+    return proceedTitle("Proceed to");
+});
+
+// Mini title below the divider: where the paper currently sits.
+const currentStepMiniTitle = computed(() => {
+    const c = tx.value?.current_step;
+    if (!c) return "";
+    const n = c.order_number ?? "";
+    const name = c.name || c.code || "";
+    if (n !== "" && n != null && name) return `You are in Step ${n} · ${name}`;
+    if (name) return `You are in ${name}`;
+    if (n !== "" && n != null) return `You are in Step ${n}`;
+    return "";
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so

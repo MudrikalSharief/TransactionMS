@@ -312,8 +312,9 @@ class TransactionResource extends JsonResource
 
                 $stationChecklist[] = [
                     'step' => array_merge(
-                        $s->only(['id', 'code', 'name', 'order_number', 'is_start', 'is_end']),
-                        ['roles' => $rolesByStep->get((int) $s->id, [])]
+                        $s->only(['id', 'code', 'name', 'order_number', 'is_start', 'is_end', 'office_id']),
+                        ['roles' => $rolesByStep->get((int) $s->id, [])],
+                        ['office' => $s->office?->only(['id', 'code', 'name'])]
                     ),
                     'requirements' => $rows,
                     // Proceed-level files for this station (uploaded in the
@@ -368,10 +369,16 @@ class TransactionResource extends JsonResource
             'created_by' => $this->creator?->only(['id','name','email']),
             'created_at' => $this->created_at?->toISOString(),
 
-            'current_step' => $state?->currentStep?->only(['id','order_number','code','name','stage','sla_minutes','is_start','is_end']),
+            'current_step' => $state?->currentStep ? array_merge(
+                $state->currentStep->only(['id','order_number','code','name','stage','sla_minutes','is_start','is_end','office_id']),
+                ['office' => $state->currentStep->office?->only(['id','code','name'])]
+            ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
 
-            'workflow_steps' => $this->workflow?->steps?->map(fn($s) => $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end']))?->values(),
+            'workflow_steps' => $this->workflow?->steps?->map(fn($s) => array_merge(
+                $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end','office_id']),
+                ['office' => $s->office?->only(['id','code','name'])]
+            ))?->values(),
             'workflow_routes' => $this->workflow?->routes?->map(fn($r) => $r->only(['id','from_step_id','to_step_id','action_code','is_return_route','route_group','required_approvals_count','condition_expression']))?->values(),
 
             'current_step_fields' => $currentStepFields,

@@ -57,9 +57,11 @@ class TransactionRequirementController extends Controller
         $transaction->load([
             'type',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'creator',
             'runs.fromStep',
             'runs.fromStep.office',
@@ -141,9 +143,11 @@ class TransactionRequirementController extends Controller
         $transaction->load([
             'type',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'creator',
             'runs.fromStep',
             'runs.fromStep.office',
