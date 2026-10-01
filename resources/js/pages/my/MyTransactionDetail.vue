@@ -22,7 +22,7 @@
                 </div>
 
                 <div class="mb-2">
-                    <b>Current Step:</b> {{ tx.current_step?.name }} ({{ tx.current_step?.code }})
+                    <b>Current Step:</b> {{ tx.current_step?.name }}
                 </div>
 
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
