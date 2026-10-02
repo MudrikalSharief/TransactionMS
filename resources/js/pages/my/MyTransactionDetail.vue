@@ -65,6 +65,26 @@
                 </v-card-text>
             </v-card>
 
+            <!-- Stations tracker skeleton: holds the tracker's place so the
+                step dots don't pop the layout when workflow_steps arrive. -->
+            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
+                <v-card-title class="d-flex align-center pa-5">
+                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
+                        <v-icon color="white">mdi-source-branch</v-icon>
+                    </v-avatar>
+                    <span class="text-h6 font-weight-bold">Transaction Stations</span>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pa-4">
+                    <div class="d-flex align-start ga-2 flex-wrap">
+                        <div v-for="n in 5" :key="n" class="d-flex flex-column align-center" style="min-width: 96px">
+                            <v-skeleton-loader type="avatar" width="52" />
+                            <v-skeleton-loader type="text" width="84" class="mt-2" />
+                        </div>
+                    </div>
+                </v-card-text>
+            </v-card>
+
             <!-- Checklist skeleton hidden with its card (see below). -->
             <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
                 <v-card-title class="d-flex align-center pa-5">

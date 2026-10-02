@@ -1,9 +1,12 @@
 import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
-import { readCache, writeCache, CacheKeys, slimTx } from "@/composables/useCache";
+import { useAuth } from "@/composables/useAuth";
+import { readCache, writeCache, CacheKeys, scopedKey, slimTx } from "@/composables/useCache";
 
 export function useMyTransactions() {
     const { api } = useApi();
+    const { user } = useAuth();
+    const key = () => scopedKey(CacheKeys.myTransactions, user.value?.id);
 
     const items = ref([]);
     const loading = ref(true);
@@ -30,7 +33,7 @@ export function useMyTransactions() {
         const isDefault = !String(q || "").trim() && Number(page) === 1;
         let painted = false;
         if (isDefault) {
-            const cached = readCache(CacheKeys.myTransactions);
+            const cached = readCache(key());
             if (cached != null) {
                 items.value = cached;
                 meta.value = { total: cached.length, page: 1, lastPage: 1, perPage: per_page };
@@ -45,7 +48,7 @@ export function useMyTransactions() {
             if (String(q || "").trim()) params.q = String(q).trim();
             const res = await api.get("/api/transactions", { params });
             applyPayload(res);
-            if (isDefault) writeCache(CacheKeys.myTransactions, (items.value || []).map(slimTx));
+            if (isDefault) writeCache(key(), (items.value || []).map(slimTx));
         } finally {
             if (!quiet) loading.value = false;
         }

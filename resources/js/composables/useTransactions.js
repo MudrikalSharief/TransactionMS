@@ -1,9 +1,14 @@
 import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
-import { readCache, writeCache, invalidateCache, CacheKeys, slimTx } from '@/composables/useCache'
+import { useAuth } from '@/composables/useAuth'
+import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, slimTx } from '@/composables/useCache'
 
 export function useTransactions() {
   const { api } = useApi()
+  const { user } = useAuth()
+  // Rows depend on who is logged in: scope the cache per user so a shared
+  // device never paints another user's list.
+  const key = () => scopedKey(CacheKeys.transactions, user.value?.id)
 
   const items = ref([])
   const loading = ref(true)
@@ -36,7 +41,7 @@ export function useTransactions() {
     const isDefault = !String(q || '').trim() && Number(page) === 1
     let painted = false
     if (isDefault) {
-      const cached = readCache(CacheKeys.transactions)
+      const cached = readCache(key())
       if (cached != null) {
         items.value = cached
         meta.value = { total: cached.length, page: 1, lastPage: 1, perPage: per_page }
@@ -51,7 +56,7 @@ export function useTransactions() {
       if (String(q || '').trim()) params.q = String(q).trim()
       const res = await api.get('/api/admin/transactions', { params })
       applyPayload(res)
-      if (isDefault) writeCache(CacheKeys.transactions, (items.value || []).map(slimTx))
+      if (isDefault) writeCache(key(), (items.value || []).map(slimTx))
     } finally {
       if (!quiet) loading.value = false
     }
@@ -60,7 +65,7 @@ export function useTransactions() {
 
   async function create(payload) {
     const res = await api.post('/api/admin/transactions', payload)
-    invalidateCache(CacheKeys.transactions)
+    invalidateCache(key())
     return res.data.data ?? res.data
   }
 
@@ -74,7 +79,7 @@ export function useTransactions() {
 
   async function updateOffice(id, office_id) {
     const res = await api.put(`/api/admin/transactions/${id}/office`, { office_id: office_id ?? null })
-    invalidateCache(CacheKeys.transactions)
+    invalidateCache(key())
     return {
       tx: res.data.data ?? res.data,
       meta: res.data.meta ?? {},
@@ -125,7 +130,7 @@ export function useTransactions() {
 
   async function destroy(id) {
     await api.delete(`/api/admin/transactions/${id}`)
-    invalidateCache(CacheKeys.transactions)
+    invalidateCache(key())
   }
 
   async function uploadAttachment(id, file, requirementId = null) {

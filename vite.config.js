@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import laravel from 'laravel-vite-plugin'
 import vue from '@vitejs/plugin-vue'
-import vuetify from 'vite-plugin-vuetify'
 import path from 'path'
 
 export default defineConfig({
@@ -11,10 +10,6 @@ export default defineConfig({
       refresh: true,
     }),
     vue(),
-    // Tree-shakes Vuetify: only components/directives actually used in
-    // templates ship JS + per-component Sass, instead of the full library
-    // (was: 848KB CSS + whole framework on every load).
-    vuetify({ autoImport: true }),
   ],
   resolve: {
     alias: {

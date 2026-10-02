@@ -128,6 +128,9 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::post('workflow-definitions/{workflowDefinition}/publish', [WorkflowDefinitionController::class, 'publish']);
         Route::post('workflow-definitions/{workflowDefinition}/make-live', [WorkflowDefinitionController::class, 'makeLive']);
         Route::post('workflow-definitions/{workflowDefinition}/save-as', [WorkflowDefinitionController::class, 'saveAs']);
+        // Staged save: one atomic apply of client-staged steps/routes/
+        // requirements/checklists/field-assignments onto the open draft.
+        Route::post('workflow-definitions/{workflowDefinition}/apply-staged', [WorkflowDefinitionController::class, 'applyStaged']);
 
         // Workflows - Routes
         Route::post('workflow-definitions/{workflowDefinition}/routes', [WorkflowRouteController::class, 'store']);

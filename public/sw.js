@@ -9,9 +9,11 @@
  * - Everything else (navigations, /api/*, /sanctum/*) -> passthrough to the
  *   network. API freshness is owned by the app's localStorage SWR layer.
  *
- * Bump CACHE below only when this file's logic changes.
+ * Bump CACHE below when this file's logic changes, when a same-URL
+ * asset changes, or when the build's chunk graph changes (old hashed URLs
+ * never re-request, so a fresh cache keeps storage tidy).
  */
-const CACHE = 'trmf-static-v1';
+const CACHE = 'trmf-static-v3';
 const FONT_CACHE = 'trmf-fonts-v1';
 
 const STATIC_ASSETS = [

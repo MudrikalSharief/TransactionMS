@@ -13,8 +13,15 @@
             <v-card-text class="pa-4">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
-                <v-alert type="warning" variant="tonal" class="mb-3">
-                    Live assignment — saves apply to running transactions immediately.
+                <StagingSaveBar
+                    :type-id="typeId"
+                    :def-id="workflowDefinitionId"
+                    @saved="afterBulkSaved"
+                    @discarded="loadAssigned"
+                />
+
+                <v-alert type="info" variant="tonal" class="mb-3">
+                    Staged assignment — edits stay local until you press Save version.
                 </v-alert>
 
                 <v-row>
@@ -61,16 +68,6 @@
                         >
                             Add requirement
                         </v-btn>
-                        <v-btn
-                            color="grey-darken-3"
-                            rounded="0"
-                            prepend-icon="mdi-content-save"
-                            class="ml-3"
-                            :loading="saving"
-                            @click="save"
-                        >
-                            Save
-                        </v-btn>
                     </div>
 
                     <div class="d-flex flex-column" style="min-height: 510px">
@@ -100,6 +97,9 @@
                                     hide-details
                                     placeholder="e.g. dtr, pr, voucher"
                                     style="max-width: 220px"
+                                    :disabled="typeof item.requirement_definition_id === 'number'"
+                                    :title="typeof item.requirement_definition_id === 'number' ? 'Codes are frozen once saved' : ''"
+                                    @update:model-value="stageBindings"
                                 />
                             </template>
 
@@ -109,6 +109,7 @@
                                     density="compact"
                                     hide-details
                                     color="grey-darken-3"
+                                    @update:model-value="stageBindings"
                                 />
                             </template>
 
@@ -118,6 +119,7 @@
                                     density="compact"
                                     hide-details
                                     color="grey-darken-3"
+                                    @update:model-value="stageBindings"
                                 />
                             </template>
 
@@ -179,7 +181,9 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useStepRequirements } from "@/composables/useStepRequirements";
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import TableLoader from '@/components/TableLoader.vue';
+import StagingSaveBar from '@/components/StagingSaveBar.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -200,9 +204,18 @@ const stepIdFromUrl = computed(() => Number(route.params.stepId));
 const {
     items: requirements,
     fetchAll: fetchReqs,
-    create: createRequirement,
 } = useRequirementDefinitions();
-const { assigned, loading, saving, fetchAssigned, sync } = useStepRequirements();
+const { assigned, loading, fetchAssigned } = useStepRequirements();
+const staging = useWorkflowStaging();
+
+// Staging is keyed by transaction type: prefer the explicit query param,
+// fall back to the type resolved from the loaded definition.
+const typeId = computed(() => {
+    const q = Number(route.query.type);
+    if (Number.isFinite(q) && q > 0) return q;
+    const t = Number(returnTypeId.value);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
 
 const error = ref("");
 
@@ -240,12 +253,39 @@ function openAdd() {
     addDialog.value = true;
 }
 
-async function addRequirement() {
+function storeRow(r, idx) {
+    return {
+        req_key: r.requirement_definition_id,
+        display_order: Number(r.display_order ?? idx),
+        is_required: !!r.is_required,
+        is_upload_required: r.is_upload_required ?? r.is_required ?? true,
+        code: r.code ?? "",
+        description: r.description ?? "",
+    };
+}
+
+// Write the visible rows into the staging store (no network). Called by
+// every inline edit/add/remove; Save version persists everything at once.
+function stageBindings() {
+    if (!typeId.value || !selectedStepId.value) return;
+    staging.setBindings(
+        typeId.value,
+        Number(selectedStepId.value),
+        (assignmentRows.value || []).map((r, idx) => storeRow(r, idx)),
+    );
+}
+
+function addRequirement() {
     if (!addForm.value.name?.trim()) return;
+    if (!typeId.value) {
+        addError.value = "Resolve the transaction type first (open this page from Workflows).";
+        return;
+    }
     adding.value = true;
     addError.value = "";
     try {
-        const created = await createRequirement(workflowDefinitionId.value, {
+        // Staged requirement definition (server mints id + code on save).
+        const created = staging.upsertReqDef(typeId.value, {
             name: addForm.value.name.trim(),
             code: addForm.value.code?.trim() || null,
             description: addForm.value.description?.trim() || null,
@@ -254,7 +294,7 @@ async function addRequirement() {
         assignmentRows.value = [
             ...assignmentRows.value,
             {
-                requirement_definition_id: created.id,
+                requirement_definition_id: created.client_id ?? created.id,
                 code: created.code,
                 name: created.name,
                 label: created.label,
@@ -265,10 +305,9 @@ async function addRequirement() {
             },
         ];
         addDialog.value = false;
-        await fetchReqs(workflowDefinitionId.value);
-        await save();
+        stageBindings();
     } catch (e) {
-        addError.value = e?.response?.data?.message || e?.response?.errors?.name?.[0] || "Failed to add requirement.";
+        addError.value = e?.message || "Failed to add requirement.";
     } finally {
         adding.value = false;
     }
@@ -278,8 +317,8 @@ function removeRow(item) {
     assignmentRows.value = assignmentRows.value.filter(
         (r) => r.requirement_definition_id !== item.requirement_definition_id,
     );
-    // Persist the shorter list immediately so removal sticks on reload.
-    save();
+    // Staged removal (undo via Discard on the save bar).
+    stageBindings();
 }
 
 async function loadSteps() {
@@ -304,11 +343,41 @@ async function loadSteps() {
     }
 }
 
+function enrichStagedRow(r, idx) {
+    // Names/labels for staged rows: staged defs first, then the server
+    // catalog, then whatever the row itself carries.
+    const key = String(r.req_key ?? r.requirement_definition_id ?? r.id);
+    const b = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    const staged = (b?.reqDefs || []).find((d) => String(d.client_id ?? d.id) === key);
+    const cat = (requirements.value || []).find((d) => String(d.id) === key);
+    const src = staged || cat || {};
+    return {
+        requirement_definition_id: r.req_key ?? r.requirement_definition_id,
+        code: r.code ?? src.code ?? "",
+        name: src.name ?? r.name ?? "",
+        label: src.label ?? r.label ?? "",
+        description: r.description ?? src.description ?? "",
+        display_order: Number(r.display_order ?? idx),
+        is_required: r.is_required ?? true,
+        is_upload_required: r.is_upload_required ?? r.is_required ?? true,
+    };
+}
+
 async function loadAssigned() {
     if (!selectedStepId.value) return;
     error.value = "";
     try {
         await fetchAssigned(workflowDefinitionId.value, Number(selectedStepId.value));
+        const sid = Number(selectedStepId.value);
+        // Prefer already-staged rows so revisit never shows stale server
+        // state over unsaved edits; names resolve via staged defs/catalog.
+        const staged = typeId.value
+            ? staging.buckets.get(String(typeId.value))?.bindings?.[String(sid)]
+            : null;
+        if (staged) {
+            assignmentRows.value = staged.map((r, idx) => enrichStagedRow(r, idx));
+            return;
+        }
         assignmentRows.value = (assigned.value || []).map((a) => ({
             requirement_definition_id: a.id,
             code: a.code ?? "",
@@ -319,32 +388,24 @@ async function loadAssigned() {
             is_required: a.pivot_meta?.is_required ?? true,
             is_upload_required: a.pivot_meta?.is_upload_required ?? a.pivot_meta?.is_required ?? true,
         }));
+        // Seed the staging slice (skipped when staged edits exist).
+        if (typeId.value) {
+            staging.seedBindings(
+                typeId.value,
+                sid,
+                assignmentRows.value.map((r, idx) => storeRow(r, idx)),
+            );
+            staging.seedReqDefs(typeId.value, requirements.value || []);
+        }
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load assigned requirements.";
     }
 }
 
-async function save() {
-    if (!selectedStepId.value) return;
-    error.value = "";
-    try {
-        const payload = assignmentRows.value.map((r, idx) => ({
-            requirement_definition_id: r.requirement_definition_id,
-            display_order: Number(r.display_order ?? idx),
-            is_required: !!r.is_required,
-            is_upload_required: r.is_upload_required ?? r.is_required ?? true,
-            code: r.code ?? "",
-            description: r.description ?? "",
-        }));
-
-        await sync(workflowDefinitionId.value, Number(selectedStepId.value), {
-            requirements: payload,
-        });
-
-        await loadAssigned();
-    } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Save failed.";
-    }
+async function afterBulkSaved() {
+    // Bucket was dropped by the save: reload fresh (reseeds staging).
+    await fetchReqs(workflowDefinitionId.value);
+    await loadAssigned();
 }
 
 watch(selectedStepId, () => {

@@ -26,6 +26,17 @@
                     {{ error }}
                 </v-alert>
 
+                <StagingSaveBar
+                    :type-id="typeId"
+                    :def-id="selectedWorkflowId"
+                    @saved="loadRequirements"
+                    @discarded="loadRequirements"
+                />
+
+                <v-alert type="info" variant="tonal" class="mb-3">
+                    Staged library — adds, edits, removals, and station bindings stay local until you press Save version.
+                </v-alert>
+
                 <div class="text-caption text-medium-emphasis font-weight-bold mb-1 pl-4">
                     1 · Pick a live transaction type — its checklist loads by itself
                 </div>
@@ -283,7 +294,7 @@
                         :loading="bindSaving"
                         @click="saveBind"
                     >
-                        Save binding
+                        Stage binding
                     </v-btn>
                 </v-card-actions>
             </v-card>
@@ -307,8 +318,9 @@
                     <v-text-field
                         v-model="form.code"
                         label="Code (lowercase_with_underscores)"
-                        hint="System name, e.g. signed_pr_pdf. Used behind the scenes."
+                        :hint="typeof form.id === 'number' ? 'Codes are frozen once saved' : 'System name, e.g. signed_pr_pdf. Used behind the scenes.'"
                         persistent-hint
+                        :disabled="typeof form.id === 'number'"
                     />
                     <v-text-field
                         v-model="form.name"
@@ -348,11 +360,21 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import TableLoader from '@/components/TableLoader.vue';
+import StagingSaveBar from '@/components/StagingSaveBar.vue';
 
 const { api } = useApi();
-const { items, fetchAll, create, update, destroy, syncSteps } = useRequirementDefinitions();
+const { items, fetchAll } = useRequirementDefinitions();
 const { items: txTypes, fetchAll: fetchTypes } = useTransactionTypes();
+const staging = useWorkflowStaging();
+
+// Staging is keyed by transaction type, resolved from the picked workflow.
+const typeId = computed(() => {
+    const w = (workflows.value || []).find((x) => Number(x.id) === Number(selectedWorkflowId.value));
+    const t = Number(w?.transaction_type_id);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
 
 const error = ref("");
 
@@ -474,7 +496,18 @@ function openBindDialog(item) {
             is_upload_required: pivot.is_upload_required ?? pivot.is_required ?? true,
         };
     }
-    bindStationIds.value = ((item?.steps || []).map((s) => s.id));
+    const serverSids = (item?.steps || []).map((s) => s.id);
+    // Plus stations known only from staged bindings, so opening the dialog
+    // never silently drops an unsaved assignment made elsewhere.
+    const key = String(item?.id ?? item?.client_id);
+    const bucket = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    const stagedSids = [];
+    for (const [sk, rows] of Object.entries(bucket?.bindings || {})) {
+        if ((rows || []).some((r) => String(r.req_key ?? r.requirement_definition_id) === key)) {
+            stagedSids.push(Number(sk));
+        }
+    }
+    bindStationIds.value = [...new Set([...serverSids, ...stagedSids])];
     ensureBindOverrides();
     bindDialog.value = true;
 }
@@ -483,24 +516,80 @@ watch(bindStationIds, () => {
     ensureBindOverrides();
 });
 
+// Normalize either server rows ({id, pivot_meta}) or already-staged rows
+// ({req_key/requirement_definition_id}) into staging shape.
+function normBindingRow(r, idx) {
+    const pivot = r.pivot_meta || r.pivot || {};
+    return {
+        req_key: r.req_key ?? r.requirement_definition_id ?? r.id,
+        display_order: Number(r.display_order ?? pivot.display_order ?? idx),
+        is_required: r.is_required ?? pivot.is_required ?? true,
+        is_upload_required:
+            r.is_upload_required ?? pivot.is_upload_required ?? r.is_required ?? pivot.is_required ?? true,
+        code: r.code ?? "",
+        description: r.description ?? "",
+    };
+}
+
+async function stagedBindingsFor(wfId, sid) {
+    // Prefer already-staged rows so merges never clobber edits staged
+    // elsewhere; otherwise read the server list for this step.
+    const staged = typeId.value
+        ? staging.buckets.get(String(typeId.value))?.bindings?.[String(sid)]
+        : null;
+    if (staged) return staged.map((r, idx) => normBindingRow(r, idx));
+    const res = await api.get(
+        `/api/admin/workflow-definitions/${wfId}/steps/${sid}/requirements`,
+    );
+    return ((res.data.data ?? res.data) || []).map((r, idx) => normBindingRow(r, idx));
+}
+
 async function saveBind() {
+    // Stages this requirement's station assignment by merging into each
+    // affected step's full binding list (no network until Save version).
     if (!selectedWorkflowId.value || !bindTarget.value) return;
+    if (!typeId.value) {
+        error.value = "Resolve the transaction type first.";
+        return;
+    }
     bindSaving.value = true;
     error.value = "";
     try {
-        const payload = bindRows.value.map((r) => ({
-            workflow_step_id: r.workflow_step_id,
-            display_order: Number(r.display_order ?? 0),
-            is_required: !!r.is_required,
-            is_upload_required: r.is_upload_required ?? r.is_required ?? true,
-        }));
-        await syncSteps(selectedWorkflowId.value, bindTarget.value.id, {
-            steps: payload,
-        });
+        const reqKey = bindTarget.value.id ?? bindTarget.value.client_id;
+        const prevSids = (bindTarget.value.steps || []).map((s) => Number(s.id));
+        // Plus stations known only from staged bindings (e.g. binding an
+        // unsaved tmp requirement, then unbinding it again).
+        const stagedKnown = [];
+        const bucket = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+        for (const [sk, rows] of Object.entries(bucket?.bindings || {})) {
+            if ((rows || []).some((r) => String(r.req_key ?? r.requirement_definition_id) === String(reqKey))) {
+                stagedKnown.push(Number(sk));
+            }
+        }
+        const nextSids = (bindStationIds.value || []).map((s) => Number(s));
+        const allSids = [...new Set([...prevSids, ...stagedKnown, ...nextSids])];
+        const dialogRows = new Map(
+            (bindRows.value || []).map((r) => [Number(r.workflow_step_id), r]),
+        );
+        for (const sid of allSids) {
+            const current = await stagedBindingsFor(selectedWorkflowId.value, sid);
+            const kept = current.filter((r) => String(r.req_key) !== String(reqKey));
+            const dialog = dialogRows.get(sid);
+            if (dialog) {
+                kept.push({
+                    req_key: reqKey,
+                    display_order: Number(dialog.display_order ?? 0),
+                    is_required: !!dialog.is_required,
+                    is_upload_required: dialog.is_upload_required ?? dialog.is_required ?? true,
+                    code: bindTarget.value.code ?? "",
+                    description: bindTarget.value.description ?? "",
+                });
+            }
+            staging.setBindings(typeId.value, sid, kept);
+        }
         bindDialog.value = false;
-        await loadRequirements();
     } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Save failed.";
+        error.value = e?.response?.data?.message || e?.message || "Staging the binding failed.";
     } finally {
         bindSaving.value = false;
     }
@@ -515,10 +604,19 @@ const headers = [
     { title: "", key: "actions", sortable: false },
 ];
 
+// Table renders the working copy once seeded (dirty or not); before the
+// first seed it falls back to the loaded definitions.
+const tableItems = computed(() => {
+    const b = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    if (b && (b.dirty || b.sourceDefId != null)) return b.reqDefs;
+    return items.value || [];
+});
+
 const filteredItems = computed(() => {
     const q = (search.value || "").trim().toLowerCase();
-    if (!q) return items.value || [];
-    return (items.value || []).filter((r) =>
+    const rows = tableItems.value || [];
+    if (!q) return rows;
+    return rows.filter((r) =>
         `${r?.name || ""} ${r?.code || ""} ${r?.description || ""}`.toLowerCase().includes(q),
     );
 });
@@ -570,6 +668,10 @@ async function loadRequirements() {
     try {
         await fetchAll(selectedWorkflowId.value);
         await loadStations();
+        // Seed the staging slice (skipped when staged edits exist).
+        if (typeId.value) {
+            staging.seedReqDefs(typeId.value, items.value || []);
+        }
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load requirements.";
     } finally {
@@ -587,6 +689,7 @@ function openDialog(item = null) {
     if (item) {
         form.value = {
             id: item.id,
+            client_id: item.client_id ?? null,
             order_number: item.order_number ?? 0,
             code: item.code,
             name: item.name,
@@ -607,45 +710,36 @@ function openDialog(item = null) {
     dialog.value = true;
 }
 
-async function save() {
+function save() {
+    // Staged: no network. The row lands in the working copy (new rows get
+    // a tmp id) until Save version. Codes of saved rows are frozen.
     if (!selectedWorkflowId.value) return;
-    saving.value = true;
     error.value = "";
-
-    try {
-        const payload = {
-            order_number: Number(form.value.order_number || 0),
-            code: form.value.code,
-            name: form.value.name,
-            description: form.value.description || null,
-            is_active: !!form.value.is_active,
-        };
-
-        if (form.value.id) {
-            await update(selectedWorkflowId.value, form.value.id, payload);
-        } else {
-            await create(selectedWorkflowId.value, payload);
-        }
-
-        dialog.value = false;
-        await loadRequirements();
-    } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Save failed.";
-    } finally {
-        saving.value = false;
+    if (!typeId.value) {
+        error.value = "Resolve the transaction type first.";
+        return;
     }
+    if (!form.value.name?.trim()) {
+        error.value = "Give the requirement a name first.";
+        return;
+    }
+    staging.upsertReqDef(typeId.value, {
+        id: form.value.id ?? undefined,
+        client_id: form.value.client_id ?? undefined,
+        order_number: Number(form.value.order_number || 0),
+        code: form.value.code || null,
+        name: form.value.name.trim(),
+        description: form.value.description || null,
+        is_active: !!form.value.is_active,
+    });
+    dialog.value = false;
 }
 
-async function remove(item) {
-    if (!selectedWorkflowId.value) return;
+function remove(item) {
     error.value = "";
-
-    try {
-        await destroy(selectedWorkflowId.value, item.id);
-        await loadRequirements();
-    } catch (e) {
-        error.value = e?.response?.data?.message || "Delete failed.";
-    }
+    if (!typeId.value) return;
+    // Staged removal (undo via Discard on the save bar).
+    staging.removeReqDef(typeId.value, item?.id ?? item?.client_id);
 }
 
 onMounted(async () => {

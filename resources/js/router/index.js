@@ -31,6 +31,7 @@ const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 const Help = () => import("@/pages/Help.vue");
 
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
+import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 
 export function createRouter() {
     const router = _createRouter({
@@ -171,6 +172,12 @@ export function createRouter() {
         if (isSuperadmin && to.path.startsWith("/my/transactions")) {
             const rest = to.path.slice("/my/transactions".length);
             return rest ? `/transactions${rest}` : "/transactions";
+        }
+        // Staged workflow edits live only in memory until Save version:
+        // stop accidental loss on navigation (Save and Discard live on the
+        // workflow pages; a reload also drops staged edits).
+        if (anyStagingDirty() && !window.confirm("You have unsaved workflow changes. Leave without saving them?")) {
+            return false;
         }
         return true;
     });

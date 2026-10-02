@@ -13,10 +13,18 @@
             <v-card-text class="pa-4">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
+                <StagingSaveBar
+                    :type-id="typeId"
+                    :def-id="workflowDefinitionId"
+                    @saved="afterBulkSaved"
+                    @discarded="loadChecklist"
+                />
+
                 <v-alert type="info" variant="tonal" class="mb-3">
                     Linked to the previous station's requirements (via forward routes) — they are added, updated,
-                    and removed automatically. Custom items you add here stay independent.
+                    and removed automatically on Save. Custom items you add here stay independent.
                     Starting stations have no previous station, so only custom items appear.
+                    Edits stay local until you press Save version.
                 </v-alert>
 
                 <v-row>
@@ -60,7 +68,6 @@
                             color="warning"
                             rounded="0"
                             prepend-icon="mdi-sync"
-                            :loading="saving"
                             @click="resetToRequirements"
                         >
                             Reset to previous requirements
@@ -72,15 +79,6 @@
                             @click="openAdd"
                         >
                             Add item
-                        </v-btn>
-                        <v-btn
-                            color="grey-darken-3"
-                            rounded="0"
-                            prepend-icon="mdi-content-save"
-                            :loading="saving"
-                            @click="save"
-                        >
-                            Save
                         </v-btn>
                     </div>
 
@@ -115,6 +113,7 @@
                                     hide-details
                                     placeholder="e.g. dtr, pr, voucher"
                                     style="max-width: 220px"
+                                    @update:model-value="stageRows"
                                 />
                             </template>
 
@@ -124,6 +123,7 @@
                                     density="compact"
                                     hide-details
                                     color="grey-darken-3"
+                                    @update:model-value="stageRows"
                                 />
                             </template>
 
@@ -182,6 +182,8 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useStepChecklist } from "@/composables/useStepChecklist";
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
 
 const route = useRoute();
@@ -200,7 +202,17 @@ function goBack() {
 const workflowDefinitionId = computed(() => Number(route.params.workflowId));
 const stepIdFromUrl = computed(() => Number(route.params.stepId));
 
-const { items, loading, saving, fetchChecklist, sync, resync } = useStepChecklist();
+const { items, loading, fetchChecklist } = useStepChecklist();
+const staging = useWorkflowStaging();
+
+// Staging is keyed by transaction type: prefer the explicit query param,
+// fall back to the type resolved from the loaded definition.
+const typeId = computed(() => {
+    const q = Number(route.query.type);
+    if (Number.isFinite(q) && q > 0) return q;
+    const t = Number(returnTypeId.value);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
 
 const error = ref("");
 const steps = ref([]);
@@ -241,6 +253,29 @@ function openAdd() {
     addDialog.value = true;
 }
 
+function storeRow(r, idx) {
+    return {
+        id: r.id ?? null,
+        requirement_key: r.requirement_definition_id ?? null,
+        name: r.name,
+        code: r.code ?? null,
+        description: r.description ?? null,
+        is_required: !!r.is_required,
+        display_order: Number(r.display_order ?? idx),
+    };
+}
+
+// Write the visible rows into the staging store (no network). Called by
+// every inline edit/add/remove; Save version persists everything at once.
+function stageRows() {
+    if (!typeId.value || !selectedStepId.value) return;
+    staging.setChecklist(
+        typeId.value,
+        Number(selectedStepId.value),
+        (rows.value || []).map((r, idx) => storeRow(r, idx)),
+    );
+}
+
 function addRow() {
     if (!addForm.value.name?.trim()) {
         addError.value = "Name is required.";
@@ -260,10 +295,13 @@ function addRow() {
         },
     ];
     addDialog.value = false;
+    stageRows();
 }
 
 function removeRow(item) {
     rows.value = rows.value.filter((r) => r._key !== item._key);
+    // Staged removal (undo via Discard on the save bar).
+    stageRows();
 }
 
 async function loadSteps() {
@@ -293,43 +331,55 @@ async function loadChecklist() {
     error.value = "";
     try {
         await fetchChecklist(workflowDefinitionId.value, Number(selectedStepId.value));
+        const sid = Number(selectedStepId.value);
+        // Prefer already-staged rows so revisit never shows stale server
+        // state over unsaved edits.
+        const staged = typeId.value
+            ? staging.buckets.get(String(typeId.value))?.checklist?.[String(sid)]
+            : null;
+        if (staged) {
+            rows.value = staged.map((r, i) => ({
+                id: r.id ?? null,
+                requirement_definition_id: r.requirement_key ?? r.requirement_definition_id ?? null,
+                name: r.name,
+                code: r.code ?? null,
+                description: r.description ?? null,
+                is_required: !!r.is_required,
+                display_order: Number(r.display_order ?? i),
+                _key: r.id ?? `${r.requirement_key ?? r.requirement_definition_id ?? "custom"}-${i}`,
+            }));
+            return;
+        }
         rows.value = withKeys(items.value);
+        // Seed the staging slice (skipped when staged edits exist).
+        if (typeId.value) {
+            staging.seedChecklist(
+                typeId.value,
+                sid,
+                rows.value.map((r, idx) => storeRow(r, idx)),
+            );
+        }
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load checklist.";
     }
 }
 
-async function save() {
-    if (!selectedStepId.value) return;
-    error.value = "";
-    try {
-        const payload = {
-            items: rows.value.map((r, idx) => ({
-                requirement_definition_id: r.requirement_definition_id ?? null,
-                name: r.name,
-                code: r.code ?? null,
-                description: r.description ?? null,
-                is_required: !!r.is_required,
-                display_order: idx,
-            })),
-        };
-        await sync(workflowDefinitionId.value, Number(selectedStepId.value), payload);
-        rows.value = withKeys(items.value);
-    } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Save failed.";
-    }
+async function afterBulkSaved() {
+    // Bucket was dropped by the save: reload fresh (reseeds staging).
+    await loadChecklist();
 }
 
 async function resetToRequirements() {
     if (!selectedStepId.value) return;
-    if (!window.confirm("Replace this checklist with a fresh copy of the step's requirements? Current checklist edits will be lost.")) return;
-    error.value = "";
-    try {
-        await resync(workflowDefinitionId.value, Number(selectedStepId.value));
-        rows.value = withKeys(items.value);
-    } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Reset failed.";
+    if (!typeId.value) {
+        error.value = "Resolve the transaction type first (open this page from Workflows).";
+        return;
     }
+    if (!window.confirm("On the next Save, this checklist will be rebuilt from the step's requirements. Custom rows will be dropped. Mark for rebuild?")) return;
+    error.value = "";
+    // Staged resync marker: the bulk endpoint re-mirrors this step and
+    // ignores staged rows for it. Undo via Discard.
+    staging.markResync(typeId.value, Number(selectedStepId.value));
 }
 
 onMounted(() => {

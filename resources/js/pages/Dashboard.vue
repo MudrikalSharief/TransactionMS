@@ -363,7 +363,7 @@ import CardGrip from '@/components/CardGrip.vue'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
-import { isCached, readCache, writeCache, CacheKeys } from '@/composables/useCache'
+import { isCached, readCache, writeCache, CacheKeys, scopedKey } from '@/composables/useCache'
 
 const router = useRouter()
 const auth = useAuth()
@@ -760,12 +760,14 @@ onMounted(async () => {
     document.documentElement.classList.add('hide-page-scroll')
 
     // Instant paint from cache when available; the fetches below
-    // then refresh everything silently in the background.
+    // then refresh everything silently in the background. List caches
+    // are per-user; check the current user's slot.
+    const uid = auth.user.value?.id
     const warm =
         isCached(CacheKeys.transactionTypes) ||
         (isSuperadmin.value
-            ? isCached(CacheKeys.transactions)
-            : isCached(CacheKeys.myTransactions))
+            ? isCached(scopedKey(CacheKeys.transactions, uid))
+            : isCached(scopedKey(CacheKeys.myTransactions, uid)))
     loading.value = !warm
     const opts = { silent: warm }
     loadSummary()

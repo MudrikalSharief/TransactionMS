@@ -17,12 +17,6 @@
 <script setup>
 // Shared station-info inputs. `form` is the page's single recording object
 // (mutated in place), so page card and modals always show the same draft.
-//
-// Explicit component imports (not strings): `<component :is>` resolves
-// against these objects, so the field inputs work regardless of template
-// auto-import scanning.
-import { VSelect, VSwitch, VTextField, VTextarea } from 'vuetify/components'
-
 defineProps({
     fields: { type: Array, default: () => [] },
     form: { type: Object, required: true },
@@ -30,11 +24,11 @@ defineProps({
 
 function componentFor(type) {
     switch (type) {
-        case "textarea": return VTextarea;
-        case "select": return VSelect;
-        case "multiselect": return VSelect;
-        case "boolean": return VSwitch;
-        default: return VTextField;
+        case "textarea": return "v-textarea";
+        case "select": return "v-select";
+        case "multiselect": return "v-select";
+        case "boolean": return "v-switch";
+        default: return "v-text-field";
     }
 }
 

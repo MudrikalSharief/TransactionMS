@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
-import { readCache, writeCache, invalidateCache, CacheKeys } from "@/composables/useCache";
+import { readCache, writeCache, invalidateCache, invalidatePrefix, CacheKeys } from "@/composables/useCache";
+import { clearAllStaging } from "@/composables/useWorkflowStaging";
 
 const user = ref(null);
 const initialized = ref(false);
@@ -61,6 +62,9 @@ export function useAuth() {
     }
 
     async function login({ email, password, remember = false }) {
+        // Drop any previous user's painted session first: init() must await
+        // the network and paint THIS user, never flash the last one.
+        invalidateCache(CacheKeys.authUser);
         await csrf();
         await api.post("/api/auth/login", { email, password, remember });
 
@@ -75,7 +79,15 @@ export function useAuth() {
         } finally {
             user.value = null;
             initialized.value = true;
+            // Shared-device hygiene: wipe the session plus every per-user
+            // list/badge variant so the next login paints nothing stale.
+            // Staged workflow edits are memory-only and belong to the
+            // session: drop them too (Save first if they matter).
             invalidateCache(CacheKeys.authUser);
+            invalidatePrefix(CacheKeys.transactions);
+            invalidatePrefix(CacheKeys.myTransactions);
+            invalidatePrefix(CacheKeys.approvalCount);
+            clearAllStaging();
         }
     }
 

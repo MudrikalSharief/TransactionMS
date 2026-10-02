@@ -77,6 +77,13 @@ export function invalidatePrefix(base) {
     } catch { /* quota / private mode: memory already cleared */ }
 }
 
+// Per-user namespace for caches whose rows depend on who is logged in
+// (transaction lists, badge counts). Prevents one browser profile leaking
+// another user's painted rows between logins on a shared device.
+export function scopedKey(base, userId) {
+    return userId ? `${base}:${userId}` : base
+}
+
 export const CacheKeys = {
     transactions: 'tx-all',
     myTransactions: 'tx-my',
@@ -112,6 +119,8 @@ export function slimTx(tx) {
         reference_number: tx.reference_number ?? null,
         is_done: tx.is_done ?? false,
         created_at: tx.created_at ?? null,
+        // Dashboard "waiting" column reads entered_at with created_at fallback.
+        entered_at: tx.entered_at ?? null,
         transaction_type_name: tx.transaction_type_name ?? tx.transaction_type?.name ?? null,
         transaction_type: tx.transaction_type
             ? { id: tx.transaction_type.id ?? null, name: tx.transaction_type.name ?? null }
@@ -130,10 +139,19 @@ export function slimTx(tx) {
         current_step: tx.current_step
             ? {
                 id: tx.current_step.id ?? null,
+                order_number: tx.current_step.order_number ?? null,
                 code: tx.current_step.code ?? null,
                 name: tx.current_step.name ?? null,
+                stage: tx.current_step.stage ?? null,
                 is_start: tx.current_step.is_start ?? null,
                 is_end: tx.current_step.is_end ?? null,
+                office: tx.current_step.office
+                    ? {
+                        id: tx.current_step.office.id ?? null,
+                        code: tx.current_step.office.code ?? null,
+                        name: tx.current_step.office.name ?? null,
+                    }
+                    : null,
             }
             : null,
         // Kept slim (id/order/code/name/flags only) so the hover
