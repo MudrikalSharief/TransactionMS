@@ -12,9 +12,12 @@ use App\Services\TransactionEngine;
 class TransactionGotoController extends Controller
 {
     /**
-     * Jump to an already-visited station. No checklist gating — jumps are
-     * free navigation across passed stations. The destination keeps its
-     * saved work when complete (intact-arrival rule in the engine).
+     * Jump to an already-visited station (both directions). Backward jumps
+     * return work; forward jumps resend to a passed station (e.g. 1 -> 3
+     * after a 3 -> 1 return). Remarks-only, no checklist gating. Backward
+     * arrivals keep the intact-arrival rule; forward resends preserve
+     * all saved work. Normal forward progress still goes step by step
+     * through the assigned routes.
      */
     public function goto(
         Transaction $transaction,
@@ -28,7 +31,7 @@ class TransactionGotoController extends Controller
             abort(422, 'Please receive the step first before jumping.');
         }
 
-        $transaction->loadMissing(['state', 'workflow.steps']);
+        $transaction->loadMissing(['state', 'workflow.steps', 'workflow.routes']);
 
         $currentStepId = (int) $transaction->state?->current_step_id;
         if (!$currentStepId) abort(422, 'Transaction has no current step.');
@@ -45,12 +48,17 @@ class TransactionGotoController extends Controller
             abort(422, 'You can only jump to stations the paper has already passed.');
         }
 
-        // Backward jumps only: the target must sit behind the current
-        // station in workflow order. Forward moves always go step by
-        // step through the assigned routes.
-        $current = $transaction->workflow->steps->firstWhere('id', $currentStepId);
-        if (!$current || (int) $target->order_number >= (int) $current->order_number) {
-            abort(422, 'You can only go back to a passed station; move forward step by step.');
+        // Both directions allowed as long as the target was visited:
+        // backward = return, forward = quick resend to a passed station
+        // (e.g. 1 -> 3 after a 3 -> 1 return). A forward target already
+        // reachable via a normal Proceed route must use Proceed (full
+        // gating) so the remarks-only shortcut never duplicates it.
+        $directForward = $transaction->workflow->routes
+            ->where('from_step_id', $currentStepId)
+            ->where('to_step_id', $toStepId)
+            ->firstWhere('is_return_route', false);
+        if ($directForward) {
+            abort(422, 'Use Proceed to move forward to this station.');
         }
 
         $tx = $engine->jumpToStep(

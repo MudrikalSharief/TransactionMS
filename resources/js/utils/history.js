@@ -41,6 +41,7 @@ const ACTION_CONFIGS = {
     approve: { label: 'Approved', icon: 'mdi-check', color: 'green-darken-2' },
     finalize: { label: 'Finalized', icon: 'mdi-check-circle-outline', color: 'green-darken-3' },
     return: { label: 'Returned', icon: 'mdi-rotate-ccw', color: 'amber-darken-3' },
+    resend: { label: 'Resent', icon: 'mdi-send-circle-outline', color: 'blue-darken-2' },
     reject: { label: 'Rejected', icon: 'mdi-close', color: 'red-darken-2' },
     forward: { label: 'Forwarded', icon: 'mdi-arrow-right', color: 'blue-darken-1' },
     reassign: { label: 'Reassigned', icon: 'mdi-account-cog-outline', color: 'purple-darken-2' },

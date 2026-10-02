@@ -504,6 +504,7 @@
             :destination-label="jumpDestinationLabel"
             :confirm-label="mainActionButtonLabel"
             :saving="saving"
+            :is-forward="isJumpForward"
             @confirm="confirmJump"
         />
 
@@ -1272,11 +1273,12 @@ const unifiedRouteOptions = computed(() => [
     ...jumpRouteOptions.value,
 ]);
 
-// Jump targets (the only way back now that return routes are retired):
-// visited stations BEHIND the current one, ordered by station number.
-// Values are "jump:<stepId>" strings so they never collide with numeric
-// route ids. Forward moves always go step by step through the assigned
-// routes — never by jump. Recorded as Returned in history.
+// Jump targets: any visited station except the current one, ordered by
+// station number. Behind = Return, ahead = quick Resend (e.g. 1 -> 3 after
+// a 3 -> 1 return, remarks-only). Values are "jump:<stepId>" strings so
+// they never collide with numeric route ids. Normal forward progress still
+// goes step by step through the assigned routes. Recorded as Returned
+// (backward) or Resent (forward) in history.
 const jumpRouteOptions = computed(() => {
     // Locked until received — backend rejects jumps on pending receipt.
     if (pendingReceipt.value) return [];
@@ -1285,16 +1287,34 @@ const jumpRouteOptions = computed(() => {
     const curOrder = Number(
         (tx.value?.workflow_steps || []).find((s) => Number(s.id) === cur)?.order_number ?? NaN,
     );
+    // Forward targets already reachable via a normal Proceed route are
+    // hidden here so the list never shows both "Proceed → 2" and
+    // "Resend to Station 2" for the same station.
+    const forwardDestIds = new Set(
+        (forwardActions.value || [])
+            .map((a) => Number(a?.to_step?.id ?? a?.to_step_id))
+            .filter((v) => Number.isFinite(v)),
+    );
     return (tx.value?.workflow_steps || [])
-        .filter((s) => visited.has(Number(s.id)) && Number(s.order_number) < curOrder)
+        .filter((s) => {
+            const id = Number(s.id);
+            if (!visited.has(id) || id === cur) return false;
+            const forward = Number.isFinite(curOrder) && Number(s.order_number) > curOrder;
+            if (forward && forwardDestIds.has(id)) return false;
+            return true;
+        })
         .sort((a, b) => (Number(a.order_number) || 0) - (Number(b.order_number) || 0))
-        .map((s) => ({
-            value: `jump:${s.id}`,
-            to_step_id: s.id,
-            to_number: s.order_number ?? s.id,
-            is_jump: true,
-            label: `Return to Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
-        }));
+        .map((s) => {
+            const forward = Number.isFinite(curOrder) && Number(s.order_number) > curOrder;
+            return {
+                value: `jump:${s.id}`,
+                to_step_id: s.id,
+                to_number: s.order_number ?? s.id,
+                is_jump: true,
+                is_forward: forward,
+                label: `${forward ? 'Resend to' : 'Return to'} Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
+            };
+        });
 });
 
 const selectedJumpOption = computed(() =>
@@ -1329,11 +1349,13 @@ const selectedAction = computed(() => {
 const selectedStepNumber = computed(
     () => selectedAction.value?.to_step?.order_number ?? selectedAction.value?.to_step_id ?? "",
 );
+const isJumpForward = computed(() => !!selectedJumpOption.value?.is_forward);
 const mainActionButtonLabel = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {
         const n = selectedJumpOption.value?.to_number ?? "";
-        return n !== "" ? `Return to Station ${n}` : "Return to Station";
+        const verb = isJumpForward.value ? "Resend to Station" : "Return to Station";
+        return n !== "" ? `${verb} ${n}` : verb;
     }
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
@@ -1388,7 +1410,7 @@ const proceedModalTitle = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {
         if (!selectedJumpOption.value) return "Return";
-        return proceedTitle("Return to");
+        return proceedTitle(isJumpForward.value ? "Resend to" : "Return to");
     }
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return proceedTitle("Return to");

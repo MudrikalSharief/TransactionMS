@@ -268,11 +268,12 @@ class TransactionEngine
     }
 
     /**
-     * Return to an already-visited station (free navigation, the only way
-     * back now that return routes are retired). No checklist gating —
-     * callers validate the destination. Complete destinations keep their
-     * saved work via the intact-arrival rule; gappy ones reset.
-     * Recorded as Returned in history (old rows keep Revisited).
+     * Jump to an already-visited station (both directions). Backward jumps
+     * return work; forward jumps resend to a passed station (e.g. 1 -> 3
+     * after a 3 -> 1 return). Remarks-only, no checklist gating.
+     * Backward arrivals keep the intact-arrival rule (complete destinations
+     * keep saved work, gappy ones reset); forward resends preserve all
+     * saved work. Recorded as Returned (backward) or Resent (forward).
      */
     public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId): Transaction
     {
@@ -289,13 +290,18 @@ class TransactionEngine
 
             $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
                 ?? \App\Models\WorkflowStep::find($toStepId);
+            $currentStep = $tx->workflow->steps->firstWhere('id', $currentStepId);
+
+            // Forward = target sits ahead in workflow order (quick resend).
+            $isForward = $currentStep && $toStep
+                && (int) $toStep->order_number > (int) $currentStep->order_number;
 
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
                 'to_step_id' => $toStepId,
-                'action_code' => 'return',
-                'remarks' => $remarks ?? 'Returned to a passed station',
+                'action_code' => $isForward ? 'resend' : 'return',
+                'remarks' => $remarks ?? ($isForward ? 'Resent to a passed station' : 'Returned to a passed station'),
                 'performed_by' => $userId,
                 'performed_at' => now(),
                 'received_at' => null,
@@ -316,7 +322,10 @@ class TransactionEngine
                 'entered_at' => now(),
             ]);
 
-            if (!$this->destinationArrivalIntact($tx, $toStepId)) {
+            // Forward resends are remarks-only: preserve all saved work at
+            // the destination. Backward returns keep the intact-arrival
+            // rule (reset gappy destinations so items are re-verified).
+            if (!$isForward && !$this->destinationArrivalIntact($tx, $toStepId)) {
                 \App\Models\TransactionRequirementCheck::query()
                     ->where('transaction_id', $tx->id)
                     ->where('workflow_step_id', $toStepId)

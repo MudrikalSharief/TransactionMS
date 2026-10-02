@@ -15,8 +15,8 @@ class GotoStationRequest extends FormRequest
     {
         return [
             'to_step_id' => ['required', 'integer', 'exists:workflow_steps,id'],
-            // Jumps always go back to a passed station, so the reason
-            // for going back is required.
+            // Jumps go to an already-passed station (backward return or
+            // forward resend), so the reason is always required.
             'remarks' => ['required', 'string', 'max:2000'],
         ];
     }
