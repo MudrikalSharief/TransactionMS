@@ -646,27 +646,30 @@
                 }}</v-card-title>
                 <v-divider />
                 <v-card-text>
+                    <v-alert v-if="routeError" type="error" variant="tonal" density="compact" class="mb-3">
+                        {{ routeError }}
+                    </v-alert>
                     <v-select
                         v-model="routeForm.from_step_id"
-                        :items="stepOptions"
+                        :items="fromStepOptions"
                         item-title="label"
                         item-value="id"
                         label="From Step"
+                        @update:model-value="routeError = ''"
                     />
                     <v-select
                         v-model="routeForm.to_step_id"
-                        :items="stepOptions"
+                        :items="toStepOptions"
                         item-title="label"
                         item-value="id"
                         label="To Step"
+                        @update:model-value="routeError = ''"
                     />
                     <v-text-field
                         v-model="routeForm.action_code"
-                        label="Action Code (submit/approve/return/reject)"
-                    />
-                    <v-switch
-                        v-model="routeForm.is_return_route"
-                        label="Is Return Route (controlled rollback)"
+                        label="Action Code (submit/approve/reject)"
+                        hint="Routes are forward-only. Going back is done via jump to a visited station (recorded as Returned)."
+                        persistent-hint
                     />
                     <v-text-field
                         v-model="routeForm.route_group"
@@ -781,6 +784,7 @@ const {
 // Staging: every step/route dialog writes to the working copy only —
 // nothing reaches the network until Save version (bulk apply).
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import { confirm } from "@/composables/useConfirm";
 const staging = useWorkflowStaging();
 // Def id the working copy was seeded from (bulk target hint for sub-pages).
 const stagingSourceDefId = ref(null);
@@ -858,8 +862,8 @@ const guideSections = [
     {
         title: "ROUTES",
         rows: [
-            { term: "FROM → TO", text: "WHICH STEP MOVES TO WHICH ON AN ACTION" },
-            { term: "RETURN", text: "SENDS THE WORK BACKWARD FOR CORRECTION" },
+            { term: "FROM → TO", text: "FORWARD ONLY: WHICH STEP MOVES TO WHICH ON AN ACTION" },
+            { term: "GOING BACK", text: "JUMP TO A VISITED STATION (RECORDED AS RETURNED)" },
         ],
     },
 ];
@@ -926,6 +930,54 @@ const stepOptions = computed(() =>
     })),
 );
 
+// Route dialog: From and To can never be the same step — each dropdown
+// hides the other's selection. Since routes are forward-only, the To
+// dropdown additionally hides every step ordered before the From step
+// (equal-order steps stay selectable, matching the backend rule).
+const fromStepOptions = computed(() =>
+    stepOptions.value.filter((o) => String(o.id) !== String(routeForm.value.to_step_id)),
+);
+const toStepOptions = computed(() => {
+    const fromKey = String(routeForm.value.from_step_id ?? '');
+    const fromOrder = fromKey !== '' ? stepOrderOf(routeForm.value.from_step_id) : NaN;
+    return stepOptions.value.filter((o) => {
+        if (String(o.id) === fromKey) return false;
+        if (!Number.isNaN(fromOrder)) {
+            const order = stepOrderOf(o.id);
+            if (!Number.isNaN(order) && order < fromOrder) return false;
+        }
+        return true;
+    });
+});
+
+function stepOrderOf(id) {
+    return Number(
+        (tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? NaN,
+    );
+}
+
+// Client-side mirror of the backend route guards (forward-only, no
+// self-loops, no duplicate From → To). The API re-validates everything.
+function routeClientError() {
+    const from = routeForm.value.from_step_id;
+    const to = routeForm.value.to_step_id;
+    if (from == null || from === '' || to == null || to === '') return "Select both From Step and To Step.";
+    if (String(from) === String(to)) return "From and To cannot be the same step.";
+    const fromOrder = stepOrderOf(from);
+    const toOrder = stepOrderOf(to);
+    if (Number.isNaN(fromOrder) || Number.isNaN(toOrder)) return "Both steps must belong to this workflow.";
+    if (toOrder < fromOrder) return `Routes must move forward: Step ${fromOrder} → Step ${toOrder} is not allowed.`;
+    const clash = (tableRoutes.value || []).find(
+        (r) =>
+            String(r.from_step_id) === String(from) &&
+            String(r.to_step_id) === String(to) &&
+            String(r.id) !== String(routeForm.value.id) &&
+            String(r.client_id ?? r.id) !== String(routeForm.value.client_id ?? routeForm.value.id),
+    );
+    if (clash) return "This route already exists (same From → To), regardless of action.";
+    return "";
+}
+
 // Hierarchy: flat step rows → depth-first tree → flat display rows
 // with dotted numbers (1, 1.1, 1.2, 2…). Editable afterwards.
 const flatStepRows = computed(() => {
@@ -977,15 +1029,11 @@ function descendantsOfStep(id) {
     return ids;
 }
 
-// Routes table: forwards read start→end by station order,
-// return arrows group at the bottom (never first).
+// Routes table: forward-only, ordered start→end by station order.
 const sortedRoutes = computed(() => {
     const orderOf = (id) =>
         Number((tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? 9999);
     return [...(tableRoutes.value || [])].sort((a, b) => {
-        const ra = a.is_return_route ? 1 : 0;
-        const rb = b.is_return_route ? 1 : 0;
-        if (ra !== rb) return ra - rb;
         return orderOf(a.from_step_id) - orderOf(b.from_step_id) || orderOf(a.to_step_id) - orderOf(b.to_step_id);
     });
 });
@@ -1058,7 +1106,6 @@ const routeHeaders = [
     { title: "From", key: "from_step_id" },
     { title: "To", key: "to_step_id" },
     { title: "Action", key: "action_code" },
-    { title: "Return", key: "is_return_route" },
     { title: "Group", key: "route_group" },
     { title: "Req Approvals", key: "required_approvals_count" },
     { title: "Condition", key: "condition_expression", sortable: false },
@@ -1251,14 +1298,20 @@ function editRoute(route) {
     openRouteDialog(workingRouteFor(route));
 }
 
-function viewDef(def) {
+async function viewDef(def) {
     if (!def) return;
     const t = selectedTypeId.value;
     // Tables render the working copy; viewing history while staged would
     // show one version and edit another — confirm first (staging survives
     // a "view anyway", reseed only happens when clean).
-    if (t && staging.isDirty(t) && !window.confirm("You have unsaved staged changes. View this version anyway? Your staged edits stay until you Save or Discard.")) {
-        return;
+    if (t && staging.isDirty(t)) {
+        const viewAnyway = await confirm({
+            title: "View this version?",
+            message: "You have unsaved staged changes. View this version anyway? Your staged edits stay until you Save or Discard.",
+            confirmLabel: "View anyway",
+            cancelLabel: "Stay",
+        });
+        if (!viewAnyway) return;
     }
     activeDef.value = def;
     if (t) seedFromActiveDef();
@@ -1494,9 +1547,13 @@ function deleteStep(step) {
 // Routes
 const routeDialog = ref(false);
 const routeForm = ref({});
+// Dialog-scoped error: route guard failures show inside the modal,
+// not on the page above the steps table.
+const routeError = ref("");
 
 function openRouteDialog(route = null) {
     error.value = "";
+    routeError.value = "";
     if (route) {
         routeForm.value = {
             id: route.id,
@@ -1504,7 +1561,6 @@ function openRouteDialog(route = null) {
             from_step_id: route.from_step_id,
             to_step_id: route.to_step_id,
             action_code: route.action_code,
-            is_return_route: !!route.is_return_route,
             route_group: route.route_group ?? "",
             required_approvals_count: route.required_approvals_count ?? "",
             condition_expression_json: route.condition_expression
@@ -1517,7 +1573,6 @@ function openRouteDialog(route = null) {
             from_step_id: null,
             to_step_id: null,
             action_code: "submit",
-            is_return_route: false,
             route_group: "",
             required_approvals_count: "",
             condition_expression_json: "",
@@ -1529,9 +1584,17 @@ function openRouteDialog(route = null) {
 function saveRoute() {
     // Staged: no network, no draft creation, no publish.
     error.value = "";
+    routeError.value = "";
     notice.value = "";
     if (!selectedTypeId.value) {
         error.value = "Pick a transaction type first.";
+        return;
+    }
+    // Instant client guard (backend + staging service re-validate):
+    // forward-only, no self-loops, no duplicate From → To.
+    const guard = routeClientError();
+    if (guard) {
+        routeError.value = guard;
         return;
     }
     let cond = null;
@@ -1540,7 +1603,7 @@ function saveRoute() {
             cond = JSON.parse(routeForm.value.condition_expression_json);
         }
     } catch {
-        error.value = "Condition must be valid JSON.";
+        routeError.value = "Condition must be valid JSON.";
         return;
     }
     staging.upsertRoute(selectedTypeId.value, {
@@ -1549,7 +1612,8 @@ function saveRoute() {
         from_step_id: routeForm.value.from_step_id,
         to_step_id: routeForm.value.to_step_id,
         action_code: routeForm.value.action_code,
-        is_return_route: !!routeForm.value.is_return_route,
+        // Return routes are retired: routes are forward-only.
+        is_return_route: false,
         route_group: routeForm.value.route_group || null,
         required_approvals_count: routeForm.value.required_approvals_count
             ? Number(routeForm.value.required_approvals_count)

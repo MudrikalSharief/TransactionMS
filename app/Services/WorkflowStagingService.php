@@ -200,12 +200,32 @@ class WorkflowStagingService
                 $applied['steps_deleted']++;
             }
 
-            // ---- routes ----
+            // ---- routes (forward-only: return routes retired, jumps handle going back) ----
             $routeToSteps = [];
+            $seenPairs = [];
             foreach ($data['routes_upsert'] ?? [] as $row) {
                 $from = $resolveStepOrFail($row['from_key']);
                 $to = $resolveStepOrFail($row['to_key']);
+                if (!empty($row['is_return_route'])) {
+                    abort(422, 'Return routes are no longer allowed. Going back is done via jump to a visited station.');
+                }
+                if ((int) $from->id === (int) $to->id) {
+                    abort(422, 'From and To cannot be the same step.');
+                }
+                if ((int) $to->order_number < (int) $from->order_number) {
+                    abort(422, "Routes must move forward: Step {$from->order_number} → Step {$to->order_number} is not allowed.");
+                }
                 $existing = $this->findRoute($draft, $typeId, $row['key'] ?? null, (int) $from->id, (int) $to->id, $row['action_code']);
+                $pairKey = (int) $from->id . '→' . (int) $to->id;
+                $clash = WorkflowRoute::where('workflow_definition_id', $draft->id)
+                    ->where('from_step_id', (int) $from->id)
+                    ->where('to_step_id', (int) $to->id)
+                    ->when($existing, fn ($q) => $q->where('id', '!=', (int) $existing->id))
+                    ->exists();
+                if ($clash || isset($seenPairs[$pairKey])) {
+                    abort(422, 'This route already exists (same From → To), regardless of action.');
+                }
+                $seenPairs[$pairKey] = true;
                 $payload = [
                     'from_step_id' => $from->id,
                     'to_step_id' => $to->id,

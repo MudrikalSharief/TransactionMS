@@ -276,6 +276,8 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <ConfirmDialog />
     </v-app>
 </template>
 
@@ -287,6 +289,7 @@ import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
 const router = useRouter();
 const route = useRoute();

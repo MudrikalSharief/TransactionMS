@@ -183,6 +183,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useStepChecklist } from "@/composables/useStepChecklist";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import { confirm } from "@/composables/useConfirm";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
 
@@ -375,7 +376,13 @@ async function resetToRequirements() {
         error.value = "Resolve the transaction type first (open this page from Workflows).";
         return;
     }
-    if (!window.confirm("On the next Save, this checklist will be rebuilt from the step's requirements. Custom rows will be dropped. Mark for rebuild?")) return;
+    const rebuild = await confirm({
+        title: "Rebuild checklist?",
+        message: "On the next Save, this checklist will be rebuilt from the step's requirements. Custom rows will be dropped. Mark for rebuild?",
+        confirmLabel: "Mark for rebuild",
+        cancelLabel: "Keep as is",
+    });
+    if (!rebuild) return;
     error.value = "";
     // Staged resync marker: the bulk endpoint re-mirrors this step and
     // ignores staged rows for it. Undo via Discard.

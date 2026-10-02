@@ -720,7 +720,7 @@ const wizardStep = ref(1);
 const wizardRef = ref(null);
 const selectedRouteId = ref(null);
 // Stations the paper already passed (meta.visited_step_ids). Powers the
-// yellow tracker nodes + the "Go to Station N" jump options.
+// yellow tracker nodes + the "Return to Station N" jump options.
 const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
@@ -1382,10 +1382,11 @@ const unifiedRouteOptions = computed(() => [
     ...jumpRouteOptions.value,
 ]);
 
-// Jump targets: visited stations BEHIND the current one, ordered by
-// station number. Values are "jump:<stepId>" strings so they never
-// collide with numeric route ids. Forward moves always go step by step
-// through the assigned routes — never by jump.
+// Jump targets (the only way back now that return routes are retired):
+// visited stations BEHIND the current one, ordered by station number.
+// Values are "jump:<stepId>" strings so they never collide with numeric
+// route ids. Forward moves always go step by step through the assigned
+// routes — never by jump. Recorded as Returned in history.
 const jumpRouteOptions = computed(() => {
     // Locked until received — backend rejects jumps on pending receipt.
     if (pendingReceipt.value) return [];
@@ -1402,7 +1403,7 @@ const jumpRouteOptions = computed(() => {
             to_step_id: s.id,
             to_number: s.order_number ?? s.id,
             is_jump: true,
-            label: `Go to Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
+            label: `Return to Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
         }));
 });
 
@@ -1442,7 +1443,7 @@ const mainActionButtonLabel = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {
         const n = selectedJumpOption.value?.to_number ?? "";
-        return n !== "" ? `Go to Station ${n}` : "Go to Station";
+        return n !== "" ? `Return to Station ${n}` : "Return to Station";
     }
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
@@ -1496,8 +1497,8 @@ function proceedTitle(prefix) {
 const proceedModalTitle = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {
-        if (!selectedJumpOption.value) return "Proceed";
-        return proceedTitle("Proceed to");
+        if (!selectedJumpOption.value) return "Return";
+        return proceedTitle("Return to");
     }
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return proceedTitle("Return to");

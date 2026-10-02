@@ -13,7 +13,7 @@
 ## Workflow definition
 - `workflow_definitions (id, transaction_type_id FK cascade, version, status, name, notes, published_at/by, unique(type,version))`
 - `workflow_steps (id, workflow_definition_id FK cascade, order_number, code unique-per-workflow, name, stage, sla_minutes, is_start, is_end, softDeletes)`
-- `workflow_routes (id, workflow_definition_id FK cascade, from_step_id FK cascade, to_step_id FK cascade, action_code, is_return_route, condition_expression json, route_group, required_approvals_count)`
+- `workflow_routes (id, workflow_definition_id FK cascade, from_step_id FK cascade, to_step_id FK cascade, action_code, is_return_route [retired — always false on new rows; old versions keep theirs], condition_expression json, route_group, required_approvals_count)`
 - `step_roles (workflow_step_id FK cascade, role_id FK cascade, unique)` — auth gate
 
 ## Runtime

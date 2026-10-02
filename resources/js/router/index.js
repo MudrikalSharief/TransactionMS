@@ -32,6 +32,7 @@ const Help = () => import("@/pages/Help.vue");
 
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
+import { confirm } from "@/composables/useConfirm";
 
 export function createRouter() {
     const router = _createRouter({
@@ -176,8 +177,14 @@ export function createRouter() {
         // Staged workflow edits live only in memory until Save version:
         // stop accidental loss on navigation (Save and Discard live on the
         // workflow pages; a reload also drops staged edits).
-        if (anyStagingDirty() && !window.confirm("You have unsaved workflow changes. Leave without saving them?")) {
-            return false;
+        if (anyStagingDirty()) {
+            const leave = await confirm({
+                title: "Leave without saving?",
+                message: "You have unsaved workflow changes. Leave without saving them?",
+                confirmLabel: "Leave",
+                cancelLabel: "Stay",
+            });
+            if (!leave) return false;
         }
         return true;
     });

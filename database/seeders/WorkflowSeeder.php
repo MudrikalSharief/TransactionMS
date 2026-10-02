@@ -310,7 +310,10 @@ class WorkflowSeeder extends Seeder
             $desired[$record->id] = true;
         }
 
+        // Grandfathered return routes are never deleted by re-seeds:
+        // old workflow versions keep theirs.
         $definition->routes()
+            ->where('is_return_route', false)
             ->whereNotIn('id', array_keys($desired))
             ->delete();
     }

@@ -49,7 +49,11 @@ class ApplyStagedWorkflowRequest extends FormRequest
             'routes_upsert.*.from_key' => ['required'],
             'routes_upsert.*.to_key' => ['required'],
             'routes_upsert.*.action_code' => ['required', 'string', 'max:50'],
-            'routes_upsert.*.is_return_route' => ['sometimes', 'boolean'],
+            'routes_upsert.*.is_return_route' => ['sometimes', 'boolean', function ($attribute, $value, $fail) {
+                if (filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+                    $fail('Return routes are no longer allowed. Going back is done via jump to a visited station.');
+                }
+            }],
             'routes_upsert.*.condition_expression' => ['nullable', 'array'],
             'routes_upsert.*.route_group' => ['nullable', 'string', 'max:120'],
             'routes_upsert.*.required_approvals_count' => ['nullable', 'integer', 'min:1'],
