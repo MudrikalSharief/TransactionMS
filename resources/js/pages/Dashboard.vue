@@ -363,7 +363,7 @@ import CardGrip from '@/components/CardGrip.vue'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
-import { isCached, readCache, writeCache, CacheKeys, scopedKey } from '@/composables/useCache'
+import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
 const auth = useAuth()
@@ -762,7 +762,7 @@ onMounted(async () => {
     // Instant paint from cache when available; the fetches below
     // then refresh everything silently in the background. List caches
     // are per-user; check the current user's slot.
-    const uid = auth.user.value?.id
+    const uid = auth.user.value?.id ?? storedUserId()
     const warm =
         isCached(CacheKeys.transactionTypes) ||
         (isSuperadmin.value

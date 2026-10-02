@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
-import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey } from "@/composables/useCache";
+import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, storedUserId } from "@/composables/useCache";
 
 // Shared count for the sidebar APPROVALS badge: required requirements still
 // waiting to be validated across the user's approval inbox. Module-level so
@@ -15,10 +15,10 @@ let paintedFor = null;
 export function useApprovalBadge() {
     const { api } = useApi();
     const { user } = useAuth();
-    const key = () => scopedKey(CacheKeys.approvalCount, user.value?.id);
+    const key = () => scopedKey(CacheKeys.approvalCount, user.value?.id ?? storedUserId());
 
     function paintCached() {
-        const uid = user.value?.id ?? null;
+        const uid = user.value?.id ?? storedUserId();
         if (painted && paintedFor === uid) return;
         painted = true;
         paintedFor = uid;

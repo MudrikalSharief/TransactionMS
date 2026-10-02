@@ -1,12 +1,12 @@
 import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
-import { readCache, writeCache, CacheKeys, scopedKey, slimTx } from "@/composables/useCache";
+import { readCache, writeCache, CacheKeys, scopedKey, storedUserId, slimTx } from "@/composables/useCache";
 
 export function useMyTransactions() {
     const { api } = useApi();
     const { user } = useAuth();
-    const key = () => scopedKey(CacheKeys.myTransactions, user.value?.id);
+    const key = () => scopedKey(CacheKeys.myTransactions, user.value?.id ?? storedUserId());
 
     const items = ref([]);
     const loading = ref(true);

@@ -1,14 +1,14 @@
 import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { useAuth } from '@/composables/useAuth'
-import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, slimTx } from '@/composables/useCache'
+import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, storedUserId, slimTx } from '@/composables/useCache'
 
 export function useTransactions() {
   const { api } = useApi()
   const { user } = useAuth()
   // Rows depend on who is logged in: scope the cache per user so a shared
   // device never paints another user's list.
-  const key = () => scopedKey(CacheKeys.transactions, user.value?.id)
+  const key = () => scopedKey(CacheKeys.transactions, user.value?.id ?? storedUserId())
 
   const items = ref([])
   const loading = ref(true)

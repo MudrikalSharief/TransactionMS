@@ -84,6 +84,25 @@ export function scopedKey(base, userId) {
     return userId ? `${base}:${userId}` : base
 }
 
+// Last-known user id, read straight from persistence (not the memory map,
+// which is empty on a fresh page load). Lets list/badge lookups build the
+// correctly-scoped key even when they run before auth.init() has restored
+// the session — previously that race produced an unscoped key, a cache
+// miss, and a full loader flash on refresh.
+export function storedUserId() {
+    try {
+        const raw = localStorage.getItem(PREFIX + CacheKeys.authUser)
+        if (!raw) return null
+        const parsed = safeParse(raw)
+        if (!parsed || typeof parsed !== 'object' || !('d' in parsed)) return null
+        if (Date.now() - parsed.t > TTL_MS) return null
+        const id = parsed.d?.id
+        return id ?? null
+    } catch {
+        return null
+    }
+}
+
 export const CacheKeys = {
     transactions: 'tx-all',
     myTransactions: 'tx-my',
