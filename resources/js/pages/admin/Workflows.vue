@@ -51,7 +51,7 @@
                                                 size="x-small"
                                                 class="ml-1 font-weight-bold"
                                             >
-                                                LIVE
+                                                ACTIVE
                                             </v-chip>
                                         </v-list-item-title>
                                         <v-list-item-subtitle>
