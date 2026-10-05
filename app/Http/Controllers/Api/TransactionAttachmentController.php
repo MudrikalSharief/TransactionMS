@@ -108,6 +108,31 @@ class TransactionAttachmentController extends Controller
         );
     }
 
+    public function view(Request $request, Transaction $transaction, TransactionAttachment $attachment, RoutingEngine $routing)
+    {
+        $this->assertCanView($transaction, $request, $routing);
+
+        if ((int) $attachment->transaction_id !== (int) $transaction->id) {
+            abort(404);
+        }
+
+        $disk = $attachment->disk ?: 'local';
+        if (!Storage::disk($disk)->exists($attachment->stored_path)) {
+            abort(404, 'File missing from storage.');
+        }
+
+        $mime = $attachment->mime ?: Storage::disk($disk)->mimeType($attachment->stored_path) ?: 'application/octet-stream';
+
+        return Storage::disk($disk)->response(
+            $attachment->stored_path,
+            $attachment->original_name,
+            [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="' . addslashes($attachment->original_name) . '"',
+            ]
+        );
+    }
+
     public function destroy(Request $request, Transaction $transaction, TransactionAttachment $attachment)
     {
         $user = $request->user();

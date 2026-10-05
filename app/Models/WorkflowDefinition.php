@@ -15,6 +15,7 @@ class WorkflowDefinition extends Model
         'transaction_type_id',
         'version',
         'status',
+        'is_live',
         'name',
         'notes',
         'published_at',
@@ -22,6 +23,7 @@ class WorkflowDefinition extends Model
     ];
 
     protected $casts = [
+        'is_live' => 'boolean',
         'published_at' => 'datetime',
     ];
 

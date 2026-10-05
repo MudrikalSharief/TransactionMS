@@ -2,7 +2,7 @@
     <v-dialog :model-value="open" max-width="560" @update:model-value="(v) => emit('update:open', v)">
         <v-card rounded="0">
             <v-card-title class="pa-5">
-                <div class="text-h6 font-weight-bold">Go back to {{ destinationLabel }}</div>
+                <div class="text-h6 font-weight-bold">Return to {{ destinationLabel }}</div>
                 <div class="text-caption text-medium-emphasis font-weight-bold mt-1">
                     From {{ currentLabel }}. Saved checks at other stations are kept.
                 </div>
@@ -12,7 +12,7 @@
                 <v-textarea
                     v-model="remarks"
                     label="Remarks (required)"
-                    placeholder="Why are you going back?"
+                    placeholder="Why are you returning it?"
                     rows="4"
                     auto-grow
                     :disabled="saving"
@@ -42,7 +42,7 @@ const props = defineProps({
     open: { type: Boolean, default: false },
     currentLabel: { type: String, default: 'current station' },
     destinationLabel: { type: String, default: 'the selected station' },
-    confirmLabel: { type: String, default: 'Go back' },
+    confirmLabel: { type: String, default: 'Return' },
     saving: { type: Boolean, default: false },
 })
 
@@ -60,7 +60,7 @@ watch(() => props.open, (v) => {
 
 function confirm() {
     if (!remarks.value.trim()) {
-        remarksError.value = 'Remarks are required to go back.'
+        remarksError.value = 'Remarks are required to return.'
         return
     }
     emit('confirm', remarks.value.trim())

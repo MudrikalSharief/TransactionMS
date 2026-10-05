@@ -19,6 +19,7 @@ class WorkflowStep extends Model
         'code',
         'name',
         'stage',
+        'office_id',
         'sla_minutes',
         'is_start',
         'is_end',
@@ -73,6 +74,11 @@ class WorkflowStep extends Model
         return $this->fieldDefinitions();
     }
 
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(Office::class);
+    }
+
     public function roles()
     {
         return $this->belongsToMany(Role::class, 'step_roles', 'workflow_step_id', 'role_id')
@@ -85,7 +91,7 @@ class WorkflowStep extends Model
             'step_requirements',
             'workflow_step_id',
             'requirement_definition_id'
-        )->withPivot(['display_order', 'is_required'])
+        )->withPivot(['display_order', 'is_required', 'is_upload_required'])
             ->withTimestamps()
             ->orderBy('step_requirements.display_order')
             ->orderBy('requirement_definitions.order_number');
@@ -95,5 +101,10 @@ class WorkflowStep extends Model
     public function requirements(): BelongsToMany
     {
         return $this->requirementDefinitions();
+    }
+
+    public function checklistOverrides(): HasMany
+    {
+        return $this->hasMany(ChecklistOverride::class, 'workflow_step_id');
     }
 }

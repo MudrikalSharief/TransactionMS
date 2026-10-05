@@ -14,20 +14,25 @@ use App\Http\Controllers\Api\Admin\GovernmentReferenceController;
 use App\Http\Controllers\Api\Admin\WorkflowDefinitionController;
 use App\Http\Controllers\Api\Admin\WorkflowStepController;
 use App\Http\Controllers\Api\Admin\WorkflowRouteController;
+use App\Http\Controllers\Api\Admin\DashboardSummaryController;
 
 use App\Http\Controllers\Api\Admin\FieldDefinitionController;
 use App\Http\Controllers\Api\Admin\StepFieldController;
 
 use App\Http\Controllers\Api\Admin\RequirementDefinitionController;
 use App\Http\Controllers\Api\Admin\StepRequirementController;
+use App\Http\Controllers\Api\Admin\StepChecklistController;
 
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\TransactionRequirementController;
+use App\Http\Controllers\Api\TransactionChecklistController;
 use App\Http\Controllers\Api\TransactionAttachmentController;
 
 use App\Http\Controllers\Api\TransactionGotoController;
 use App\Http\Controllers\Api\TransactionFinalizeController;
+use App\Http\Controllers\Api\TransactionReceiveController;
 use App\Http\Controllers\Api\UserTransactionController;
+use App\Http\Controllers\Api\ApprovalController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -68,18 +73,28 @@ Route::get('/weather', function () {
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/approvals', [ApprovalController::class, 'index']);
+    Route::get('/approvals/count', [ApprovalController::class, 'count']);
+
     Route::get('/transactions', [UserTransactionController::class, 'index']);
+    // Static path must precede {transaction} or "version" binds as a model id.
+    Route::get('/transactions/version', [UserTransactionController::class, 'version']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
+    Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
     Route::post('/transactions/{transaction}/goto', [TransactionGotoController::class, 'goto']);
     Route::post('/transactions/{transaction}/finalize', [TransactionFinalizeController::class, 'finalize']);
 
     Route::post('/transactions/{transaction}/requirements/{requirementDefinition}/check', [TransactionRequirementController::class, 'check']);
     Route::delete('/transactions/{transaction}/requirements/{requirementDefinition}/check', [TransactionRequirementController::class, 'uncheck']);
 
+    Route::post('/transactions/{transaction}/checklist/{checklistOverride}/check', [TransactionChecklistController::class, 'check']);
+    Route::delete('/transactions/{transaction}/checklist/{checklistOverride}/check', [TransactionChecklistController::class, 'uncheck']);
+
     Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
     Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
     Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
+    Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 });
 
@@ -104,6 +119,8 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'show']);
         Route::delete('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'destroy']);
         Route::post('workflow-definitions/{workflowDefinition}/publish', [WorkflowDefinitionController::class, 'publish']);
+        Route::post('workflow-definitions/{workflowDefinition}/make-live', [WorkflowDefinitionController::class, 'makeLive']);
+        Route::post('workflow-definitions/{workflowDefinition}/save-as', [WorkflowDefinitionController::class, 'saveAs']);
 
         // Workflows - Routes
         Route::post('workflow-definitions/{workflowDefinition}/routes', [WorkflowRouteController::class, 'store']);
@@ -134,6 +151,16 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements', [StepRequirementController::class, 'index']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements/sync', [StepRequirementController::class, 'sync']);
 
+        // Checklist - per-step overrides (seeded from requirements, then free-edited)
+        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
+
+        // Dashboard - Transaction Summary card
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
+        Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
+            ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process']);
+
         // Transactions
         Route::get('/transactions', [TransactionController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
@@ -141,12 +168,14 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy']);
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice']);
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction']);
+        Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
         Route::post('/transactions/{transaction}/goto', [TransactionGotoController::class, 'goto']);
         Route::post('/transactions/{transaction}/finalize', [TransactionFinalizeController::class, 'finalize']);
 
         Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
         Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
         Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
+        Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
         Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 
     });

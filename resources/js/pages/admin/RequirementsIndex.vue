@@ -27,7 +27,7 @@
                 </v-alert>
 
                 <div class="text-caption text-medium-emphasis font-weight-bold mb-1 pl-4">
-                    1 · Pick a live process — its checklist loads by itself
+                    1 · Pick a live transaction type — its checklist loads by itself
                 </div>
                 <div class="d-flex ga-2 mb-2 flex-wrap">
                     <v-select
@@ -35,8 +35,8 @@
                         :items="workflowOptions"
                         item-title="label"
                         item-value="id"
-                        placeholder="Select a process…"
-                        aria-label="Select process"
+                        placeholder="Select a transaction type…"
+                        aria-label="Select transaction type"
                         :loading="wfLoading"
                         clearable
                         density="compact"
@@ -99,7 +99,7 @@
                     :items-per-page="5"
                     :items-per-page-options="[5, 10, 25]"
                     hover
-                    no-data-text="No checklist items here yet — pick another process or add one above."
+                    no-data-text="No checklist items here yet — pick another transaction type or add one above."
                     class="lgu-table table-hug"
                 >
                     <template v-slot:[`item.is_active`]="{ item }">
@@ -256,6 +256,21 @@
                                 </span>
                             </div>
                         </template>
+                        <template v-slot:[`item.is_upload_required`]="{ item }">
+                            <div class="d-flex align-center ga-2">
+                                <v-switch
+                                    v-model="bindOverrides[String(item.workflow_step_id)].is_upload_required"
+                                    color="grey-darken-3"
+                                    inset
+                                    density="compact"
+                                    hide-details
+                                    @click.stop
+                                />
+                                <span class="text-caption font-weight-bold" :class="bindOverrides[String(item.workflow_step_id)]?.is_upload_required ? 'text-grey-darken-3' : 'text-medium-emphasis'">
+                                    {{ bindOverrides[String(item.workflow_step_id)]?.is_upload_required ? "Upload req." : "No upload" }}
+                                </span>
+                            </div>
+                        </template>
                     </v-data-table>
                     </v-sheet>
                 </v-card-text>
@@ -360,7 +375,7 @@ const form = ref({
     is_active: true,
 });
 
-// Stations of the picked process (for the Stations column dialog).
+// Stations of the picked transaction type (for the Stations column dialog).
 const stations = ref([]);
 const stationsLoading = ref(false);
 
@@ -400,9 +415,10 @@ const bindStationIds = ref([]);
 const bindOverrides = ref({});
 
 const bindHeaders = [
-    { title: "Station", key: "label", sortable: false, width: "55%" },
-    { title: "Display Order", key: "display_order", sortable: false, width: "20%", align: "end" },
-    { title: "Required?", key: "is_required", sortable: false, width: "25%" },
+    { title: "Station", key: "label", sortable: false, width: "45%" },
+    { title: "Display Order", key: "display_order", sortable: false, width: "15%", align: "end" },
+    { title: "Required?", key: "is_required", sortable: false, width: "20%" },
+    { title: "Upload req.?", key: "is_upload_required", sortable: false, width: "20%" },
 ];
 
 function pivotFor(sid) {
@@ -419,6 +435,7 @@ function ensureBindOverrides() {
             next[key] = {
                 display_order: pivot.display_order ?? 0,
                 is_required: pivot.is_required ?? true,
+                is_upload_required: pivot.is_upload_required ?? pivot.is_required ?? true,
             };
         }
     }
@@ -430,7 +447,7 @@ const bindRows = computed(() => {
         .map((sid) => {
             const st = (stations.value || []).find((x) => Number(x.id) === Number(sid));
             if (!st) return null;
-            const ov = bindOverrides.value?.[String(sid)] || { display_order: 0, is_required: true };
+            const ov = bindOverrides.value?.[String(sid)] || { display_order: 0, is_required: true, is_upload_required: true };
             return {
                 workflow_step_id: st.id,
                 label: `${st.order_number}. ${st.name} (${st.code})`,
@@ -439,6 +456,7 @@ const bindRows = computed(() => {
                 code: st.code,
                 display_order: ov.display_order,
                 is_required: ov.is_required,
+                is_upload_required: ov.is_upload_required ?? ov.is_required ?? true,
             };
         })
         .filter(Boolean)
@@ -453,6 +471,7 @@ function openBindDialog(item) {
         bindOverrides.value[String(s.id)] = {
             display_order: pivot.display_order ?? 0,
             is_required: pivot.is_required ?? true,
+            is_upload_required: pivot.is_upload_required ?? pivot.is_required ?? true,
         };
     }
     bindStationIds.value = ((item?.steps || []).map((s) => s.id));
@@ -473,6 +492,7 @@ async function saveBind() {
             workflow_step_id: r.workflow_step_id,
             display_order: Number(r.display_order ?? 0),
             is_required: !!r.is_required,
+            is_upload_required: r.is_upload_required ?? r.is_required ?? true,
         }));
         await syncSteps(selectedWorkflowId.value, bindTarget.value.id, {
             steps: payload,
@@ -560,7 +580,7 @@ async function loadRequirements() {
 function openDialog(item = null) {
     error.value = "";
     if (!selectedWorkflowId.value) {
-        error.value = "Pick a process above first.";
+        error.value = "Pick a transaction type above first.";
         return;
     }
 
@@ -642,7 +662,7 @@ onMounted(async () => {
     }
 });
 
-// Picking another process loads its checklist at once — no extra button press.
+// Picking another transaction type loads its checklist at once — no extra button press.
 watch(selectedWorkflowId, async (id, prev) => {
     if (!id || id === prev) return;
     await loadRequirements();

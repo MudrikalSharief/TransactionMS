@@ -21,8 +21,11 @@ class TransactionEngine
     public function create(int $transactionTypeId, ?string $title, int $userId, ?int $officeId = null): Transaction
     {
         return DB::transaction(function () use ($transactionTypeId, $title, $userId, $officeId) {
+            // Live-flagged version wins; fallback to the highest published
+            // version for rows predating the is_live backfill.
             $workflow = WorkflowDefinition::where('transaction_type_id', $transactionTypeId)
                 ->where('status', 'published')
+                ->orderByDesc('is_live')
                 ->orderByDesc('version')
                 ->with('steps')
                 ->first();
@@ -67,6 +70,11 @@ class TransactionEngine
                 'remarks' => 'Transaction created',
                 'performed_by' => $userId,
                 'performed_at' => now(),
+                // Creation is not a forward — no pending receipt.
+                'received_at' => now(),
+                'received_by' => $userId,
+                'received_office_id' => $startStep->office_id,
+                'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
             ]);
 
             return $tx->load([
@@ -74,12 +82,19 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'state.currentStep',
                 'creator',
                 'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
                 'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
                 'runs.performer',
+                'runs.receiver',
+                'runs.receivedOffice',
                 'fieldValues.fieldDefinition',
             ]);
         });
@@ -98,6 +113,7 @@ class TransactionEngine
                 'state.currentStep',
                 'workflow',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'fieldValues.fieldDefinition',
             ]);
@@ -134,6 +150,8 @@ class TransactionEngine
 
             $currentStepId = (int) $tx->state->current_step_id;
             $toStepId = (int) $route->to_step_id;
+            $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
+                ?? \App\Models\WorkflowStep::find($toStepId);
 
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
@@ -143,6 +161,11 @@ class TransactionEngine
                 'remarks' => $remarks,
                 'performed_by' => $userId,
                 'performed_at' => now(),
+                // Pending receipt: next office must click Receive.
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $toStep?->office_id,
+                'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
             // Link proceed-modal uploads (keep-forever evidence) to this run.
@@ -170,6 +193,15 @@ class TransactionEngine
                     ->update(['step_run_id' => $run->id]);
             }
 
+            // Requirement uploads (wizard page 1: AR, DTR, …) stay unlinked
+            // until Proceed — stamp any still-pending files of this visit
+            // so the move-history row lists every file uploaded while here.
+            \App\Models\TransactionAttachment::query()
+                ->where('transaction_id', $tx->id)
+                ->where('workflow_step_id', $currentStepId)
+                ->whereNull('step_run_id')
+                ->update(['step_run_id' => $run->id]);
+
             $tx->state->update([
                 'current_step_id' => $toStepId,
                 'entered_at' => now(),
@@ -189,9 +221,17 @@ class TransactionEngine
                     ->where('transaction_id', $tx->id)
                     ->where('workflow_step_id', $toStepId)
                     ->delete();
+                \App\Models\TransactionChecklistCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $toStepId)
+                    ->delete();
             }
             if ($isReturn) {
                 \App\Models\TransactionRequirementCheck::query()
+                    ->where('transaction_id', $tx->id)
+                    ->where('workflow_step_id', $currentStepId)
+                    ->delete();
+                \App\Models\TransactionChecklistCheck::query()
                     ->where('transaction_id', $tx->id)
                     ->where('workflow_step_id', $currentStepId)
                     ->delete();
@@ -202,16 +242,24 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep',
                 'creator',
                 'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
                 'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
                 'runs.performer',
-                'runs.attachments',
+                'runs.receiver',
+                'runs.receivedOffice',
+                'runs.attachments.requirement',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',
+                'checklistChecks.checker',
                 'attachments.step',
                 'attachments.requirement',
                 'attachments.uploader',
@@ -220,9 +268,11 @@ class TransactionEngine
     }
 
     /**
-     * Jump to an already-visited station (free navigation). No checklist
-     * gating — callers validate the destination. Complete destinations
-     * keep their saved work via the intact-arrival rule; gappy ones reset.
+     * Return to an already-visited station (free navigation, the only way
+     * back now that return routes are retired). No checklist gating —
+     * callers validate the destination. Complete destinations keep their
+     * saved work via the intact-arrival rule; gappy ones reset.
+     * Recorded as Returned in history (old rows keep Revisited).
      */
     public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId): Transaction
     {
@@ -237,14 +287,21 @@ class TransactionEngine
                 abort(422, 'Already at this station.');
             }
 
+            $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
+                ?? \App\Models\WorkflowStep::find($toStepId);
+
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
                 'to_step_id' => $toStepId,
-                'action_code' => 'revisit',
-                'remarks' => $remarks ?? 'Jumped to a passed station',
+                'action_code' => 'return',
+                'remarks' => $remarks ?? 'Returned to a passed station',
                 'performed_by' => $userId,
                 'performed_at' => now(),
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $toStep?->office_id,
+                'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
             // Pending (unlinked) files travel with the jump so evidence
@@ -271,16 +328,87 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep',
                 'creator',
                 'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
                 'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
                 'runs.performer',
-                'runs.attachments',
+                'runs.receiver',
+                'runs.receivedOffice',
+                'runs.attachments.requirement',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',
+                'checklistChecks.checker',
+                'attachments.step',
+                'attachments.requirement',
+                'attachments.uploader',
+            ]);
+        });
+    }
+
+    /**
+     * Claim the latest pending receipt (explicit Receive button).
+     * First user with the destination role wins — atomic WHERE received_at IS NULL.
+     */
+    public function receive(Transaction $tx, int $userId): Transaction
+    {
+        return DB::transaction(function () use ($tx, $userId) {
+            $tx->loadMissing(['state']);
+            $currentStepId = (int) ($tx->state?->current_step_id ?? 0);
+            if (!$currentStepId) abort(422, 'Transaction has no current step.');
+
+            $pending = TransactionStepRun::where('transaction_id', $tx->id)
+                ->whereNull('received_at')
+                ->orderByDesc('performed_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$pending) abort(422, 'Nothing to receive — already received.');
+            if ((int) $pending->to_step_id !== $currentStepId) {
+                abort(422, 'Pending receipt does not match the current step.');
+            }
+
+            $claimed = TransactionStepRun::where('id', $pending->id)
+                ->whereNull('received_at')
+                ->update(['received_at' => now(), 'received_by' => $userId]);
+
+            if (!$claimed) {
+                $fresh = TransactionStepRun::with('receiver:id,name')->find($pending->id);
+                abort(409, 'Already received by ' . ($fresh?->receiver?->name ?? 'another user') . '.');
+            }
+
+            return $tx->fresh()->load([
+                'type',
+                'office',
+                'office.steps',
+                'workflow.steps',
+                'workflow.steps.office',
+                'workflow.routes',
+                'workflow.stepRoles.role',
+                'state.currentStep',
+                'creator',
+                'runs.fromStep',
+                'runs.fromStep.office',
+                'runs.fromStep.roles',
+                'runs.toStep',
+                'runs.toStep.office',
+                'runs.toStep.roles',
+                'runs.performer',
+                'runs.receiver',
+                'runs.receivedOffice',
+                'runs.receiver',
+                'runs.receivedOffice',
+                'runs.attachments.requirement',
+                'fieldValues.fieldDefinition',
+                'requirementChecks.checker',
+                'checklistChecks.checker',
                 'attachments.step',
                 'attachments.requirement',
                 'attachments.uploader',
@@ -299,24 +427,59 @@ class TransactionEngine
             'workflow.steps.requirementDefinitions',
             'workflow.steps.fieldDefinitions',
             'fieldValues.fieldDefinition',
+            'attachments',
+            'requirementChecks',
+            'checklistChecks',
         ]);
 
         $step = $tx->workflow->steps->firstWhere('id', $stepId);
         if (!$step) return false;
 
+        // Upload-required requirements keep their files on intact arrivals.
         $requiredReqs = collect($step->requirementDefinitions ?? [])
-            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
             ->values();
         if ($requiredReqs->isNotEmpty()) {
-            $checkedIds = \App\Models\TransactionRequirementCheck::query()
-                ->where('transaction_id', $tx->id)
+            $attCounts = collect($tx->attachments ?? [])
+                ->where('workflow_step_id', $stepId)
+                ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0))
+                ->map(fn ($g) => $g->count());
+            foreach ($requiredReqs as $r) {
+                if (($attCounts->get((int) $r->id, 0) ?? 0) < 1) return false;
+            }
+        }
+
+        // Required checklist ticks must still be present.
+        $checklistItems = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $requiredItems = $checklistItems->filter(fn ($i) => (bool) $i->is_required)->values();
+        if ($requiredItems->isNotEmpty()) {
+            $checkedIds = collect($tx->checklistChecks ?? [])
+                ->where('workflow_step_id', $stepId)
+                ->pluck('checklist_override_id')
+                ->filter()
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values();
+            foreach ($requiredItems as $item) {
+                if (!$checkedIds->contains((int) $item->id)) return false;
+            }
+        }
+
+        // Required requirement ticks (tick-only AND upload rows like
+        // AR/Payroll) must still be present.
+        $tickReqs = collect($step->requirementDefinitions ?? [])
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_required ?? true))
+            ->values();
+        if ($tickReqs->isNotEmpty()) {
+            $checkedReqIds = collect($tx->requirementChecks ?? [])
                 ->where('workflow_step_id', $stepId)
                 ->pluck('requirement_definition_id')
                 ->map(fn ($v) => (int) $v)
                 ->unique()
                 ->values();
-            $allChecked = $requiredReqs->every(fn ($r) => $checkedIds->contains((int) $r->id));
-            if (!$allChecked) return false;
+            foreach ($tickReqs as $r) {
+                if (!$checkedReqIds->contains((int) $r->id)) return false;
+            }
         }
 
         $valuesByDefId = collect($tx->fieldValues ?? [])->keyBy('field_definition_id');

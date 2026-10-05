@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Workflows\CreateDraftRequest;
 use App\Http\Requests\Admin\Workflows\PublishWorkflowRequest;
+use App\Http\Requests\Admin\Workflows\SaveAsVersionRequest;
 use App\Http\Resources\WorkflowDefinitionResource;
 use App\Models\FieldDefinition;
 use App\Models\RequirementDefinition;
@@ -22,7 +23,7 @@ class WorkflowDefinitionController extends Controller
         $typeId = $request->query('transaction_type_id');
 
         $q = WorkflowDefinition::query()
-            ->with(['steps.roles', 'routes'])
+            ->with(['steps.roles', 'steps.office', 'routes'])
             ->orderByDesc('version');
 
         if ($typeId) $q->where('transaction_type_id', $typeId);
@@ -33,7 +34,7 @@ class WorkflowDefinitionController extends Controller
     public function show(WorkflowDefinition $workflowDefinition)
     {
         return new WorkflowDefinitionResource(
-            $workflowDefinition->load(['steps.roles', 'routes'])
+            $workflowDefinition->load(['steps.roles', 'steps.office', 'routes'])
         );
     }
 
@@ -49,6 +50,43 @@ class WorkflowDefinitionController extends Controller
         return new WorkflowDefinitionResource($published);
     }
 
+    public function saveAs(SaveAsVersionRequest $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, AuditService $audit)
+    {
+        $saved = $svc->saveAs(
+            $workflowDefinition,
+            $request->user()->id,
+            $request->validated()['name'],
+            $request->validated()['notes'] ?? null
+        );
+
+        $audit->log($request, 'workflow_definitions.save_as', $saved, [
+            'source_id' => $workflowDefinition->id,
+            'source_version' => $workflowDefinition->version,
+            'to_version' => $saved->version,
+            'name' => $saved->name,
+        ]);
+
+        return (new WorkflowDefinitionResource($saved))->response()->setStatusCode(201);
+    }
+
+    public function makeLive(Request $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, AuditService $audit)
+    {
+        $from = WorkflowDefinition::where('transaction_type_id', $workflowDefinition->transaction_type_id)
+            ->where('is_live', true)
+            ->first();
+
+        $live = $svc->makeLive($workflowDefinition);
+
+        $audit->log($request, 'workflow_definitions.make_live', $live, [
+            'from_version' => $from?->version,
+            'from_id' => $from?->id,
+            'to_version' => $live->version,
+            'to_id' => $live->id,
+        ]);
+
+        return new WorkflowDefinitionResource($live);
+    }
+
     public function destroy(Request $request, WorkflowDefinition $workflowDefinition, AuditService $audit)
     {
         if ($workflowDefinition->status !== 'draft') {
@@ -56,7 +94,7 @@ class WorkflowDefinitionController extends Controller
         }
 
         if (Transaction::where('workflow_definition_id', $workflowDefinition->id)->exists()) {
-            return response()->json(['message' => 'Cannot delete: transactions use this process.'], 422);
+            return response()->json(['message' => 'Cannot delete: transactions use this transaction type.'], 422);
         }
 
         return DB::transaction(function () use ($request, $workflowDefinition, $audit) {

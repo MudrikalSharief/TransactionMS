@@ -1,10 +1,35 @@
 <template>
     <div>
-        <div class="text-h6 font-weight-bold mb-3">
-            Attach files
-            <span class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
+        <div v-if="showHeader" class="d-flex align-center ga-2 mb-3">
+            <div class="font-weight-bold text-body-1">
+                Upload files
+                <span class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
+            </div>
+            <span v-if="hintText" class="text-caption" :class="hintType === 'success' ? 'text-success' : 'text-error'">
+                <v-icon size="x-small">{{ hintType === 'success' ? 'mdi-check' : 'mdi-alert-circle-outline' }}</v-icon>
+                {{ hintText }}
+            </span>
+        </div>
+        <!-- Minimal picker: small button + inline hint (used in grouped upload sections). -->
+        <div v-if="minimal" class="d-flex align-center ga-2 mb-2">
+            <v-btn
+                size="small"
+                variant="tonal"
+                rounded="0"
+                prepend-icon="mdi-paperclip"
+                :disabled="disabled || uploading"
+                :loading="uploading"
+                @click="fileInput?.click()"
+            >Choose files</v-btn>
+            <span v-if="hintText" class="text-caption" :class="hintType === 'success' ? 'text-success' : 'text-error'">
+                <v-icon size="x-small">{{ hintType === 'success' ? 'mdi-check' : 'mdi-alert-circle-outline' }}</v-icon>
+                {{ hintText }}
+            </span>
+            <span v-else class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
+            <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
         </div>
         <v-file-input
+            v-else
             v-model="picked"
             label="Choose files"
             multiple
@@ -19,15 +44,14 @@
             {{ uploadError }}
         </v-alert>
         <AttachmentList
+            v-if="showList"
             :items="modelValue"
             :tx-id="txId"
             :is-admin="isAdmin"
             compact
+            :action="fileAction"
             @deleted="onDeleted"
         />
-        <div class="text-caption text-medium-emphasis mt-1">
-            Files upload immediately and are kept permanently. Visible to all viewers later. Only superadmin can delete.
-        </div>
     </div>
 </template>
 
@@ -42,11 +66,24 @@ const props = defineProps({
     requirementId: { type: [Number, String], default: null },
     modelValue: { type: Array, default: () => [] },
     disabled: { type: Boolean, default: false },
+    hintText: { type: String, default: '' },
+    hintType: { type: String, default: 'error' },
+    // When false, hides the internal file list (caller renders its own
+    // merged list elsewhere, e.g. above the input in Proceed cards).
+    showList: { type: Boolean, default: true },
+    // Minimal mode: small Choose button instead of the full-width field
+    // (used in grouped upload sections in the Proceed modal).
+    minimal: { type: Boolean, default: false },
+    // Hide the "Upload files" header (requirement name serves as title).
+    showHeader: { type: Boolean, default: true },
+    // File click behavior of the internal list ('view' | 'download').
+    fileAction: { type: String, default: 'view' },
 });
 const emit = defineEmits(["update:modelValue", "uploaded", "deleted", "error"]);
 
 const { api } = useApi();
 const picked = ref([]);
+const fileInput = ref(null);
 const uploading = ref(false);
 const uploadError = ref("");
 
@@ -72,8 +109,7 @@ function formatErr(e) {    const errs = e?.response?.data?.errors;
     );
 }
 
-async function onPick(files) {
-    uploadError.value = "";
+async function onPick(files) {    uploadError.value = "";
     if (!files?.length) return;
     const queue = [...files];
     picked.value = [];
@@ -104,5 +140,11 @@ async function onPick(files) {
     } finally {
         uploading.value = false;
     }
+}
+
+function onNativePick(e) {
+    const files = [...(e?.target?.files || [])];
+    if (e?.target) e.target.value = '';
+    onPick(files);
 }
 </script>
