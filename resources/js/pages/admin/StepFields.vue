@@ -21,6 +21,13 @@
                     >{{ error }}</v-alert
                 >
 
+                <StagingSaveBar
+                    :type-id="typeId"
+                    :def-id="workflowDefinitionId"
+                    @saved="afterBulkSaved"
+                    @discarded="loadAssigned"
+                />
+
                 <v-alert
                     v-if="!workflowDefinitionId || !stepIdFromUrl"
                     type="error"
@@ -54,9 +61,9 @@
 
                 <div v-else>
                     <v-alert type="info" variant="tonal" class="mb-3">
-                        You are editing builder configuration. This affects
-                        transactions only when this transaction type is
-                        published and pinned by a transaction.
+                        You are editing builder configuration. Changes stay
+                        staged locally until you press Save version — even on
+                        published versions (the server applies them to the draft).
                     </v-alert>
 
                     <v-row>
@@ -70,20 +77,8 @@
                                 multiple
                                 chips
                                 closable-chips
+                                @update:model-value="stageFields"
                             />
-                        </v-col>
-
-                        <v-col cols="12" md="5">
-                            <v-btn
-                                color="grey-darken-3"
-                                rounded="0"
-                                :loading="saving"
-                                :disabled="isReadonly"
-                                class="mt-1"
-                                @click="save"
-                            >
-                                Save Assignment
-                            </v-btn>
                         </v-col>
                     </v-row>
 
@@ -122,6 +117,7 @@
                                 density="compact"
                                 hide-details
                                 style="max-width: 120px"
+                                @update:model-value="stageFields"
                             />
                         </template>
 
@@ -132,6 +128,7 @@
                                 density="compact"
                                 hide-details
                                 style="max-width: 180px"
+                                @update:model-value="stageFields"
                             />
                         </template>
                     </v-data-table>
@@ -144,12 +141,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useFieldDefinitions } from "@/composables/useFieldDefinitions";
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import TableLoader from '@/components/TableLoader.vue';
-import { isReadonlyStatus } from '@/utils/workflowStatus';
+import StagingSaveBar from '@/components/StagingSaveBar.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -168,9 +166,18 @@ const workflowDefinitionId = computed(() => Number(route.params.workflowId));
 const stepIdFromUrl = computed(() => Number(route.params.stepId));
 
 const { items: fields, fetchAll: fetchFields } = useFieldDefinitions();
+const staging = useWorkflowStaging();
+
+// Staging is keyed by transaction type: prefer the explicit query param,
+// fall back to the type resolved from the loaded definition.
+const typeId = computed(() => {
+    const q = Number(route.query.type);
+    if (Number.isFinite(q) && q > 0) return q;
+    const t = Number(returnTypeId.value);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
 
 const error = ref("");
-const saving = ref(false);
 
 const steps = ref([]);
 const stepsLoading = ref(false);
@@ -178,8 +185,6 @@ const selectedStepId = ref(null);
 
 const selectedFieldIds = ref([]);
 const assigned = ref([]);
-
-const isReadonly = ref(false);
 
 const requiredOverrideOptions = [
     { title: "Default (use field.required)", value: null },
@@ -234,11 +239,10 @@ async function loadSteps() {
                 `/api/admin/workflow-definitions/${wid}`,
             );
             const def = defRes.data?.data ?? defRes.data;
-            isReadonly.value = isReadonlyStatus(def?.status);
             const tid = Number(def?.transaction_type_id);
             if (Number.isFinite(tid) && tid > 0) returnTypeId.value = tid;
         } catch {
-            isReadonly.value = false;
+            /* type id for Back is best-effort */
         }
 
         const res = await api.get(
@@ -265,45 +269,64 @@ async function loadAssigned() {
         const res = await api.get(
             `/api/admin/workflow-definitions/${wid}/steps/${sid}/fields`,
         );
+        // Prefer already-staged assignment so revisit never shows stale
+        // server state over unsaved edits (names resolve via the catalog).
+        const staged = typeId.value
+            ? staging.buckets.get(String(typeId.value))?.fields?.[String(sid)]
+            : null;
+        if (staged) {
+            selectedFieldIds.value = staged.map((r) => r.field_definition_id);
+            assigned.value = staged.map((r) => ({
+                id: r.field_definition_id,
+                pivot_meta: {
+                    display_order: r.display_order ?? 0,
+                    required_override: r.required_override ?? null,
+                },
+            }));
+            return;
+        }
         assigned.value = res.data.data ?? res.data;
 
         selectedFieldIds.value = (assigned.value || []).map((a) => a.id);
+
+        // Seed the staging slice (skipped when staged edits exist).
+        if (typeId.value) {
+            staging.seedFields(
+                typeId.value,
+                sid,
+                assignmentRows.value.map((r) => ({
+                    field_definition_id: r.field_definition_id,
+                    display_order: Number(r.display_order ?? 0),
+                    required_override: r.required_override ?? null,
+                })),
+            );
+        }
     } catch (e) {
         error.value =
             e?.response?.data?.message || "Failed to load assigned fields.";
     }
 }
 
-async function save() {
-    if (!selectedStepId.value) return;
-    saving.value = true;
-    error.value = "";
-    try {
-        const wid = workflowDefinitionId.value;
-        const sid = Number(selectedStepId.value);
-        if (!wid || Number.isNaN(wid) || !sid || Number.isNaN(sid))
-            throw new Error("Invalid ids");
-
-        const payload = assignmentRows.value.map((r) => ({
+// Write the visible assignment into the staging store (no network).
+// Called by every picker/toggle edit; Save version persists everything.
+// Deferred a tick so v-model writes land before we snapshot the rows.
+async function stageFields() {
+    await nextTick();
+    if (!typeId.value || !selectedStepId.value) return;
+    staging.setFields(
+        typeId.value,
+        Number(selectedStepId.value),
+        assignmentRows.value.map((r) => ({
             field_definition_id: r.field_definition_id,
             display_order: Number(r.display_order ?? 0),
-            required_override: r.required_override,
-        }));
+            required_override: r.required_override ?? null,
+        })),
+    );
+}
 
-        await api.post(
-            `/api/admin/workflow-definitions/${wid}/steps/${sid}/fields/sync`,
-            {
-                fields: payload,
-            },
-        );
-
-        await loadAssigned();
-    } catch (e) {
-        error.value =
-            e?.response?.data?.message || e?.message || "Save failed.";
-    } finally {
-        saving.value = false;
-    }
+async function afterBulkSaved() {
+    // Bucket was dropped by the save: reload fresh (reseeds staging).
+    await loadAssigned();
 }
 
 watch(selectedStepId, async () => {
@@ -326,8 +349,8 @@ watch(
 );
 
 onMounted(async () => {
-    await fetchFields();
-    await loadSteps();
+    // Field catalog and step list are independent: fetch in parallel.
+    await Promise.allSettled([fetchFields(), loadSteps()]);
 
     const sid = stepIdFromUrl.value;
     if (sid && !Number.isNaN(sid)) {

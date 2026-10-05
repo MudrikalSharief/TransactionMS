@@ -42,26 +42,36 @@ class DashboardSummaryController extends Controller
     {
         $this->resolveScope($request);
 
-        $inProcess = $this->inProcess();
+        // Tile counts are polled silently every 20s by every open Dashboard —
+        // 60s server cache cuts that to 1 query-batch per minute per filter.
+        $key = 'dash:summary:'.md5(json_encode([
+            $this->periodMeta, $this->processes, $this->offices, $this->officeId,
+        ]));
 
-        $byProcess = $this->createdInPeriod($this->filtered(Transaction::query(), withProcess: false))
-            ->join('transaction_types', 'transaction_types.id', '=', 'transactions.transaction_type_id')
-            ->groupBy('transaction_types.id', 'transaction_types.name')
-            ->selectRaw('transaction_types.id as id, transaction_types.name as name, COUNT(*) as count')
-            ->orderByDesc('count')
-            ->orderBy('transaction_types.name')
-            ->get()
-            ->map(fn ($row) => ['id' => (int) $row->id, 'name' => $row->name, 'count' => (int) $row->count])
-            ->values();
+        $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
+            $inProcess = $this->inProcess();
 
-        return response()->json([
-            'period' => $this->periodMeta,
-            'completed' => $this->completedQuery()->count(),
-            'in_process' => $inProcess->count(),
-            'overdue' => $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)->count(),
-            'deleted' => $this->deletedQuery()->count(),
-            'by_process' => $byProcess,
-        ]);
+            $byProcess = $this->createdInPeriod($this->filtered(Transaction::query(), withProcess: false))
+                ->join('transaction_types', 'transaction_types.id', '=', 'transactions.transaction_type_id')
+                ->groupBy('transaction_types.id', 'transaction_types.name')
+                ->selectRaw('transaction_types.id as id, transaction_types.name as name, COUNT(*) as count')
+                ->orderByDesc('count')
+                ->orderBy('transaction_types.name')
+                ->get()
+                ->map(fn ($row) => ['id' => (int) $row->id, 'name' => $row->name, 'count' => (int) $row->count])
+                ->values();
+
+            return [
+                'period' => $this->periodMeta,
+                'completed' => $this->completedQuery()->count(),
+                'in_process' => $inProcess->count(),
+                'overdue' => $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)->count(),
+                'deleted' => $this->deletedQuery()->count(),
+                'by_process' => $byProcess,
+            ];
+        });
+
+        return response()->json($payload);
     }
 
     /**

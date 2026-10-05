@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Workflows\ApplyStagedWorkflowRequest;
 use App\Http\Requests\Admin\Workflows\CreateDraftRequest;
 use App\Http\Requests\Admin\Workflows\PublishWorkflowRequest;
 use App\Http\Requests\Admin\Workflows\SaveAsVersionRequest;
 use App\Http\Resources\WorkflowDefinitionResource;
+use App\Services\WorkflowStagingService;
 use App\Models\FieldDefinition;
 use App\Models\RequirementDefinition;
 use App\Models\Transaction;
@@ -67,6 +69,44 @@ class WorkflowDefinitionController extends Controller
         ]);
 
         return (new WorkflowDefinitionResource($saved))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Staged save: apply a client-staged diff (steps/routes/requirements/
+     * checklists/field-assignments) onto the open draft in ONE atomic
+     * transaction — nothing persists until this is called.
+     *
+     * Modes: overwrite (stay draft) vs create-new (name required, publishes;
+     * a start/end validation failure still keeps the staged content as draft).
+     */
+    public function applyStaged(
+        ApplyStagedWorkflowRequest $request,
+        WorkflowDefinition $workflowDefinition,
+        WorkflowStagingService $staging,
+        \App\Services\ChecklistService $checklists,
+        AuditService $audit
+    ) {
+        $result = $staging->apply(
+            $workflowDefinition,
+            $request->user()->id,
+            $request->validated(),
+            $checklists
+        );
+
+        $audit->log($request, 'workflow_definitions.apply_staged', $result['definition'], [
+            'mode' => $request->validated()['mode'],
+            'published' => $result['published'],
+            'applied' => $result['applied'],
+        ]);
+
+        return (new WorkflowDefinitionResource($result['definition']))->additional([
+            'meta' => [
+                'mode' => $request->validated()['mode'],
+                'published' => $result['published'],
+                'message' => $result['message'],
+                'applied' => $result['applied'],
+            ],
+        ])->response()->setStatusCode($result['published'] ? 201 : 200);
     }
 
     public function makeLive(Request $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, AuditService $audit)

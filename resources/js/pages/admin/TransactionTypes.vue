@@ -1,12 +1,25 @@
 <template>
+  <LoadingVeil :show="loading" label="transaction types" icon="mdi-format-list-bulleted-type" />
   <v-card rounded="0" elevation="1" class="lgu-card">
-    <v-card-title class="d-flex align-center pa-5">
-      <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-        <v-icon color="white">mdi-format-list-bulleted-type</v-icon>
+    <v-card-title class="d-flex align-center pa-5 lgu-head">
+      <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+        <v-icon color="#1E40AF">mdi-format-list-bulleted-type</v-icon>
       </v-avatar>
       <span class="text-h6 font-weight-bold">Transaction Types</span>
       <v-spacer />
-      <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
+      <v-text-field
+        v-model="search"
+        prepend-inner-icon="mdi-magnify"
+        label="Search . . ."
+        variant="outlined"
+        density="compact"
+        rounded="0"
+        hide-details
+        clearable
+        class="mr-2"
+        style="max-width: 260px"
+      />
+      <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
         Add Transaction Type
       </v-btn>
     </v-card-title>
@@ -14,20 +27,31 @@
     <v-card-text class="pa-4">
       <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
-      <div class="d-flex flex-column" style="min-height: 510px">
+      <div class="d-flex flex-column table-stage" style="min-height: 510px">
       <v-data-table
         v-show="!loading"
-        :items="items"
+        :items="filtered"
         :headers="headers"
         :loading="loading"
         item-key="id"
         density="compact"
-        height="450"
-        fixed-header
-        :items-per-page="25"
+        :items-per-page="7"
+        :items-per-page-options="[7]"
         hover
-        class="lgu-table"
+        class="lgu-table table-pages"
       >
+        <template v-slot:[`item.code`]="{ item }">
+          <span class="cell-truncate code-cap" :title="item.code">{{ item.code }}</span>
+        </template>
+
+        <template v-slot:[`item.name`]="{ item }">
+          <span class="cell-truncate name-cap font-weight-bold" :title="item.name">{{ item.name }}</span>
+        </template>
+
+        <template v-slot:[`item.description`]="{ item }">
+          <span class="desc-full text-medium-emphasis" :title="item.description || ''">{{ item.description || '—' }}</span>
+        </template>
+
         <template v-slot:[`item.steps`]="{ item }">
           <v-progress-circular
             v-if="stepsLoading && !stepsOf(item)"
@@ -63,7 +87,7 @@
         </template>
 
         <template v-slot:[`item.offices`]="{ item }">
-          <div v-if="(item.offices || []).length" class="d-flex flex-wrap ga-1">
+          <div v-if="(item.offices || []).length" class="d-flex flex-wrap ga-1 office-chips">
             <v-chip
               v-for="o in item.offices"
               :key="o.id"
@@ -71,6 +95,7 @@
               size="small"
               variant="tonal"
               color="grey-darken-3"
+              :title="o.name"
             >
               {{ o.name }}
             </v-chip>
@@ -124,7 +149,7 @@
                       size="x-small"
                       class="ml-1 font-weight-bold"
                     >
-                      LIVE
+                      ACTIVE
                     </v-chip>
                   </v-list-item-title>
                   <v-list-item-subtitle>
@@ -159,7 +184,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end">
+          <div class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit transaction type'"
@@ -179,7 +204,6 @@
           </div>
         </template>
       </v-data-table>
-      <TableLoader v-if="loading" label="transaction types" icon="mdi-format-list-bulleted-type" style="flex: 1 1 auto" />
       </div>
     </v-card-text>
   </v-card>
@@ -236,13 +260,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useWorkflows } from '@/composables/useWorkflows'
 import { useOffices } from '@/composables/useOffices'
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus'
-import TableLoader from '@/components/TableLoader.vue'
+import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const router = useRouter()
 const { items, loading, fetchAll, create, update, remove } = useTransactionTypes()
@@ -354,6 +378,20 @@ function goSteps(item) {
 const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
+const search = ref('')
+
+let navObserver = null
+
+// Client-side search: master data is small, filter loaded rows by
+// code / name / description / office without extra requests.
+const filtered = computed(() => {
+  const q = String(search.value || '').trim().toLowerCase()
+  if (!q) return items.value || []
+  return (items.value || []).filter((t) =>
+    [t.code, t.name, t.description, (t.offices || []).map((o) => o.name).join(' ')]
+      .some((v) => String(v || '').toLowerCase().includes(q))
+  )
+})
 
 const form = ref({ id: null, code: '', name: '', description: '', office_ids: [], is_active: true })
 
@@ -410,9 +448,146 @@ async function removeRow(item) {
   }
 }
 
-onMounted(async () => {
-  await fetchAll()
-  await fetchDefinitions()
-  await fetchOffices()
+onMounted(() => {
+  // Full scroll lock for this tab: no bars and no scrolling anywhere.
+  document.documentElement.classList.add('lock-scroll')
+  // Independent lookups: run in parallel so one slow endpoint never blocks
+  // the others. Each paints cache first, then revalidates silently.
+  fetchAll().catch(() => {})
+  fetchDefinitions().catch(() => {})
+  fetchOffices().catch(() => {})
+  // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
+  // the table is narrower, so flag html.nav-open to duck the row actions
+  // away instead of letting them get cut off. Covers hover-expand + toggle.
+  try {
+    const drawer = document.querySelector('.v-navigation-drawer')
+    if (drawer && 'ResizeObserver' in window) {
+      const sync = () => {
+        const w = drawer.getBoundingClientRect().width || 0
+        document.documentElement.classList.toggle('nav-open', w > 100)
+      }
+      sync()
+      navObserver = new ResizeObserver(sync)
+      navObserver.observe(drawer)
+    }
+  } catch {
+    /* actions just stay visible */
+  }
+})
+
+onUnmounted(() => {
+  document.documentElement.classList.remove('lock-scroll')
+  document.documentElement.classList.remove('nav-open')
+  try {
+    navObserver?.disconnect?.()
+  } catch {
+    /* ignore */
+  }
+  navObserver = null
 })
 </script>
+
+<style scoped>
+/* Stable paged table: auto layout uses the full width (no equal-split
+   cutting), drawer expand/collapse can never create a visible
+   horizontal scrollbar — overflow is clipped, not scrolled. */
+.lgu-table {
+  min-width: 0;
+  width: 100%;
+}
+.lgu-table :deep(.v-table__wrapper) {
+  overflow-x: clip !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.lgu-table :deep(table) {
+  width: 100%;
+}
+/* Description uses the freed space and wraps — capped at 2 lines so a
+   long description can never stretch rows past the 60px rhythm and break
+   card equality (full text stays on hover via title). */
+.desc-full {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+/* Slim columns stay capped so Description + Offices get the full leftover. */
+.code-cap {
+  max-width: 140px;
+}
+.name-cap {
+  max-width: 180px;
+}
+/* Offices fully show: wrap to as many lines as needed, no ellipsis cap. */
+.office-chips {
+  min-width: 0;
+  max-width: 100%;
+}
+/* Row actions stay visible normally. They only duck away (with a quick
+   blink) while the left navbar is expanded — hovering it or toggled open —
+   so the narrower table never cuts them off. Space is reserved. */
+.row-actions {
+  opacity: 1;
+  visibility: visible;
+  min-width: 76px;
+  justify-content: flex-end;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+html.nav-open .row-actions {
+  opacity: 0;
+  visibility: hidden;
+  animation: action-blink-out 0.45s ease;
+}
+@keyframes action-blink-out {
+  0% { opacity: 1; }
+  30% { opacity: 0; }
+  55% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+/* Pin the "Items per page" footer to the bottom of the stage so it
+   never shifts up when there are few entries. */
+.table-stage {
+  min-width: 0;
+}
+.table-stage :deep(.lgu-table) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.table-stage :deep(.v-data-table-footer) {
+  margin-top: auto;
+}
+/* Boxed table header: dark-blue fill, white text, outer border only —
+   no dividers between header cells (matches Transactions tab). */
+.lgu-table :deep(thead tr th.v-data-table__th) {
+  background-color: #1E3A8A !important;
+  color: #ffffff !important;
+  border-top: 2px solid #1E3A8A !important;
+  border-bottom: 3px solid #1E3A8A !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
+  border-left: 2px solid #1E3A8A !important;
+  padding-left: 20px !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
+  border-right: 2px solid #1E3A8A !important;
+  padding-right: 20px !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
+.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
+  color: #ffffff !important;
+}
+</style>

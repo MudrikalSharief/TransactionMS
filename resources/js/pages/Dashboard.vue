@@ -11,26 +11,25 @@
                 Reset layout
             </v-btn>
         </div>
-        <!-- Cards render in the user's saved order; drag events are handled here for every card. -->
+        <!-- Cards render in the user's saved order; press-and-hold a card
+             for 2s, then drag it onto another card to swap them. -->
         <v-row
             align="stretch"
-            @dragstart="onDragStart"
-            @dragover="onDragOver"
-            @dragleave="onDragLeave"
-            @drop="onDrop"
-            @dragend="endDrag"
-            @keydown="onGripKey"
+            @pointerdown="onHoldStart"
+            @pointermove="onHoldMove"
+            @pointerup="onHoldEnd"
+            @pointercancel="onHoldCancel"
+            @click.capture="onRowClickCapture"
+            @contextmenu="onRowContextMenu"
         >
             <template v-for="id in cardOrder" :key="id">
                 <v-col v-if="id === 'graph'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4">
-                            <CardGrip />
-                            <v-avatar color="#7C3AED" rounded="0" size="34" class="mr-3">
-                                <v-icon color="white" size="22">mdi-chart-bar</v-icon>
+                        <v-card-title class="d-flex align-center pa-4 dash-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                                <v-icon color="#1E40AF" size="24">mdi-chart-bar</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">{{ DASHBOARD_OFFICE.code }} Transactions per Process</span>
-                            <span class="text-caption text-medium-emphasis ml-2 text-truncate">{{ DASHBOARD_OFFICE.name }}</span>
+                            <span class="text-subtitle-1 font-weight-bold">{{ scopeProcessTitle }}</span>
                             <v-spacer />
                             <v-select
                                 v-model="graphPeriod"
@@ -70,18 +69,17 @@
                                 :group-labels="graphWeeks"
                                 :loading="loading"
                                 :height="190"
-                                :empty-text="`No ${DASHBOARD_OFFICE.code} transactions in ${graphPeriodLabel}`"
-                                :aria-label="`${DASHBOARD_OFFICE.code} transactions per process per week, ${graphPeriodLabel}`"
+                                :empty-text="graphEmptyText"
+                                :aria-label="graphAriaLabel"
                             />
                         </v-card-text>
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'start'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4">
-                            <CardGrip />
-                            <v-avatar color="#5C6BC0" rounded="0" size="34" class="mr-3">
-                                <v-icon color="white" size="22">mdi-rocket-launch-outline</v-icon>
+                        <v-card-title class="d-flex align-center pa-4 dash-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                                <v-icon color="#1E40AF" size="24">mdi-rocket-launch-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Get Started</span>
                         </v-card-title>
@@ -108,13 +106,11 @@
                 </v-col>
                 <v-col v-else-if="id === 'summary'" cols="12" class="dash-col" :class="cardClass(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card summary-card">
-                        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4">
-                            <CardGrip />
-                            <v-avatar color="#4A3AA7" rounded="0" size="34" class="mr-1">
-                                <v-icon color="white" size="22">mdi-clipboard-text-clock-outline</v-icon>
+                        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 dash-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                                <v-icon color="#1E40AF" size="24">mdi-clipboard-text-clock-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
-                            <span class="text-caption text-medium-emphasis ml-1">{{ DASHBOARD_OFFICE.code }} · {{ summaryScopeText }}</span>
                             <v-spacer />
                             <v-select
                                 v-model="summaryPeriod"
@@ -195,7 +191,7 @@
                                             :period-label="summaryScopeText"
                                             @expand="openDetail('process', barEls[row.id], row)"
                                         />
-                                        <div class="process-bar-name text-truncate">{{ row.name }}</div>
+                                        <div class="process-bar-name text-truncate" :title="row.name">{{ row.name }}</div>
                                         <div class="process-bar-track">
                                             <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
                                         </div>
@@ -207,11 +203,10 @@
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'recent'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4">
-                            <CardGrip />
-                            <v-avatar color="#8B5CF6" rounded="0" size="34" class="mr-3">
-                                <v-icon color="white" size="22">mdi-history</v-icon>
+                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 dash-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                                <v-icon color="#1E40AF" size="24">mdi-history</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
                             <v-spacer />
@@ -267,11 +262,10 @@
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'action'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4">
-                            <CardGrip />
-                            <v-avatar color="#6D28D9" rounded="0" size="34" class="mr-3">
-                                <v-icon color="white" size="22">mdi-tray-full</v-icon>
+                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 dash-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                                <v-icon color="#1E40AF" size="24">mdi-tray-full</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
                             <v-spacer />
@@ -299,7 +293,7 @@
                             >
                                 All clear — nothing is waiting on you.
                             </v-alert>
-                            <v-table v-else density="compact" class="action-table">
+                            <v-table v-else class="action-table">
                                 <thead>
                                     <tr>
                                         <th class="text-left">Transaction</th>
@@ -350,7 +344,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth } from '@/composables/useAuth'
@@ -359,11 +353,10 @@ import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
 import { useSmartPoll } from '@/composables/useSmartPoll'
-import CardGrip from '@/components/CardGrip.vue'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
-import { isCached, CacheKeys } from '@/composables/useCache'
+import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
 const auth = useAuth()
@@ -380,7 +373,8 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
-// ---- Movable cards: drag a card's grip onto another card to take its place ----
+// ---- Movable cards: press and hold a card for 2s, then drag it onto
+// another card to take its place ----
 // Default order; Transaction Summary is superadmin only.
 const cardIds = computed(() =>
     ['summary', 'graph', 'start', 'recent', 'action'].filter((id) => id !== 'summary' || isSuperadmin.value)
@@ -389,70 +383,124 @@ const {
     order: cardOrder,
     changed: layoutChanged,
     move: moveCard,
-    shift: shiftCard,
     reset: resetLayout,
 } = useDashboardLayout(computed(() => auth.user.value?.id), cardIds)
 
+const HOLD_MS = 2000
+const HOLD_TOLERANCE_PX = 10
+
 const dragId = ref(null)
 const overId = ref(null)
+let holdTimer = null
+let holdStart = null
+let suppressClick = false
 
-// The card column an event happened in (drag events can target text nodes).
+// The card column an event happened in (pointer events can target text nodes).
 function cardAt(e) {
     const el = e.target.nodeType === 1 ? e.target : e.target.parentElement
     return el?.closest('[data-card]') ?? null
+}
+
+// Presses that start on controls keep their normal behavior and never arm a move.
+function onInteractiveTarget(e) {
+    return !!e.target.closest?.(
+        'button, a, input, select, textarea, [role="button"], [role="link"], [role="option"], ' +
+        '.v-field, .v-btn, .v-list-item, .v-overlay, .v-menu, .v-select'
+    )
 }
 
 function cardClass(id) {
     return { 'dash-dragging': dragId.value === id, 'dash-drop-target': overId.value === id && dragId.value !== id }
 }
 
-function onDragStart(e) {
-    const col = e.target.closest?.('.card-grip') && cardAt(e)
+function clearHoldTimer() {
+    if (holdTimer) {
+        clearTimeout(holdTimer)
+        holdTimer = null
+    }
+    holdStart = null
+}
+
+function armCard(id) {
+    holdTimer = null
+    holdStart = null
+    dragId.value = id
+    try {
+        navigator.vibrate?.(40)
+    } catch { /* haptics unsupported: visual cue is enough */ }
+}
+
+function onHoldStart(e) {
+    if (!e.isPrimary) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (dragId.value || onInteractiveTarget(e)) return
+    const col = cardAt(e)
     if (!col) return
-    dragId.value = col.dataset.card
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', dragId.value)
-    // Carry the whole card under the pointer, not just the grip.
-    const card = col.querySelector('.v-card')
-    const box = card.getBoundingClientRect()
-    e.dataTransfer.setDragImage(card, e.clientX - box.left, e.clientY - box.top)
+    const id = col.dataset.card
+    holdStart = { x: e.clientX, y: e.clientY, id }
+    clearTimeout(holdTimer)
+    holdTimer = setTimeout(() => armCard(id), HOLD_MS)
 }
 
-function onDragOver(e) {
-    if (!dragId.value) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    overId.value = cardAt(e)?.dataset.card ?? null
+function onHoldMove(e) {
+    if (dragId.value) {
+        // Armed: track the drop target under the pointer (works for mouse + touch).
+        const el = document.elementFromPoint(e.clientX, e.clientY)
+        const col = el?.closest?.('[data-card]')
+        const id = col?.dataset.card ?? null
+        overId.value = id && id !== dragId.value ? id : null
+        return
+    }
+    if (!holdStart) return
+    // Finger/mouse wandered before the hold completed: not a hold, stand down.
+    if (Math.hypot(e.clientX - holdStart.x, e.clientY - holdStart.y) > HOLD_TOLERANCE_PX) {
+        clearHoldTimer()
+    }
 }
 
-function onDragLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) overId.value = null
-}
-
-function onDrop(e) {
-    if (!dragId.value) return
-    e.preventDefault()
-    const target = cardAt(e)?.dataset.card
-    if (target) moveCard(dragId.value, target)
-    endDrag()
-}
-
-function endDrag() {
+function endHold() {
+    clearHoldTimer()
     dragId.value = null
     overId.value = null
 }
 
-// Keyboard: Up/Down on a focused grip moves its card one slot.
-function onGripKey(e) {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
-    if (!e.target.closest?.('.card-grip')) return
-    e.preventDefault()
-    const row = e.currentTarget
-    const id = cardAt(e).dataset.card
-    shiftCard(id, e.key === 'ArrowUp' ? -1 : 1)
-    // Moving the card can drop focus; put it back on the same grip.
-    nextTick(() => row.querySelector(`[data-card="${id}"] .card-grip`)?.focus())
+function onHoldEnd() {
+    if (dragId.value) {
+        // A hold happened: drop onto the tracked card, then swallow the
+        // click the pointer release would otherwise trigger.
+        if (overId.value) moveCard(dragId.value, overId.value)
+        suppressClick = true
+    }
+    endHold()
 }
+
+function onHoldCancel() {
+    endHold()
+}
+
+function onRowClickCapture(e) {
+    if (!suppressClick) return
+    suppressClick = false
+    e.preventDefault()
+    e.stopPropagation()
+}
+
+// Long-press on touch fires a context menu; not while a card is armed.
+function onRowContextMenu(e) {
+    if (dragId.value || holdStart) e.preventDefault()
+}
+
+function onEscapeWhileArmed(e) {
+    if (e.key === 'Escape' && dragId.value) endHold()
+}
+
+onMounted(() => {
+    window.addEventListener('keydown', onEscapeWhileArmed)
+})
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', onEscapeWhileArmed)
+})
 
 // Scope: superadmin sees everything, everyone else sees their own queue.
 const scopeSource = computed(() =>
@@ -473,8 +521,14 @@ const MAX_PROCESS_BARS = SERIES_PALETTE.light.length
 const theme = useTheme()
 const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dark' : 'light'))
 
-// The graph and the Transaction Summary card cover this one office only.
-const DASHBOARD_OFFICE = { code: 'CSD', name: 'Computer Service Division' }
+// Scope: the account's office when one is assigned, otherwise everything
+// visible to the user (superadmins are usually unassigned, so all offices).
+// Labels always state the scope, so the numbers are never ambiguous.
+const myOffice = computed(() => auth.user.value?.office ?? null)
+const scopeCode = computed(() => myOffice.value?.code?.toUpperCase() ?? null)
+const scopeProcessTitle = computed(() =>
+    scopeCode.value ? `${scopeCode.value} Transactions per Process` : 'All Transactions per Process'
+)
 
 // ---- Graph: the office's transactions per process, one bar per process per week ----
 const monthValue = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -523,6 +577,17 @@ const graphPeriodLabel = computed(
     () => monthOptions.value.find((o) => o.value === graphPeriod.value)?.title || graphPeriod.value,
 )
 
+const graphEmptyText = computed(() =>
+    scopeCode.value
+        ? `No ${scopeCode.value} transactions in ${graphPeriodLabel.value}`
+        : `No transactions in ${graphPeriodLabel.value}`
+)
+const graphAriaLabel = computed(() =>
+    scopeCode.value
+        ? `${scopeCode.value} transactions per process per week, ${graphPeriodLabel.value}`
+        : `Transactions per process per week, ${graphPeriodLabel.value}`
+)
+
 function weekIndexOf(tx) {
     if (!tx.created_at) return -1
     const t = new Date(tx.created_at).getTime()
@@ -533,10 +598,10 @@ function txTypeLabel(tx) {
     return tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
 }
 
-// The office's transactions created in the chosen month.
+// Visible transactions created in the chosen month (own office, if assigned).
 const graphTx = computed(() =>
     scopeSource.value.filter(
-        (tx) => tx.office?.code?.toUpperCase() === DASHBOARD_OFFICE.code && weekIndexOf(tx) >= 0,
+        (tx) => (!scopeCode.value || tx.office?.code?.toUpperCase() === scopeCode.value) && weekIndexOf(tx) >= 0,
     )
 )
 
@@ -615,24 +680,34 @@ const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// Same office as the graph, but independent of the graph's Month and
-// Process filters: the card counts the office's transactions for its own Period.
+// Same scope as the graph, but independent of the graph's Month and
+// Process filters. No office assigned: the backend aggregates all offices.
 const summaryQuery = computed(() => ({
     month: summaryPeriod.value === 'last_week' ? undefined : summaryPeriod.value,
-    office_code: DASHBOARD_OFFICE.code,
+    ...(scopeCode.value ? { office_code: scopeCode.value } : {}),
 }))
 
 let summaryRequest = 0
 async function loadSummary() {
     if (!isSuperadmin.value) return
     const mine = ++summaryRequest
-    summaryLoading.value = true
+    // Instant illusion: last summary for this period/office paints at once
+    // (template already dims stale tiles via .summary-stale), then the
+    // network refreshes silently. Spinner only shows with zero cached data.
+    const cacheKey = `${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`
+    const cached = readCache(cacheKey)
+    if (cached != null && mine === summaryRequest) summary.value = cached
+    const quiet = cached != null
+    if (!quiet) summaryLoading.value = true
     summaryError.value = ''
     try {
         const res = await api.get('/api/admin/dashboard/summary', { params: summaryQuery.value })
-        if (mine === summaryRequest) summary.value = res.data
+        if (mine === summaryRequest) {
+            summary.value = res.data
+            writeCache(cacheKey, res.data)
+        }
     } catch (e) {
-        if (mine === summaryRequest) summaryError.value = e?.response?.data?.message || 'Failed to load the summary.'
+        if (mine === summaryRequest && summary.value == null) summaryError.value = e?.response?.data?.message || 'Failed to load the summary.'
     } finally {
         if (mine === summaryRequest) summaryLoading.value = false
     }
@@ -700,17 +775,17 @@ const recent = computed(() => {
 // Evenly-distributed shortcut rows that always fill the Get Started card.
 const startLinks = computed(() => {
     const links = [
-        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#5C6BC0', go: goToHelp },
+        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#1E40AF', go: goToHelp },
         isSuperadmin.value
-            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#26A69A', go: goToQueue }
-            : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#26A69A', go: goToQueue },
+            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#1E40AF', go: goToQueue }
+            : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#1E40AF', go: goToQueue },
     ]
     if (isSuperadmin.value) {
         links.push({
             title: 'Manage offices',
             subtitle: 'Offices, steps, and assignments',
             icon: 'mdi-office-building-outline',
-            color: '#7C3AED',
+            color: '#1E40AF',
             go: () => router.push('/admin/offices'),
         })
     }
@@ -750,12 +825,14 @@ onMounted(async () => {
     document.documentElement.classList.add('hide-page-scroll')
 
     // Instant paint from cache when available; the fetches below
-    // then refresh everything silently in the background.
+    // then refresh everything silently in the background. List caches
+    // are per-user; check the current user's slot.
+    const uid = auth.user.value?.id ?? storedUserId()
     const warm =
         isCached(CacheKeys.transactionTypes) ||
         (isSuperadmin.value
-            ? isCached(CacheKeys.transactions)
-            : isCached(CacheKeys.myTransactions))
+            ? isCached(scopedKey(CacheKeys.transactions, uid))
+            : isCached(scopedKey(CacheKeys.myTransactions, uid)))
     loading.value = !warm
     const opts = { silent: warm }
     loadSummary()
@@ -796,14 +873,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ---- Movable cards ---- */
+/* ---- Movable cards (press and hold 2s, then drag) ---- */
 /* Each card keeps its width but grows to fill its row, so no order leaves a gap. */
 .dash-col {
     flex-grow: 1;
     max-width: 100%;
 }
+/* Armed card: lifted, grabbing cursor, frozen scroll/selection while moving. */
 .dash-dragging {
-    opacity: 0.45;
+    cursor: grabbing;
+}
+.dash-dragging > .v-card {
+    box-shadow: 0 16px 36px rgba(30, 64, 175, 0.35);
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
+.dash-dragging,
+.dash-dragging * {
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
 }
 .dash-drop-target > .v-card {
     outline: 2px dashed rgb(var(--v-theme-primary));
@@ -828,7 +917,7 @@ onUnmounted(() => {
     padding-right: 10px;
 }
 .action-table {
-    --v-table-header-height: 40px;
+    --v-table-header-height: 44px;
 }
 .action-row {
     cursor: pointer;
@@ -837,22 +926,43 @@ onUnmounted(() => {
     background: #f1f5f9;
 }
 .action-title {
-    font-size: 0.85rem;
-    line-height: 1.25;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    margin-bottom: 2px;
 }
 .action-table :deep(th) {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #94a3b8;
+    padding-bottom: 10px;
 }
 .action-table :deep(td) {
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    vertical-align: middle;
+}
+.action-table :deep(tbody tr:not(:last-child) td) {
+    border-bottom: 1px solid #eef2f7;
+}
+.action-table :deep(td:last-child) {
+    white-space: nowrap;
 }
 .process-filter {
     flex: 0 1 240px;
     min-width: 160px;
+}
+/* ---- Card headers: white, thick dark-blue bottom rule ---- */
+.dash-head {
+    background: transparent;
+    border-bottom: 4px solid rgb(var(--v-theme-primary));
+}
+.dash-head + .v-divider {
+    display: none;
+}
+/* Header icon tiles: white backlight, thick dark-blue border */
+.dash-avatar {
+    border: 2px solid rgb(var(--v-theme-primary));
 }
 /* ---- Transaction Summary card ---- */
 .summary-tiles {
@@ -937,9 +1047,9 @@ onUnmounted(() => {
 }
 .process-bar-row {
     display: grid;
-    grid-template-columns: minmax(80px, 120px) 1fr 32px;
+    grid-template-columns: minmax(120px, 200px) minmax(48px, 1fr) 40px;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 5px 6px;
     margin: 0 -6px;
     border-radius: 6px;
@@ -957,10 +1067,12 @@ onUnmounted(() => {
 .process-bar-name {
     font-size: 0.85rem;
     font-weight: 700;
+    min-width: 0;
     color: rgb(var(--v-theme-on-surface));
 }
 .process-bar-track {
-    height: 10px;
+    height: 8px;
+    min-width: 0;
     background: rgba(var(--v-theme-on-surface), 0.06);
     border-radius: 0 4px 4px 0;
     overflow: hidden;

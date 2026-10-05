@@ -23,14 +23,21 @@
             <v-card-text class="pa-4">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
-                <v-alert type="warning" variant="tonal" class="mb-3">
-                    Live list — adds and edits apply to running transactions immediately.
+                <StagingSaveBar
+                    :type-id="typeId"
+                    :def-id="workflowDefinitionId"
+                    @saved="load"
+                    @discarded="load"
+                />
+
+                <v-alert type="info" variant="tonal" class="mb-3">
+                    Staged library — adds, edits, and removals stay local until you press Save version.
                 </v-alert>
 
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <v-data-table
                     v-show="!loading"
-                    :items="items"
+                    :items="tableItems"
                     :loading="loading"
                     :headers="headers"
                     item-key="id"
@@ -66,7 +73,13 @@
                 <v-divider />
                 <v-card-text>
                     <v-text-field v-model="form.order_number" type="number" label="Order #" />
-                    <v-text-field v-model="form.code" label="Code (snake_case)" />
+                    <v-text-field
+                        v-model="form.code"
+                        label="Code (snake_case)"
+                        :disabled="typeof form.id === 'number'"
+                        :hint="typeof form.id === 'number' ? 'Codes are frozen once saved' : 'Auto-generated from name if blank'"
+                        persistent-hint
+                    />
                     <v-text-field v-model="form.name" label="Name" />
                     <v-textarea v-model="form.description" label="Description (optional)" rows="3" />
                     <v-switch v-model="form.is_active" label="Active" />
@@ -85,8 +98,10 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
+import StagingSaveBar from '@/components/StagingSaveBar.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -103,7 +118,25 @@ function goBack() {
     else router.push("/admin/workflows");
 }
 
-const { items, loading, fetchAll, create, update, destroy } = useRequirementDefinitions();
+const { items, loading, fetchAll } = useRequirementDefinitions();
+const staging = useWorkflowStaging();
+
+// Staging is keyed by transaction type: prefer the explicit query param,
+// fall back to the type resolved from the loaded definition.
+const typeId = computed(() => {
+    const q = Number(route.query.type);
+    if (Number.isFinite(q) && q > 0) return q;
+    const t = Number(returnTypeId.value);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
+
+// Table renders the working copy once seeded (dirty or not); before the
+// first seed it falls back to the loaded definitions.
+const tableItems = computed(() => {
+    const b = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    if (b && (b.dirty || b.sourceDefId != null)) return b.reqDefs;
+    return items.value || [];
+});
 
 const error = ref("");
 const dialog = ref(false);
@@ -131,6 +164,7 @@ function openDialog(item = null) {
     if (item) {
         form.value = {
             id: item.id,
+            client_id: item.client_id ?? null,
             order_number: item.order_number ?? 0,
             code: item.code,
             name: item.name,
@@ -162,46 +196,44 @@ async function load() {
             /* type id for Back is best-effort */
         }
         await fetchAll(workflowDefinitionId.value);
+        // Seed the staging slice (skipped when staged edits exist).
+        if (typeId.value) {
+            staging.seedReqDefs(typeId.value, items.value || []);
+        }
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load requirements.";
     }
 }
 
-async function save() {
-    saving.value = true;
+function save() {
+    // Staged: no network. The row lands in the working copy (new rows get
+    // a tmp id) until Save version. Codes of saved rows are frozen.
     error.value = "";
-    try {
-        const payload = {
-            order_number: Number(form.value.order_number || 0),
-            code: form.value.code,
-            name: form.value.name,
-            description: form.value.description || null,
-            is_active: !!form.value.is_active,
-        };
-
-        if (form.value.id) {
-            await update(workflowDefinitionId.value, form.value.id, payload);
-        } else {
-            await create(workflowDefinitionId.value, payload);
-        }
-
-        dialog.value = false;
-        await fetchAll(workflowDefinitionId.value);
-    } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Save failed.";
-    } finally {
-        saving.value = false;
+    if (!typeId.value) {
+        error.value = "Resolve the transaction type first (open this page from Workflows).";
+        return;
     }
+    if (!form.value.name?.trim()) {
+        error.value = "Give the requirement a name first.";
+        return;
+    }
+    staging.upsertReqDef(typeId.value, {
+        id: form.value.id ?? undefined,
+        client_id: form.value.client_id ?? undefined,
+        order_number: Number(form.value.order_number || 0),
+        code: form.value.code || null,
+        name: form.value.name.trim(),
+        description: form.value.description || null,
+        is_active: !!form.value.is_active,
+    });
+    dialog.value = false;
 }
 
-async function remove(item) {
+function remove(item) {
     error.value = "";
-    try {
-        await destroy(workflowDefinitionId.value, item.id);
-        await fetchAll(workflowDefinitionId.value);
-    } catch (e) {
-        error.value = e?.response?.data?.message || "Delete failed.";
-    }
+    if (!typeId.value) return;
+    // Staged removal (undo via Discard on the save bar).
+    staging.removeReqDef(typeId.value, item?.id ?? item?.client_id);
 }
 
 onMounted(load);

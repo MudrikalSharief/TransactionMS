@@ -6,14 +6,14 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'M PLUS Rounded 1c', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Roboto', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 /* Bolder, rounder Pixiv-style type across the app */
 body,
 .v-application {
-    font-family: 'M PLUS Rounded 1c', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
+    font-family: 'Roboto', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
     background: #F2F5F9;
 }
 
@@ -44,6 +44,73 @@ html.dark .help-title-green { color: #81C784; }
 html.dark .help-title-purple { color: #CE93D8; }
 html.dark .help-title-orange { color: #FFAB91; }
 
+/* ---- Global sleek dark-blue scrollbar (site-wide) ----
+   Thin thumb, transparent track, rounded ends. Component-specific rules
+   below (search menu, tables) win by specificity where defined; explicit
+   hide/lock utilities (login, dashboard, users tab) are untouched. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #1e3a8a transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: #1e3a8a;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: #1e40af;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+html.dark * {
+    scrollbar-color: #3b82f6 transparent;
+}
+
+html.dark *::-webkit-scrollbar-thumb {
+    background-color: #3b82f6;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+html.dark *::-webkit-scrollbar-thumb:hover {
+    background-color: #60a5fa;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+/* ---- List-tab headers: Dashboard treatment (white tile, blue border,
+   4px primary bottom rule). Theme-aware via --v-theme-primary, same as
+   .dash-head / .dash-avatar on the Dashboard. ---- */
+.lgu-head {
+    background: transparent;
+    border-bottom: 4px solid rgb(var(--v-theme-primary));
+}
+.lgu-head + .v-divider {
+    display: none;
+}
+.lgu-head-avatar {
+    /* !important: Vuetify's own .v-avatar sets border-width: 0 in a later
+       stylesheet, which would otherwise cancel this border. */
+    border: 2px solid rgb(var(--v-theme-primary)) !important;
+}
+
 /* ---- Pixiv-style search dropdown: blue thin scrollbar ---- */
 .search-menu {
     border-radius: 24px;
@@ -56,8 +123,8 @@ html.dark .help-title-orange { color: #FFAB91; }
     border-radius: 24px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #7C3AED transparent;
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    scrollbar-color: #1E40AF transparent;
+    font-family: 'Roboto', sans-serif;
 }
 
 .search-menu .v-list::-webkit-scrollbar {
@@ -69,7 +136,7 @@ html.dark .help-title-orange { color: #FFAB91; }
 }
 
 .search-menu .v-list::-webkit-scrollbar-thumb {
-    background-color: #7C3AED;
+    background-color: #1E40AF;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -88,6 +155,18 @@ html.hide-page-scroll::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
+}
+
+/* ---- Full scroll lock (Users tab): no bars and no scrolling at all ---- */
+html.lock-scroll,
+html.lock-scroll body {
+    overflow: hidden !important;
+}
+
+/* Fuse per-cell header borders into one continuous edge-to-edge rule
+   (Vuetify defaults to border-collapse: separate, which can seam). */
+.lgu-table table {
+    border-collapse: collapse;
 }
 
 .lgu-table thead tr th.v-data-table__th {
@@ -134,11 +213,99 @@ html.hide-page-scroll::-webkit-scrollbar {
     max-height: 450px !important;
 }
 
+/* ---- Unified 7-tab contract (Transactions, Roles, Users, Offices,
+   Transaction Types, Fields, Gov References): identical card anatomy ----
+   Every tab renders: header (avatar + title + search + actions, 40px
+   content) + .table-stage (510px: 7-row paged table + pinned footer).
+   Above-table slots were removed everywhere: Transactions search and the
+   Gov Ref info banner both live in the card header as compact controls.
+   Per-page scoped copies of these rules are harmless duplicates kept for
+   safety; this global block is the source of truth so tabs can't drift.
+   Heights are FORCED, not hoped for: header content can never wrap taller
+   (nowrap), every body row is locked to 60px, footer is 56px — so each
+   card is exactly 80 + 510 + padding on every tab, whatever the data. */
+.table-stage {
+    min-height: 510px !important;
+    min-width: 0;
+}
+/* Card headers can never grow: single flex line, title never wraps
+   (long titles like "Government References" truncate instead of pushing
+   the header to two lines when the drawer narrows the content). */
+.lgu-card > .v-card-title {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+.lgu-card > .v-card-title .text-h6 {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+/* Body rows are locked to the 60px rhythm: every text cell truncates to
+   one line (2-line clamp for type descriptions), so no value can ever
+   wrap a row taller. NOTE: max-height/overflow on td does nothing in CSS
+   table layout (cell height is a minimum) — bounding works only through
+   the content, which is why every slot truncates. Full text stays
+   on hover via title. Short states (< 7 rows) are floored by the
+   min-height in the paginated-tables rule below. */
+.table-stage {
+    min-height: 510px !important;
+    min-width: 0;
+}
+.table-stage .lgu-table {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0;
+    width: 100%;
+}
+.table-stage .v-data-table-footer {
+    margin-top: auto;
+}
+/* Server-pagination strip (Transactions bottom slot): fixed 62px to match
+   the measured default footer exactly, so single-page vs multi-page and
+   custom vs default never shifts the card. */
+.page-slot {
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Row actions stay visible normally; only duck away with a quick blink
+   while the left navbar is expanded (html.nav-open via drawer observer)
+   so the narrower table never cuts them off. Space is always reserved. */
+.row-actions {
+    opacity: 1;
+    visibility: visible;
+    min-width: 76px;
+    justify-content: flex-end;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+html.nav-open .row-actions {
+    opacity: 0;
+    visibility: hidden;
+    animation: action-blink-out 0.45s ease;
+}
+@keyframes action-blink-out {
+    0% { opacity: 1; }
+    30% { opacity: 0; }
+    55% { opacity: 0.7; }
+    100% { opacity: 0; }
+}
+/* Skeleton loaders fill the stage identically on every tab: same flex,
+   same centered orbit, same min-height. */
+.table-stage > .table-loader,
+.table-stage .table-loader {
+    flex: 1 1 auto !important;
+    width: 100%;
+}
+
 /* Paginated tables (7/page): natural height, never an inner scrollbar —
-   the wrapper grows with the rows instead of locking to 450px. */
+   the wrapper grows with the rows instead of locking to 450px, and never
+   shrinks below one full 7-row page (34 + 7x60) so short states match. */
 .lgu-table.table-pages .v-table__wrapper {
     height: auto !important;
-    min-height: 0 !important;
+    min-height: 454px !important;
     max-height: none !important;
 }
 
@@ -270,7 +437,7 @@ html.hide-page-scroll::-webkit-scrollbar {
 .lgu-table :deep(.v-table__wrapper),
 .lgu-table .v-table__wrapper {
     scrollbar-width: thin;
-    scrollbar-color: #7C3AED transparent;
+    scrollbar-color: #1E40AF transparent;
     transition: none;
 }
 
@@ -291,7 +458,7 @@ html.hide-page-scroll::-webkit-scrollbar {
 
 .lgu-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb),
 .lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
-    background-color: #7C3AED;
+    background-color: #1E40AF;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -332,19 +499,19 @@ html.dark .search-pixiv .v-field {
     background-color: #2A2A3D !important;
 }
 html.dark .search-pixiv input {
-    color: #EDE9FE;
+    color: #DBEAFE;
 }
 
 /* Table headers */
 html.dark .lgu-table thead tr th.v-data-table__th,
 html.dark .lgu-table thead tr th.v-data-table__th .v-data-table-header__content {
-    color: #C4B5FD !important;
+    color: #93C5FD !important;
 }
 
 /* Guide panels + section labels */
 html.dark .guide-panel {
     background: #1E1E2E;
-    color: #EDE9FE;
+    color: #DBEAFE;
     border-bottom-color: #334155;
 }
 html.dark .guide-sec {
@@ -359,8 +526,8 @@ html.dark .donut-wrap svg circle:first-child {
 /* Loader orbit rings + text */
 html.dark .orbit-ring.outer {
     border-color: #2A2A3D;
-    border-top-color: #A78BFA;
-    border-right-color: #8B5CF6;
+    border-top-color: #93C5FD;
+    border-right-color: #2563EB;
 }
 html.dark .loader-text {
     color: #CBD5E1;
@@ -381,9 +548,9 @@ html.dark .v-btn--variant-outlined.text-grey-darken-3 {
     border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Icon backlights (header avatars) turn purple in dark mode */
+/* Icon backlights (header avatars) turn blue in dark mode */
 html.dark .v-avatar.bg-grey-darken-3 {
-    background-color: #7C3AED !important;
+    background-color: #1E40AF !important;
 }
 
 /* Scrollbar tracks */

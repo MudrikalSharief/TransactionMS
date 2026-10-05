@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="loading || resolvingSteps" label="workflow steps" icon="mdi-source-branch" />
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center pa-5">
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
@@ -51,7 +52,7 @@
                                                 size="x-small"
                                                 class="ml-1 font-weight-bold"
                                             >
-                                                LIVE
+                                                ACTIVE
                                             </v-chip>
                                         </v-list-item-title>
                                         <v-list-item-subtitle>
@@ -100,28 +101,30 @@
                         Back
                     </v-btn>
                     <v-btn
+                        v-if="stagingDirty"
+                        variant="text"
+                        color="error"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-undo"
+                        v-tooltip="'Drop all staged edits and show the last saved state'"
+                        @click="discardStaged"
+                    >
+                        Discard
+                    </v-btn>
+                    <v-btn
                         variant="outlined"
                         color="grey-darken-3"
                         rounded="0"
                         size="small"
                         prepend-icon="mdi-content-save-plus-outline"
                         :disabled="!activeDef"
-                        v-tooltip="'Save what you are viewing as a new live version under a name you type'"
+                        v-tooltip="stagingDirty ? 'Persist staged edits: overwrite the draft or create a new version' : 'Save version (enabled once you stage an edit)'"
                         @click="openSaveDialog"
                     >
                         Save version
+                        <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
                     </v-btn>
-                    <v-tooltip location="bottom" max-width="480">
-                        <template #activator="{ props }">
-                            <v-btn
-                                icon="mdi-help-circle-outline"
-                                variant="text"
-                                color="grey-darken-3"
-                                v-bind="props"
-                            />
-                        </template>
-                        <GuideTable title="Column guide" :sections="guideSections" horizontal />
-                    </v-tooltip>
                 </div>
             </v-card-title>
 
@@ -135,7 +138,7 @@
                     {{ notice }}
                 </v-alert>
                 <v-alert
-                    v-if="!selectedTypeId && !loading"
+                    v-if="!selectedTypeId && !loading && queryResolved"
                     type="warning"
                     variant="tonal"
                     rounded="0"
@@ -145,7 +148,7 @@
                     <b>Transaction Types</b> and open <b>Steps</b> for one transaction type.
                 </v-alert>
                 <v-select
-                    v-if="!selectedTypeId && !loading && (types || []).length"
+                    v-if="!selectedTypeId && !loading && queryResolved && (types || []).length"
                     :model-value="null"
                     :items="typePickerOptions"
                     item-title="label"
@@ -156,7 +159,7 @@
                     @update:model-value="onPickType"
                 />
 
-                <template v-if="!activeDef && selectedTypeId">
+                <template v-if="!activeDef && (selectedTypeId || bootSkeleton)">
                     <div class="d-flex align-center mb-2">
                         <div class="text-subtitle-1 font-weight-bold">Steps</div>
                         <v-spacer />
@@ -171,7 +174,7 @@
                         </v-btn>
                     </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
-                        <template v-if="loading">
+                        <template v-if="loading || resolvingSteps">
                             <v-skeleton-loader type="table-thead" />
                             <v-skeleton-loader type="table-tbody" class="mt-2" />
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
@@ -187,7 +190,7 @@
                         <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
                     </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
-                        <template v-if="loading">
+                        <template v-if="loading || resolvingSteps">
                             <v-skeleton-loader type="table-thead" />
                             <v-skeleton-loader type="table-tbody" class="mt-2" />
                             <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
@@ -215,7 +218,7 @@
                     This transaction type has no steps yet — click <b>Add Step</b> to create step 1.
                 </v-alert>
                 <v-data-table
-                    v-show="!loading"
+                    v-show="!loading && !resolvingSteps"
                     v-model:page="stepPage"
                     :items="flatStepRows"
                     :headers="stepHeaders"
@@ -303,10 +306,11 @@
                         <div class="d-flex ga-3 justify-end">
                             <v-btn
                                 icon="mdi-clipboard-list-outline"
-                                v-tooltip="'Requirements'"
+                                v-tooltip="isTmpRow(item) ? 'Save version first — new steps get requirements after their first save' : 'Requirements'"
                                 size="small"
                                 variant="outlined"
                                 color="grey-darken-3"
+                                :disabled="isTmpRow(item)"
                                 @click="goStepRequirements(item)"
                             />
                             <v-btn
@@ -316,6 +320,15 @@
                                 variant="outlined"
                                 color="grey-darken-3"
                                 @click="goStepData(item)"
+                            />
+                            <v-btn
+                                icon="mdi-clipboard-check-outline"
+                                v-tooltip="isTmpRow(item) ? 'Save version first — new steps get a checklist after their first save' : 'Checklist'"
+                                size="small"
+                                variant="outlined"
+                                color="info"
+                                :disabled="isTmpRow(item)"
+                                @click="goStepChecklist(item)"
                             />
                             <v-btn
                                 icon="mdi-pencil"
@@ -341,7 +354,7 @@
                         </tr>
                     </template>
                 </v-data-table>
-                <template v-if="loading">
+                <template v-if="loading || resolvingSteps">
                     <v-skeleton-loader type="table-thead" />
                     <v-skeleton-loader type="table-tbody" class="mt-2" />
                     <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
@@ -365,7 +378,7 @@
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <v-data-table
-                    v-show="!loading"
+                    v-show="!loading && !resolvingSteps"
                     v-model:page="routePage"
                     :items="sortedRoutes"
                     :headers="routeHeaders"
@@ -436,7 +449,7 @@
                         </tr>
                     </template>
                 </v-data-table>
-                <template v-if="loading">
+                <template v-if="loading || resolvingSteps">
                     <v-skeleton-loader type="table-thead" />
                     <v-skeleton-loader type="table-tbody" class="mt-2" />
                     <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
@@ -689,17 +702,21 @@
         <!-- Save as new live version -->
         <v-dialog v-model="saveDialog" max-width="500">
             <v-card rounded="0">
-                <v-card-title>Save as new version</v-card-title>
+                <v-card-title>Save version</v-card-title>
                 <v-divider />
                 <v-card-text>
                     <div class="text-caption text-medium-emphasis mb-3">
-                        v{{ activeDef?.version }} ({{ (activeDef?.steps || []).length }} steps,
-                        {{ (activeDef?.routes || []).length }} routes) will be stored as a
-                        new live version. Old versions are kept.
+                        Persists everything you staged (steps, routes, requirements,
+                        checklists, field assignments) in one atomic save. Nothing
+                        was written yet.
                     </div>
+                    <v-radio-group v-model="saveMode" label="How to save?" density="compact">
+                        <v-radio label="Overwrite current draft (stays draft, same version)" value="overwrite" />
+                        <v-radio label="Create new version (published live, old kept)" value="create-new" />
+                    </v-radio-group>
                     <v-text-field
                         v-model="saveName"
-                        label="Version name"
+                        :label="saveMode === 'create-new' ? 'Version name (required)' : 'Version name (optional rename)'"
                         placeholder="e.g. Holiday rush flow"
                         maxlength="200"
                         counter
@@ -714,7 +731,7 @@
                 <v-divider />
                 <v-card-actions class="justify-end">
                     <v-btn variant="text" @click="saveDialog = false">Cancel</v-btn>
-                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" :disabled="!saveName.trim()" @click="confirmSave">Save</v-btn>
+                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" :disabled="saveMode === 'create-new' && !saveName.trim()" @click="confirmSave">Save</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -752,24 +769,59 @@ import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
 import { useOffices } from "@/composables/useOffices";
 import TableLoader from '@/components/TableLoader.vue';
-import GuideTable from '@/components/GuideTable.vue';
+import LoadingVeil from '@/components/LoadingVeil.vue';
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus';
 
 const {
     defs,
     loading,
     fetchDefinitions,
-    createDraft,
-    publish,
     makeLive,
-    saveAs,
-    addStep,
-    updateStep,
-    deleteStep: apiDeleteStep,
-    addRoute,
-    updateRoute,
-    deleteRoute: apiDeleteRoute,
 } = useWorkflows();
+
+// Staging: every step/route dialog writes to the working copy only —
+// nothing reaches the network until Save version (bulk apply).
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import { confirm } from "@/composables/useConfirm";
+const staging = useWorkflowStaging();
+// Def id the working copy was seeded from (bulk target hint for sub-pages).
+const stagingSourceDefId = ref(null);
+
+function seedFromActiveDef() {
+    const t = selectedTypeId.value;
+    const d = activeDef.value;
+    if (!t || !d) return;
+    staging.seedSteps(t, d.id, d.updated_at ?? null, d.steps || []);
+    staging.seedRoutes(t, d.routes || []);
+    stagingSourceDefId.value = d.id;
+}
+
+const stagingBucket = computed(() =>
+    selectedTypeId.value ? staging.buckets.get(String(selectedTypeId.value)) : null,
+);
+// Tables always render the working copy once seeded (dirty or not); before
+// the first seed they fall back to the loaded definition.
+const tableSteps = computed(() => {
+    const b = stagingBucket.value;
+    if (b && (b.dirty || b.sourceDefId != null)) return b.steps;
+    return activeDef.value?.steps || [];
+});
+const tableRoutes = computed(() => {
+    const b = stagingBucket.value;
+    if (b && (b.dirty || b.sourceDefId != null)) return b.routes;
+    return activeDef.value?.routes || [];
+});
+const stagingDirty = computed(() => !!stagingBucket.value?.dirty);
+// Tmp rows (unsaved) carry string ids — no sub-page configuration yet.
+const isTmpRow = (item) => typeof item?.id === "string";
+
+function discardStaged() {
+    if (!selectedTypeId.value) return;
+    staging.discard(selectedTypeId.value);
+    error.value = "";
+    notice.value = "Staged changes discarded — showing the last saved state.";
+    seedFromActiveDef();
+}
 
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes();
 const { roles, fetchRoles } = useRoles();
@@ -777,6 +829,11 @@ const { items: offices, fetchAll: fetchOffices } = useOffices();
 
 const selectedTypeId = ref(null);
 const activeDef = ref(null);
+// True once the initial URL query has been reconciled (after lookups).
+// Before that, a ?type= deep-link renders skeleton shells — never the
+// "no type selected" empty state and never a blank card.
+const queryResolved = ref(false);
+const bootSkeleton = computed(() => !queryResolved.value && !!route.query.type);
 const error = ref("");
 const notice = ref("");
 const saving = ref(false);
@@ -808,7 +865,6 @@ const guideSections = [
         ],
     },
 ];
-
 const conditionHint =
     'Store as JSON (not PHP). Example: {">=":[{"var":"fields.amount"},50000]}';
 
@@ -876,13 +932,21 @@ const stepOptions = computed(() =>
 // dropdown additionally hides every step ordered before the From step
 // (equal-order steps stay selectable, matching the backend rule).
 const fromStepOptions = computed(() =>
-    stepOptions.value.filter((o) => Number(o.id) !== Number(routeForm.value.to_step_id)),
+    stepOptions.value.filter((o) => String(o.id) !== String(routeForm.value.to_step_id)),
 );
 const toStepOptions = computed(() => {
-    const from = Number(routeForm.value.from_step_id);
-    const fromOrder = from ? stepOrderOf(from) : NaN;
+    const fromKey = String(routeForm.value.from_step_id ?? '');
+    const fromOrder = fromKey !== '' ? stepOrderOf(routeForm.value.from_step_id) : NaN;
     return stepOptions.value.filter((o) => {
-        if (Number(o.id) === from) return false;
+        if (String(o.id) === fromKey) return false;
+        if (String(o.id) === String(routeForm.value.to_step_id)) return false;
+        if (!Number.isNaN(fromOrder)) {
+            const order = stepOrderOf(o.id);
+            if (!Number.isNaN(order) && order < fromOrder) return false;
+        }
+        return true;
+    });
+});
         if (!Number.isNaN(fromOrder)) {
             const order = stepOrderOf(o.id);
             if (!Number.isNaN(order) && order < fromOrder) return false;
@@ -893,26 +957,37 @@ const toStepOptions = computed(() => {
 
 function stepOrderOf(id) {
     return Number(
-        (activeDef.value?.steps || []).find((s) => Number(s.id) === Number(id))?.order_number ?? NaN,
+function stepOrderOf(id) {
+    return Number(
+        ((activeDef.value?.steps || tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? NaN),
+    );
+}
     );
 }
 
 // Client-side mirror of the backend route guards (forward-only, no
 // self-loops, no duplicate From → To). The API re-validates everything.
 function routeClientError() {
-    const from = Number(routeForm.value.from_step_id);
-    const to = Number(routeForm.value.to_step_id);
-    if (!from || !to) return "Select both From Step and To Step.";
-    if (from === to) return "From and To cannot be the same step.";
+    const from = routeForm.value.from_step_id;
+    const to = routeForm.value.to_step_id;
+    if (from == null || from === '' || to == null || to === '') return "Select both From Step and To Step.";
+    if (String(from) === String(to)) return "From and To cannot be the same step.";
+    const fromOrder = stepOrderOf(from);
+    const toOrder = stepOrderOf(to);
+    if (Number.isNaN(fromOrder) || Number.isNaN(toOrder)) return "Both steps must belong to this workflow.";
     const fromOrder = stepOrderOf(from);
     const toOrder = stepOrderOf(to);
     if (Number.isNaN(fromOrder) || Number.isNaN(toOrder)) return "Both steps must belong to this workflow.";
     if (toOrder < fromOrder) return `Routes must move forward: Step ${fromOrder} → Step ${toOrder} is not allowed.`;
-    const clash = (activeDef.value?.routes || []).find(
+    const clash = (activeDef.value?.routes || tableRoutes.value || []).find(
         (r) =>
-            Number(r.from_step_id) === from &&
-            Number(r.to_step_id) === to &&
-            Number(r.id) !== Number(routeForm.value.id),
+            String(r.from_step_id) === String(from) &&
+            String(r.to_step_id) === String(to) &&
+            String(r.id) !== String(routeForm.value.id) &&
+            String(r.client_id ?? r.id) !== String(routeForm.value.client_id ?? routeForm.value.id),
+    );
+    if (clash) return "This route already exists (same From → To), regardless of action.";
+    return "";
     );
     if (clash) return "This route already exists (same From → To), regardless of action.";
     return "";
@@ -921,7 +996,7 @@ function routeClientError() {
 // Hierarchy: flat step rows → depth-first tree → flat display rows
 // with dotted numbers (1, 1.1, 1.2, 2…). Editable afterwards.
 const flatStepRows = computed(() => {
-    const list = activeDef.value?.steps || [];
+    const list = tableSteps.value || [];
     const byId = new Map(list.map((s) => [s.id, s]));
     const byParent = new Map();
     for (const s of list) {
@@ -959,7 +1034,7 @@ function descendantsOfStep(id) {
     let grew = true;
     while (grew) {
         grew = false;
-        for (const s of (activeDef.value?.steps || [])) {
+        for (const s of (tableSteps.value || [])) {
             if (s.parent_id && ids.has(s.parent_id) && !ids.has(s.id)) {
                 ids.add(s.id);
                 grew = true;
@@ -972,8 +1047,13 @@ function descendantsOfStep(id) {
 // Routes table: forward-only, ordered start→end by station order.
 const sortedRoutes = computed(() => {
     const orderOf = (id) =>
-        Number((activeDef.value?.steps || []).find((s) => Number(s.id) === Number(id))?.order_number ?? 9999);
-    return [...(activeDef.value?.routes || [])].sort((a, b) => {
+const sortedRoutes = computed(() => {
+    const orderOf = (id) =>
+        Number((activeDef.value?.steps || tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? 9999);
+    return [...(activeDef.value?.routes || tableRoutes.value || [])].sort((a, b) => {
+        return orderOf(a.from_step_id) - orderOf(b.from_step_id) || orderOf(a.to_step_id) - orderOf(b.to_step_id);
+    });
+});
         return orderOf(a.from_step_id) - orderOf(b.from_step_id) || orderOf(a.to_step_id) - orderOf(b.to_step_id);
     });
 });
@@ -984,6 +1064,10 @@ const STEP_PAGE_SIZE = 7;
 const ROUTE_PAGE_SIZE = 7;
 const stepPage = ref(1);
 const routePage = ref(1);
+// True while the selected type's definitions resolve (cold or warm cache).
+// Skeletons key off this — not just `loading` — so cached instant-paint
+// never flashes the wrong "no workflow" state while a type switch settles.
+const resolvingSteps = ref(false);
 
 const stepFillerCount = computed(() => {
     if (loading.value) return 0;
@@ -1011,8 +1095,9 @@ watch([flatStepRows, sortedRoutes], () => {
 
 // Route endpoints as names: id → "1 · Create PR" (dotted for sub-steps).
 // Missing step (deleted) announces itself instead of rendering blank.
+// String comparison: staged tmp rows carry string ids (never NaN-matched).
 function stepLabel(id) {
-    const s = flatStepRows.value.find((x) => Number(x.id) === Number(id));
+    const s = flatStepRows.value.find((x) => String(x.id) === String(id));
     if (!s) return { text: `#${id} (deleted)`, deleted: true };
     return { text: `${s._num} · ${s.name}`, deleted: false };
 }
@@ -1066,12 +1151,19 @@ watch(selectedTypeId, async (id) => {
         return;
     }
     error.value = "";
+    // Always veil while resolving: activeDef is cleared above and only
+    // restored after the network settles, so skipping this on warm cache
+    // exposes the wrong "no workflow" state for the whole request.
+    resolvingSteps.value = true;
     try {
         await fetchDefinitions(id);
         selectEffective();
+        seedFromActiveDef();
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load transaction types.";
         activeDef.value = null;
+    } finally {
+        resolvingSteps.value = false;
     }
 });
 
@@ -1141,16 +1233,108 @@ function selectEffective() {
     activeDef.value = draftDef.value || currentDef.value || defs.value[0] || null;
 }
 
-// Save-button flow: every edit ensures a draft, applies, then goes
-// live — invisibly. Admins see one list + Save; versioning, pins and
-// guards keep working backstage. Running papers stay on their version.
-async function ensureDraft() {
-    if (!draftDef.value) {
-        await createDraft({
-            transaction_type_id: selectedTypeId.value,
-            clone_latest_published: true,
+// Staged editing: dialogs mutate the working copy only. Nothing reaches
+// the network until Save version (bulk apply). No draft is created, no
+// publish attempted — the viewed/working rows ARE the edit target.
+function workingRowFor(item) {
+    // Viewing a history version while staging: map by code onto the working
+    // copy so edits land on staged rows, never on the viewed snapshot.
+    if (!item) return item;
+    const code = item.code;
+    const hit = (tableSteps.value || []).find((s) => code && s.code === code);
+    return hit || item;
+}
+
+function clickAddStep() {
+    error.value = "";
+    notice.value = "";
+    openStepDialog();
+}
+
+function clickAddRoute() {
+    error.value = "";
+    notice.value = "";
+    openRouteDialog();
+}
+
+function editStep(item) {
+    error.value = "";
+    notice.value = "";
+    openStepDialog(workingRowFor(item));
+}
+
+function goStepFields(item) {
+    error.value = "";
+    notice.value = "";
+    const target = stepRouteTarget(item);
+    if (!target) return;
+    const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+    router.push({ path: `/admin/workflows/${target.defId}/steps/${target.stepId}/fields`, query: q });
+}
+
+function stepRouteTarget(item) {
+    // Sub-pages address rows by id; the working copy is the single scope,
+    // so map history-viewed rows onto it by code first.
+    const row = workingRowFor(item);
+    if (!row?.id || isTmpRow(row) || !stagingSourceDefId.value) return null;
+    return { defId: stagingSourceDefId.value, stepId: row.id };
+}
+
+function goStepRequirements(item) {
+    error.value = "";
+    notice.value = "";
+    const target = stepRouteTarget(item);
+    if (!target) return;
+    const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+    router.push({ path: `/admin/workflows/${target.defId}/steps/${target.stepId}/requirements`, query: q });
+}
+
+function goStepChecklist(item) {
+    error.value = "";
+    notice.value = "";
+    const target = stepRouteTarget(item);
+    if (!target) return;
+    const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
+    router.push({ path: `/admin/workflows/${target.defId}/steps/${target.stepId}/checklist`, query: q });
+}
+
+function workingRouteFor(route) {
+    if (!route) return route;
+    const rows = tableRoutes.value || [];
+    const byId = rows.find((r) => String(r.id) === String(route.id));
+    if (byId) return byId;
+    const stepsOf = (id) => (tableSteps.value || []).find((s) => String(s.id) === String(id))?.code;
+    const from = stepsOf(route.from_step_id);
+    const to = stepsOf(route.to_step_id);
+    return (
+        rows.find((r) => {
+            const rf = (tableSteps.value || []).find((s) => String(s.id) === String(r.from_step_id))?.code;
+            const rt = (tableSteps.value || []).find((s) => String(s.id) === String(r.to_step_id))?.code;
+            return rf === from && rt === to && r.action_code === route.action_code;
+        }) || route
+    );
+}
+
+function editRoute(route) {
+    error.value = "";
+    notice.value = "";
+    openRouteDialog(workingRouteFor(route));
+}
+
+async function viewDef(def) {
+    if (!def) return;
+    const t = selectedTypeId.value;
+    // Tables render the working copy; viewing history while staged would
+    // show one version and edit another — confirm first (staging survives
+    // a "view anyway", reseed only happens when clean).
+    if (t && staging.isDirty(t)) {
+        const viewAnyway = await confirm({
+            title: "View this version?",
+            message: "You have unsaved staged changes. View this version anyway? Your staged edits stay until you Save or Discard.",
+            confirmLabel: "View anyway",
+            cancelLabel: "Stay",
         });
-        await fetchDefinitions(selectedTypeId.value);
+        if (!viewAnyway) return;
     }
     selectEffective();
     return activeDef.value;
@@ -1315,6 +1499,7 @@ async function editRoute(route) {
 
 function viewDef(def) {
     activeDef.value = def;
+    if (t) seedFromActiveDef();
 }
 
 // Save version: names what you are viewing and stores it as a brand-new
@@ -1323,39 +1508,61 @@ function viewDef(def) {
 const saveDialog = ref(false);
 const saveName = ref("");
 const saveNotes = ref("");
+// Overwrite = persist staged edits onto the open draft (stays draft, same
+// version). Create new = persist + publish as a new live version.
+const saveMode = ref("overwrite");
 
 function openSaveDialog() {
     const def = activeDef.value;
     if (!def) return;
+    if (!stagingDirty.value) {
+        notice.value = "Nothing staged — no changes to save yet. Edit steps, routes, requirements, checklists, or fields first.";
+        return;
+    }
     error.value = "";
     notice.value = "";
+    saveMode.value = "overwrite";
     saveName.value = def.name ?? "";
     saveNotes.value = "";
     saveDialog.value = true;
 }
 
 async function confirmSave() {
-    const def = activeDef.value;
-    if (!def) return;
+    const typeId = selectedTypeId.value;
+    const defId = stagingSourceDefId.value;
+    if (!typeId || !defId) return;
     const name = saveName.value.trim();
-    if (!name) {
-        error.value = "Give the version a name first.";
+    if (saveMode.value === "create-new" && !name) {
+        error.value = "Give the new version a name first.";
         return;
     }
     error.value = "";
     notice.value = "";
     saving.value = true;
     try {
-        const saved = await saveAs(def.id, {
-            name,
+        const { data: saved, meta } = await staging.saveAll(typeId, defId, {
+            mode: saveMode.value,
+            name: saveMode.value === "create-new" ? name : name || undefined,
             notes: saveNotes.value.trim() || undefined,
         });
         saveDialog.value = false;
-        await fetchDefinitions(selectedTypeId.value);
+        await fetchDefinitions(typeId);
         selectEffective();
-        notice.value = `Saved as v${saved.version} "${saved.name}" — now live. Old versions kept.`;
+        seedFromActiveDef();
+        if (meta?.published) {
+            notice.value = `Saved as v${saved.version} "${saved.name}" — now live. Old versions kept.`;
+        } else if (meta?.message) {
+            notice.value = meta.message;
+        } else {
+            notice.value = "Saved to the open draft — not live yet. Use Make live (or save as a new version) when ready.";
+        }
     } catch (e) {
-        error.value = e?.response?.data?.message || e?.response?.data?.errors?.name?.[0] || "Saving the version failed.";
+        error.value =
+            e?.response?.data?.message ||
+            e?.response?.data?.errors?.name?.[0] ||
+            (e?.response?.status === 409
+                ? "Someone saved while you were editing. Reload to get the latest, then re-apply your changes."
+                : "Saving the staged changes failed.");
     } finally {
         saving.value = false;
     }
@@ -1452,6 +1659,8 @@ function openStepDialog(step = null) {
     if (step) {
         stepForm.value = {
             id: step.id,
+            client_id: step.client_id ?? null,
+            code: step.code ?? null,
             order_number: step.order_number,
             parent_id: step.parent_id ?? null,
             name: step.name,
@@ -1460,10 +1669,10 @@ function openStepDialog(step = null) {
             sla_minutes: step.sla_minutes ?? 0,
             is_start: !!step.is_start,
             is_end: !!step.is_end,
-            role_ids: step.role_ids ?? [],
+            role_ids: [...(step.role_ids ?? step.roles?.map?.((r) => r.id) ?? [])],
         };
     } else {
-        const topLevel = (activeDef.value.steps || []).filter((s) => !s.parent_id);
+        const topLevel = (tableSteps.value || []).filter((s) => !s.parent_id);
         stepForm.value = {
             id: null,
             order_number: (topLevel.length || 0) + 1,
@@ -1480,61 +1689,52 @@ function openStepDialog(step = null) {
     stepDialog.value = true;
 }
 
-async function saveStep() {
-    saving.value = true;
+function saveStep() {
+    // Staged: no network, no draft creation, no publish. The row lands in
+    // the working copy (new rows get a tmp id) until Save version.
     error.value = "";
     notice.value = "";
-    try {
-        if (slaError.value) {
-            error.value = slaError.value;
-            return;
-        }
-        const payload = {
-            parent_id: stepForm.value.parent_id ?? null,
-            order_number: Number(stepForm.value.order_number),
-            name: stepForm.value.name,
-            stage: stepForm.value.stage || null,
-            office_id: stepForm.value.office_id ?? null,
-            sla_minutes: slaTotal.value,
-            is_start: !!stepForm.value.is_start,
-            is_end: !!stepForm.value.is_end,
-            role_ids: stepForm.value.role_ids || [],
-        };
-
-        if (stepForm.value.id)
-            await updateStep(activeDef.value.id, stepForm.value.id, payload);
-        else await addStep(activeDef.value.id, payload);
-
-        stepDialog.value = false;
-        await goLive();
-    } catch (e) {
-        error.value = e?.response?.data?.message || "Save step failed.";
-    } finally {
-        saving.value = false;
+    if (slaError.value) {
+        error.value = slaError.value;
+        return;
     }
+    if (!selectedTypeId.value) {
+        error.value = "Pick a transaction type first.";
+        return;
+    }
+    staging.upsertStep(selectedTypeId.value, {
+        id: stepForm.value.id ?? undefined,
+        client_id: stepForm.value.client_id ?? undefined,
+        code: stepForm.value.code ?? null,
+        parent_id: stepForm.value.parent_id ?? null,
+        order_number: Number(stepForm.value.order_number),
+        name: stepForm.value.name,
+        stage: stepForm.value.stage || null,
+        office_id: stepForm.value.office_id ?? null,
+        sla_minutes: slaTotal.value,
+        is_start: !!stepForm.value.is_start,
+        is_end: !!stepForm.value.is_end,
+        role_ids: (stepForm.value.role_ids || []).map(Number),
+    });
+    stepDialog.value = false;
+    notice.value = "Step staged — press Save version to persist it.";
 }
 
-async function deleteStep(step) {
+function deleteStep(step) {
+    // Staged removal (undo via Discard). Occupancy guards run at Save time.
     error.value = "";
     notice.value = "";
-    saving.value = true;
-    try {
-        await ensureDraft();
-        const target =
-            (activeDef.value?.steps || []).find((s) => step?.code && s.code === step.code) || step;
-        await apiDeleteStep(activeDef.value.id, target.id);
-        await goLive();
-    } catch (e) {
-        error.value = e?.response?.data?.message || "Delete step failed.";
-    } finally {
-        saving.value = false;
-    }
+    if (!selectedTypeId.value) return;
+    staging.removeStep(selectedTypeId.value, step?.id ?? step?.client_id);
+    notice.value = "Step removal staged — press Save version to persist it.";
 }
 
 // Routes
 const routeDialog = ref(false);
 const routeForm = ref({});
 // Dialog-scoped error: route guard/API failures show inside the modal,
+// not on the page above the steps table.
+const routeError = ref("");
 // not on the page above the steps table.
 const routeError = ref("");
 
@@ -1544,6 +1744,7 @@ function openRouteDialog(route = null) {
     if (route) {
         routeForm.value = {
             id: route.id,
+            client_id: route.client_id ?? null,
             from_step_id: route.from_step_id,
             to_step_id: route.to_step_id,
             action_code: route.action_code,
@@ -1567,11 +1768,23 @@ function openRouteDialog(route = null) {
     routeDialog.value = true;
 }
 
-async function saveRoute() {
-    saving.value = true;
+function saveRoute() {
+    // Staged: no network, no draft creation, no publish.
     error.value = "";
     routeError.value = "";
     notice.value = "";
+    if (!selectedTypeId.value) {
+        error.value = "Pick a transaction type first.";
+        return;
+    }
+    // Instant client guard (backend + staging service re-validate):
+    // forward-only, no self-loops, no duplicate From → To.
+    const guard = routeClientError();
+    if (guard) {
+        routeError.value = guard;
+        return;
+    }
+    let cond = null;
     try {
         // Instant client guard (backend re-validates): forward-only, no
         // self-loops, no duplicate From → To.
@@ -1581,8 +1794,13 @@ async function saveRoute() {
             return;
         }
         let cond = null;
-        if (routeForm.value.condition_expression_json?.trim()) {
-            cond = JSON.parse(routeForm.value.condition_expression_json);
+        try {
+            if (routeForm.value.condition_expression_json?.trim()) {
+                cond = JSON.parse(routeForm.value.condition_expression_json);
+            }
+        } catch {
+            routeError.value = "Condition must be valid JSON.";
+            return;
         }
 
         const payload = {
@@ -1604,44 +1822,32 @@ async function saveRoute() {
 
         routeDialog.value = false;
         await goLive();
-    } catch (e) {
-        const fieldErrors = e?.response?.data?.errors;
-        const firstFieldError = fieldErrors
-            ? Object.values(fieldErrors).flat().find(Boolean)
-            : null;
-        routeError.value =
-            firstFieldError ||
-            e?.response?.data?.message || e?.message || "Save route failed.";
-    } finally {
-        saving.value = false;
     }
+    staging.upsertRoute(selectedTypeId.value, {
+        id: routeForm.value.id ?? undefined,
+        client_id: routeForm.value.client_id ?? undefined,
+        from_step_id: routeForm.value.from_step_id,
+        to_step_id: routeForm.value.to_step_id,
+        action_code: routeForm.value.action_code,
+        // Return routes are retired: routes are forward-only.
+        is_return_route: false,
+        route_group: routeForm.value.route_group || null,
+        required_approvals_count: routeForm.value.required_approvals_count
+            ? Number(routeForm.value.required_approvals_count)
+            : null,
+        condition_expression: cond,
+    });
+    routeDialog.value = false;
+    notice.value = "Route staged — press Save version to persist it.";
 }
 
-async function deleteRoute(route) {
+function deleteRoute(route) {
+    // Staged removal (undo via Discard).
     error.value = "";
     notice.value = "";
-    saving.value = true;
-    try {
-        const oldSteps = activeDef.value?.steps || [];
-        const oldRoutes = activeDef.value?.routes || [];
-        await ensureDraft();
-        const from = oldSteps.find((s) => Number(s.id) === Number(route?.from_step_id))?.code;
-        const to = oldSteps.find((s) => Number(s.id) === Number(route?.to_step_id))?.code;
-        const newCode = (id) => (activeDef.value?.steps || []).find((s) => Number(s.id) === Number(id))?.code;
-        const target =
-            (activeDef.value?.routes || []).find(
-                (r) =>
-                    newCode(r.from_step_id) === from &&
-                    newCode(r.to_step_id) === to &&
-                    r.action_code === route?.action_code,
-            ) ||
-            oldRoutes.find((r) => Number(r.id) === Number(route?.id)) ||
-            route;
-        await apiDeleteRoute(activeDef.value.id, target.id);
-        await goLive();
-    } catch (e) {
-        error.value = e?.response?.data?.message || "Delete route failed.";
-    }
+    if (!selectedTypeId.value) return;
+    staging.removeRoute(selectedTypeId.value, route?.id ?? route?.client_id);
+    notice.value = "Route removal staged — press Save version to persist it.";
 }
 
 function applyTypeFromQuery() {
@@ -1654,6 +1860,7 @@ function applyTypeFromQuery() {
         selectedTypeId.value = null;
         loading.value = false;
     }
+    queryResolved.value = true;
 }
 
 watch(
@@ -1662,9 +1869,9 @@ watch(
 );
 
 onMounted(async () => {
-    await fetchTypes();
-    await fetchRoles();
-    await fetchOffices();
+    // Lookups run in parallel (each paints cache first); the query-derived
+    // selection applies once the batch settles.
+    await Promise.allSettled([fetchTypes(), fetchRoles(), fetchOffices()]);
     applyTypeFromQuery();
 });
 </script>
@@ -1673,5 +1880,8 @@ onMounted(async () => {
 .skel-fill td {
     height: 38px;
     background: #fff;
+}
+html.dark .skel-fill td {
+    background: #1e1e2e;
 }
 </style>

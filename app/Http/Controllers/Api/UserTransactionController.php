@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transactions\ExecuteActionRequest;
+use App\Http\Resources\TransactionListResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use App\Services\RoutingEngine;
@@ -68,24 +69,60 @@ class UserTransactionController extends Controller
     public function index(Request $request, RoutingEngine $routing)
     {
         $user = $request->user();
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $perPage = (int) ($data['per_page'] ?? 25);
+        $q = trim($data['q'] ?? '');
 
-        $items = Transaction::query()
+        $user->loadMissing('roles');
+        $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
+
+        $query = Transaction::query()
             ->with([
-                'type',
-                'office',
-                'workflow',
+                'type:id,code,name',
+                'office:id,code,name',
+                'workflow.steps.office:id,code,name',
                 'workflow.stepRoles.role',
-                'state.currentStep',
-                'creator',
+                'state.currentStep.office:id,code,name',
+                'creator:id,name,email',
             ])
-            ->latest()
-            ->get();
+            ->latest();
 
-        $filtered = $items->filter(function (Transaction $tx) use ($routing, $user) {
-            return $routing->userCanWorkOnCurrentStep($tx, $user);
-        })->values();
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('reference_number', 'like', "%{$q}%")
+                    ->orWhere('title', 'like', "%{$q}%");
+            });
+        }
 
-        return TransactionResource::collection($filtered);
+        if (!$isSuperadmin) {
+            if (empty($roleIds)) {
+                return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
+            }
+            // Push the role gate to SQL (no schema change): only rows whose
+            // current station lists one of the user's roles. Keeps the exact
+            // userCanWorkOnCurrentStep() semantics for the paged rows below.
+            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
+                $r->whereIn('roles.id', $roleIds);
+            });
+        }
+
+        $page = $query->paginate($perPage);
+
+        // Final in-memory guard preserves exact RoutingEngine semantics
+        // (e.g. rows with no current step) for the 25 rows on this page —
+        // cheap, unlike filtering the whole table.
+        $page->setCollection(
+            $page->getCollection()->filter(
+                fn (Transaction $tx) => $isSuperadmin || $routing->userCanWorkOnCurrentStep($tx, $user)
+            )->values()
+        );
+
+        return TransactionListResource::collection($page);
     }
 
     public function show(Transaction $transaction, Request $request, RoutingEngine $routing)

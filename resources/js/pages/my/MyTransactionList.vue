@@ -125,6 +125,9 @@
                         <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
                     </template>
                 </v-data-table>
+                <div v-if="meta.lastPage > 1 && !loading" class="d-flex justify-center py-3">
+                    <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
+                </div>
                 <TableLoader v-if="loading" label="my transactions" icon="mdi-file-document-multiple" style="flex: 1 1 auto" />
                 </div>
             </v-card-text>
@@ -133,7 +136,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useSmartPoll } from "@/composables/useSmartPoll";
@@ -142,7 +145,8 @@ import StepProgress from '@/components/StepProgress.vue';
 import GuideTable from '@/components/GuideTable.vue';
 
 const router = useRouter();
-const { items, loading, fetchAll } = useMyTransactions();
+const { items, loading, meta, fetchAll } = useMyTransactions();
+const page = ref(1);
 
 const error = ref("");
 const search = ref("");
@@ -170,25 +174,31 @@ const headers = [
     { title: "Created At", key: "created_at" },
 ];
 
-const filtered = computed(() => {
-    const q = search.value.trim().toLowerCase();
-    if (!q) return items.value || [];
-    return (items.value || []).filter((tx) =>
-        [
-            tx.reference_number,
-            tx.title,
-            tx.transaction_type?.name,
-            tx.transaction_type_name,
-            tx.office?.name,
-            tx.current_step?.name,
-            tx.current_step?.code,
-        ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(q)
-    );
+// Server-filtered (?q= + 25-row pages): avoids client filtering of heavy
+// rows on weak CPUs and keeps bad-network payloads small.
+const filtered = computed(() => items.value || []);
+
+let searchTimer = null;
+watch(search, () => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+        page.value = 1;
+        try {
+            await fetchAll({ q: search.value, page: 1 });
+        } catch {
+            /* keep current rows */
+        }
+    }, 400);
 });
+
+async function goToPage(p) {
+    page.value = p;
+    try {
+        await fetchAll({ q: search.value, page: p });
+    } catch {
+        /* keep current rows */
+    }
+}
 
 function stepColor(step) {
     if (!step) return "grey";
@@ -227,7 +237,7 @@ function timeAgo(iso) {
 async function load() {
     error.value = "";
     try {
-        await fetchAll();
+        await fetchAll({ q: search.value, page: page.value });
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load transactions.";
     }
@@ -244,7 +254,7 @@ onMounted(load);
 // no loader flash, no page reload.
 useSmartPoll(async () => {
     try {
-        await fetchAll({ silent: true });
+        await fetchAll({ silent: true, q: search.value, page: page.value });
     } catch {
         /* next tick retries */
     }

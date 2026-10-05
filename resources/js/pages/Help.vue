@@ -1,122 +1,126 @@
 <template>
     <div>
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-help-circle-outline</v-icon>
+            <v-card-title class="d-flex align-center pa-5 lgu-head">
+                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                    <v-icon color="#1E40AF">mdi-help-circle-outline</v-icon>
                 </v-avatar>
                 <div>
                     <span class="text-h6 font-weight-bold">Help &amp; Manual</span>
                     <div class="text-caption text-medium-emphasis font-weight-bold">
-                        Press a panel to open its window
+                        Search or press a panel to read it
                     </div>
                 </div>
+                <v-spacer />
+                <v-text-field
+                    v-model="query"
+                    prepend-inner-icon="mdi-magnify"
+                    label="Search help..."
+                    variant="outlined"
+                    density="compact"
+                    rounded="0"
+                    hide-details
+                    clearable
+                    style="max-width: 320px"
+                />
             </v-card-title>
         </v-card>
 
         <!-- Doing your work -->
-        <div class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-            <v-avatar color="#1565C0" rounded="0" size="28" class="mr-2">
+        <div v-if="filteredUser.length" class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
+            <v-avatar color="#1E40AF" rounded="0" size="28" class="mr-2">
                 <v-icon color="white" size="18">mdi-account-check-outline</v-icon>
             </v-avatar>
             Doing your work
         </div>
-        <v-row class="mb-5">
-            <v-col v-for="(s, i) in userSteps" :key="'u'+i" cols="12" sm="6" md="4">
-                <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('user-'+i)">
-                    <v-card-text class="d-flex align-center pa-4">
-                        <v-avatar color="#1565C0" rounded="0" size="40" class="mr-3">
-                            <v-icon color="white">{{ s.icon }}</v-icon>
+        <v-expansion-panels v-if="filteredUser.length" v-model="open" multiple class="mb-5">
+            <v-expansion-panel
+                v-for="item in filteredUser"
+                :key="'user-' + item.i"
+                :value="'user-' + item.i"
+                rounded="0"
+                class="help-entry"
+            >
+                <v-expansion-panel-title>
+                    <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
+                        <span class="help-num flex-shrink-0">{{ item.i + 1 }}</span>
+                        <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
+                            <v-icon color="#1E40AF" size="18">{{ item.s.icon }}</v-icon>
                         </v-avatar>
-                        <div class="flex-grow-1">
-                            <div class="font-weight-bold">{{ i + 1 }}. {{ s.title }}</div>
-                            <div class="text-caption text-medium-emphasis help-hint">{{ s.hint }}</div>
+                        <div style="min-width: 0">
+                            <div class="font-weight-bold">{{ item.s.title }}</div>
+                            <div class="text-caption text-medium-emphasis">{{ item.s.hint }}</div>
                         </div>
-                        <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
+                    </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                    <div class="text-body-2" v-html="item.s.text" />
+                    <div v-if="item.s.to" class="d-flex justify-end mt-3">
+                        <v-btn color="primary" rounded="0" :to="item.s.to" append-icon="mdi-arrow-right">Open page</v-btn>
+                    </div>
+                </v-expansion-panel-text>
+            </v-expansion-panel>
+        </v-expansion-panels>
 
         <!-- Admin setup -->
         <template v-if="isSuperadmin">
-            <div class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-                <v-avatar color="#2E7D32" rounded="0" size="28" class="mr-2">
+            <div v-if="filteredAdmin.length" class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
+                <v-avatar color="#1E40AF" rounded="0" size="28" class="mr-2">
                     <v-icon color="white" size="18">mdi-cog-outline</v-icon>
                 </v-avatar>
                 Setting the system up
             </div>
-            <v-row class="mb-5">
-                <v-col v-for="(s, i) in adminSteps" :key="'a'+i" cols="12" sm="6" md="4">
-                    <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('admin-'+i)">
-                        <v-card-text class="d-flex align-center pa-4">
-                            <v-avatar color="#2E7D32" rounded="0" size="40" class="mr-3">
-                                <v-icon color="white">{{ s.icon }}</v-icon>
+            <v-expansion-panels v-if="filteredAdmin.length" v-model="open" multiple class="mb-5">
+                <v-expansion-panel
+                    v-for="item in filteredAdmin"
+                    :key="'admin-' + item.i"
+                    :value="'admin-' + item.i"
+                    rounded="0"
+                    class="help-entry"
+                >
+                    <v-expansion-panel-title>
+                        <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
+                            <span class="help-num flex-shrink-0">{{ item.i + 1 }}</span>
+                            <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
+                                <v-icon color="#1E40AF" size="18">{{ item.s.icon }}</v-icon>
                             </v-avatar>
-                            <div class="flex-grow-1">
-                                <div class="font-weight-bold">{{ i + 1 }}. {{ s.title }}</div>
-                                <div class="text-caption text-medium-emphasis help-hint">{{ s.hint }}</div>
+                            <div style="min-width: 0">
+                                <div class="font-weight-bold">{{ item.s.title }}</div>
+                                <div class="text-caption text-medium-emphasis">{{ item.s.hint }}</div>
                             </div>
-                            <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
-                        </v-card-text>
-                    </v-card>
-                </v-col>
-            </v-row>
+                        </div>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                        <div class="text-body-2" v-html="item.s.text" />
+                        <div v-if="item.s.to" class="d-flex justify-end mt-3">
+                            <v-btn color="primary" rounded="0" :to="item.s.to" append-icon="mdi-arrow-right">Open page</v-btn>
+                        </div>
+                    </v-expansion-panel-text>
+                </v-expansion-panel>
+            </v-expansion-panels>
         </template>
 
         <!-- Stations & routes + notes -->
-        <div class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-            <v-avatar color="#6A1B9A" rounded="0" size="28" class="mr-2">
+        <div v-if="showStations || filteredNotes.length" class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
+            <v-avatar color="#1E40AF" rounded="0" size="28" class="mr-2">
                 <v-icon color="white" size="18">mdi-source-branch</v-icon>
             </v-avatar>
             Stations, routes &amp; notes
         </div>
-        <v-row class="mb-2">
-            <v-col cols="12" md="6">
-                <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('stations')">
-                    <v-card-text class="d-flex align-center pa-4">
-                        <v-avatar color="#6A1B9A" rounded="0" size="40" class="mr-3">
-                            <v-icon color="white">mdi-source-branch</v-icon>
+        <v-expansion-panels v-model="open" multiple class="mb-6">
+            <v-expansion-panel v-if="showStations" value="stations" rounded="0" class="help-entry">
+                <v-expansion-panel-title>
+                    <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
+                        <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
+                            <v-icon color="#1E40AF" size="18">mdi-source-branch</v-icon>
                         </v-avatar>
-                        <div class="flex-grow-1">
+                        <div style="min-width: 0">
                             <div class="font-weight-bold">Transaction Steps &amp; Routes</div>
-                            <div class="text-caption text-medium-emphasis help-hint">Stations are steps · arrows are routes · Procurement 14-station example</div>
+                            <div class="text-caption text-medium-emphasis">Stations are steps · arrows are routes · Procurement 14-station example</div>
                         </div>
-                        <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-            <v-col v-for="(n, i) in notes" :key="'n'+i" cols="12" md="6">
-                <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('note-'+i)">
-                    <v-card-text class="d-flex align-center pa-4">
-                        <v-avatar color="#BF360C" rounded="0" size="40" class="mr-3">
-                            <v-icon color="white">{{ n.icon }}</v-icon>
-                        </v-avatar>
-                        <div class="flex-grow-1">
-                            <div class="font-weight-bold">{{ n.title }}</div>
-                            <div class="text-caption text-medium-emphasis help-hint">{{ n.hint }}</div>
-                        </div>
-                        <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
-    </div>
-
-    <!-- Window dialog -->
-    <v-dialog v-model="windowOpen" max-width="800">
-        <v-card v-if="activeContent" rounded="0">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar :color="activeContent.color" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">{{ activeContent.icon }}</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">{{ activeContent.title }}</span>
-                <v-spacer />
-                <v-btn icon="mdi-close" variant="text" @click="windowOpen = false" />
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-5">
-                <div v-if="activeKey === 'stations'">
+                    </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
                     <v-row>
                         <v-col cols="12" md="6">
                             <div class="text-subtitle-2 font-weight-bold mb-2">
@@ -233,32 +237,45 @@
                             </p>
                         </v-col>
                     </v-row>
-                </div>
-                <div v-else class="text-body-2" v-html="activeContent.body" />
-                <v-alert v-if="activeContent.note" type="info" variant="tonal" class="mt-4">
-                    {{ activeContent.note }}
-                </v-alert>
-            </v-card-text>
-            <v-divider />
-            <v-card-actions class="justify-end pa-4">
-                <v-btn variant="text" @click="windowOpen = false">Close</v-btn>
-                <v-btn
-                    v-if="activeContent.to"
-                    color="grey-darken-3"
-                    rounded="0"
-                    :to="activeContent.to"
-                    @click="windowOpen = false"
-                >
-                    Open page
-                    <v-icon end size="small">mdi-arrow-right</v-icon>
-                </v-btn>
-            </v-card-actions>
-        </v-card>
-    </v-dialog>
+                    <div class="d-flex justify-end mt-3">
+                        <v-btn color="primary" rounded="0" to="/admin/transaction-types" append-icon="mdi-arrow-right">Open page</v-btn>
+                    </div>
+                </v-expansion-panel-text>
+            </v-expansion-panel>
+            <v-expansion-panel
+                v-for="item in filteredNotes"
+                :key="'note-' + item.i"
+                :value="'note-' + item.i"
+                rounded="0"
+                class="help-entry"
+            >
+                <v-expansion-panel-title>
+                    <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
+                        <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
+                            <v-icon color="#1E40AF" size="18">{{ item.n.icon }}</v-icon>
+                        </v-avatar>
+                        <div style="min-width: 0">
+                            <div class="font-weight-bold">{{ item.n.title }}</div>
+                            <div class="text-caption text-medium-emphasis">{{ item.n.hint }}</div>
+                        </div>
+                    </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                    <div class="text-body-2" v-html="item.n.body" />
+                </v-expansion-panel-text>
+            </v-expansion-panel>
+        </v-expansion-panels>
+        <v-alert v-if="query.trim() && !anyVisible" type="info" variant="tonal" class="mb-4">
+            No help topics match "{{ query.trim() }}".
+            <v-btn variant="text" color="primary" @click="query = ''">Clear search</v-btn>
+        </v-alert>
+    </div>
+
+    <div class="help-foot" aria-hidden="true"></div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 
 const auth = useAuth()
@@ -268,12 +285,13 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
-const windowOpen = ref(false)
-const activeKey = ref(null)
+// Search + expanded panels (inline reading, no popups).
+const query = ref('')
+const open = ref([])
 
-function openWindow(key) {
-    activeKey.value = key
-    windowOpen.value = true
+function matches(q, ...fields) {
+    if (!q) return true
+    return fields.filter(Boolean).join(' ').toLowerCase().includes(q)
 }
 
 const userSteps = computed(() => [
@@ -402,40 +420,100 @@ const notes = [
     },
 ]
 
-const activeContent = computed(() => {
-    if (!activeKey.value) return null
-    const [group, idx] = activeKey.value.split('-')
-    if (group === 'user') {
-        const s = userSteps[Number(idx)]
-        return { ...s, body: s.text, color: '#1565C0', note: null }
+const filteredUser = computed(() => {
+    const q = query.value.trim().toLowerCase()
+    return userSteps.value
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => matches(q, s.title, s.hint, s.text))
+})
+
+const filteredAdmin = computed(() => {
+    const q = query.value.trim().toLowerCase()
+    return adminSteps
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => matches(q, s.title, s.hint, s.text))
+})
+
+const showStations = computed(() =>
+    matches(
+        query.value.trim().toLowerCase(),
+        'Transaction Steps & Routes',
+        'Stations are steps',
+        'arrows are routes',
+        'Procurement 14-station example',
+    ),
+)
+
+const filteredNotes = computed(() => {
+    const q = query.value.trim().toLowerCase()
+    return notes
+        .map((n, i) => ({ n, i }))
+        .filter(({ n }) => matches(q, n.title, n.hint, n.body))
+})
+
+const anyVisible = computed(
+    () =>
+        filteredUser.value.length > 0 ||
+        filteredAdmin.value.length > 0 ||
+        showStations.value ||
+        filteredNotes.value.length > 0,
+)
+
+// Searching expands every match so results read inline at once.
+watch(query, () => {
+    if (!query.value.trim()) {
+        open.value = []
+        return
     }
-    if (group === 'admin') {
-        const s = adminSteps[Number(idx)]
-        return { ...s, body: s.text, color: '#2E7D32', note: null }
-    }
-    if (group === 'note') {
-        const n = notes[Number(idx)]
-        return { ...n, to: null, color: '#BF360C', note: null }
-    }
-    if (group === 'stations') {
-        return { title: 'Transaction Steps & Routes', icon: 'mdi-source-branch', color: '#6A1B9A', to: '/admin/transaction-types', body: '', note: 'Stations are steps · arrows are routes · example: Procurement (14 stations).' }
-    }
-    return null
+    open.value = [
+        ...filteredUser.value.map(({ i }) => `user-${i}`),
+        ...filteredAdmin.value.map(({ i }) => `admin-${i}`),
+        ...(showStations.value ? ['stations'] : []),
+        ...filteredNotes.value.map(({ i }) => `note-${i}`),
+    ]
 })
 </script>
 
 <style scoped>
-.help-panel {
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+/* Blank dark footer container (no text): flushes to the page bottom. */
+.help-foot {
+    background: #1E3A8A;
+    padding: 16px 24px;
+    margin-top: 8px;
+    margin-bottom: -24px;
+    min-height: 50px;
 }
-.help-panel:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+/* Modern entries: hairline card, blue number badge, soft icon tile.
+   Open entries lift with a blue edge + shadow. */
+.help-entry {
+    border: 1px solid #e2e8f0 !important;
 }
-.help-hint {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.help-entry.v-expansion-panel--active {
+    border-color: #1E40AF !important;
+    box-shadow: 0 10px 24px -12px rgba(30, 64, 175, 0.35) !important;
+}
+.help-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    background: #1E40AF;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.8rem;
+}
+.help-ico {
+    background: rgba(30, 64, 175, 0.1);
+}
+html.dark .help-entry {
+    border-color: #334155 !important;
+}
+html.dark .help-ico {
+    background: rgba(147, 197, 253, 0.14);
+}
+html.dark .help-ico .v-icon {
+    color: #93C5FD !important;
 }
 </style>
