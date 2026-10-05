@@ -14,9 +14,10 @@
                  (checklist-only) mode where its footer allows Proceed. -->
             <v-window-item v-if="showChecklist" :value="1">
                 <!-- Single-step fallback: no requirements, so station info lives here -->
-                <template v-if="!hasRequirements && (fields || []).length">
+                <template v-if="!hasRequirements && ((fields || []).length || (stepData || []).length)">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
                     <StepInfoFields :fields="fields" :form="form" />
+                    <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" />
                     <v-divider class="my-3" />
                 </template>
 
@@ -110,13 +111,14 @@
                  Last page in two-page mode; the only page in single-page mode
                  (step 1 → step 2, no checklist): remarks + move attachments
                  render below so it never shows a second screen. -->
-            <v-window-item v-if="hasRequirements || !showChecklist" :value="2">
+            <v-window-item v-if="hasRequirements || hasStepData || !showChecklist" :value="2">
                 <template v-if="(fields || []).length">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
                     <StepInfoFields :fields="fields" :form="form" />
 
                     <v-divider class="my-3" />
                 </template>
+                <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" />
                 <div class="d-flex justify-space-between align-baseline mb-2">
                     <div class="text-subtitle-2 font-weight-bold">Requirements to proceed</div>
                     <div v-if="(requirements || []).length" class="text-caption" :class="requirementsComplete ? 'text-success' : 'text-medium-emphasis'">
@@ -250,6 +252,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import StepInfoFields from '@/components/StepInfoFields.vue'
+import StepDataFields from '@/components/StepDataFields.vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import AttachmentList from '@/components/AttachmentList.vue'
 import ProceedFooter from '@/components/ProceedFooter.vue'
@@ -260,6 +263,8 @@ import { fileViewUrl, isOfficeDoc } from '@/composables/useFileView'
 const step = defineModel('step', { default: 1 })
 const remarks = defineModel('remarks', { default: '' })
 const proceedAttachments = defineModel('proceedAttachments', { default: () => [] })
+// Step-data draft keyed by definition code; sent as `step_data` on Proceed.
+const stepDataForm = defineModel('stepDataForm', { default: () => ({}) })
 
 const props = defineProps({
     txId: { type: [Number, String], required: true },
@@ -270,6 +275,8 @@ const props = defineProps({
     checklist: { type: Array, default: () => [] },
     // tx.current_step_fields
     fields: { type: Array, default: () => [] },
+    // tx.current_step_data — per-step text values (e.g. receipt number).
+    stepData: { type: Array, default: () => [] },
     // Shared page draft object, mutated in place by StepInfoFields.
     form: { type: Object, required: true },
     selectedActionLabel: { type: String, default: '' },
@@ -294,13 +301,15 @@ const props = defineProps({
 // Page 2 holds the uploads. In single-page mode (step 1 → step 2) it is the
 // only page: remarks + move attachments render below the uploads.
 const hasRequirements = computed(() => (props.requirements || []).length > 0)
+// Per-step text data present on this station (receipt number, etc.).
+const hasStepData = computed(() => (props.stepData || []).length > 0)
 // Header counter (visual only): ticked / total. Gating still uses parents' missingRequired*.
 const checkedRequirementsCount = computed(() => (props.requirements || []).filter((r) => !!r.checked).length)
 const requirementsComplete = computed(
     () => (props.requirements || []).length > 0 && checkedRequirementsCount.value >= (props.requirements || []).length,
 )
 const hasProceedContent = computed(
-    () => hasRequirements.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
+    () => hasRequirements.value || hasStepData.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
 )
 
 // Page 2 display order: required first, then tick-only rows before

@@ -310,12 +310,12 @@
                                 @click="goStepRequirements(item)"
                             />
                             <v-btn
-                                icon="mdi-clipboard-check-outline"
-                                v-tooltip="'Checklist'"
+                                icon="mdi-text-box-outline"
+                                v-tooltip="'Step data'"
                                 size="small"
                                 variant="outlined"
-                                color="info"
-                                @click="goStepChecklist(item)"
+                                color="grey-darken-3"
+                                @click="goStepData(item)"
                             />
                             <v-btn
                                 icon="mdi-pencil"
@@ -1245,7 +1245,7 @@ async function goStepFields(item) {
 }
 
 function liveEditableTarget() {
-    // Requirements/checklist apply to running papers immediately, so
+    // Requirements/step data apply to running papers immediately, so
     // open them on the published transaction type — not an open draft clone.
     return currentDef.value || activeDef.value;
 }
@@ -1268,7 +1268,7 @@ async function goStepRequirements(item) {
     }
 }
 
-async function goStepChecklist(item) {
+async function goStepData(item) {
     error.value = "";
     notice.value = "";
     try {
@@ -1276,9 +1276,9 @@ async function goStepChecklist(item) {
         if (!target?.id || !item?.id) return;
         const fresh = stepOnDef(target, item);
         const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/checklist`, query: q });
+        router.push({ path: `/admin/workflows/${target.id}/steps/${fresh.id}/step-data`, query: q });
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to open step checklist.";
+        error.value = e?.response?.data?.message || "Failed to open step data.";
     }
 }
 

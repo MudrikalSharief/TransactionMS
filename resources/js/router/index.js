@@ -14,7 +14,7 @@ import AdminStepFields from "@/pages/admin/StepFields.vue";
 
 import AdminRequirements from "@/pages/admin/Requirements.vue";
 import AdminStepRequirements from "@/pages/admin/StepRequirements.vue";
-import AdminStepChecklist from "@/pages/admin/StepChecklist.vue";
+import AdminStepData from "@/pages/admin/StepData.vue";
 import AdminRequirementsIndex from "@/pages/admin/RequirementsIndex.vue";
 
 import TransactionsList from "@/pages/transactions/TransactionList.vue";
@@ -104,9 +104,9 @@ export function createRouter() {
                 meta: { requiresAuth: true },
             },
             {
-                path: "/admin/workflows/:workflowId/steps/:stepId/checklist",
-                name: "admin.step-checklist",
-                component: AdminStepChecklist,
+                path: "/admin/workflows/:workflowId/steps/:stepId/step-data",
+                name: "admin.step-data",
+                component: AdminStepData,
                 meta: { requiresAuth: true },
             },
 

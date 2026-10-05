@@ -44,10 +44,12 @@
                             v-model:step="wizardStep"
                             v-model:remarks="remarks"
                             v-model:proceed-attachments="proceedAttachments"
+                            v-model:step-data-form="stepDataForm"
                             :tx-id="tx.id"
                             :requirements="tx.current_step_requirements || []"
                             :checklist="tx.current_step_checklist || []"
                             :fields="tx.current_step_fields"
+                            :step-data="tx.current_step_data || []"
                             :form="form"
                             :selected-action-label="selectedActionLabel"
                             :selected-route-id="selectedRouteId"
@@ -84,7 +86,7 @@
                 <template v-if="tx && selectedRouteId">
                     <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="text" @click="wizardStep = 1">Back</v-btn>
                     <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !skipReview" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || skipReview || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0" @click="executeSelected">Proceed</v-btn>
+                    <v-btn v-if="wizardStep === 2 || skipReview || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0" @click="executeSelected">Proceed</v-btn>
                 </template>
             </v-card-actions>
         </v-card>
@@ -129,6 +131,18 @@ const selectedRouteId = ref(null);
 const remarks = ref("");
 const proceedAttachments = ref([]);
 const form = ref({});
+// Step-data draft keyed by definition code, prefilled from latest values.
+const stepDataForm = ref({});
+
+function hydrateStepDataForm() {
+    const next = {};
+    for (const row of tx.value?.current_step_data ?? []) {
+        const code = row?.definition?.code;
+        if (!code) continue;
+        next[code] = row.value ?? "";
+    }
+    stepDataForm.value = next;
+}
 const savingChecklist = ref(false);
 const savingChecklistItemId = ref(null);
 const savingRequirementId = ref(null);
@@ -253,6 +267,20 @@ const missingRequiredFields = computed(() => {
     return out;
 });
 
+// Required step-data values still empty in the draft. Approval moves are
+// forward-only, so no return exemption here.
+const missingRequiredStepDataLabels = computed(() => {
+    const out = [];
+    for (const row of tx.value?.current_step_data ?? []) {
+        if (!row?.definition?.is_required) continue;
+        const v = stepDataForm.value?.[row.definition.code];
+        if (v === null || v === undefined || String(v).trim() === "") {
+            out.push(row.definition.display_name || row.definition.code);
+        }
+    }
+    return out;
+});
+
 function hydrateForm() {
     const next = {};
     for (const row of tx.value?.current_step_fields ?? []) {
@@ -302,6 +330,7 @@ async function load() {
         const res = await getOne(props.txId);
         applyResponse(res.tx, res.meta);
         hydrateForm();
+        hydrateStepDataForm();
         // The usual case is exactly one forward route: pick it for the user.
         selectedRouteId.value = forwardActions.value.length === 1 ? forwardActions.value[0].route_id : null;
         if (selectedRouteId.value) resetWizardForRoute();
@@ -390,6 +419,7 @@ async function executeSelected() {
             remarks: remarks.value || null,
             field_values: payloadFields,
             attachment_ids: (proceedAttachments.value || []).map((a) => a.id),
+            step_data: { ...(stepDataForm.value || {}) },
         });
 
         open.value = false;

@@ -514,6 +514,8 @@
                         :checklist="tx?.current_step_checklist || []"
                         :fields="tx?.current_step_fields"
                         :form="form"
+                        v-model:step-data-form="stepDataForm"
+                        :step-data="tx?.current_step_data || []"
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
@@ -558,7 +560,7 @@
                         color="grey-darken-3"
                         rounded="0"
                         :loading="saving"
-                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0"
+                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0"
                         @click="executeSelected"
                         >Proceed</v-btn
                     >
@@ -765,6 +767,20 @@ const proceedAttachments = ref([]);
 const checkAttachments = ref([]);
 
 const form = ref({});
+
+// Step-data draft keyed by definition code (e.g. receipt_number),
+// prefilled from the latest saved value per definition.
+const stepDataForm = ref({});
+
+function hydrateStepDataForm() {
+    const next = {};
+    for (const row of tx.value?.current_step_data ?? []) {
+        const code = row?.definition?.code;
+        if (!code) continue;
+        next[code] = row.value ?? "";
+    }
+    stepDataForm.value = next;
+}
 
 const auth = useAuth();
 
@@ -1029,6 +1045,22 @@ const missingRequiredFields = computed(() => {
     return out;
 });
 
+// Required step-data values (receipt number, etc.) still empty in the
+// draft. These fail server-side validation on Proceed, so warn and block
+// Proceed until filled. Skipped on returns, like the other wizard gates.
+const missingRequiredStepDataLabels = computed(() => {
+    if (isReturnSelected.value) return [];
+    const out = [];
+    for (const row of tx.value?.current_step_data ?? []) {
+        if (!row?.definition?.is_required) continue;
+        const v = stepDataForm.value?.[row.definition.code];
+        if (v === null || v === undefined || String(v).trim() === "") {
+            out.push(row.definition.display_name || row.definition.code);
+        }
+    }
+    return out;
+});
+
 // Title for the Check-modal station-info panel: required when the step
 // has required fields, N/A when the station has no info fields at all.
 const checkInfoTitle = computed(() => {
@@ -1046,6 +1078,7 @@ async function load() {
         availableActions.value = res.meta?.available_actions ?? [];
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         hydrateForm();
+        hydrateStepDataForm();
 
         const allIds = new Set(
             (availableActions.value || []).map((a) => a.route_id),
@@ -1201,6 +1234,7 @@ async function executeSelected() {
             remarks: remarks.value || null,
             field_values: payloadFields,
             attachment_ids: (proceedAttachments.value || []).map((a) => a.id),
+            step_data: { ...(stepDataForm.value || {}) },
         });
 
         tx.value = res.tx;
@@ -1213,6 +1247,7 @@ async function executeSelected() {
         // closed dropdown never shows the previous route's raw id.
         selectedRouteId.value = null;
         hydrateForm();
+        hydrateStepDataForm();
     } catch (e) {
         const msg = formatApiError(e, "Execute failed.");
         error.value = msg;
@@ -1236,6 +1271,7 @@ async function finalizeTx() {
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         selectedRouteId.value = null;
         hydrateForm();
+        hydrateStepDataForm();
         finalizeDialog.value = false;
     } catch (e) {
         error.value = formatApiError(e, "Finalize failed.");
@@ -1268,6 +1304,7 @@ async function gotoStation(remarksText) {
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         selectedRouteId.value = null;
         hydrateForm();
+        hydrateStepDataForm();
     } catch (e) {
         error.value = formatApiError(e, "Jump failed.");
     } finally {

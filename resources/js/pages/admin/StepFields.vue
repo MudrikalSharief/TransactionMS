@@ -32,26 +32,16 @@
                 </v-alert>
 
                 <v-row>
-                    <v-col cols="12" md="6">
+                    <v-col cols="12">
                         <v-select
                             v-model="selectedStepId"
                             :items="stepOptions"
                             item-title="label"
                             item-value="id"
                             label="Select Step"
-                            :loading="stepsLoading"
+                            :loading="stepsLoading || loading"
                             :disabled="!workflowDefinitionId"
                         />
-                    </v-col>
-                    <v-col cols="12" md="6" class="d-flex align-center">
-                        <v-btn
-                            color="grey-darken-3"
-                            rounded="0"
-                            :disabled="!selectedStepId"
-                            @click="loadAssigned"
-                        >
-                            Load Step Fields
-                        </v-btn>
                     </v-col>
                 </v-row>
 
@@ -316,9 +306,11 @@ async function save() {
     }
 }
 
-watch(selectedStepId, () => {
+watch(selectedStepId, async () => {
     assigned.value = [];
     selectedFieldIds.value = [];
+    if (!selectedStepId.value) return;
+    await loadAssigned();
 });
 
 watch(
@@ -329,7 +321,6 @@ watch(
 
         if (steps.value.length) {
             selectedStepId.value = sid;
-            await loadAssigned();
         }
     },
 );
@@ -341,7 +332,6 @@ onMounted(async () => {
     const sid = stepIdFromUrl.value;
     if (sid && !Number.isNaN(sid)) {
         selectedStepId.value = sid;
-        await loadAssigned();
     }
 });
 </script>
