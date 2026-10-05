@@ -18,7 +18,7 @@ class AuthController extends Controller
             'email' => $data['email'],
             'password' => $data['password'],
         ];
-
+s
         $remember = (bool) ($data['remember'] ?? false);
 
         if (!Auth::guard('web')->attempt($credentials, $remember)) {
