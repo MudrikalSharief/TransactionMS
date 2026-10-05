@@ -509,6 +509,28 @@ useSmartPoll(async () => {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Boxed table header: dark-blue fill, white text, outer border only —
+   no dividers between header cells (first/last cells carry the edges). */
+.lgu-table :deep(thead tr th.v-data-table__th) {
+  background-color: #1E3A8A !important;
+  color: #ffffff !important;
+  border-top: 2px solid #1E3A8A !important;
+  border-bottom: 3px solid #1E3A8A !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
+  border-left: 2px solid #1E3A8A !important;
+  padding-left: 20px !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
+  border-right: 2px solid #1E3A8A !important;
+  padding-right: 20px !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
+.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
+  color: #ffffff !important;
+}
 /* Filler rows: full 60px rhythm, zero paint — no hover, no clicks,
    no cell content (hidden but layout-preserving). */
 .lgu-table :deep(tr.pad-row) {

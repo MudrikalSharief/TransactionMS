@@ -741,6 +741,19 @@ onUnmounted(() => {
     min-width: 18px;
     height: 18px;
 }
+/* Active nav item: solid dark fill instead of the faint primary tint. */
+:deep(.v-navigation-drawer .v-list-item--active) {
+    background-color: #1E3A8A !important;
+    color: #ffffff !important;
+}
+:deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
+    opacity: 0 !important;
+}
+:deep(.v-navigation-drawer .v-list-item--active .v-icon),
+:deep(.v-navigation-drawer .v-list-item--active .v-list-item-title) {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
 /* Footer theme/help pair */
 .drawer-footer .v-btn {
     min-width: 0;

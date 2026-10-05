@@ -111,15 +111,6 @@
 
             <p class="copyright">© City Government of Zamboanga</p>
             </div>
-
-            <transition name="busy-fade">
-                <div v-if="loading" class="login-busy" role="status" aria-live="polite">
-                    <span class="busy-pill">
-                        <span class="busy-spinner" aria-hidden="true"></span>
-                        Verifying credentials…
-                    </span>
-                </div>
-            </transition>
         </v-card>
     </div>
 </template>
@@ -625,48 +616,6 @@ label[for="login-email"] {
     opacity: 0.85;
 }
 
-/* Busy overlay pinned to the card while signing in */
-.login-busy {
-    position: absolute;
-    inset: 35px 0 0;
-    z-index: 4;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding-bottom: 28px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 55%, rgba(255, 255, 255, 0.72) 100%);
-    pointer-events: none;
-}
-.busy-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 18px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.88);
-    color: #fff;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
-    backdrop-filter: blur(6px);
-}
-.busy-spinner {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: #fff;
-    animation: busy-spin 0.8s linear infinite;
-}
-.busy-fade-enter-active,
-.busy-fade-leave-active {
-    transition: opacity 0.25s ease;
-}
-.busy-fade-enter-from,
-.busy-fade-leave-to {
-    opacity: 0;
-}
 .login-btn::after {
     content: "";
     position: absolute;
@@ -745,10 +694,6 @@ label[for="login-email"] {
     80% { transform: translateX(3px); }
 }
 
-@keyframes busy-spin {
-    to { transform: rotate(360deg); }
-}
-
 @media (max-width: 900px) {
     .login-sky {
         justify-content: center;
@@ -803,7 +748,6 @@ label[for="login-email"] {
     .login-inner,
     .float-chip,
     .login-btn::after,
-    .busy-spinner,
     .login-error {
         animation: none !important;
     }
