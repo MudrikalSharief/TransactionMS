@@ -4,8 +4,11 @@ import { readCache, writeCache, invalidateCache, CacheKeys } from '@/composables
 
 export function useOffices() {
   const { api } = useApi()
-  const items = ref([])
-  const loading = ref(true)
+  // Init from cache at setup: warm loads paint rows on first render with
+  // loading already false (zero loader flash); cold loads start loading.
+  const _cached = readCache(CacheKeys.offices)
+  const items = ref(_cached ?? [])
+  const loading = ref(_cached == null)
 
   // Instant illusion: cached offices paint with no loader flash, then the
   // network refreshes silently in the background.

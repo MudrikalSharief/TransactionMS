@@ -4,8 +4,11 @@ import { readCache, writeCache, invalidateCache, CacheKeys } from '@/composables
 
 export function useAdminUsers() {
   const { api } = useApi()
-  const users = ref([])
-  const loading = ref(true)
+  // Init from cache at setup: warm loads paint rows on first render with
+  // loading already false (zero loader flash); cold loads start loading.
+  const _cached = readCache(CacheKeys.users)
+  const users = ref(_cached ?? [])
+  const loading = ref(_cached == null)
 
   async function fetchUsers({ silent = false } = {}) {
     const cached = readCache(CacheKeys.users)

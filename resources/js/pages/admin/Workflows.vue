@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="loading || resolvingSteps" label="workflow steps" icon="mdi-source-branch" />
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center pa-5">
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
@@ -124,17 +125,6 @@
                         Save version
                         <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
                     </v-btn>
-                    <v-tooltip location="bottom" max-width="480">
-                        <template #activator="{ props }">
-                            <v-btn
-                                icon="mdi-help-circle-outline"
-                                variant="text"
-                                color="grey-darken-3"
-                                v-bind="props"
-                            />
-                        </template>
-                        <GuideTable title="Column guide" :sections="guideSections" horizontal />
-                    </v-tooltip>
                 </div>
             </v-card-title>
 
@@ -771,7 +761,7 @@ import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
 import { useOffices } from "@/composables/useOffices";
 import TableLoader from '@/components/TableLoader.vue';
-import GuideTable from '@/components/GuideTable.vue';
+import LoadingVeil from '@/components/LoadingVeil.vue';
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus';
 
 const {
@@ -841,32 +831,6 @@ const notice = ref("");
 const saving = ref(false);
 const route = useRoute();
 const router = useRouter();
-
-const guideSections = [
-    {
-        title: "TRANSACTION TYPES",
-        rows: [
-            { term: "TRANSACTION TYPE", text: "CURRENT = LIVE FLOW, DRAFT = EDITABLE, PREVIOUS = RETIRED" },
-            { term: "STATUS", text: "DRAFT = EDITABLE, PUBLISHED = LIVE, ARCHIVED = RETIRED" },
-            { term: "NAME", text: "TRANSACTION TYPE LABEL" },
-        ],
-    },
-    {
-        title: "STEPS",
-        rows: [
-            { term: "FLAGS", text: "START = FIRST STEP, END = FINAL STEP" },
-            { term: "SLA (MIN)", text: "TARGET MINUTES TO FINISH THE STEP" },
-            { term: "STAGE", text: "WHICH OFFICE / PHASE HANDLES IT" },
-        ],
-    },
-    {
-        title: "ROUTES",
-        rows: [
-            { term: "FROM → TO", text: "FORWARD ONLY: WHICH STEP MOVES TO WHICH ON AN ACTION" },
-            { term: "GOING BACK", text: "JUMP TO A VISITED STATION (RECORDED AS RETURNED)" },
-        ],
-    },
-];
 
 const conditionHint =
     'Store as JSON (not PHP). Example: {">=":[{"var":"fields.amount"},50000]}';
@@ -1131,6 +1095,9 @@ watch(selectedTypeId, async (id) => {
         return;
     }
     error.value = "";
+    // Always veil while resolving: activeDef is cleared above and only
+    // restored after the network settles, so skipping this on warm cache
+    // exposes the wrong "no workflow" state for the whole request.
     resolvingSteps.value = true;
     try {
         await fetchDefinitions(id);

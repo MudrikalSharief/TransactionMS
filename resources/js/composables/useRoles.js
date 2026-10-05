@@ -4,8 +4,11 @@ import { readCache, writeCache, invalidateCache, CacheKeys } from '@/composables
 
 export function useRoles() {
   const { api } = useApi()
-  const roles = ref([])
-  const loading = ref(true)
+  // Init from cache at setup: warm loads paint rows on first render with
+  // loading already false (zero loader flash); cold loads start loading.
+  const _cached = readCache(CacheKeys.roles)
+  const roles = ref(_cached ?? [])
+  const loading = ref(_cached == null)
 
   async function fetchRoles({ silent = false } = {}) {
     const cached = readCache(CacheKeys.roles)

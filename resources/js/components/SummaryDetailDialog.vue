@@ -326,7 +326,7 @@ watch(open, (isOpen) => {
     flex-shrink: 0;
 }
 .sd-title {
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-size: 1.25rem;
     font-weight: 800;
     line-height: 1.2;
@@ -355,7 +355,7 @@ watch(open, (isOpen) => {
     padding-right: 4px;
 }
 .sd-count-num {
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-size: 2.4rem;
     font-weight: 800;
     color: var(--sd-accent);
@@ -472,7 +472,7 @@ watch(open, (isOpen) => {
 .sd-metric-value {
     display: inline-flex;
     align-items: center;
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-size: 1.05rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;

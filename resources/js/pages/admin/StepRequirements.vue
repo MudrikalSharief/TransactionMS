@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="loading || !ready" label="step requirements" icon="mdi-clipboard-list-outline" />
         <v-card rounded="0" elevation="1" class="lgu-card">
             <v-card-title class="d-flex align-center pa-5">
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
@@ -134,7 +135,6 @@
                                 />
                             </template>
                         </v-data-table>
-                        <TableLoader v-if="loading" label="requirements" icon="mdi-clipboard-list-outline" style="flex: 1 1 auto" />
                     </div>
                 </div>
             </v-card-text>
@@ -182,7 +182,7 @@ import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useStepRequirements } from "@/composables/useStepRequirements";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
-import TableLoader from '@/components/TableLoader.vue';
+import LoadingVeil from '@/components/LoadingVeil.vue';
 import StagingSaveBar from '@/components/StagingSaveBar.vue';
 
 const route = useRoute();
@@ -225,6 +225,9 @@ const selectedStepId = ref(null);
 
 // Working rows for the current step: pivots joined with definitions.
 const assignmentRows = ref([]);
+// First-load gate: rows only map after a fetch settles, so keep the veil up
+// until then (loading alone clears on warm cache before rows exist).
+const ready = ref(false);
 
 const assignHeaders = [
     { title: "Name", key: "name", sortable: false },
@@ -364,7 +367,11 @@ function enrichStagedRow(r, idx) {
 }
 
 async function loadAssigned() {
-    if (!selectedStepId.value) return;
+    if (!selectedStepId.value) {
+        ready.value = true;
+        return;
+    }
+    ready.value = false;
     error.value = "";
     try {
         await fetchAssigned(workflowDefinitionId.value, Number(selectedStepId.value));
@@ -399,6 +406,8 @@ async function loadAssigned() {
         }
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load assigned requirements.";
+    } finally {
+        ready.value = true;
     }
 }
 
@@ -421,6 +430,8 @@ onMounted(async () => {
     if (sid && !Number.isNaN(sid)) {
         selectedStepId.value = sid;
         await loadAssigned();
+    } else {
+        ready.value = true; // nothing to load: show the picker UI, no veil
     }
 });
 </script>

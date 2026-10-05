@@ -10,8 +10,11 @@ export function useTransactions() {
   // device never paints another user's list.
   const key = () => scopedKey(CacheKeys.transactions, user.value?.id ?? storedUserId())
 
-  const items = ref([])
-  const loading = ref(true)
+  // Init from cache at setup: warm loads paint rows on first render with
+  // loading already false (zero loader flash); cold loads start loading.
+  const _cached = readCache(key())
+  const items = ref(_cached ?? [])
+  const loading = ref(_cached == null)
   // Server pagination meta (Laravel paginator). Tables bind to items;
   // meta drives total/pages without rendering unpaged thousands of rows.
   const meta = ref({ total: 0, page: 1, lastPage: 1, perPage: 25 })

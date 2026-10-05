@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="loading || !ready" label="checklist" icon="mdi-clipboard-check-outline" />
         <v-card rounded="0" elevation="1" class="lgu-card">
             <v-card-title class="d-flex align-center pa-5">
                 <v-avatar color="info" rounded="0" size="40" class="mr-3">
@@ -138,7 +139,6 @@
                                 />
                             </template>
                         </v-data-table>
-                        <TableLoader v-if="loading" label="checklist" icon="mdi-clipboard-check-outline" style="flex: 1 1 auto" />
                     </div>
                 </div>
             </v-card-text>
@@ -185,7 +185,7 @@ import { useStepChecklist } from "@/composables/useStepChecklist";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
-import TableLoader from "@/components/TableLoader.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -221,6 +221,9 @@ const stepsLoading = ref(false);
 const selectedStepId = ref(null);
 
 const rows = ref([]);
+// First-load gate: rows only map after a fetch settles, so keep the veil up
+// until then (loading alone clears on warm cache before rows exist).
+const ready = ref(false);
 
 const headers = [
     { title: "Name", key: "name", sortable: false },
@@ -328,7 +331,11 @@ async function loadSteps() {
 }
 
 async function loadChecklist() {
-    if (!selectedStepId.value) return;
+    if (!selectedStepId.value) {
+        ready.value = true;
+        return;
+    }
+    ready.value = false;
     error.value = "";
     try {
         await fetchChecklist(workflowDefinitionId.value, Number(selectedStepId.value));
@@ -362,6 +369,8 @@ async function loadChecklist() {
         }
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load checklist.";
+    } finally {
+        ready.value = true;
     }
 }
 
@@ -393,6 +402,7 @@ onMounted(() => {
     // Steps list and checklist are independent endpoints: fetch in parallel.
     const sid = stepIdFromUrl.value;
     if (sid && !Number.isNaN(sid)) selectedStepId.value = sid;
+    else ready.value = true; // nothing to load: show the picker UI, no veil
     loadSteps().catch(() => {});
     if (sid && !Number.isNaN(sid)) loadChecklist().catch(() => {});
 });

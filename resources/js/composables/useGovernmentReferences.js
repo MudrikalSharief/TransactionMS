@@ -4,8 +4,11 @@ import { readCache, writeCache, invalidateCache, CacheKeys } from '@/composables
 
 export function useGovernmentReferences() {
   const { api } = useApi()
-  const items = ref([])
-  const loading = ref(true)
+  // Init from cache at setup: warm loads paint rows on first render with
+  // loading already false (zero loader flash); cold loads start loading.
+  const _cached = readCache(CacheKeys.govRefs)
+  const items = ref(_cached ?? [])
+  const loading = ref(_cached == null)
 
   async function fetchAll({ silent = false } = {}) {
     const cached = readCache(CacheKeys.govRefs)

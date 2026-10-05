@@ -225,17 +225,22 @@ const tipRows = computed(() => {
         .sort((a, b) => b.values[i] - a.values[i])
 })
 
-// Beside the hovered group, flipped to its left on the right half of the
-// chart; clamped so a narrow chart never pushes the tip out of view.
+// Centered over the hovered group; pinned to the near edge when the group
+// sits at either end, so the tip never leaves the chart. Fractions of the
+// chart width (not raw pixels) keep it correct even if the viewBox and the
+// rendered pixels drift apart.
+const TIP_HALF_PX = 105 // half of the tip's max-width
 const tipStyle = computed(() => {
-    const bandLeft = leftPad + bandW.value * hoverIndex.value
-    const flip = bandLeft + bandW.value / 2 > viewW.value * 0.5
-    const limit = Math.max(4, viewW.value - 162)
-    return {
-        top: '4px',
-        left: flip ? 'auto' : `${Math.min(bandLeft + bandW.value + 4, limit)}px`,
-        right: flip ? `${Math.min(viewW.value - bandLeft + 4, limit)}px` : 'auto',
+    const centerFrac = (leftPad + bandW.value * (hoverIndex.value + 0.5)) / viewW.value
+    const halfFrac = TIP_HALF_PX / Math.max(1, wrapW.value || viewW.value)
+    const base = { top: '4px', transform: 'translateX(-50%)' }
+    if (centerFrac - halfFrac <= 0) {
+        return { ...base, left: '4px', right: 'auto', transform: 'none' }
     }
+    if (centerFrac + halfFrac >= 1) {
+        return { ...base, left: 'auto', right: '4px', transform: 'none' }
+    }
+    return { ...base, left: `${(centerFrac * 100).toFixed(3)}%`, right: 'auto' }
 })
 
 // Show every label when there is room, otherwise every second one.
@@ -356,6 +361,8 @@ onUnmounted(() => {
     position: absolute;
     min-width: 158px;
     max-width: 210px;
+    max-height: calc(100% - 8px);
+    overflow: hidden;
     background: #1e293b;
     color: #f1f5f9;
     border-radius: 8px;

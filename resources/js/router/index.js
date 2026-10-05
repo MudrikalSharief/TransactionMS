@@ -190,7 +190,7 @@ export function createRouter() {
     });
 
     router.afterEach((to) => {
-        const base = "TRMF";
+        const base = "TransactionMF";
         document.title = to.meta?.title ? `${base} | ${to.meta.title}` : base;
     });
 

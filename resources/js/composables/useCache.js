@@ -6,7 +6,19 @@
 
 const memory = new Map()
 const TTL_MS = 10 * 60 * 1000
-const PREFIX = 'lgu-tx:cache:v1:'
+const PREFIX = 'lgu-tx:cache:v4:'
+
+// One-time purge of stale cache generations (e.g. v1): any cached entry not
+// under the current PREFIX is dropped on boot, so lists cold-load fresh and
+// new loading UI is actually seen. Non-cache keys (e.g. theme) are untouched.
+try {
+    const drop = []
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && k.startsWith('lgu-tx:cache:') && !k.startsWith(PREFIX)) drop.push(k)
+    }
+    drop.forEach((k) => localStorage.removeItem(k))
+} catch { /* private mode: nothing cached to purge */ }
 
 function safeParse(raw) {
     try {

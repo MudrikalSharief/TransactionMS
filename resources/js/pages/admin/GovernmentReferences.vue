@@ -1,5 +1,6 @@
 <template>
-  <v-card rounded="0" elevation="1" class="lgu-card lgu-card-fill">
+  <LoadingVeil :show="loading" label="references" icon="mdi-bank" />
+  <v-card rounded="0" elevation="1" class="lgu-card">
     <v-card-title class="d-flex align-center pa-5">
       <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
         <v-icon color="white">mdi-bank</v-icon>
@@ -12,38 +13,30 @@
     </v-card-title>
     <v-divider />
     <v-card-text class="pa-4">
-      <div class="mb-2">
-        <v-chip
-          color="info"
-          variant="tonal"
-          rounded="lg"
-          size="small"
-          class="font-weight-bold"
-          style="width: 100%; justify-content: start;"
-        >
-          <v-icon start size="small">mdi-information</v-icon>
-          <span class="cell-truncate">These are configurable “compliance placeholders”. Do NOT hardcode legal text into code. Mark entries “TO VERIFY”.</span>
-        </v-chip>
-      </div>
-
       <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
       <div class="d-flex flex-column table-stage" style="min-height: 510px">
-      <Transition name="swap" mode="out-in">
       <v-data-table
-        v-if="!loading"
-        key="gov-table"
+        v-show="!loading"
         :items="items"
         :headers="headers"
         :loading="loading"
         item-key="id"
         density="compact"
-        height="450"
-        fixed-header
-        :items-per-page="25"
+        :items-per-page="7"
+        :items-per-page-options="[7]"
           hover
-          class="lgu-table table-fixed-cols"
+          class="lgu-table table-pages table-fixed-cols"
         >
+          <template v-slot:[`item.code`]="{ item }">
+            <span class="cell-truncate" :title="item.code">{{ item.code }}</span>
+          </template>
+
+          <template v-slot:[`item.source`]="{ item }">
+            <span v-if="item.source" class="cell-truncate" :title="item.source">{{ item.source }}</span>
+            <span v-else class="text-medium-emphasis">N/A</span>
+          </template>
+
           <template v-slot:[`item.title`]="{ item }">
             <span v-if="item.title" class="cell-truncate font-weight-bold" v-tooltip="item.title">{{ item.title }}</span>
             <span v-else class="text-medium-emphasis">N/A</span>
@@ -62,7 +55,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end">
+          <div class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit reference'"
@@ -82,8 +75,6 @@
           </div>
         </template>
       </v-data-table>
-      <TableLoader v-else key="gov-loader" label="references" icon="mdi-bank" style="flex: 1 1 auto" />
-      </Transition>
       </div>
     </v-card-text>
   </v-card>
@@ -110,9 +101,9 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useGovernmentReferences } from '@/composables/useGovernmentReferences'
-import TableLoader from '@/components/TableLoader.vue'
+import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const { items, loading, fetchAll, create, update, remove } = useGovernmentReferences()
 
@@ -128,6 +119,8 @@ const headers = [
 const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
+
+let navObserver = null
 
 const form = ref({
   id: null,
@@ -194,5 +187,93 @@ async function removeRow(item) {
   }
 }
 
-onMounted(fetchAll)
+onMounted(() => {
+  // Full scroll lock for this tab: no bars and no scrolling anywhere.
+  document.documentElement.classList.add('lock-scroll')
+  fetchAll().catch(() => {})
+  // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
+  // the table is narrower, so flag html.nav-open to duck the row actions
+  // away instead of letting them get cut off. Covers hover-expand + toggle.
+  try {
+    const drawer = document.querySelector('.v-navigation-drawer')
+    if (drawer && 'ResizeObserver' in window) {
+      const sync = () => {
+        const w = drawer.getBoundingClientRect().width || 0
+        document.documentElement.classList.toggle('nav-open', w > 100)
+      }
+      sync()
+      navObserver = new ResizeObserver(sync)
+      navObserver.observe(drawer)
+    }
+  } catch {
+    /* actions just stay visible */
+  }
+})
+
+onUnmounted(() => {
+  document.documentElement.classList.remove('lock-scroll')
+  document.documentElement.classList.remove('nav-open')
+  try {
+    navObserver?.disconnect?.()
+  } catch {
+    /* ignore */
+  }
+  navObserver = null
+})
 </script>
+
+<style scoped>
+/* Stable paged table: header widths use the full width, drawer
+   expand/collapse can never create a visible horizontal scrollbar —
+   overflow is clipped, not scrolled. */
+.lgu-table {
+  min-width: 0;
+  width: 100%;
+}
+.lgu-table :deep(.v-table__wrapper) {
+  overflow-x: clip !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
+}
+/* Row actions stay visible normally. They only duck away (with a quick
+   blink) while the left navbar is expanded so the narrower table never
+   cuts them off. Space is reserved. */
+.row-actions {
+  opacity: 1;
+  visibility: visible;
+  min-width: 76px;
+  justify-content: flex-end;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+html.nav-open .row-actions {
+  opacity: 0;
+  visibility: hidden;
+  animation: action-blink-out 0.45s ease;
+}
+@keyframes action-blink-out {
+  0% { opacity: 1; }
+  30% { opacity: 0; }
+  55% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+/* Pin the "Items per page" footer to the bottom of the stage so it
+   never shifts up when there are few entries. */
+.table-stage {
+  min-width: 0;
+}
+.table-stage :deep(.lgu-table) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.table-stage :deep(.v-data-table-footer) {
+  margin-top: auto;
+}
+</style>

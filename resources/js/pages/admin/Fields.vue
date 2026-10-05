@@ -1,4 +1,5 @@
 <template>
+  <LoadingVeil :show="loading" label="fields" icon="mdi-form-textbox" />
   <v-card rounded="0" elevation="1" class="lgu-card">
     <v-card-title class="d-flex align-center pa-5">
       <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
@@ -6,18 +7,18 @@
       </v-avatar>
       <span class="text-h6 font-weight-bold">Field Definitions</span>
       <v-spacer />
-      <v-tooltip location="bottom" max-width="520">
-        <template #activator="{ props }">
-          <v-btn
-            icon="mdi-help-circle-outline"
-            variant="text"
-            color="grey-darken-3"
-            v-bind="props"
-            class="mr-1"
-          />
-        </template>
-        <GuideTable title="Column guide" :sections="guideSections" horizontal />
-      </v-tooltip>
+      <v-text-field
+        v-model="search"
+        prepend-inner-icon="mdi-magnify"
+        label="Search . . ."
+        variant="outlined"
+        density="compact"
+        rounded="0"
+        hide-details
+        clearable
+        class="mr-2"
+        style="max-width: 260px"
+      />
       <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
         Add Field
       </v-btn>
@@ -27,26 +28,37 @@
     <v-card-text class="pa-4">
       <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
-      <div class="d-flex flex-column" style="min-height: 510px">
+      <div class="d-flex flex-column table-stage" style="min-height: 510px">
       <v-data-table
         v-show="!loading"
         :headers="headers"
-        :items="items"
+        :items="filtered"
         :loading="loading"
         item-key="id"
         density="compact"
-        height="450"
-        fixed-header
-        :items-per-page="25"
+        :items-per-page="7"
+        :items-per-page-options="[7]"
         hover
-        class="lgu-table"
+        class="lgu-table table-pages"
       >
+        <template v-slot:[`item.code`]="{ item }">
+          <span class="cell-truncate" :title="item.code">{{ item.code }}</span>
+        </template>
+
+        <template v-slot:[`item.name`]="{ item }">
+          <span class="cell-truncate font-weight-bold" :title="item.name">{{ item.name }}</span>
+        </template>
+
+        <template v-slot:[`item.type`]="{ item }">
+          <span class="cell-truncate" :title="item.type">{{ item.type }}</span>
+        </template>
+
         <template v-slot:[`item.validation_rules`]="{ item }">
-          <code class="text-caption">{{ stringify(item.validation_rules) }}</code>
+          <code class="text-caption validation-cap" :title="stringify(item.validation_rules)">{{ stringify(item.validation_rules) }}</code>
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end">
+          <div class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit field'"
@@ -66,7 +78,6 @@
           </div>
         </template>
       </v-data-table>
-      <TableLoader v-if="loading" label="fields" icon="mdi-form-textbox" style="flex: 1 1 auto" />
       </div>
     </v-card-text>
   </v-card>
@@ -175,35 +186,33 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useFieldDefinitions } from '@/composables/useFieldDefinitions'
-import TableLoader from '@/components/TableLoader.vue'
-import GuideTable from '@/components/GuideTable.vue'
+import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const { items, loading, fetchAll, create, update, destroy } = useFieldDefinitions()
 
 const error = ref('')
 const dialog = ref(false)
 const saving = ref(false)
+const search = ref('')
 
-const guideSections = [
-    {
-        title: 'COLUMNS',
-        rows: [
-            { term: 'ORDER', text: 'DISPLAY ORDER ON FORMS' },
-            { term: 'CODE', text: 'SYSTEM NAME (SNAKE_CASE), USED IN RULES' },
-            { term: 'NAME', text: 'LABEL SHOWN TO END USERS' },
-            { term: 'TYPE', text: 'TEXT, NUMBER, DATE, SELECT…' },
-            { term: 'REQUIRED', text: 'WHETHER IT MUST BE FILLED IN (YES = MANDATORY, NO = OPTIONAL)' },
-            { term: 'UNIQUE', text: 'WHETHER THE VALUE MUST NOT REPEAT (YES = NO DUPLICATES)' },
-            { term: 'VALIDATION', text: 'EXTRA RULES IN JSON FORMAT' },
-        ],
-    },
-]
+// Client-side search: master data is small, filter loaded rows by
+// order / code / name / type / group without extra requests.
+const filtered = computed(() => {
+  const q = String(search.value || '').trim().toLowerCase()
+  if (!q) return items.value || []
+  return (items.value || []).filter((f) =>
+    [f.order_number, f.code, f.name, f.type, f.group]
+      .some((v) => String(v ?? '').toLowerCase().includes(q))
+  )
+})
 
 const deleteDialog = ref(false)
 const deleting = ref(null)
 const deletingNow = ref(false)
+
+let navObserver = null
 
 const typeOptions = ['text', 'number', 'date', 'datetime', 'select', 'multiselect', 'boolean', 'textarea']
 
@@ -346,5 +355,105 @@ function stringify(v) {
   try { return JSON.stringify(v) } catch { return String(v) }
 }
 
-onMounted(fetchAll)
+onMounted(() => {
+  // Full scroll lock for this tab: no bars and no scrolling anywhere.
+  document.documentElement.classList.add('lock-scroll')
+  fetchAll().catch(() => {})
+  // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
+  // the table is narrower, so flag html.nav-open to duck the row actions
+  // away instead of letting them get cut off. Covers hover-expand + toggle.
+  try {
+    const drawer = document.querySelector('.v-navigation-drawer')
+    if (drawer && 'ResizeObserver' in window) {
+      const sync = () => {
+        const w = drawer.getBoundingClientRect().width || 0
+        document.documentElement.classList.toggle('nav-open', w > 100)
+      }
+      sync()
+      navObserver = new ResizeObserver(sync)
+      navObserver.observe(drawer)
+    }
+  } catch {
+    /* actions just stay visible */
+  }
+})
+
+onUnmounted(() => {
+  document.documentElement.classList.remove('lock-scroll')
+  document.documentElement.classList.remove('nav-open')
+  try {
+    navObserver?.disconnect?.()
+  } catch {
+    /* ignore */
+  }
+  navObserver = null
+})
 </script>
+
+<style scoped>
+/* Stable paged table: auto layout uses the full width, drawer
+   expand/collapse can never create a visible horizontal scrollbar —
+   overflow is clipped, not scrolled. */
+.lgu-table {
+  min-width: 0;
+  width: 100%;
+}
+.lgu-table :deep(.v-table__wrapper) {
+  overflow-x: clip !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.lgu-table :deep(table) {
+  width: 100%;
+}
+/* Long validation JSON truncates instead of blowing out the layout. */
+.validation-cap {
+  display: inline-block;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+/* Row actions stay visible normally. They only duck away (with a quick
+   blink) while the left navbar is expanded so the narrower table never
+   cuts them off. Space is reserved. */
+.row-actions {
+  opacity: 1;
+  visibility: visible;
+  min-width: 76px;
+  justify-content: flex-end;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+html.nav-open .row-actions {
+  opacity: 0;
+  visibility: hidden;
+  animation: action-blink-out 0.45s ease;
+}
+@keyframes action-blink-out {
+  0% { opacity: 1; }
+  30% { opacity: 0; }
+  55% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+/* Pin the "Items per page" footer to the bottom of the stage so it
+   never shifts up when there are few entries. */
+.table-stage {
+  min-width: 0;
+}
+.table-stage :deep(.lgu-table) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.table-stage :deep(.v-data-table-footer) {
+  margin-top: auto;
+}
+</style>

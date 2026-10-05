@@ -4,7 +4,7 @@
             v-if="showAuthUi"
             color="white"
             elevation="0"
-            style="border-bottom: 2px solid #7C3AED"
+            style="border-bottom: 2px solid #1E40AF"
         >
             <v-app-bar-nav-icon
                 icon="mdi-menu"
@@ -32,9 +32,9 @@
                 >
                     <div
                         class="font-weight-bold text-primary"
-                        style="font-size: 1.25rem; line-height: 1"
+                        style="font-size: 1.1rem; line-height: 1"
                     >
-                        TrMF
+                        TransactionMF
                     </div>
                     <div
                         class="font-weight-bold text-medium-emphasis"
@@ -126,7 +126,7 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
-            style="border-right: 2px solid #7C3AED"
+            style="border-right: 2px solid #1E40AF"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
@@ -260,6 +260,7 @@
             <template v-else>
                 <router-view />
             </template>
+            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
         </v-main>
 
         <v-dialog v-model="confirmLogout" max-width="420">
@@ -267,7 +268,7 @@
                 <v-card-title>Log out?</v-card-title>
                 <v-divider />
                 <v-card-text>
-                    Are you sure you want to log out of TrMF?
+                        Are you sure you want to log out of TransactionMF?
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">
@@ -758,15 +759,24 @@ onUnmounted(() => {
     padding-bottom: 4px;
 }
 .search-pixiv :deep(.v-field--focused) {
-    box-shadow: 0 0 0 2px #7C3AED;
+    box-shadow: 0 0 0 2px #1E40AF;
 }
 .search-pixiv :deep(.v-field__prepend-inner .v-icon) {
-    color: #7C3AED;
+    color: #1E40AF;
     opacity: 1;
 }
 .search-pixiv :deep(input),
 .search-pixiv :deep(input::placeholder) {
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-weight: 700;
+}
+/* Bottom footer container: plain in-flow bar, no overlay, no z-index games. */
+.app-foot-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1E3A8A;
+    padding: 16px 24px;
+    margin-top: 24px;
 }
 </style>

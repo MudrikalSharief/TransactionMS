@@ -1,4 +1,5 @@
 <template>
+  <LoadingVeil :show="loading" label="users" icon="mdi-account-group" />
   <v-card rounded="0" elevation="1" class="lgu-card">
     <v-card-title class="d-flex align-center pa-5">
       <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
@@ -6,6 +7,18 @@
       </v-avatar>
       <span class="text-h6 font-weight-bold">Users</span>
       <v-spacer />
+      <v-text-field
+        v-model="search"
+        prepend-inner-icon="mdi-magnify"
+        label="Search . . ."
+        variant="outlined"
+        density="compact"
+        rounded="0"
+        hide-details
+        clearable
+        class="mr-2"
+        style="max-width: 260px"
+      />
       <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
         Add User
       </v-btn>
@@ -16,20 +29,27 @@
         {{ error }}
       </v-alert>
 
-      <div class="d-flex flex-column" style="min-height: 510px">
+      <div class="d-flex flex-column table-stage" style="min-height: 510px">
       <v-data-table
         v-show="!loading"
-        :items="users"
+        :items="filtered"
         :loading="loading"
         :headers="headers"
         item-key="id"
         density="compact"
-        height="450"
-        fixed-header
-        :items-per-page="25"
+        :items-per-page="7"
+        :items-per-page-options="[7]"
         hover
-        class="lgu-table"
+        class="lgu-table table-pages"
       >
+        <template v-slot:[`item.name`]="{ item }">
+          <span class="cell-truncate font-weight-bold" :title="item.name">{{ item.name }}</span>
+        </template>
+
+        <template v-slot:[`item.email`]="{ item }">
+          <span class="cell-truncate" :title="item.email">{{ item.email }}</span>
+        </template>
+
         <template v-slot:[`item.roles`]="{ item }">
           <v-chip
             v-for="r in item.roles || []"
@@ -65,7 +85,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end">
+          <div class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit user'"
@@ -86,7 +106,6 @@
           </div>
         </template>
       </v-data-table>
-      <TableLoader v-if="loading" label="users" icon="mdi-account-group" style="flex: 1 1 auto" />
       </div>
     </v-card-text>
   </v-card>
@@ -136,12 +155,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
 import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
-import TableLoader from '@/components/TableLoader.vue'
+import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const auth = useAuth()
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = useAdminUsers()
@@ -160,6 +179,25 @@ const headers = [
 const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
+const search = ref('')
+
+let navObserver = null
+
+// Client-side search: master data is small, filter loaded rows by
+// name / email / roles / office / status without extra requests.
+const filtered = computed(() => {
+  const q = String(search.value || '').trim().toLowerCase()
+  if (!q) return users.value || []
+  return (users.value || []).filter((u) =>
+    [
+      u.name,
+      u.email,
+      (u.roles || []).map((r) => r.name).join(' '),
+      u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
+      u.is_active ? 'active' : 'inactive',
+    ].some((v) => String(v || '').toLowerCase().includes(q))
+  )
+})
 
 const form = ref({
   id: null,
@@ -245,10 +283,62 @@ async function deactivate(item) {
 }
 
 onMounted(() => {
+  // Full scroll lock for this tab: no bars and no scrolling anywhere.
+  document.documentElement.classList.add('lock-scroll')
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
   fetchOffices().catch(() => {})
   fetchUsers().catch(() => {})
+  // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
+  // the table is narrower, so flag html.nav-open to duck the row actions
+  // away instead of letting them get cut off. Covers hover-expand + toggle.
+  try {
+    const drawer = document.querySelector('.v-navigation-drawer')
+    if (drawer && 'ResizeObserver' in window) {
+      const sync = () => {
+        const w = drawer.getBoundingClientRect().width || 0
+        document.documentElement.classList.toggle('nav-open', w > 100)
+      }
+      sync()
+      navObserver = new ResizeObserver(sync)
+      navObserver.observe(drawer)
+    }
+  } catch {
+    /* actions just stay visible */
+  }
+})
+
+onUnmounted(() => {
+  document.documentElement.classList.remove('lock-scroll')
+  document.documentElement.classList.remove('nav-open')
+  try {
+    navObserver?.disconnect?.()
+  } catch {
+    /* ignore */
+  }
+  navObserver = null
 })
 </script>
+
+<style scoped>
+/* Hide the table's internal scrollbar; drawer expand can never create a
+   visible horizontal bar — overflow is clipped, not scrolled. */
+.lgu-table {
+  min-width: 0;
+  width: 100%;
+}
+.lgu-table :deep(.v-table__wrapper) {
+  overflow-x: clip !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.lgu-table :deep(table) {
+  width: 100%;
+}
+</style>
