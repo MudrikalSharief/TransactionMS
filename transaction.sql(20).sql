@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 6.0.0-dev+20260914.9e4dc5b5f4
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: Oct 01, 2026 at 06:34 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- Host: localhost:3306
+-- Generation Time: Oct 05, 2026 at 03:13 AM
+-- Server version: 8.4.3
+-- PHP Version: 8.3.33
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -26,17 +26,16 @@ SET time_zone = "+00:00";
 --
 -- Table structure for table `audit_logs`
 --
-
 CREATE TABLE `audit_logs` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `actor_user_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `event` varchar(255) NOT NULL,
-  `entity_type` varchar(255) DEFAULT NULL,
-  `entity_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `ip` varchar(255) DEFAULT NULL,
-  `user_agent` varchar(512) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `id` bigint UNSIGNED NOT NULL,
+  `actor_user_id` bigint UNSIGNED DEFAULT NULL,
+  `event` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `entity_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `entity_id` bigint UNSIGNED DEFAULT NULL,
+  `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  `ip` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_agent` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -129,11 +128,10 @@ INSERT INTO `audit_logs` (`id`, `actor_user_id`, `event`, `entity_type`, `entity
 --
 -- Table structure for table `cache`
 --
-
 CREATE TABLE `cache` (
-  `key` varchar(255) NOT NULL,
-  `value` mediumtext NOT NULL,
-  `expiration` int(11) NOT NULL
+  `key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `value` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expiration` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -141,27 +139,39 @@ CREATE TABLE `cache` (
 --
 
 INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
-('laravel-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790812854),
-('laravel-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790812854;', 1790812854),
-('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:1;', 1790824063),
-('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790824063;', 1790824063),
+('laravel-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1791163135),
+('laravel-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1791163135;', 1791163135),
+('laravel-cache-approvals:count:u1', 'a:2:{s:20:\"pending_requirements\";i:2;s:12:\"transactions\";i:1;}', 1790923790),
+('laravel-cache-dash:summary:58b1c79e10d5ebee27c1605bc8f68257', 'a:6:{s:6:\"period\";a:4:{s:3:\"key\";s:9:\"last_week\";s:5:\"label\";s:23:\"Last week (Sep 21–27)\";s:4:\"from\";s:25:\"2026-09-21T00:00:00+08:00\";s:2:\"to\";s:25:\"2026-09-28T00:00:00+08:00\";}s:9:\"completed\";i:0;s:10:\"in_process\";i:0;s:7:\"overdue\";i:0;s:7:\"deleted\";i:5;s:10:\"by_process\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:0:{}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}', 1790923791),
+('laravel-cache-dash:summary:d8e283ce6193c2172e40896f6b1ca810', 'a:6:{s:6:\"period\";a:4:{s:3:\"key\";s:7:\"2026-10\";s:5:\"label\";s:12:\"October 2026\";s:4:\"from\";s:25:\"2026-10-01T00:00:00+08:00\";s:2:\"to\";s:25:\"2026-11-01T00:00:00+08:00\";}s:9:\"completed\";i:0;s:10:\"in_process\";i:1;s:7:\"overdue\";i:0;s:7:\"deleted\";i:0;s:10:\"by_process\";O:29:\"Illuminate\\Support\\Collection\":2:{s:8:\"\0*\0items\";a:1:{i:0;a:3:{s:2:\"id\";i:11;s:4:\"name\";s:26:\"Procurement : IT Equipment\";s:5:\"count\";i:1;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}', 1790923794),
+('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:1;', 1791170051),
+('laravel-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1791170051;', 1791170051),
+('laravel-cache-lookup:offices', 'O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:23:{i:0;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:21;s:4:\"code\";s:5:\"CHRMO\";s:4:\"name\";s:37:\"City Human Resource Management Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:21;s:4:\"code\";s:5:\"CHRMO\";s:4:\"name\";s:37:\"City Human Resource Management Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:1;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:22;s:4:\"code\";s:3:\"GDS\";s:4:\"name\";s:43:\"CMO - Gender and Development Services (GAD)\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:22;s:4:\"code\";s:3:\"GDS\";s:4:\"name\";s:43:\"CMO - Gender and Development Services (GAD)\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:2;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:3;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:8;s:4:\"code\";s:3:\"GSO\";s:4:\"name\";s:22:\"General Service Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:8;s:4:\"code\";s:3:\"GSO\";s:4:\"name\";s:22:\"General Service Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:4;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:25;s:4:\"code\";s:5:\"legal\";s:4:\"name\";s:13:\"Legal Officce\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"updated_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:25;s:4:\"code\";s:5:\"legal\";s:4:\"name\";s:13:\"Legal Officce\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"updated_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:5;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:6;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:3;s:4:\"code\";s:4:\"OCAC\";s:4:\"name\";s:29:\"Office of the City Accountant\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:3;s:4:\"code\";s:4:\"OCAC\";s:4:\"name\";s:29:\"Office of the City Accountant\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:7;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:2;s:4:\"code\";s:3:\"OCA\";s:4:\"name\";s:32:\"Office of the City Administrator\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:2;s:4:\"code\";s:3:\"OCA\";s:4:\"name\";s:32:\"Office of the City Administrator\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:8;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:14;s:4:\"code\";s:4:\"OCAG\";s:4:\"name\";s:31:\"Office of the City Agricultural\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:14;s:4:\"code\";s:4:\"OCAG\";s:4:\"name\";s:31:\"Office of the City Agricultural\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:9;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:4;s:4:\"code\";s:4:\"OCAS\";s:4:\"name\";s:27:\"Office of the City Assessor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:4;s:4:\"code\";s:4:\"OCAS\";s:4:\"name\";s:27:\"Office of the City Assessor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:10;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:9;s:4:\"code\";s:3:\"OCB\";s:4:\"name\";s:25:\"Office of the City Budget\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:9;s:4:\"code\";s:3:\"OCB\";s:4:\"name\";s:25:\"Office of the City Budget\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:11;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:15;s:4:\"code\";s:4:\"OCCR\";s:4:\"name\";s:34:\"Office of the City Civil Registrar\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:15;s:4:\"code\";s:4:\"OCCR\";s:4:\"name\";s:34:\"Office of the City Civil Registrar\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:12;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:20;s:4:\"code\";s:6:\"OCDRDM\";s:4:\"name\";s:53:\"Office of the City Disaster Risk Deduction Management\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:20;s:4:\"code\";s:6:\"OCDRDM\";s:4:\"name\";s:53:\"Office of the City Disaster Risk Deduction Management\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:13;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:7;s:4:\"code\";s:3:\"OCL\";s:4:\"name\";s:27:\"Office of the City Engineer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:7;s:4:\"code\";s:3:\"OCL\";s:4:\"name\";s:27:\"Office of the City Engineer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:14;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:16;s:4:\"code\";s:5:\"OCENR\";s:4:\"name\";s:52:\"Office of the City Environment and Natural Resources\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:16;s:4:\"code\";s:5:\"OCENR\";s:4:\"name\";s:52:\"Office of the City Environment and Natural Resources\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:15;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:11;s:4:\"code\";s:3:\"OCH\";s:4:\"name\";s:25:\"Office of the City Health\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:11;s:4:\"code\";s:3:\"OCH\";s:4:\"name\";s:25:\"Office of the City Health\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:16;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:1;s:4:\"code\";s:3:\"OCM\";s:4:\"name\";s:24:\"Office of the City Mayor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:1;s:4:\"code\";s:3:\"OCM\";s:4:\"name\";s:24:\"Office of the City Mayor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:17;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:10;s:4:\"code\";s:4:\"OCPD\";s:4:\"name\";s:43:\"Office of the City Planning and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:10;s:4:\"code\";s:4:\"OCPD\";s:4:\"name\";s:43:\"Office of the City Planning and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:18;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:12;s:4:\"code\";s:5:\"OCSWD\";s:4:\"name\";s:49:\"Office of the City Social Welfare and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:12;s:4:\"code\";s:5:\"OCSWD\";s:4:\"name\";s:49:\"Office of the City Social Welfare and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:19;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:5;s:4:\"code\";s:3:\"OCT\";s:4:\"name\";s:28:\"Office of the City Treasurer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:5;s:4:\"code\";s:3:\"OCT\";s:4:\"name\";s:28:\"Office of the City Treasurer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:20;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:13;s:4:\"code\";s:3:\"OCV\";s:4:\"name\";s:31:\"Office of the City Veterinarian\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:13;s:4:\"code\";s:3:\"OCV\";s:4:\"name\";s:31:\"Office of the City Veterinarian\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:21;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:26;s:4:\"code\";s:4:\"paad\";s:4:\"name\";s:43:\"Procurement Acquisition and Awards Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"updated_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:26;s:4:\"code\";s:4:\"paad\";s:4:\"name\";s:43:\"Procurement Acquisition and Awards Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"updated_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:22;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:19;s:4:\"code\";s:2:\"SP\";s:4:\"name\";s:22:\"Sangguniang Panlungsod\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:19;s:4:\"code\";s:2:\"SP\";s:4:\"name\";s:22:\"Sangguniang Panlungsod\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}', 1790924340);
+INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
+('laravel-cache-lookup:transaction-types', 'O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:4:{i:0;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:3;s:4:\"code\";s:13:\"communication\";s:4:\"name\";s:13:\"Communication\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"updated_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:3;s:4:\"code\";s:13:\"communication\";s:4:\"name\";s:13:\"Communication\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"updated_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:1:{i:0;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:12:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:25:\"pivot_transaction_type_id\";i:3;s:15:\"pivot_office_id\";i:23;s:16:\"pivot_created_at\";s:19:\"2026-09-24 01:16:15\";s:16:\"pivot_updated_at\";s:19:\"2026-09-24 01:16:15\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:5:\"pivot\";O:44:\"Illuminate\\Database\\Eloquent\\Relations\\Pivot\":37:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";s:23:\"office_transaction_type\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:0;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:4:{s:19:\"transaction_type_id\";i:3;s:9:\"office_id\";i:23;s:10:\"created_at\";s:19:\"2026-09-24 01:16:15\";s:10:\"updated_at\";s:19:\"2026-09-24 01:16:15\";}s:11:\"\0*\0original\";a:4:{s:19:\"transaction_type_id\";i:3;s:9:\"office_id\";i:23;s:10:\"created_at\";s:19:\"2026-09-24 01:16:15\";s:10:\"updated_at\";s:19:\"2026-09-24 01:16:15\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:0:{}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:0:{}s:10:\"\0*\0guarded\";a:0:{}s:11:\"pivotParent\";O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:0;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:0:{}s:11:\"\0*\0original\";a:0:{}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}s:12:\"pivotRelated\";O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";N;s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:0;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:0:{}s:11:\"\0*\0original\";a:0:{}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}s:13:\"\0*\0foreignKey\";s:19:\"transaction_type_id\";s:13:\"\0*\0relatedKey\";s:9:\"office_id\";}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:1;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:1;s:4:\"code\";s:7:\"payroll\";s:4:\"name\";s:7:\"Payroll\";s:11:\"description\";s:9:\"job order\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-09-21 01:11:37\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:1;s:4:\"code\";s:7:\"payroll\";s:4:\"name\";s:7:\"Payroll\";s:11:\"description\";s:9:\"job order\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-09-21 01:11:37\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:0:{}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:2;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:2;s:4:\"code\";s:11:\"procurement\";s:4:\"name\";s:11:\"Procurement\";s:11:\"description\";s:42:\"LGU procurement process (inventory-linked)\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:2;s:4:\"code\";s:11:\"procurement\";s:4:\"name\";s:11:\"Procurement\";s:11:\"description\";s:42:\"LGU procurement process (inventory-linked)\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:0:{}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:3;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:11;s:4:\"code\";s:24:\"procurement_it_equipment\";s:4:\"name\";s:26:\"Procurement : IT Equipment\";s:11:\"description\";s:43:\"This is a procurement for the it department\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:11;s:4:\"code\";s:24:\"procurement_it_equipment\";s:4:\"name\";s:26:\"Procurement : IT Equipment\";s:11:\"description\";s:43:\"This is a procurement for the it department\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:1:{i:0;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:12:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:25:\"pivot_transaction_type_id\";i:11;s:15:\"pivot_office_id\";i:24;s:16:\"pivot_created_at\";s:19:\"2026-09-30 08:30:22\";s:16:\"pivot_updated_at\";s:19:\"2026-09-30 08:30:22\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:5:\"pivot\";O:44:\"Illuminate\\Database\\Eloquent\\Relations\\Pivot\":37:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";s:23:\"office_transaction_type\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:0;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:4:{s:19:\"transaction_type_id\";i:11;s:9:\"office_id\";i:24;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";}s:11:\"\0*\0original\";a:4:{s:19:\"transaction_type_id\";i:11;s:9:\"office_id\";i:24;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:0:{}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:0:{}s:10:\"\0*\0guarded\";a:0:{}s:11:\"pivotParent\";r:137;s:12:\"pivotRelated\";r:179;s:13:\"\0*\0foreignKey\";s:19:\"transaction_type_id\";s:13:\"\0*\0relatedKey\";s:9:\"office_id\";}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}', 1790924341),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81', 'i:5;', 1789364911),
 ('transaction-cache-21c7ea48997eeecf541f9afb4a8bfc81:timer', 'i:1789364911;', 1789364911),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790824386),
-('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790824386;', 1790824386),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:1;', 1790829340),
-('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790829340;', 1790829340);
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883', 'i:2;', 1790900683),
+('transaction-cache-a75f3f172bfb296f2e10cbfc6dfc1883:timer', 'i:1790900683;', 1790900683),
+('transaction-cache-approvals:count:u1', 'a:2:{s:20:\"pending_requirements\";i:2;s:12:\"transactions\";i:1;}', 1790902454),
+('transaction-cache-dash:summary:58b1c79e10d5ebee27c1605bc8f68257', 'a:6:{s:6:\"period\";a:4:{s:3:\"key\";s:9:\"last_week\";s:5:\"label\";s:23:\"Last week (Sep 21–27)\";s:4:\"from\";s:25:\"2026-09-21T00:00:00+08:00\";s:2:\"to\";s:25:\"2026-09-28T00:00:00+08:00\";}s:9:\"completed\";i:0;s:10:\"in_process\";i:0;s:7:\"overdue\";i:0;s:7:\"deleted\";i:5;s:10:\"by_process\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:0:{}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}', 1790900702),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4', 'i:26;', 1790902453),
+('transaction-cache-f1f70ec40aaa556905d4a030501c0ba4:timer', 'i:1790902453;', 1790902453);
+INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
+('transaction-cache-lookup:offices', 'O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:23:{i:0;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:21;s:4:\"code\";s:5:\"CHRMO\";s:4:\"name\";s:37:\"City Human Resource Management Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:21;s:4:\"code\";s:5:\"CHRMO\";s:4:\"name\";s:37:\"City Human Resource Management Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:1;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:22;s:4:\"code\";s:3:\"GDS\";s:4:\"name\";s:43:\"CMO - Gender and Development Services (GAD)\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:22;s:4:\"code\";s:3:\"GDS\";s:4:\"name\";s:43:\"CMO - Gender and Development Services (GAD)\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:2;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:3;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:8;s:4:\"code\";s:3:\"GSO\";s:4:\"name\";s:22:\"General Service Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:8;s:4:\"code\";s:3:\"GSO\";s:4:\"name\";s:22:\"General Service Office\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:4;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:25;s:4:\"code\";s:5:\"legal\";s:4:\"name\";s:13:\"Legal Officce\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"updated_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:25;s:4:\"code\";s:5:\"legal\";s:4:\"name\";s:13:\"Legal Officce\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"updated_at\";s:19:\"2026-09-29 01:43:44\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:5;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:6;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:3;s:4:\"code\";s:4:\"OCAC\";s:4:\"name\";s:29:\"Office of the City Accountant\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:3;s:4:\"code\";s:4:\"OCAC\";s:4:\"name\";s:29:\"Office of the City Accountant\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:7;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:2;s:4:\"code\";s:3:\"OCA\";s:4:\"name\";s:32:\"Office of the City Administrator\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:2;s:4:\"code\";s:3:\"OCA\";s:4:\"name\";s:32:\"Office of the City Administrator\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:8;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:14;s:4:\"code\";s:4:\"OCAG\";s:4:\"name\";s:31:\"Office of the City Agricultural\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:14;s:4:\"code\";s:4:\"OCAG\";s:4:\"name\";s:31:\"Office of the City Agricultural\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:9;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:4;s:4:\"code\";s:4:\"OCAS\";s:4:\"name\";s:27:\"Office of the City Assessor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:4;s:4:\"code\";s:4:\"OCAS\";s:4:\"name\";s:27:\"Office of the City Assessor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:10;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:9;s:4:\"code\";s:3:\"OCB\";s:4:\"name\";s:25:\"Office of the City Budget\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:9;s:4:\"code\";s:3:\"OCB\";s:4:\"name\";s:25:\"Office of the City Budget\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:11;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:15;s:4:\"code\";s:4:\"OCCR\";s:4:\"name\";s:34:\"Office of the City Civil Registrar\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:15;s:4:\"code\";s:4:\"OCCR\";s:4:\"name\";s:34:\"Office of the City Civil Registrar\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:12;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:20;s:4:\"code\";s:6:\"OCDRDM\";s:4:\"name\";s:53:\"Office of the City Disaster Risk Deduction Management\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:20;s:4:\"code\";s:6:\"OCDRDM\";s:4:\"name\";s:53:\"Office of the City Disaster Risk Deduction Management\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:13;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:7;s:4:\"code\";s:3:\"OCL\";s:4:\"name\";s:27:\"Office of the City Engineer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:7;s:4:\"code\";s:3:\"OCL\";s:4:\"name\";s:27:\"Office of the City Engineer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:14;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:16;s:4:\"code\";s:5:\"OCENR\";s:4:\"name\";s:52:\"Office of the City Environment and Natural Resources\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:16;s:4:\"code\";s:5:\"OCENR\";s:4:\"name\";s:52:\"Office of the City Environment and Natural Resources\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:15;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:11;s:4:\"code\";s:3:\"OCH\";s:4:\"name\";s:25:\"Office of the City Health\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:11;s:4:\"code\";s:3:\"OCH\";s:4:\"name\";s:25:\"Office of the City Health\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:16;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:1;s:4:\"code\";s:3:\"OCM\";s:4:\"name\";s:24:\"Office of the City Mayor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:1;s:4:\"code\";s:3:\"OCM\";s:4:\"name\";s:24:\"Office of the City Mayor\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:17;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:10;s:4:\"code\";s:4:\"OCPD\";s:4:\"name\";s:43:\"Office of the City Planning and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:10;s:4:\"code\";s:4:\"OCPD\";s:4:\"name\";s:43:\"Office of the City Planning and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:18;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:12;s:4:\"code\";s:5:\"OCSWD\";s:4:\"name\";s:49:\"Office of the City Social Welfare and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:12;s:4:\"code\";s:5:\"OCSWD\";s:4:\"name\";s:49:\"Office of the City Social Welfare and Development\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:19;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:5;s:4:\"code\";s:3:\"OCT\";s:4:\"name\";s:28:\"Office of the City Treasurer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:5;s:4:\"code\";s:3:\"OCT\";s:4:\"name\";s:28:\"Office of the City Treasurer\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:20;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:13;s:4:\"code\";s:3:\"OCV\";s:4:\"name\";s:31:\"Office of the City Veterinarian\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:13;s:4:\"code\";s:3:\"OCV\";s:4:\"name\";s:31:\"Office of the City Veterinarian\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:21;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:26;s:4:\"code\";s:4:\"paad\";s:4:\"name\";s:43:\"Procurement Acquisition and Awards Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"updated_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:26;s:4:\"code\";s:4:\"paad\";s:4:\"name\";s:43:\"Procurement Acquisition and Awards Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"updated_at\";s:19:\"2026-09-30 08:41:30\";s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:22;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:9:{s:2:\"id\";i:19;s:4:\"code\";s:2:\"SP\";s:4:\"name\";s:22:\"Sangguniang Panlungsod\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:11:\"\0*\0original\";a:9:{s:2:\"id\";i:19;s:4:\"code\";s:2:\"SP\";s:4:\"name\";s:22:\"Sangguniang Panlungsod\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:11:\"steps_count\";i:0;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}', 1790902687);
+INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
+('transaction-cache-lookup:transaction-types', 'O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:4:{i:0;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:3;s:4:\"code\";s:13:\"communication\";s:4:\"name\";s:13:\"Communication\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"updated_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:3;s:4:\"code\";s:13:\"communication\";s:4:\"name\";s:13:\"Communication\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"updated_at\";s:19:\"2026-03-10 07:44:35\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:1:{i:0;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:12:{s:2:\"id\";i:23;s:4:\"code\";s:6:\"LEDIPS\";s:4:\"name\";s:60:\"Local Economic Development and Investment Promotion Services\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:25:\"pivot_transaction_type_id\";i:3;s:15:\"pivot_office_id\";i:23;s:16:\"pivot_created_at\";s:19:\"2026-09-24 01:16:15\";s:16:\"pivot_updated_at\";s:19:\"2026-09-24 01:16:15\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:5:\"pivot\";O:44:\"Illuminate\\Database\\Eloquent\\Relations\\Pivot\":37:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";s:23:\"office_transaction_type\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:0;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:4:{s:19:\"transaction_type_id\";i:3;s:9:\"office_id\";i:23;s:10:\"created_at\";s:19:\"2026-09-24 01:16:15\";s:10:\"updated_at\";s:19:\"2026-09-24 01:16:15\";}s:11:\"\0*\0original\";a:4:{s:19:\"transaction_type_id\";i:3;s:9:\"office_id\";i:23;s:10:\"created_at\";s:19:\"2026-09-24 01:16:15\";s:10:\"updated_at\";s:19:\"2026-09-24 01:16:15\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:0:{}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:0:{}s:10:\"\0*\0guarded\";a:0:{}s:11:\"pivotParent\";O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:0;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:0:{}s:11:\"\0*\0original\";a:0:{}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}s:12:\"pivotRelated\";O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";N;s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:0;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:0:{}s:11:\"\0*\0original\";a:0:{}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}s:13:\"\0*\0foreignKey\";s:19:\"transaction_type_id\";s:13:\"\0*\0relatedKey\";s:9:\"office_id\";}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:1;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:1;s:4:\"code\";s:7:\"payroll\";s:4:\"name\";s:7:\"Payroll\";s:11:\"description\";s:9:\"job order\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-09-21 01:11:37\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:1;s:4:\"code\";s:7:\"payroll\";s:4:\"name\";s:7:\"Payroll\";s:11:\"description\";s:9:\"job order\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-09-21 01:11:37\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:0:{}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:2;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:2;s:4:\"code\";s:11:\"procurement\";s:4:\"name\";s:11:\"Procurement\";s:11:\"description\";s:42:\"LGU procurement process (inventory-linked)\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:2;s:4:\"code\";s:11:\"procurement\";s:4:\"name\";s:11:\"Procurement\";s:11:\"description\";s:42:\"LGU procurement process (inventory-linked)\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"updated_at\";s:19:\"2026-03-10 05:24:39\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:0:{}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}i:3;O:26:\"App\\Models\\TransactionType\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:17:\"transaction_types\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:11;s:4:\"code\";s:24:\"procurement_it_equipment\";s:4:\"name\";s:26:\"Procurement : IT Equipment\";s:11:\"description\";s:43:\"This is a procurement for the it department\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:8:{s:2:\"id\";i:11;s:4:\"code\";s:24:\"procurement_it_equipment\";s:4:\"name\";s:26:\"Procurement : IT Equipment\";s:11:\"description\";s:43:\"This is a procurement for the it department\";s:9:\"is_active\";i:1;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"deleted_at\";N;}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:7:\"offices\";O:39:\"Illuminate\\Database\\Eloquent\\Collection\":2:{s:8:\"\0*\0items\";a:1:{i:0;O:17:\"App\\Models\\Office\":34:{s:13:\"\0*\0connection\";s:5:\"mysql\";s:8:\"\0*\0table\";s:7:\"offices\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:1;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:8:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;}s:11:\"\0*\0original\";a:12:{s:2:\"id\";i:24;s:4:\"code\";s:3:\"CSD\";s:4:\"name\";s:25:\"Computer Service Division\";s:11:\"description\";N;s:9:\"is_active\";i:1;s:10:\"created_at\";N;s:10:\"updated_at\";N;s:10:\"deleted_at\";N;s:25:\"pivot_transaction_type_id\";i:11;s:15:\"pivot_office_id\";i:24;s:16:\"pivot_created_at\";s:19:\"2026-09-30 08:30:22\";s:16:\"pivot_updated_at\";s:19:\"2026-09-30 08:30:22\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:2:{s:9:\"is_active\";s:7:\"boolean\";s:10:\"deleted_at\";s:8:\"datetime\";}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:1:{s:5:\"pivot\";O:44:\"Illuminate\\Database\\Eloquent\\Relations\\Pivot\":37:{s:13:\"\0*\0connection\";N;s:8:\"\0*\0table\";s:23:\"office_transaction_type\";s:13:\"\0*\0primaryKey\";s:2:\"id\";s:10:\"\0*\0keyType\";s:3:\"int\";s:12:\"incrementing\";b:0;s:7:\"\0*\0with\";a:0:{}s:12:\"\0*\0withCount\";a:0:{}s:19:\"preventsLazyLoading\";b:0;s:10:\"\0*\0perPage\";i:15;s:6:\"exists\";b:1;s:18:\"wasRecentlyCreated\";b:0;s:28:\"\0*\0escapeWhenCastingToString\";b:0;s:13:\"\0*\0attributes\";a:4:{s:19:\"transaction_type_id\";i:11;s:9:\"office_id\";i:24;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";}s:11:\"\0*\0original\";a:4:{s:19:\"transaction_type_id\";i:11;s:9:\"office_id\";i:24;s:10:\"created_at\";s:19:\"2026-09-30 08:30:22\";s:10:\"updated_at\";s:19:\"2026-09-30 08:30:22\";}s:10:\"\0*\0changes\";a:0:{}s:11:\"\0*\0previous\";a:0:{}s:8:\"\0*\0casts\";a:0:{}s:17:\"\0*\0classCastCache\";a:0:{}s:21:\"\0*\0attributeCastCache\";a:0:{}s:13:\"\0*\0dateFormat\";N;s:10:\"\0*\0appends\";a:0:{}s:19:\"\0*\0dispatchesEvents\";a:0:{}s:14:\"\0*\0observables\";a:0:{}s:12:\"\0*\0relations\";a:0:{}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:0:{}s:10:\"\0*\0guarded\";a:0:{}s:11:\"pivotParent\";r:137;s:12:\"pivotRelated\";r:179;s:13:\"\0*\0foreignKey\";s:19:\"transaction_type_id\";s:13:\"\0*\0relatedKey\";s:9:\"office_id\";}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}}s:10:\"\0*\0touches\";a:0:{}s:27:\"\0*\0relationAutoloadCallback\";N;s:26:\"\0*\0relationAutoloadContext\";N;s:10:\"timestamps\";b:1;s:13:\"usesUniqueIds\";b:0;s:9:\"\0*\0hidden\";a:0:{}s:10:\"\0*\0visible\";a:0:{}s:11:\"\0*\0fillable\";a:4:{i:0;s:4:\"code\";i:1;s:4:\"name\";i:2;s:11:\"description\";i:3;s:9:\"is_active\";}s:10:\"\0*\0guarded\";a:1:{i:0;s:1:\"*\";}s:16:\"\0*\0forceDeleting\";b:0;}}s:28:\"\0*\0escapeWhenCastingToString\";b:0;}', 1790902681),
+('transaction-cache-weather:zamboanga', 'a:5:{s:11:\"temperature\";d:29.4;s:4:\"code\";i:1;s:6:\"is_day\";i:1;s:4:\"time\";s:16:\"2026-10-02T08:15\";s:5:\"place\";s:14:\"Zamboanga City\";}', 1790902426);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `cache_locks`
 --
-
 CREATE TABLE `cache_locks` (
-  `key` varchar(255) NOT NULL,
-  `owner` varchar(255) NOT NULL,
-  `expiration` int(11) NOT NULL
+  `key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `owner` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expiration` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -169,16 +179,15 @@ CREATE TABLE `cache_locks` (
 --
 -- Table structure for table `checklist_overrides`
 --
-
 CREATE TABLE `checklist_overrides` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `name` varchar(255) NOT NULL,
-  `code` varchar(120) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `is_required` tinyint(1) NOT NULL DEFAULT 1,
-  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint UNSIGNED DEFAULT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `is_required` tinyint(1) NOT NULL DEFAULT '1',
+  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -229,22 +238,37 @@ INSERT INTO `checklist_overrides` (`id`, `workflow_step_id`, `requirement_defini
 (52, 399, 77, 'Mayor Office Approve PR', 'mo_app_pr', NULL, 1, 0, '2026-09-30 01:16:33', '2026-09-30 01:16:33'),
 (53, 401, 80, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:31:59', '2026-09-30 20:31:59'),
 (54, 403, 82, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33'),
-(55, 406, 84, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37');
+(55, 406, 84, 'Communication logged', 'comm_logged', 'Tick once the communication is received and logged.', 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
+(56, 409, 95, 'PR', 'pr', NULL, 1, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(57, 409, 92, 'Market Scanning', 'market_scan', NULL, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(58, 410, 96, 'PR with Number', 'pr_number', NULL, 1, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(59, 411, 97, 'PR with number', 'pr_with_number', NULL, 1, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(60, 412, 89, 'CTO approve PR', 'cto_app', NULL, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(61, 413, 90, 'CTO approved PR', 'cto_app_pr', NULL, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(62, 414, 87, 'CBO approve PR', 'cbo_app', NULL, 1, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(63, 415, 93, 'Mayor Office Approve PR', 'mo_app_pr', NULL, 1, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(64, 417, 107, 'PR', 'pr', NULL, 1, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(65, 417, 104, 'Market Scanning', 'market_scan', NULL, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(66, 418, 108, 'PR with Number', 'pr_number', NULL, 1, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(67, 419, 109, 'PR with number', 'pr_with_number', NULL, 1, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(68, 420, 101, 'CTO approve PR', 'cto_app', NULL, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(69, 421, 102, 'CTO approved PR', 'cto_app_pr', NULL, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(70, 422, 99, 'CBO approve PR', 'cbo_app', NULL, 1, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(71, 423, 105, 'Mayor Office Approve PR', 'mo_app_pr', NULL, 1, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `failed_jobs`
 --
-
 CREATE TABLE `failed_jobs` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `uuid` varchar(255) NOT NULL,
-  `connection` text NOT NULL,
-  `queue` text NOT NULL,
-  `payload` longtext NOT NULL,
-  `exception` longtext NOT NULL,
-  `failed_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `id` bigint UNSIGNED NOT NULL,
+  `uuid` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `connection` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `queue` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `exception` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `failed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -252,25 +276,24 @@ CREATE TABLE `failed_jobs` (
 --
 -- Table structure for table `field_definitions`
 --
-
 CREATE TABLE `field_definitions` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 0,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `type` varchar(255) NOT NULL,
-  `group` varchar(255) DEFAULT NULL,
-  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
-  `required` tinyint(1) NOT NULL DEFAULT 0,
-  `unique` tinyint(1) NOT NULL DEFAULT 0,
-  `sensitive` tinyint(1) NOT NULL DEFAULT 0,
-  `min_length` int(10) UNSIGNED DEFAULT NULL,
-  `max_length` int(10) UNSIGNED DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint UNSIGNED DEFAULT NULL,
+  `order_number` int UNSIGNED NOT NULL DEFAULT '0',
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `group` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
+  `required` tinyint(1) NOT NULL DEFAULT '0',
+  `unique` tinyint(1) NOT NULL DEFAULT '0',
+  `sensitive` tinyint(1) NOT NULL DEFAULT '0',
+  `min_length` int UNSIGNED DEFAULT NULL,
+  `max_length` int UNSIGNED DEFAULT NULL,
   `min_value` decimal(18,4) DEFAULT NULL,
   `max_value` decimal(18,4) DEFAULT NULL,
-  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `validation_rules` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  `validation_rules` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -294,12 +317,11 @@ INSERT INTO `field_definitions` (`id`, `workflow_definition_id`, `order_number`,
 --
 -- Table structure for table `field_definition_workflow_step`
 --
-
 CREATE TABLE `field_definition_workflow_step` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `field_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `field_definition_id` bigint UNSIGNED NOT NULL,
+  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
   `required_override` tinyint(1) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -310,17 +332,16 @@ CREATE TABLE `field_definition_workflow_step` (
 --
 -- Table structure for table `field_values`
 --
-
 CREATE TABLE `field_values` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `field_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `value_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `value_text` text DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `field_definition_id` bigint UNSIGNED NOT NULL,
+  `value_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  `value_text` text COLLATE utf8mb4_unicode_ci,
   `value_number` decimal(18,2) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
-  `updated_by` bigint(20) UNSIGNED DEFAULT NULL
+  `updated_by` bigint UNSIGNED DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -352,15 +373,14 @@ INSERT INTO `field_values` (`id`, `transaction_id`, `field_definition_id`, `valu
 --
 -- Table structure for table `government_references`
 --
-
 CREATE TABLE `government_references` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `code` varchar(255) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `source` varchar(255) DEFAULT NULL,
-  `url` varchar(255) DEFAULT NULL,
-  `notes` text DEFAULT NULL,
-  `is_verified` tinyint(1) NOT NULL DEFAULT 0,
+  `id` bigint UNSIGNED NOT NULL,
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `is_verified` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -381,15 +401,14 @@ INSERT INTO `government_references` (`id`, `code`, `title`, `source`, `url`, `no
 --
 -- Table structure for table `jobs`
 --
-
 CREATE TABLE `jobs` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `queue` varchar(255) NOT NULL,
-  `payload` longtext NOT NULL,
-  `attempts` tinyint(3) UNSIGNED NOT NULL,
-  `reserved_at` int(10) UNSIGNED DEFAULT NULL,
-  `available_at` int(10) UNSIGNED NOT NULL,
-  `created_at` int(10) UNSIGNED NOT NULL
+  `id` bigint UNSIGNED NOT NULL,
+  `queue` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `attempts` tinyint UNSIGNED NOT NULL,
+  `reserved_at` int UNSIGNED DEFAULT NULL,
+  `available_at` int UNSIGNED NOT NULL,
+  `created_at` int UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -397,18 +416,17 @@ CREATE TABLE `jobs` (
 --
 -- Table structure for table `job_batches`
 --
-
 CREATE TABLE `job_batches` (
-  `id` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `total_jobs` int(11) NOT NULL,
-  `pending_jobs` int(11) NOT NULL,
-  `failed_jobs` int(11) NOT NULL,
-  `failed_job_ids` longtext NOT NULL,
-  `options` mediumtext DEFAULT NULL,
-  `cancelled_at` int(11) DEFAULT NULL,
-  `created_at` int(11) NOT NULL,
-  `finished_at` int(11) DEFAULT NULL
+  `id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `total_jobs` int NOT NULL,
+  `pending_jobs` int NOT NULL,
+  `failed_jobs` int NOT NULL,
+  `failed_job_ids` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `options` mediumtext COLLATE utf8mb4_unicode_ci,
+  `cancelled_at` int DEFAULT NULL,
+  `created_at` int NOT NULL,
+  `finished_at` int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -416,11 +434,10 @@ CREATE TABLE `job_batches` (
 --
 -- Table structure for table `migrations`
 --
-
 CREATE TABLE `migrations` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `migration` varchar(255) NOT NULL,
-  `batch` int(11) NOT NULL
+  `id` int UNSIGNED NOT NULL,
+  `migration` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `batch` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -481,20 +498,21 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (51, '2026_10_02_000001_fix_rogue_on_update_timestamps', 21),
 (52, '2026_10_02_000002_repair_clobbered_step_run_timestamps', 22),
 (53, '2026_10_03_000001_add_is_upload_required_to_step_requirements_table', 23),
-(54, '2026_10_01_120000_add_is_live_to_workflow_definitions_table', 24);
+(54, '2026_10_01_120000_add_is_live_to_workflow_definitions_table', 24),
+(55, '2026_10_05_000001_create_workflow_step_data_table', 25),
+(56, '2026_10_05_000002_create_transaction_step_data_table', 25);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `offices`
 --
-
 CREATE TABLE `offices` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `id` bigint UNSIGNED NOT NULL,
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -537,16 +555,15 @@ INSERT INTO `offices` (`id`, `code`, `name`, `description`, `is_active`, `create
 --
 -- Table structure for table `office_steps`
 --
-
 CREATE TABLE `office_steps` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `office_id` bigint(20) UNSIGNED NOT NULL,
-  `parent_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 1,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `id` bigint UNSIGNED NOT NULL,
+  `office_id` bigint UNSIGNED NOT NULL,
+  `parent_id` bigint UNSIGNED DEFAULT NULL,
+  `order_number` int UNSIGNED NOT NULL DEFAULT '1',
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -557,11 +574,10 @@ CREATE TABLE `office_steps` (
 --
 -- Table structure for table `office_transaction_type`
 --
-
 CREATE TABLE `office_transaction_type` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `office_id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `office_id` bigint UNSIGNED NOT NULL,
+  `transaction_type_id` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -581,10 +597,9 @@ INSERT INTO `office_transaction_type` (`id`, `office_id`, `transaction_type_id`,
 --
 -- Table structure for table `password_reset_tokens`
 --
-
 CREATE TABLE `password_reset_tokens` (
-  `email` varchar(255) NOT NULL,
-  `token` varchar(255) NOT NULL,
+  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `token` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -593,12 +608,11 @@ CREATE TABLE `password_reset_tokens` (
 --
 -- Table structure for table `permissions`
 --
-
 CREATE TABLE `permissions` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -609,10 +623,9 @@ CREATE TABLE `permissions` (
 --
 -- Table structure for table `permission_role`
 --
-
 CREATE TABLE `permission_role` (
-  `permission_id` bigint(20) UNSIGNED NOT NULL,
-  `role_id` bigint(20) UNSIGNED NOT NULL,
+  `permission_id` bigint UNSIGNED NOT NULL,
+  `role_id` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -622,16 +635,15 @@ CREATE TABLE `permission_role` (
 --
 -- Table structure for table `requirement_definitions`
 --
-
 CREATE TABLE `requirement_definitions` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 0,
-  `code` varchar(64) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `label` varchar(120) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint UNSIGNED NOT NULL,
+  `order_number` int UNSIGNED NOT NULL DEFAULT '0',
+  `code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `label` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -713,19 +725,42 @@ INSERT INTO `requirement_definitions` (`id`, `workflow_definition_id`, `order_nu
 (82, 63, 1, 'comm_logged', 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
 (83, 63, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
 (84, 64, 1, 'comm_logged', 'Communication logged', NULL, 'Tick once the communication is received and logged.', 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
-(85, 64, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL);
+(85, 64, 2, 'comm_released', 'Communication released', NULL, 'Tick once the communication is released at the end station.', 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(86, 65, 0, 'approve_pr', 'Approved PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(87, 65, 0, 'cbo_app', 'CBO approve PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(88, 65, 0, 'cbo_app_pr', 'CBO approved PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(89, 65, 0, 'cto_app', 'CTO approve PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(90, 65, 0, 'cto_app_pr', 'CTO approved PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(91, 65, 0, 'gso_app_pr', 'GSO approved PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(92, 65, 0, 'market_scan', 'Market Scanning', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(93, 65, 0, 'mo_app_pr', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(94, 65, 0, 'mo_app_prs', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(95, 65, 0, 'pr', 'PR', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(96, 65, 0, 'pr_number', 'PR with Number', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(97, 65, 0, 'pr_with_number', 'PR with number', NULL, NULL, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(98, 66, 0, 'approve_pr', 'Approved PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(99, 66, 0, 'cbo_app', 'CBO approve PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(100, 66, 0, 'cbo_app_pr', 'CBO approved PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(101, 66, 0, 'cto_app', 'CTO approve PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(102, 66, 0, 'cto_app_pr', 'CTO approved PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(103, 66, 0, 'gso_app_pr', 'GSO approved PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(104, 66, 0, 'market_scan', 'Market Scanning', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(105, 66, 0, 'mo_app_pr', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(106, 66, 0, 'mo_app_prs', 'Mayor Office Approve PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(107, 66, 0, 'pr', 'PR', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(108, 66, 0, 'pr_number', 'PR with Number', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(109, 66, 0, 'pr_with_number', 'PR with number', NULL, NULL, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `roles`
 --
-
 CREATE TABLE `roles` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -758,10 +793,9 @@ INSERT INTO `roles` (`id`, `code`, `name`, `description`, `created_at`, `updated
 --
 -- Table structure for table `role_user`
 --
-
 CREATE TABLE `role_user` (
-  `role_id` bigint(20) UNSIGNED NOT NULL,
-  `user_id` bigint(20) UNSIGNED NOT NULL,
+  `role_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -787,14 +821,13 @@ INSERT INTO `role_user` (`role_id`, `user_id`, `created_at`, `updated_at`) VALUE
 --
 -- Table structure for table `sessions`
 --
-
 CREATE TABLE `sessions` (
-  `id` varchar(255) NOT NULL,
-  `user_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text DEFAULT NULL,
-  `payload` longtext NOT NULL,
-  `last_activity` int(11) NOT NULL
+  `id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` bigint UNSIGNED DEFAULT NULL,
+  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_agent` text COLLATE utf8mb4_unicode_ci,
+  `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `last_activity` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -802,22 +835,20 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('D4Gqyqs47bYY2CFBcpCx6RwHShzXW2t3bh5xL1eK', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiTUJsS2ljakdUUEV0YXFPbGNxdHFmVU1WZGFmYkJpcWtDZHdBdE1RWSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiZGQ3YzFjODI4YjMzYTJkYmJlZGNmNDQ2YWFmOWQ4YWNlYWFjNWVmZThmM2NmMDE5NjNhZThlY2Y3NjMwOTU0MyI7fQ==', 1790829280),
-('MM4Y0bIbJXGorl35MMgcH4dXvES7zzRfzAYCqbpq', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiNG9oSWlta2NRSWIwWFVLdUNIT1RCRzBIdUNIaEpsMVVlalpJYk1CQyI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiOWIzYTI0N2FkNTM2NDY5ZmEyNjVjYjQxZDkwZDI3Mzc0NTMyMjI1MjJhODdhMWZhYTRmM2Y0MmU3MjAxZjliZCI7fQ==', 1790824003);
+('Q2fzTBfrYZhcFqOJiIDw8lKJwc79t0NgFNMj9lDl', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiNW5COUdxNnV2MTdqeU5sR3A4Q05YY2tDTmhCdXRMYjBES1I1TmZpMyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcGkvd2VhdGhlciI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiOWIzYTI0N2FkNTM2NDY5ZmEyNjVjYjQxZDkwZDI3Mzc0NTMyMjI1MjJhODdhMWZhYTRmM2Y0MmU3MjAxZjliZCI7fQ==', 1791169991);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `step_requirements`
 --
-
 CREATE TABLE `step_requirements` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `display_order` int(10) UNSIGNED NOT NULL DEFAULT 0,
-  `is_required` tinyint(1) NOT NULL DEFAULT 1,
-  `is_upload_required` tinyint(1) NOT NULL DEFAULT 0,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint UNSIGNED NOT NULL,
+  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
+  `is_required` tinyint(1) NOT NULL DEFAULT '1',
+  `is_upload_required` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -892,18 +923,35 @@ INSERT INTO `step_requirements` (`id`, `workflow_step_id`, `requirement_definiti
 (76, 402, 82, 1, 1, 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33'),
 (77, 403, 83, 1, 1, 1, '2026-09-30 20:32:33', '2026-09-30 20:32:33'),
 (78, 405, 84, 1, 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
-(79, 406, 85, 1, 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37');
+(79, 406, 85, 1, 1, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
+(80, 408, 95, 0, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(81, 408, 92, 1, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(82, 409, 96, 0, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(83, 410, 97, 0, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(84, 411, 89, 1, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(85, 412, 90, 1, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(86, 413, 87, 0, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(87, 414, 93, 0, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(88, 415, 94, 0, 1, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(89, 416, 107, 0, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(90, 416, 104, 1, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(91, 417, 108, 0, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(92, 418, 109, 0, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(93, 419, 101, 1, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(94, 420, 102, 1, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(95, 421, 99, 0, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(96, 422, 105, 0, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(97, 423, 106, 0, 1, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `step_roles`
 --
-
 CREATE TABLE `step_roles` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `role_id` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `role_id` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1242,23 +1290,38 @@ INSERT INTO `step_roles` (`id`, `workflow_step_id`, `role_id`, `created_at`, `up
 (393, 404, 11, '2026-09-30 20:33:10', '2026-09-30 20:33:10'),
 (394, 405, 3, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
 (395, 406, 4, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
-(396, 407, 11, '2026-09-30 20:33:37', '2026-09-30 20:33:37');
+(396, 407, 11, '2026-09-30 20:33:37', '2026-09-30 20:33:37'),
+(397, 408, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(398, 409, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(399, 410, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(400, 411, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(401, 412, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(402, 413, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(403, 414, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(404, 415, 14, '2026-10-04 17:33:21', '2026-10-04 17:33:21'),
+(405, 416, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(406, 417, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(407, 418, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(408, 419, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(409, 420, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(410, 421, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(411, 422, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33'),
+(412, 423, 14, '2026-10-04 17:33:33', '2026-10-04 17:33:33');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transactions`
 --
-
 CREATE TABLE `transactions` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `reference_number` varchar(255) NOT NULL,
-  `title` varchar(255) DEFAULT NULL,
-  `is_done` tinyint(1) NOT NULL DEFAULT 0,
-  `created_by` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_type_id` bigint UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint UNSIGNED NOT NULL,
+  `office_id` bigint UNSIGNED DEFAULT NULL,
+  `reference_number` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_done` tinyint(1) NOT NULL DEFAULT '0',
+  `created_by` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1304,26 +1367,26 @@ INSERT INTO `transactions` (`id`, `transaction_type_id`, `workflow_definition_id
 (37, 11, 60, 24, '2BEY-TTBW-NPT7', NULL, 0, 1, '2026-09-30 00:58:33', '2026-09-30 01:31:02', '2026-09-30 01:31:02'),
 (38, 11, 61, 24, 'BNWR-79LJ-VBVP', NULL, 1, 1, '2026-09-30 01:31:10', '2026-09-30 16:09:04', '2026-09-30 16:09:04'),
 (39, 11, 61, 24, 'MWY6-RWFW-BF41', NULL, 0, 1, '2026-09-30 01:44:55', '2026-09-30 17:07:23', '2026-09-30 17:07:23'),
-(40, 11, 61, 24, 'NU5A-C47R-ESAV', NULL, 0, 1, '2026-09-30 16:09:17', '2026-09-30 16:09:17', NULL);
+(40, 11, 61, 24, 'NU5A-C47R-ESAV', NULL, 0, 1, '2026-09-30 16:09:17', '2026-09-30 16:09:17', NULL),
+(41, 11, 66, 24, 'AEFT-WUDT-SHDA', NULL, 0, 1, '2026-10-04 17:34:21', '2026-10-04 17:34:21', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transaction_attachments`
 --
-
 CREATE TABLE `transaction_attachments` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `step_run_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `original_name` varchar(255) NOT NULL,
-  `stored_path` varchar(255) NOT NULL,
-  `disk` varchar(255) NOT NULL DEFAULT 'local',
-  `mime` varchar(255) DEFAULT NULL,
-  `size_bytes` bigint(20) UNSIGNED NOT NULL DEFAULT 0,
-  `uploaded_by` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint UNSIGNED DEFAULT NULL,
+  `step_run_id` bigint UNSIGNED DEFAULT NULL,
+  `original_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `stored_path` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `disk` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'local',
+  `mime` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `size_bytes` bigint UNSIGNED NOT NULL DEFAULT '0',
+  `uploaded_by` bigint UNSIGNED NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1376,20 +1439,22 @@ INSERT INTO `transaction_attachments` (`id`, `transaction_id`, `workflow_step_id
 (61, 38, 398, 77, 196, 'AR.pdf', 'attachments/38/398/5Rb6SrKvZavzmMMMexEyXTMa4scGrejvpoQDj2B5.pdf', 'local', 'application/pdf', 679398, 1, '2026-09-30 01:44:30', '2026-09-30 01:44:32'),
 (62, 39, 392, 74, 199, 'AR.pdf', 'attachments/39/392/g1GLrynOmE7OR1KQ2puGx4L9K8PuXCnzy4qRPMIe.pdf', 'local', 'application/pdf', 679398, 1, '2026-09-30 01:47:10', '2026-09-30 01:47:17'),
 (63, 39, 392, 73, 199, 'AR.pdf', 'attachments/39/392/390wp17jmCARGgFNqi89ktqb7s17uO7Qo8PVQ2Iw.pdf', 'local', 'application/pdf', 679398, 1, '2026-09-30 01:47:13', '2026-09-30 01:47:17'),
-(64, 39, 393, 75, 200, 'AR.pdf', 'attachments/39/393/qTI2ycczwa52AjSPDtx5JbnHNTuOcWpVTXBEN2gA.pdf', 'local', 'application/pdf', 679398, 1, '2026-09-30 01:48:05', '2026-09-30 01:49:31');
+(64, 39, 393, 75, 200, 'AR.pdf', 'attachments/39/393/qTI2ycczwa52AjSPDtx5JbnHNTuOcWpVTXBEN2gA.pdf', 'local', 'application/pdf', 679398, 1, '2026-09-30 01:48:05', '2026-09-30 01:49:31'),
+(65, 40, 392, 74, 202, 'AR.pdf', 'attachments/40/392/If8wTVtno3BZ9gJXLaBQqsARvDK6dSi8VSd0J9C3.pdf', 'local', 'application/pdf', 679398, 1, '2026-10-02 00:12:17', '2026-10-02 00:12:24'),
+(66, 40, 392, 73, 202, 'AR.pdf', 'attachments/40/392/WrqrhZCU9iVa4ZOZlGmoLspGYOCRnCeGVmcnOuqD.pdf', 'local', 'application/pdf', 679398, 1, '2026-10-02 00:12:21', '2026-10-02 00:12:24'),
+(67, 40, 393, 75, 203, 'AR.pdf', 'attachments/40/393/kHHtEGfe7S3jBlIJ5gWrk5tIy5XWeAvZzcATXFRB.pdf', 'local', 'application/pdf', 679398, 1, '2026-10-02 00:12:37', '2026-10-02 00:12:38');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transaction_checklist_checks`
 --
-
 CREATE TABLE `transaction_checklist_checks` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `checklist_override_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `checked_by` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `checklist_override_id` bigint UNSIGNED DEFAULT NULL,
+  `checked_by` bigint UNSIGNED NOT NULL,
   `checked_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1429,20 +1494,21 @@ INSERT INTO `transaction_checklist_checks` (`id`, `transaction_id`, `workflow_st
 (49, 38, 397, 50, 1, '2026-09-30 01:44:08', '2026-09-30 01:44:08', '2026-09-30 01:44:08'),
 (50, 38, 398, 51, 1, '2026-09-30 01:44:23', '2026-09-30 01:44:23', '2026-09-30 01:44:23'),
 (51, 39, 393, 45, 1, '2026-09-30 01:47:33', '2026-09-30 01:47:33', '2026-09-30 01:47:33'),
-(52, 39, 393, 46, 1, '2026-09-30 01:47:35', '2026-09-30 01:47:35', '2026-09-30 01:47:35');
+(52, 39, 393, 46, 1, '2026-09-30 01:47:35', '2026-09-30 01:47:35', '2026-09-30 01:47:35'),
+(53, 40, 393, 45, 1, '2026-10-02 00:12:29', '2026-10-02 00:12:29', '2026-10-02 00:12:29'),
+(54, 40, 393, 46, 1, '2026-10-02 00:12:30', '2026-10-02 00:12:30', '2026-10-02 00:12:30');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transaction_requirement_checks`
 --
-
 CREATE TABLE `transaction_requirement_checks` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `requirement_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `checked_by` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `requirement_definition_id` bigint UNSIGNED NOT NULL,
+  `checked_by` bigint UNSIGNED NOT NULL,
   `checked_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1502,18 +1568,18 @@ INSERT INTO `transaction_requirement_checks` (`id`, `transaction_id`, `workflow_
 (121, 39, 392, 73, 1, '2026-09-30 01:46:34', '2026-09-30 01:46:34', '2026-09-30 01:46:34'),
 (122, 39, 393, 75, 1, '2026-09-30 01:47:59', '2026-09-30 01:47:59', '2026-09-30 01:47:59'),
 (123, 40, 392, 74, 1, '2026-09-30 17:07:56', '2026-09-30 17:07:56', '2026-09-30 17:07:56'),
-(124, 40, 392, 73, 1, '2026-09-30 17:07:57', '2026-09-30 17:07:57', '2026-09-30 17:07:57');
+(124, 40, 392, 73, 1, '2026-09-30 17:07:57', '2026-09-30 17:07:57', '2026-09-30 17:07:57'),
+(125, 40, 393, 75, 1, '2026-10-02 00:12:33', '2026-10-02 00:12:33', '2026-10-02 00:12:33');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transaction_states`
 --
-
 CREATE TABLE `transaction_states` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `current_step_id` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `current_step_id` bigint UNSIGNED NOT NULL,
   `entered_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -1559,20 +1625,38 @@ INSERT INTO `transaction_states` (`id`, `transaction_id`, `current_step_id`, `en
 (37, 37, 390, '2026-09-30 01:21:11', '2026-09-30 00:58:33', '2026-09-30 01:21:11'),
 (38, 38, 399, '2026-09-30 01:44:32', '2026-09-30 01:31:10', '2026-09-30 01:44:32'),
 (39, 39, 394, '2026-09-30 01:49:31', '2026-09-30 01:44:55', '2026-09-30 01:49:31'),
-(40, 40, 392, '2026-09-30 16:09:17', '2026-09-30 16:09:17', '2026-09-30 16:09:17');
+(40, 40, 394, '2026-10-04 17:31:35', '2026-09-30 16:09:17', '2026-10-04 17:31:35'),
+(41, 41, 416, '2026-10-04 17:34:21', '2026-10-04 17:34:21', '2026-10-04 17:34:21');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transaction_station_touches`
 --
-
 CREATE TABLE `transaction_station_touches` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_step_id` bigint(20) UNSIGNED NOT NULL,
-  `touched_by` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `touched_by` bigint UNSIGNED NOT NULL,
   `touched_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `transaction_step_data`
+--
+CREATE TABLE `transaction_step_data` (
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `workflow_step_data_id` bigint UNSIGNED NOT NULL,
+  `transaction_step_run_id` bigint UNSIGNED DEFAULT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `data_value` text COLLATE utf8mb4_unicode_ci,
+  `entered_by` bigint UNSIGNED DEFAULT NULL,
+  `entered_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1582,20 +1666,19 @@ CREATE TABLE `transaction_station_touches` (
 --
 -- Table structure for table `transaction_step_runs`
 --
-
 CREATE TABLE `transaction_step_runs` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_id` bigint(20) UNSIGNED NOT NULL,
-  `from_step_id` bigint(20) UNSIGNED NOT NULL,
-  `to_step_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `action_code` varchar(255) NOT NULL,
-  `remarks` text DEFAULT NULL,
-  `performed_by` bigint(20) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_id` bigint UNSIGNED NOT NULL,
+  `from_step_id` bigint UNSIGNED NOT NULL,
+  `to_step_id` bigint UNSIGNED DEFAULT NULL,
+  `action_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `remarks` text COLLATE utf8mb4_unicode_ci,
+  `performed_by` bigint UNSIGNED NOT NULL,
   `performed_at` timestamp NULL DEFAULT NULL,
   `received_at` timestamp NULL DEFAULT NULL,
-  `received_by` bigint(20) UNSIGNED DEFAULT NULL,
-  `received_office_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `sla_minutes_snapshot` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `received_by` bigint UNSIGNED DEFAULT NULL,
+  `received_office_id` bigint UNSIGNED DEFAULT NULL,
+  `sla_minutes_snapshot` int UNSIGNED NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1799,20 +1882,25 @@ INSERT INTO `transaction_step_runs` (`id`, `transaction_id`, `from_step_id`, `to
 (198, 39, 392, 392, 'create', 'Transaction created', 1, '2026-09-30 01:44:55', '2026-09-30 01:44:55', 1, 8, 0, '2026-09-30 01:44:55', '2026-09-30 01:44:55'),
 (199, 39, 392, 393, 'submit', NULL, 1, '2026-09-30 01:47:17', '2026-09-30 01:47:21', 1, 24, 120, '2026-09-30 01:47:17', '2026-09-30 01:47:21'),
 (200, 39, 393, 394, 'submit', NULL, 1, '2026-09-30 01:49:31', '2026-09-30 01:50:03', 1, 5, 120, '2026-09-30 01:49:31', '2026-09-30 01:50:03'),
-(201, 40, 392, 392, 'create', 'Transaction created', 1, '2026-09-30 16:09:17', '2026-09-30 16:09:17', 1, 8, 0, '2026-09-30 16:09:17', '2026-09-30 16:09:17');
+(201, 40, 392, 392, 'create', 'Transaction created', 1, '2026-09-30 16:09:17', '2026-09-30 16:09:17', 1, 8, 0, '2026-09-30 16:09:17', '2026-09-30 16:09:17'),
+(202, 40, 392, 393, 'submit', NULL, 1, '2026-10-02 00:12:24', '2026-10-02 00:12:26', 1, 24, 120, '2026-10-02 00:12:24', '2026-10-02 00:12:26'),
+(203, 40, 393, 394, 'submit', NULL, 1, '2026-10-02 00:12:38', '2026-10-02 00:16:55', 1, 5, 120, '2026-10-02 00:12:38', '2026-10-02 00:16:55'),
+(204, 40, 394, 392, 'return', 'kulan man ni bai', 1, '2026-10-02 00:17:51', '2026-10-02 00:17:52', 1, 8, 0, '2026-10-02 00:17:51', '2026-10-02 00:17:52'),
+(205, 40, 392, 393, 'submit', NULL, 1, '2026-10-03 02:06:10', '2026-10-03 02:06:17', 1, 24, 120, '2026-10-03 02:06:10', '2026-10-03 02:06:17'),
+(206, 40, 393, 394, 'submit', NULL, 1, '2026-10-04 17:31:35', '2026-10-04 17:31:40', 1, 5, 120, '2026-10-04 17:31:35', '2026-10-04 17:31:40'),
+(207, 41, 416, 416, 'create', 'Transaction created', 1, '2026-10-04 17:34:21', '2026-10-04 17:34:21', 1, 8, 0, '2026-10-04 17:34:21', '2026-10-04 17:34:21');
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `transaction_types`
 --
-
 CREATE TABLE `transaction_types` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `id` bigint UNSIGNED NOT NULL,
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1835,16 +1923,15 @@ INSERT INTO `transaction_types` (`id`, `code`, `name`, `description`, `is_active
 --
 -- Table structure for table `users`
 --
-
 CREATE TABLE `users` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `office_id` bigint UNSIGNED DEFAULT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
-  `password` varchar(255) NOT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `remember_token` varchar(100) DEFAULT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `remember_token` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1870,17 +1957,16 @@ INSERT INTO `users` (`id`, `name`, `email`, `office_id`, `email_verified_at`, `p
 --
 -- Table structure for table `workflow_definitions`
 --
-
 CREATE TABLE `workflow_definitions` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `transaction_type_id` bigint(20) UNSIGNED NOT NULL,
-  `version` int(10) UNSIGNED NOT NULL DEFAULT 1,
-  `status` varchar(255) NOT NULL DEFAULT 'draft',
-  `is_live` tinyint(1) NOT NULL DEFAULT 0,
-  `name` varchar(255) DEFAULT NULL,
-  `notes` text DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `transaction_type_id` bigint UNSIGNED NOT NULL,
+  `version` int UNSIGNED NOT NULL DEFAULT '1',
+  `status` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
+  `is_live` tinyint(1) NOT NULL DEFAULT '0',
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
   `published_at` timestamp NULL DEFAULT NULL,
-  `published_by` bigint(20) UNSIGNED DEFAULT NULL,
+  `published_by` bigint UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -1924,35 +2010,36 @@ INSERT INTO `workflow_definitions` (`id`, `transaction_type_id`, `version`, `sta
 (48, 10, 1, 'published', 1, NULL, NULL, '2026-09-29 23:37:12', 1, '2026-09-29 23:34:04', '2026-09-29 23:37:12', NULL),
 (49, 10, 2, 'draft', 0, NULL, NULL, NULL, NULL, '2026-09-29 23:37:52', '2026-09-29 23:37:52', NULL),
 (50, 9, 23, 'published', 1, NULL, NULL, '2026-09-30 00:24:42', 1, '2026-09-30 00:23:40', '2026-09-30 00:24:42', NULL),
-(53, 11, 1, 'published', 0, NULL, NULL, '2026-09-30 00:42:35', 1, '2026-09-30 00:30:31', '2026-09-30 00:42:35', NULL),
-(54, 11, 2, 'published', 0, NULL, NULL, '2026-09-30 00:55:15', 1, '2026-09-30 00:52:28', '2026-09-30 00:55:15', NULL),
-(55, 11, 3, 'published', 0, NULL, NULL, '2026-09-30 00:55:25', 1, '2026-09-30 00:55:17', '2026-09-30 00:55:25', NULL),
-(56, 11, 4, 'published', 0, NULL, NULL, '2026-09-30 00:55:35', 1, '2026-09-30 00:55:27', '2026-09-30 00:55:35', NULL),
-(57, 11, 5, 'published', 0, NULL, NULL, '2026-09-30 00:55:46', 1, '2026-09-30 00:55:37', '2026-09-30 00:55:46', NULL),
-(58, 11, 6, 'published', 0, NULL, NULL, '2026-09-30 00:55:57', 1, '2026-09-30 00:55:49', '2026-09-30 00:55:57', NULL),
-(59, 11, 7, 'published', 0, NULL, NULL, '2026-09-30 00:56:17', 1, '2026-09-30 00:56:08', '2026-09-30 00:56:17', NULL),
-(60, 11, 8, 'published', 0, NULL, NULL, '2026-09-30 00:56:30', 1, '2026-09-30 00:56:20', '2026-09-30 00:56:30', NULL),
-(61, 11, 9, 'published', 1, NULL, NULL, '2026-09-30 01:15:16', 1, '2026-09-30 01:15:05', '2026-09-30 01:15:16', NULL),
+(53, 11, 1, 'published', 0, NULL, NULL, '2026-09-30 00:42:35', 1, '2026-09-30 00:30:31', '2026-10-04 17:33:40', NULL),
+(54, 11, 2, 'published', 0, NULL, NULL, '2026-09-30 00:55:15', 1, '2026-09-30 00:52:28', '2026-10-04 17:33:40', NULL),
+(55, 11, 3, 'published', 0, NULL, NULL, '2026-09-30 00:55:25', 1, '2026-09-30 00:55:17', '2026-10-04 17:33:40', NULL),
+(56, 11, 4, 'published', 0, NULL, NULL, '2026-09-30 00:55:35', 1, '2026-09-30 00:55:27', '2026-10-04 17:33:40', NULL),
+(57, 11, 5, 'published', 0, NULL, NULL, '2026-09-30 00:55:46', 1, '2026-09-30 00:55:37', '2026-10-04 17:33:40', NULL),
+(58, 11, 6, 'published', 0, NULL, NULL, '2026-09-30 00:55:57', 1, '2026-09-30 00:55:49', '2026-10-04 17:33:40', NULL),
+(59, 11, 7, 'published', 0, NULL, NULL, '2026-09-30 00:56:17', 1, '2026-09-30 00:56:08', '2026-10-04 17:33:40', NULL),
+(60, 11, 8, 'published', 0, NULL, NULL, '2026-09-30 00:56:30', 1, '2026-09-30 00:56:20', '2026-10-04 17:33:40', NULL),
+(61, 11, 9, 'published', 0, NULL, NULL, '2026-09-30 01:15:16', 1, '2026-09-30 01:15:05', '2026-10-04 17:33:40', NULL),
 (62, 3, 5, 'published', 1, 'Bryan', NULL, '2026-09-30 20:32:13', 1, '2026-09-30 20:31:59', '2026-09-30 20:34:10', NULL),
 (63, 3, 6, 'published', 0, NULL, NULL, '2026-09-30 20:33:11', 1, '2026-09-30 20:32:32', '2026-09-30 20:34:10', NULL),
-(64, 3, 7, 'published', 0, 'bry', 's', '2026-09-30 20:33:37', 1, '2026-09-30 20:33:36', '2026-09-30 20:34:10', NULL);
+(64, 3, 7, 'published', 0, 'bry', 's', '2026-09-30 20:33:37', 1, '2026-09-30 20:33:36', '2026-09-30 20:34:10', NULL),
+(65, 11, 10, 'published', 0, NULL, NULL, '2026-10-04 17:33:29', 1, '2026-10-04 17:33:21', '2026-10-04 17:33:40', NULL),
+(66, 11, 11, 'published', 1, NULL, NULL, '2026-10-04 17:33:40', 1, '2026-10-04 17:33:33', '2026-10-04 17:33:40', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `workflow_routes`
 --
-
 CREATE TABLE `workflow_routes` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `from_step_id` bigint(20) UNSIGNED NOT NULL,
-  `to_step_id` bigint(20) UNSIGNED NOT NULL,
-  `action_code` varchar(255) NOT NULL,
-  `is_return_route` tinyint(1) NOT NULL DEFAULT 0,
-  `condition_expression` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `route_group` varchar(255) DEFAULT NULL,
-  `required_approvals_count` int(10) UNSIGNED DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint UNSIGNED NOT NULL,
+  `from_step_id` bigint UNSIGNED NOT NULL,
+  `to_step_id` bigint UNSIGNED NOT NULL,
+  `action_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_return_route` tinyint(1) NOT NULL DEFAULT '0',
+  `condition_expression` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  `route_group` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `required_approvals_count` int UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -2140,26 +2227,39 @@ INSERT INTO `workflow_routes` (`id`, `workflow_definition_id`, `from_step_id`, `
 (197, 63, 403, 402, 'return', 1, NULL, NULL, NULL, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
 (198, 63, 402, 403, 'submit', 0, NULL, NULL, NULL, '2026-09-30 20:32:33', '2026-09-30 20:32:33', NULL),
 (199, 64, 406, 405, 'return', 1, NULL, NULL, NULL, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
-(200, 64, 405, 406, 'submit', 0, NULL, NULL, NULL, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL);
+(200, 64, 405, 406, 'submit', 0, NULL, NULL, NULL, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(201, 65, 408, 409, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(202, 65, 409, 410, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(203, 65, 410, 411, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(204, 65, 411, 412, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(205, 65, 412, 413, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(206, 65, 413, 414, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(207, 65, 414, 415, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(208, 66, 416, 417, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(209, 66, 417, 418, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(210, 66, 418, 419, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(211, 66, 419, 420, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(212, 66, 420, 421, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(213, 66, 421, 422, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(214, 66, 422, 423, 'submit', 0, NULL, NULL, NULL, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL);
 
 -- --------------------------------------------------------
 
 --
 -- Table structure for table `workflow_steps`
 --
-
 CREATE TABLE `workflow_steps` (
-  `id` bigint(20) UNSIGNED NOT NULL,
-  `workflow_definition_id` bigint(20) UNSIGNED NOT NULL,
-  `parent_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `order_number` int(10) UNSIGNED NOT NULL DEFAULT 1,
-  `code` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `stage` varchar(255) DEFAULT NULL,
-  `office_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `sla_minutes` int(10) UNSIGNED NOT NULL DEFAULT 0,
-  `is_start` tinyint(1) NOT NULL DEFAULT 0,
-  `is_end` tinyint(1) NOT NULL DEFAULT 0,
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_definition_id` bigint UNSIGNED NOT NULL,
+  `parent_id` bigint UNSIGNED DEFAULT NULL,
+  `order_number` int UNSIGNED NOT NULL DEFAULT '1',
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `stage` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `office_id` bigint UNSIGNED DEFAULT NULL,
+  `sla_minutes` int UNSIGNED NOT NULL DEFAULT '0',
+  `is_start` tinyint(1) NOT NULL DEFAULT '0',
+  `is_end` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL
@@ -2504,7 +2604,43 @@ INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `orde
 INSERT INTO `workflow_steps` (`id`, `workflow_definition_id`, `parent_id`, `order_number`, `code`, `name`, `stage`, `office_id`, `sla_minutes`, `is_start`, `is_end`, `created_at`, `updated_at`, `deleted_at`) VALUES
 (405, 64, NULL, 1, 'communication_1', 'Communication Station 1', NULL, NULL, 60, 1, 0, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
 (406, 64, NULL, 2, 'communication_2', 'Communication Station End', NULL, NULL, 60, 0, 1, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
-(407, 64, NULL, 3, 'communication_3', 'bry', NULL, 23, 60, 0, 0, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL);
+(407, 64, NULL, 3, 'communication_3', 'bry', NULL, 23, 60, 0, 0, '2026-09-30 20:33:37', '2026-09-30 20:33:37', NULL),
+(408, 65, NULL, 1, 'procurement_it_equipment_1', 'Submit PR to GSO', 'PR numbering', 8, 0, 1, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(409, 65, NULL, 2, 'procurement_it_equipment_2', 'GSO return approve PR to end user', 'PR numbering', 24, 120, 0, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(410, 65, NULL, 3, 'procurement_it_equipment_3', 'Submit PR to OCT', 'Availability of funds', 5, 120, 0, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:28', NULL),
+(411, 65, NULL, 4, 'procurement_it_equipment_4', 'CTO  Return approve PR to  End user', 'Availability of funds', 24, 120, 0, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(412, 65, NULL, 5, 'procurement_it_equipment_5', 'Submit PR to CBO', 'Availability of Appropriation', 9, 120, 0, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(413, 65, NULL, 6, 'procurement_it_equipment_6', 'Submit Pr to Mayor Office', 'Mayor Approval', 1, 120, 0, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(414, 65, NULL, 7, 'procurement_it_equipment_7', 'Mayor Office return approve PR to CBO', 'Mayor Approval', 9, 120, 0, 0, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(415, 65, NULL, 8, 'procurement_it_equipment_8', 'Submit PR to PAAD', 'PR submission', 26, 120, 0, 1, '2026-10-04 17:33:21', '2026-10-04 17:33:21', NULL),
+(416, 66, NULL, 1, 'procurement_it_equipment_1', 'Submit PR to GSO', 'PR numbering', 8, 0, 1, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(417, 66, NULL, 2, 'procurement_it_equipment_2', 'GSO return approve PR to end user', 'PR numbering', 24, 120, 0, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(418, 66, NULL, 3, 'procurement_it_equipment_3', 'Submit PR to OCT', 'Availability of funds', 5, 120, 0, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(419, 66, NULL, 4, 'procurement_it_equipment_4', 'OCT  Return approve PR to  End user', 'Availability of funds', 24, 120, 0, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:39', NULL),
+(420, 66, NULL, 5, 'procurement_it_equipment_5', 'Submit PR to CBO', 'Availability of Appropriation', 9, 120, 0, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(421, 66, NULL, 6, 'procurement_it_equipment_6', 'Submit Pr to Mayor Office', 'Mayor Approval', 1, 120, 0, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(422, 66, NULL, 7, 'procurement_it_equipment_7', 'Mayor Office return approve PR to CBO', 'Mayor Approval', 9, 120, 0, 0, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL),
+(423, 66, NULL, 8, 'procurement_it_equipment_8', 'Submit PR to PAAD', 'PR submission', 26, 120, 0, 1, '2026-10-04 17:33:33', '2026-10-04 17:33:33', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `workflow_step_data`
+--
+CREATE TABLE `workflow_step_data` (
+  `id` bigint UNSIGNED NOT NULL,
+  `workflow_step_id` bigint UNSIGNED NOT NULL,
+  `code` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `display_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'text',
+  `is_required` tinyint(1) NOT NULL DEFAULT '0',
+  `display_order` int UNSIGNED NOT NULL DEFAULT '0',
+  `min_length` int UNSIGNED DEFAULT NULL,
+  `max_length` int UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `deleted_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Indexes for dumped tables
@@ -2749,6 +2885,17 @@ ALTER TABLE `transaction_station_touches`
   ADD KEY `fk_tst_user` (`touched_by`);
 
 --
+-- Indexes for table `transaction_step_data`
+--
+ALTER TABLE `transaction_step_data`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_run_stepdata` (`transaction_step_run_id`,`workflow_step_data_id`),
+  ADD KEY `transaction_step_data_workflow_step_data_id_foreign` (`workflow_step_data_id`),
+  ADD KEY `transaction_step_data_workflow_step_id_foreign` (`workflow_step_id`),
+  ADD KEY `transaction_step_data_entered_by_foreign` (`entered_by`),
+  ADD KEY `idx_tx_stepdata_tx_step` (`transaction_id`,`workflow_step_id`);
+
+--
 -- Indexes for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
@@ -2807,6 +2954,13 @@ ALTER TABLE `workflow_steps`
   ADD KEY `workflow_steps_office_id_foreign` (`office_id`);
 
 --
+-- Indexes for table `workflow_step_data`
+--
+ALTER TABLE `workflow_step_data`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `workflow_step_data_workflow_step_id_code_unique` (`workflow_step_id`,`code`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -2814,175 +2968,187 @@ ALTER TABLE `workflow_steps`
 -- AUTO_INCREMENT for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
 
 --
 -- AUTO_INCREMENT for table `checklist_overrides`
 --
 ALTER TABLE `checklist_overrides`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
 --
 -- AUTO_INCREMENT for table `failed_jobs`
 --
 ALTER TABLE `failed_jobs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `field_definitions`
 --
 ALTER TABLE `field_definitions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `field_definition_workflow_step`
 --
 ALTER TABLE `field_definition_workflow_step`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `field_values`
 --
 ALTER TABLE `field_values`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `government_references`
 --
 ALTER TABLE `government_references`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `jobs`
 --
 ALTER TABLE `jobs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
 
 --
 -- AUTO_INCREMENT for table `offices`
 --
 ALTER TABLE `offices`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `office_steps`
 --
 ALTER TABLE `office_steps`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `office_transaction_type`
 --
 ALTER TABLE `office_transaction_type`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `permissions`
 --
 ALTER TABLE `permissions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `requirement_definitions`
 --
 ALTER TABLE `requirement_definitions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=86;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=110;
 
 --
 -- AUTO_INCREMENT for table `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `step_requirements`
 --
 ALTER TABLE `step_requirements`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=98;
 
 --
 -- AUTO_INCREMENT for table `step_roles`
 --
 ALTER TABLE `step_roles`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=397;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=413;
 
 --
 -- AUTO_INCREMENT for table `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT for table `transaction_attachments`
 --
 ALTER TABLE `transaction_attachments`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT for table `transaction_checklist_checks`
 --
 ALTER TABLE `transaction_checklist_checks`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
 --
 -- AUTO_INCREMENT for table `transaction_requirement_checks`
 --
 ALTER TABLE `transaction_requirement_checks`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=125;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=126;
 
 --
 -- AUTO_INCREMENT for table `transaction_states`
 --
 ALTER TABLE `transaction_states`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT for table `transaction_station_touches`
 --
 ALTER TABLE `transaction_station_touches`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `transaction_step_data`
+--
+ALTER TABLE `transaction_step_data`
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=202;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=208;
 
 --
 -- AUTO_INCREMENT for table `transaction_types`
 --
 ALTER TABLE `transaction_types`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `workflow_definitions`
 --
 ALTER TABLE `workflow_definitions`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=67;
 
 --
 -- AUTO_INCREMENT for table `workflow_routes`
 --
 ALTER TABLE `workflow_routes`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=201;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=215;
 
 --
 -- AUTO_INCREMENT for table `workflow_steps`
 --
 ALTER TABLE `workflow_steps`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=408;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=424;
+
+--
+-- AUTO_INCREMENT for table `workflow_step_data`
+--
+ALTER TABLE `workflow_step_data`
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -3123,6 +3289,16 @@ ALTER TABLE `transaction_station_touches`
   ADD CONSTRAINT `fk_tst_user` FOREIGN KEY (`touched_by`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `transaction_step_data`
+--
+ALTER TABLE `transaction_step_data`
+  ADD CONSTRAINT `transaction_step_data_entered_by_foreign` FOREIGN KEY (`entered_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `transaction_step_data_transaction_id_foreign` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `transaction_step_data_transaction_step_run_id_foreign` FOREIGN KEY (`transaction_step_run_id`) REFERENCES `transaction_step_runs` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `transaction_step_data_workflow_step_data_id_foreign` FOREIGN KEY (`workflow_step_data_id`) REFERENCES `workflow_step_data` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `transaction_step_data_workflow_step_id_foreign` FOREIGN KEY (`workflow_step_id`) REFERENCES `workflow_steps` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `transaction_step_runs`
 --
 ALTER TABLE `transaction_step_runs`
@@ -3161,6 +3337,12 @@ ALTER TABLE `workflow_steps`
   ADD CONSTRAINT `workflow_steps_office_id_foreign` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `workflow_steps_parent_id_foreign` FOREIGN KEY (`parent_id`) REFERENCES `workflow_steps` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `workflow_steps_workflow_definition_id_foreign` FOREIGN KEY (`workflow_definition_id`) REFERENCES `workflow_definitions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `workflow_step_data`
+--
+ALTER TABLE `workflow_step_data`
+  ADD CONSTRAINT `workflow_step_data_workflow_step_id_foreign` FOREIGN KEY (`workflow_step_id`) REFERENCES `workflow_steps` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

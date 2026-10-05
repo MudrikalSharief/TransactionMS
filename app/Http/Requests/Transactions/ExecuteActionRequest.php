@@ -20,6 +20,8 @@ class ExecuteActionRequest extends FormRequest
             'fields' => ['nullable', 'array'],
             'attachment_ids' => ['nullable', 'array'],
             'attachment_ids.*' => ['integer', 'exists:transaction_attachments,id'],
+            'step_data' => ['nullable', 'array'],
+            'step_data.*' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

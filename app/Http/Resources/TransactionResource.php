@@ -383,6 +383,8 @@ class TransactionResource extends JsonResource
 
             'current_step_fields' => $currentStepFields,
 
+            'current_step_data' => $this->buildCurrentStepData($currentStep),
+
             'current_step_requirements' => $currentStepRequirements,
 
             'current_step_checklist' => $currentStepChecklist,
@@ -402,5 +404,33 @@ class TransactionResource extends JsonResource
                 }
             ),
         ];
+    }
+
+    private function buildCurrentStepData($currentStep): array
+    {
+        if (!$currentStep) {
+            return [];
+        }
+        $this->loadMissing(['stepData.definition', 'stepData.enterer']);
+        $defs = $currentStep->stepDataDefinitions()->orderBy('display_order')->get();
+        // Latest value per definition for this transaction (history kept per run).
+        $latestByDef = collect($this->stepData ?? [])
+            ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
+            ->keyBy('workflow_step_data_id');
+
+        return $defs->map(fn ($d) => [
+            'definition' => $d->only(['id', 'code', 'display_name', 'type', 'is_required', 'display_order', 'min_length', 'max_length']),
+            'value' => $latestByDef->get($d->id)?->data_value,
+            'history' => collect($this->stepData ?? [])
+                ->where('workflow_step_data_id', $d->id)
+                ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
+                ->values()
+                ->map(fn ($r) => [
+                    'data_value' => $r->data_value,
+                    'entered_at' => $r->entered_at?->toISOString(),
+                    'entered_by' => $r->enterer?->only(['id', 'name']),
+                    'step_run_id' => $r->transaction_step_run_id,
+                ])->all(),
+        ])->all();
     }
 }

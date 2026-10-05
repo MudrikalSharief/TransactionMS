@@ -197,7 +197,8 @@ class TransactionController extends Controller
             $request->validated()['remarks'] ?? null,
             $request->user()->id,
             is_array($fields) ? $fields : [],
-            $request->validated()['attachment_ids'] ?? []
+            $request->validated()['attachment_ids'] ?? [],
+            $request->validated()['step_data'] ?? []
         );
 
         $actions = $routing->availableActions($tx, $request->user());

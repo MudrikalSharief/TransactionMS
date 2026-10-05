@@ -90,6 +90,11 @@ class Transaction extends Model
         return $this->hasMany(TransactionAttachment::class)->orderByDesc('created_at');
     }
 
+    public function stepData(): HasMany
+    {
+        return $this->hasMany(TransactionStepData::class)->orderByDesc('entered_at');
+    }
+
     public function fieldValuesByCode(): array
     {
         $this->loadMissing(['fieldValues.fieldDefinition']);

@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Admin\StepFieldController;
 use App\Http\Controllers\Api\Admin\RequirementDefinitionController;
 use App\Http\Controllers\Api\Admin\StepRequirementController;
 use App\Http\Controllers\Api\Admin\StepChecklistController;
+use App\Http\Controllers\Api\Admin\StepDataController;
 
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\TransactionRequirementController;
@@ -155,6 +156,12 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
+
+        // Step data - per-step text data (receipt number, etc.), history per visit
+        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'index']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'store']);
+        Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'update']);
+        Route::delete('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'destroy']);
 
         // Dashboard - Transaction Summary card
         Route::get('/dashboard/summary', DashboardSummaryController::class);

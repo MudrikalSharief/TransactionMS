@@ -7,6 +7,7 @@ use App\Models\WorkflowRoute;
 use App\Models\WorkflowStep;
 use App\Models\FieldDefinition;
 use App\Models\RequirementDefinition;
+use App\Models\WorkflowStepData;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -245,7 +246,7 @@ class WorkflowVersioningService
         }
 
         $fieldMap = [];
-        $fromSteps = $from->steps()->with('fieldDefinitions')->get();
+        $fromSteps = $from->steps()->with(['fieldDefinitions', 'stepDataDefinitions'])->get();
         foreach ($fromSteps as $step) {
             $newStepId = $map[$step->id] ?? null;
             if (!$newStepId) continue;
@@ -303,6 +304,14 @@ class WorkflowVersioningService
                     'is_required' => (bool) $item->is_required,
                     'display_order' => (int) $item->display_order,
                 ]);
+            }
+
+            // Clone per-step text data definitions (receipt number, etc.).
+            foreach ($step->stepDataDefinitions()->get() as $sd) {
+                $newStep->stepDataDefinitions()->create($sd->only([
+                    'code', 'display_name', 'type', 'is_required',
+                    'display_order', 'min_length', 'max_length',
+                ]));
             }
         }
     }
