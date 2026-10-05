@@ -1,6 +1,7 @@
 <template>
     <v-dialog v-model="open" max-width="800" scrollable>
-        <v-card rounded="0">
+        <v-card rounded="xl" style="overflow: hidden">
+            <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
             <v-card-title>
                 {{ proceedModalTitle }}
                 <div v-if="tx" class="text-caption text-medium-emphasis">
@@ -8,11 +9,9 @@
                 </div>
             </v-card-title>
             <v-divider />
-            <v-card-text>
-                <div v-if="currentStepMiniTitle" class="text-caption text-medium-emphasis mb-3">
-                    {{ currentStepMiniTitle }}
-                </div>
-                <TableLoader v-if="loading" label="transaction" compact />
+            <v-card-text class="proceed-scroll">
+                    <ReturnBanner :info="null" />
+                    <TableLoader v-if="loading" label="transaction" compact />
 
                 <template v-else-if="tx">
                     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">
@@ -63,6 +62,8 @@
                             :saving-checklist="savingChecklist"
                             :saving-checklist-item-id="savingChecklistItemId"
                             :saving-requirement-id="savingRequirementId"
+                            remarks-placeholder="Explain what you changed or fixed"
+                            attachments-title="Other attachments (optional)"
                             @toggle-requirement="onRequirementToggle"
                             @toggle-checklist="onChecklistToggle"
                             @requirement-uploaded="refreshTxPreservingForm"
@@ -100,6 +101,8 @@ import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useApi } from "@/composables/useApi";
 import ProceedWizard from "@/components/ProceedWizard.vue";
+import ReturnBanner from "@/components/ReturnBanner.vue";
+import StepBadge from "@/components/StepBadge.vue";
 import TableLoader from "@/components/TableLoader.vue";
 
 const open = defineModel("open", { default: false });
@@ -156,7 +159,7 @@ const selectedAction = computed(() =>
 );
 const selectedActionLabel = computed(() => (selectedAction.value ? labelForAction(selectedAction.value) : ""));
 
-// Proceed modal title: Proceed to "stepname" (office code). Name comes from
+// Proceed modal title: Proceeding to "stepname" (office code). Name comes from
 // the destination step (workflow_routes.to_step_id → workflow_steps); office
 // code comes from the CURRENT step's Destination Office (where the paper is
 // being sent from, e.g. General Service Office when on step 1).
@@ -194,19 +197,7 @@ const proceedModalTitle = computed(() => {
         cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
         dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
     ).trim();
-    return office ? `Proceed to "${name}" (${office})` : `Proceed to "${name}"`;
-});
-
-// Mini title below the divider: where the paper currently sits.
-const currentStepMiniTitle = computed(() => {
-    const c = tx.value?.current_step;
-    if (!c) return "";
-    const n = c.order_number ?? "";
-    const name = c.name || c.code || "";
-    if (n !== "" && n != null && name) return `You are in Step ${n} · ${name}`;
-    if (name) return `You are in ${name}`;
-    if (n !== "" && n != null) return `You are in Step ${n}`;
-    return "";
+    return office ? `Proceeding to "${name}" (${office})` : `Proceeding to "${name}"`;
 });
 
 // Step 1 → step 2 shows requirements only (same rule as the transaction page).
@@ -415,3 +406,24 @@ function openTransaction() {
     router.push(`/my/transactions/${props.txId}`);
 }
 </script>
+
+<style scoped>
+/* Slim inner scroll: keeps scrolling inside the curved modal. */
+.proceed-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    padding-right: 8px;
+}
+.proceed-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.proceed-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+}
+.proceed-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+</style>

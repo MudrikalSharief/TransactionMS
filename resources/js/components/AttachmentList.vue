@@ -1,6 +1,31 @@
 <template>
     <div v-if="items?.length">
-        <div v-if="compact" class="d-flex flex-wrap ga-1">
+        <div v-if="detailed" class="d-flex flex-column ga-2">
+            <div
+                v-for="a in items"
+                :key="a.id"
+                class="d-flex align-center ga-2 pa-2 rounded-lg"
+                style="background: rgba(0,0,0,0.03)"
+            >
+                <v-icon size="large" color="error">{{ fileIconFor(a) }}</v-icon>
+                <div class="flex-1-1" style="min-width: 0">
+                    <div class="text-body-2 text-truncate">{{ a.original_name }}</div>
+                    <div class="text-caption text-medium-emphasis">{{ formatSize(a.size_bytes) }} · uploaded</div>
+                </div>
+                <v-btn
+                    v-if="canDelete"
+                    icon="mdi-trash-can-outline"
+                    size="x-small"
+                    variant="text"
+                    color="grey-darken-1"
+                    :title="`Remove ${a.original_name}`"
+                    :loading="deletingId === a.id"
+                    :disabled="deletingId !== null"
+                    @click.stop="askDelete(a)"
+                />
+            </div>
+        </div>
+        <div v-else-if="compact" class="d-flex flex-wrap ga-1">
             <span v-for="a in items" :key="a.id" class="d-inline-flex align-center ga-1 border rounded-0 pa-1">
                 <v-tooltip location="top" max-width="320">
                     <template #activator="{ props }">
@@ -167,6 +192,9 @@ import { fileViewUrl } from "@/composables/useFileView";
 const props = defineProps({
     items: { type: Array, default: () => [] },
     compact: { type: Boolean, default: false },
+    // Detailed file rows (requirements redesign): icon + name + size·uploaded + trash.
+    // Delete stays superadmin-gated via canDelete.
+    detailed: { type: Boolean, default: false },
     // When false, hides the plain-text detail lines below the chips
     // (used in history expanded details to avoid showing each file twice).
     showDetails: { type: Boolean, default: true },

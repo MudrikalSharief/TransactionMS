@@ -99,6 +99,9 @@
                     :missing-required-checklist-labels="missingRequiredChecklistLabels"
                     :missing-required-fields="missingRequiredFields"
                     :execute-error="executeError"
+                    :remarks-label="remarksLabel"
+                    :remarks-placeholder="remarksPlaceholder"
+                    :attachments-title="attachmentsTitle"
                     @attachment-deleted="(id) => emit('attachment-deleted', id)"
                 />
             </v-window-item>
@@ -114,7 +117,12 @@
 
                     <v-divider class="my-3" />
                 </template>
-                <div class="text-subtitle-2 font-weight-bold mb-2">Requirements to proceed</div>
+                <div class="d-flex justify-space-between align-baseline mb-2">
+                    <div class="text-subtitle-2 font-weight-bold">Requirements to proceed</div>
+                    <div v-if="(requirements || []).length" class="text-caption" :class="requirementsComplete ? 'text-success' : 'text-medium-emphasis'">
+                        {{ checkedRequirementsCount }} of {{ (requirements || []).length }} complete
+                    </div>
+                </div>
 
                 <div v-if="!(isReturnSelected && !(requirements || []).length) && (requirements || []).length" class="d-flex flex-column ga-3">
                     <!-- Tick group: previous-station mirror (Prev, display-only)
@@ -152,14 +160,15 @@
                                 :loading="savingChecklist && savingRequirementId === r.definition.id"
                                 @update:model-value="(v) => emit('toggle-requirement', r, v)"
                             />
-                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" :color="r.checked ? 'success' : 'warning'" rounded="0"><v-icon v-if="r.checked" start size="x-small">mdi-check</v-icon>required</v-chip>
-                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="0">optional</v-chip>
+                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" :color="r.checked ? 'success' : 'warning'" rounded="lg"><v-icon v-if="r.checked" start size="x-small">mdi-check</v-icon>Required</v-chip>
+                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="lg">optional</v-chip>
                         </div>
                     </div>
-                    <v-sheet
+                    <v-card
                         v-if="sortedRequirements.length"
-                        rounded="0"
+                        rounded="lg"
                         border
+                        variant="outlined"
                         class="pa-3"
                     >
                         <div
@@ -169,24 +178,24 @@
                             <v-divider v-if="idx > 0" class="my-3" />
                             <div :style="isUploadLocked(r) ? 'opacity: 0.6' : ''">
                         <!-- Upload rows: status flip chip. Tick-only rows: optional chip. -->
-                        <div class="d-flex align-center ga-2">
-                            <span class="font-weight-bold text-h6">{{ r.definition.name }}</span>
-                            <v-chip v-if="uploadRequired(r)" size="x-small" variant="tonal" :color="hasReqFiles(r) ? 'success' : 'error'" rounded="0">
+                        <div class="d-flex align-center ga-2 mb-2">
+                            <span class="font-weight-medium text-body-1">{{ r.definition.name }}</span>
+                            <v-spacer />
+                            <v-chip v-if="uploadRequired(r)" size="x-small" variant="tonal" :color="hasReqFiles(r) ? 'success' : 'error'" rounded="lg">
                                 <v-icon start size="x-small">{{ hasReqFiles(r) ? 'mdi-check' : 'mdi-upload' }}</v-icon>{{ hasReqFiles(r) ? 'file uploaded' : 'upload required' }}
                             </v-chip>
-                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="0">optional</v-chip>
-                            <v-spacer />
+                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="lg">optional</v-chip>
                             <v-chip
                                 v-if="mergedReqAttachments(r).length"
                                 size="x-small"
                                 variant="tonal"
                                 color="grey-darken-3"
-                                rounded="0"
+                                rounded="lg"
                             >
                                 <v-icon start size="x-small">mdi-paperclip</v-icon>{{ mergedReqAttachments(r).length }}
                             </v-chip>
                         </div>
-                        <!-- LINE 2: picker above, uploaded files at the bottom. -->
+                        <!-- Picker above, uploaded files at the bottom. -->
                         <AttachmentUploader
                             :tx-id="txId"
                             :is-admin="isAdmin"
@@ -207,13 +216,14 @@
                             :items="mergedReqAttachments(r)"
                             :tx-id="txId"
                             :is-admin="isAdmin"
-                            compact
+                            detailed
                             action="download"
                             @deleted="(id) => onReqAttachmentDeleted(r, id)"
                         />
                             </div>
                         </div>
-                    </v-sheet>
+                    </v-card>
+                    <div class="text-caption text-medium-emphasis">PDF only, up to 20 MB per file. Tick a box above to enable its uploads.</div>
                 </div>
                 <ProceedFooter
                     v-model:remarks="remarks"
@@ -227,6 +237,9 @@
                     :missing-required-checklist-labels="missingRequiredChecklistLabels"
                     :missing-required-fields="missingRequiredFields"
                     :execute-error="executeError"
+                    :remarks-label="remarksLabel"
+                    :remarks-placeholder="remarksPlaceholder"
+                    :attachments-title="attachmentsTitle"
                     @attachment-deleted="(id) => emit('attachment-deleted', id)"
                 />
             </v-window-item>
@@ -273,11 +286,19 @@ const props = defineProps({
     savingChecklist: { type: Boolean, default: false },
     savingChecklistItemId: { type: [Number, String, null], default: null },
     savingRequirementId: { type: [Number, String, null], default: null },
+    remarksLabel: { type: String, default: 'Remarks (optional)' },
+    remarksPlaceholder: { type: String, default: '' },
+    attachmentsTitle: { type: String, default: 'Other attachments (optional)' },
 })
 
 // Page 2 holds the uploads. In single-page mode (step 1 → step 2) it is the
 // only page: remarks + move attachments render below the uploads.
 const hasRequirements = computed(() => (props.requirements || []).length > 0)
+// Header counter (visual only): ticked / total. Gating still uses parents' missingRequired*.
+const checkedRequirementsCount = computed(() => (props.requirements || []).filter((r) => !!r.checked).length)
+const requirementsComplete = computed(
+    () => (props.requirements || []).length > 0 && checkedRequirementsCount.value >= (props.requirements || []).length,
+)
 const hasProceedContent = computed(
     () => hasRequirements.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
 )

@@ -494,20 +494,15 @@
             </v-card-text>
         </v-card>
 
-        <v-dialog v-model="remarksDialog" max-width="800">
-            <v-card rounded="0">
+        <v-dialog v-model="remarksDialog" max-width="800" scrollable>
+            <v-card rounded="xl" style="overflow: hidden">
+                <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
                 <v-card-title>
                     {{ proceedModalTitle }}
-                    <div v-if="autoReturnInfo" class="text-caption mt-1">
-                        <span class="text-medium-emphasis">Returned{{ autoReturnInfo.fromStep?.order_number ? ` from Step ${autoReturnInfo.fromStep.order_number}` : '' }}{{ autoReturnInfo.sender ? ` by ${autoReturnInfo.sender}` : '' }}:</span>
-                        <span class="font-italic"> "{{ autoReturnInfo.remarks }}"</span>
-                    </div>
                 </v-card-title>
                 <v-divider />
-                <v-card-text>
-                    <div v-if="currentStepMiniTitle" class="text-caption text-medium-emphasis mb-3">
-                        {{ currentStepMiniTitle }}
-                    </div>
+                <v-card-text class="proceed-scroll">
+                    <ReturnBanner :info="autoReturnInfo" />
                     <ProceedWizard
                         ref="wizardRef"
                         v-model:step="wizardStep"
@@ -532,6 +527,9 @@
                         :saving-checklist="savingChecklist"
                         :saving-checklist-item-id="savingChecklistItemId"
                         :saving-requirement-id="savingRequirementId"
+                        :remarks-label="autoReturnInfo?.sender ? `Reply to ${autoReturnInfo.sender} (optional)` : 'Remarks (optional)'"
+                        remarks-placeholder="Explain what you changed or fixed"
+                        attachments-title="Other attachments (optional)"
                         @toggle-requirement="onWizardToggle"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
@@ -666,6 +664,8 @@ import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
 import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
+import ReturnBanner from '@/components/ReturnBanner.vue';
+import StepBadge from '@/components/StepBadge.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import TransactionHistory from '@/components/history/TransactionHistory.vue';
@@ -1452,7 +1452,7 @@ const mainActionButtonLabel = computed(() => {
     return `Proceed to Station ${selectedStepNumber.value}`;
 });
 
-// Proceed modal title: Proceed to "stepname" (office code). Name comes from
+// Proceed modal title: Proceeding to "stepname" (office code). Name comes from
 // the destination step (workflow_routes.to_step_id → workflow_steps); office
 // code comes from the CURRENT step's Destination Office (where the paper is
 // being sent from, e.g. General Service Office when on step 1).
@@ -1504,19 +1504,7 @@ const proceedModalTitle = computed(() => {
     }
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return proceedTitle("Return to");
-    return proceedTitle("Proceed to");
-});
-
-// Mini title below the divider: where the paper currently sits.
-const currentStepMiniTitle = computed(() => {
-    const c = tx.value?.current_step;
-    if (!c) return "";
-    const n = c.order_number ?? "";
-    const name = c.name || c.code || "";
-    if (n !== "" && n != null && name) return `You are in Step ${n} · ${name}`;
-    if (name) return `You are in ${name}`;
-    if (n !== "" && n != null) return `You are in Step ${n}`;
-    return "";
+    return proceedTitle("Proceeding to");
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so
@@ -1591,5 +1579,24 @@ onMounted(load);
 <style scoped>
 .row-dim {
     opacity: 0.55;
+}
+
+/* Slim inner scroll: keeps scrolling inside the curved modal. */
+.proceed-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    padding-right: 8px;
+}
+.proceed-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.proceed-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+}
+.proceed-scroll::-webkit-scrollbar-track {
+    background: transparent;
 }
 </style>

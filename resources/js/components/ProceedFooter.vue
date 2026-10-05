@@ -1,17 +1,22 @@
 <template>
     <div>
         <v-divider class="my-3" />
+        <div class="text-subtitle-2 font-weight-bold mb-2">{{ remarksLabel }}</div>
         <v-textarea
             :model-value="remarks"
-            label="Remarks (optional)"
-            rows="4"
+            :label="remarksLabel"
+            :placeholder="remarksPlaceholder"
+            rows="3"
+            variant="outlined"
+            density="comfortable"
             @update:model-value="(v) => emit('update:remarks', v)"
         />
-        <v-divider class="my-3" />
+        <div class="text-subtitle-2 font-weight-bold mb-2">{{ attachmentsTitle }}</div>
         <AttachmentUploader
             :tx-id="txId"
             :is-admin="isAdmin"
             :model-value="proceedAttachments"
+            :show-header="false"
             file-action="download"
             @update:model-value="(files) => emit('update:proceedAttachments', files)"
             @deleted="(id) => emit('attachment-deleted', id)"
@@ -42,6 +47,9 @@ defineProps({
     missingRequiredChecklistLabels: { type: Array, default: () => [] },
     missingRequiredFields: { type: Array, default: () => [] },
     executeError: { type: String, default: '' },
+    remarksLabel: { type: String, default: 'Remarks (optional)' },
+    remarksPlaceholder: { type: String, default: '' },
+    attachmentsTitle: { type: String, default: 'Other attachments (optional)' },
 })
 
 const emit = defineEmits([
