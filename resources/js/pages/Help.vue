@@ -16,7 +16,7 @@
 
         <!-- Doing your work -->
         <div class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-            <v-avatar color="#1565C0" rounded="0" size="28" class="mr-2">
+            <v-avatar color="#1E40AF" rounded="0" size="28" class="mr-2">
                 <v-icon color="white" size="18">mdi-account-check-outline</v-icon>
             </v-avatar>
             Doing your work
@@ -25,7 +25,7 @@
             <v-col v-for="(s, i) in userSteps" :key="'u'+i" cols="12" sm="6" md="4">
                 <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('user-'+i)">
                     <v-card-text class="d-flex align-center pa-4">
-                        <v-avatar color="#1565C0" rounded="0" size="40" class="mr-3">
+                        <v-avatar color="#1E40AF" rounded="0" size="40" class="mr-3">
                             <v-icon color="white">{{ s.icon }}</v-icon>
                         </v-avatar>
                         <div class="flex-grow-1">
@@ -41,7 +41,7 @@
         <!-- Admin setup -->
         <template v-if="isSuperadmin">
             <div class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-                <v-avatar color="#2E7D32" rounded="0" size="28" class="mr-2">
+                <v-avatar color="#1E40AF" rounded="0" size="28" class="mr-2">
                     <v-icon color="white" size="18">mdi-cog-outline</v-icon>
                 </v-avatar>
                 Setting the system up
@@ -50,7 +50,7 @@
                 <v-col v-for="(s, i) in adminSteps" :key="'a'+i" cols="12" sm="6" md="4">
                     <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('admin-'+i)">
                         <v-card-text class="d-flex align-center pa-4">
-                            <v-avatar color="#2E7D32" rounded="0" size="40" class="mr-3">
+                            <v-avatar color="#1E40AF" rounded="0" size="40" class="mr-3">
                                 <v-icon color="white">{{ s.icon }}</v-icon>
                             </v-avatar>
                             <div class="flex-grow-1">
@@ -66,7 +66,7 @@
 
         <!-- Stations & routes + notes -->
         <div class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-            <v-avatar color="#6A1B9A" rounded="0" size="28" class="mr-2">
+            <v-avatar color="#1E40AF" rounded="0" size="28" class="mr-2">
                 <v-icon color="white" size="18">mdi-source-branch</v-icon>
             </v-avatar>
             Stations, routes &amp; notes
@@ -75,7 +75,7 @@
             <v-col cols="12" md="6">
                 <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('stations')">
                     <v-card-text class="d-flex align-center pa-4">
-                        <v-avatar color="#6A1B9A" rounded="0" size="40" class="mr-3">
+                        <v-avatar color="#1E40AF" rounded="0" size="40" class="mr-3">
                             <v-icon color="white">mdi-source-branch</v-icon>
                         </v-avatar>
                         <div class="flex-grow-1">
@@ -89,7 +89,7 @@
             <v-col v-for="(n, i) in notes" :key="'n'+i" cols="12" md="6">
                 <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('note-'+i)">
                     <v-card-text class="d-flex align-center pa-4">
-                        <v-avatar color="#BF360C" rounded="0" size="40" class="mr-3">
+                        <v-avatar color="#1E40AF" rounded="0" size="40" class="mr-3">
                             <v-icon color="white">{{ n.icon }}</v-icon>
                         </v-avatar>
                         <div class="flex-grow-1">
@@ -406,19 +406,22 @@ const activeContent = computed(() => {
     if (!activeKey.value) return null
     const [group, idx] = activeKey.value.split('-')
     if (group === 'user') {
-        const s = userSteps[Number(idx)]
-        return { ...s, body: s.text, color: '#1565C0', note: null }
+        const s = userSteps.value[Number(idx)]
+        if (!s) return null
+        return { ...s, body: s.text, color: '#1E40AF', note: null }
     }
     if (group === 'admin') {
         const s = adminSteps[Number(idx)]
-        return { ...s, body: s.text, color: '#2E7D32', note: null }
+        if (!s) return null
+        return { ...s, body: s.text, color: '#1E40AF', note: null }
     }
     if (group === 'note') {
         const n = notes[Number(idx)]
-        return { ...n, to: null, color: '#BF360C', note: null }
+        if (!n) return null
+        return { ...n, to: null, color: '#1E40AF', note: null }
     }
     if (group === 'stations') {
-        return { title: 'Transaction Steps & Routes', icon: 'mdi-source-branch', color: '#6A1B9A', to: '/admin/transaction-types', body: '', note: 'Stations are steps · arrows are routes · example: Procurement (14 stations).' }
+        return { title: 'Transaction Steps & Routes', icon: 'mdi-source-branch', color: '#1E40AF', to: '/admin/transaction-types', body: '', note: 'Stations are steps · arrows are routes · example: Procurement (14 stations).' }
     }
     return null
 })

@@ -2,9 +2,9 @@
   <div>
     <LoadingVeil :show="loading" label="transactions" icon="mdi-swap-horizontal" />
     <v-card rounded="0" elevation="1" class="lgu-card">
-      <v-card-title class="d-flex align-center pa-5">
-        <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-          <v-icon color="white">mdi-swap-horizontal</v-icon>
+      <v-card-title class="d-flex align-center pa-5 lgu-head">
+        <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+          <v-icon color="#1E40AF">mdi-swap-horizontal</v-icon>
         </v-avatar>
         <span class="text-h6 font-weight-bold">Transactions</span>
         <v-spacer />
@@ -20,7 +20,7 @@
           class="mr-2"
           style="max-width: 260px"
         />
-        <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">New Transaction</v-btn>
+        <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">New Transaction</v-btn>
       </v-card-title>
       <v-divider />
 
@@ -93,7 +93,7 @@
           </template>
 
           <template v-slot:[`item.reference_number`]="{ item }">
-            <v-chip color="grey-darken-3" variant="tonal" rounded="0" size="small" class="font-weight-bold">
+            <v-chip color="primary" variant="tonal" rounded="0" size="small" class="font-weight-bold">
               {{ item.reference_number || `#${item.id}` }}
             </v-chip>
           </template>

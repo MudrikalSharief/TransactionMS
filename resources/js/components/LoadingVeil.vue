@@ -1,10 +1,11 @@
 <template>
-    <!-- Full-content loading veil: translucent white over everything below
-         the horizontal + vertical navbars, with a blue spinner. Loading
-         always takes priority: the table stays hidden until loading is done
-         and the veil drops instantly (no fade-out overlap), so the table can
-         never flash before the loader. Offsets track Vuetify's layout vars,
-         so rail/expanded/hover/mobile drawer states just work. -->
+    <!-- Full-content loading veil: solid cover over everything below the
+         horizontal + vertical navbars (white light / #12121a dark), with
+         skeleton bars + spinner. Loading always takes priority: the table
+         stays hidden until loading is done and the veil drops instantly
+         (no fade-out overlap), so the table can never flash before the
+         loader. Offsets track Vuetify's layout vars, so rail/expanded/
+         hover/mobile drawer states just work. -->
     <transition name="veil-fade">
         <div
             v-if="show"
@@ -151,6 +152,43 @@ defineProps({
     font-size: 1rem;
     font-weight: 700;
     letter-spacing: 0.04em;
+}
+
+/* ---- Dark mode: same veil, dark surfaces so it never flashes white ---- */
+html.dark .page-veil {
+    background: #12121a;
+}
+
+html.dark .veil-bar {
+    background: linear-gradient(90deg, #26263a 25%, #31314a 50%, #26263a 75%);
+    background-size: 200% 100%;
+}
+
+html.dark .veil-inner {
+    background: radial-gradient(
+        circle at center,
+        rgba(18, 18, 26, 0.95) 0%,
+        rgba(18, 18, 26, 0.72) 45%,
+        rgba(18, 18, 26, 0) 72%
+    );
+}
+
+html.dark .veil-ring.outer {
+    border-color: #33334d;
+    border-top-color: #60a5fa;
+    border-right-color: #60a5fa;
+}
+
+html.dark .veil-ring.middle {
+    border-color: rgba(147, 197, 253, 0.45);
+}
+
+html.dark .veil-core {
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+}
+
+html.dark .veil-text {
+    color: #cbd5e1;
 }
 
 .veil-dots span {

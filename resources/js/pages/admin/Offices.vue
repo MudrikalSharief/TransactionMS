@@ -1,9 +1,9 @@
 <template>
   <LoadingVeil :show="loading" label="offices" icon="mdi-office-building-outline" />
   <v-card rounded="0" elevation="1" class="lgu-card">
-    <v-card-title class="d-flex align-center pa-5">
-      <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-        <v-icon color="white">mdi-office-building-outline</v-icon>
+    <v-card-title class="d-flex align-center pa-5 lgu-head">
+      <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+        <v-icon color="#1E40AF">mdi-office-building-outline</v-icon>
       </v-avatar>
       <span class="text-h6 font-weight-bold">Offices</span>
       <v-spacer />
@@ -19,7 +19,7 @@
         class="mr-2"
         style="max-width: 260px"
       />
-      <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
+      <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
         Add Office
       </v-btn>
     </v-card-title>

@@ -663,7 +663,7 @@ const THEME_KEY = "lgu-tx:theme";
 const isDark = computed(() => theme.global.name.value === "pixivDark");
 
 function applyTheme(name) {
-    theme.global.name.value = name;
+    theme.change(name);
     document.documentElement.classList.toggle("dark", name === "pixivDark");
     try {
         localStorage.setItem(THEME_KEY, name);

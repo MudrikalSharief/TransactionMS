@@ -95,6 +95,22 @@ html.dark *::-webkit-scrollbar-thumb:hover {
     background-clip: padding-box;
 }
 
+/* ---- List-tab headers: Dashboard treatment (white tile, blue border,
+   4px primary bottom rule). Theme-aware via --v-theme-primary, same as
+   .dash-head / .dash-avatar on the Dashboard. ---- */
+.lgu-head {
+    background: transparent;
+    border-bottom: 4px solid rgb(var(--v-theme-primary));
+}
+.lgu-head + .v-divider {
+    display: none;
+}
+.lgu-head-avatar {
+    /* !important: Vuetify's own .v-avatar sets border-width: 0 in a later
+       stylesheet, which would otherwise cancel this border. */
+    border: 2px solid rgb(var(--v-theme-primary)) !important;
+}
+
 /* ---- Pixiv-style search dropdown: blue thin scrollbar ---- */
 .search-menu {
     border-radius: 24px;
@@ -145,6 +161,12 @@ html.hide-page-scroll::-webkit-scrollbar {
 html.lock-scroll,
 html.lock-scroll body {
     overflow: hidden !important;
+}
+
+/* Fuse per-cell header borders into one continuous edge-to-edge rule
+   (Vuetify defaults to border-collapse: separate, which can seam). */
+.lgu-table table {
+    border-collapse: collapse;
 }
 
 .lgu-table thead tr th.v-data-table__th {

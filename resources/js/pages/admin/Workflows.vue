@@ -1631,4 +1631,7 @@ onMounted(async () => {
     height: 38px;
     background: #fff;
 }
+html.dark .skel-fill td {
+    background: #1e1e2e;
+}
 </style>
