@@ -1,17 +1,29 @@
 <template>
     <div v-if="items?.length">
-        <div v-if="detailed" class="d-flex flex-column ga-2">
+        <div v-if="detailed" class="d-flex flex-wrap ga-1 align-center">
             <div
                 v-for="a in items"
                 :key="a.id"
-                class="d-flex align-center ga-2 pa-2 rounded-lg"
-                style="background: rgba(0,0,0,0.03)"
+                class="d-inline-flex align-center ga-1 py-1 px-2 rounded"
+                style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.25); width: fit-content; max-width: 100%"
             >
-                <v-icon size="large" color="error">{{ fileIconFor(a) }}</v-icon>
-                <div class="flex-1-1" style="min-width: 0">
+                <v-icon size="default" color="error">{{ fileIconFor(a) }}</v-icon>
+                <div class="flex-1-1" style="min-width: 0; max-width: 220px">
                     <div class="text-body-2 text-truncate">{{ a.original_name }}</div>
-                    <div class="text-caption text-medium-emphasis">{{ formatSize(a.size_bytes) }} · uploaded</div>
+                    <div class="text-caption text-medium-emphasis">{{ formatSize(a.size_bytes) }}</div>
                 </div>
+                <v-btn
+                    icon="mdi-eye-outline"
+                    size="x-small"
+                    variant="text"
+                    color="grey-darken-1"
+                    :title="`View ${a.original_name}`"
+                    :href="fileViewUrl(a)"
+                    target="_blank"
+                    rel="noopener"
+                    :disabled="!fileViewUrl(a)"
+                    @click.stop
+                />
                 <v-btn
                     v-if="canDelete"
                     icon="mdi-trash-can-outline"

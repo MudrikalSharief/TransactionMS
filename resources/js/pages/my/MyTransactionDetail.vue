@@ -466,6 +466,7 @@
                         :form="form"
                         v-model:step-data-form="stepDataForm"
                         :step-data="tx?.current_step_data || []"
+                        :prev-context="tx?.previous_step_context || null"
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"

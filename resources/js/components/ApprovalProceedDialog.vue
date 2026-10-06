@@ -50,6 +50,7 @@
                             :checklist="tx.current_step_checklist || []"
                             :fields="tx.current_step_fields"
                             :step-data="tx.current_step_data || []"
+                            :prev-context="tx.previous_step_context || null"
                             :form="form"
                             :selected-action-label="selectedActionLabel"
                             :selected-route-id="selectedRouteId"

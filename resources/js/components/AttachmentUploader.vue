@@ -3,7 +3,6 @@
         <div v-if="showHeader" class="d-flex align-center ga-2 mb-3">
             <div class="font-weight-bold text-body-1">
                 Upload files
-                <span class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
             </div>
             <span v-if="hintText" class="text-caption" :class="hintType === 'success' ? 'text-success' : 'text-error'">
                 <v-icon size="x-small">{{ hintType === 'success' ? 'mdi-check' : 'mdi-alert-circle-outline' }}</v-icon>
@@ -25,7 +24,6 @@
                 <v-icon size="x-small">{{ hintType === 'success' ? 'mdi-check' : 'mdi-alert-circle-outline' }}</v-icon>
                 {{ hintText }}
             </span>
-            <span v-else class="text-caption text-medium-emphasis">(optional, max 20MB each)</span>
             <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
         </div>
         <v-file-input
