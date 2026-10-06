@@ -289,6 +289,12 @@ async function doDelete() {
         pendingDelete.value = null;
         emit("deleted", a.id);
     } catch (e) {
+        if (e?.response?.status === 404) {
+            confirmDialog.value = false;
+            pendingDelete.value = null;
+            emit("deleted", a.id);
+            return;
+        }
         deleteError.value = e?.response?.data?.message || "Delete failed.";
     } finally {
         deletingId.value = null;

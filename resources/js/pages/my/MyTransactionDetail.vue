@@ -1497,6 +1497,7 @@ function displayValue(v) {
 // Prune a superadmin-deleted attachment from every local list so the UI
 // stays in sync without a full reload (which would wipe staged form input).
 function removeAttachment(id) {
+    wizardRef.value?.removeReqFile?.(id);
     proceedAttachments.value = (proceedAttachments.value || []).filter((a) => a.id !== id);
     checkAttachments.value = (checkAttachments.value || []).filter((a) => a.id !== id);
     if (tx.value?.attachments) tx.value.attachments = tx.value.attachments.filter((a) => a.id !== id);

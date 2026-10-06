@@ -70,7 +70,7 @@
                             @toggle-requirement="onRequirementToggle"
                             @toggle-checklist="onChecklistToggle"
                             @requirement-uploaded="refreshTxPreservingForm"
-                            @attachment-deleted="refreshTxPreservingForm"
+                            @attachment-deleted="onAttachmentDeleted"
                         />
                     </template>
                 </template>
@@ -356,6 +356,11 @@ async function refreshTxPreservingForm() {
     } catch (e) {
         error.value = formatApiError(e, "Failed to refresh transaction.");
     }
+}
+
+function onAttachmentDeleted(id) {
+    wizardRef.value?.removeReqFile?.(id);
+    refreshTxPreservingForm();
 }
 
 async function goWizardNext() {

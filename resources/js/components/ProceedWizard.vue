@@ -467,13 +467,13 @@ function mergedReqAttachments(r) {
     return [...server, ...staged.filter((a) => !seen.has(a.id))]
 }
 
-// Delete from the merged list: staged files drop from local state,
-// server files go through the parent's persisted-delete path.
+// Delete from the merged list: always delete the server row (staged
+// copies are already persisted on upload), and drop any staged copy so
+// the card never reappears or gets deleted twice.
 function onReqAttachmentDeleted(r, id) {
     const staged = getReqFiles(r.definition.id) || []
     if (staged.some((a) => a.id === id)) {
         setReqFiles(r.definition.id, staged.filter((a) => a.id !== id))
-        return
     }
     emit('attachment-deleted', id)
 }
@@ -517,7 +517,15 @@ function clearReqFiles() {
     reqFiles.value = {}
 }
 
-defineExpose({ clearReqFiles, getReqFiles })
+function removeReqFile(id) {
+    const next = {}
+    for (const [key, files] of Object.entries(reqFiles.value || {})) {
+        next[key] = (files || []).filter((a) => a.id !== id)
+    }
+    reqFiles.value = next
+}
+
+defineExpose({ clearReqFiles, getReqFiles, removeReqFile })
 </script>
 
 <style scoped>
