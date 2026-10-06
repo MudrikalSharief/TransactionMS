@@ -574,6 +574,7 @@
             v-model:open="jumpDialog"
             :current-label="jumpCurrentLabel"
             :destination-label="jumpDestinationLabel"
+            :subject="tx?.title || ''"
             :confirm-label="mainActionButtonLabel"
             :saving="saving"
             :is-forward="isJumpForward"

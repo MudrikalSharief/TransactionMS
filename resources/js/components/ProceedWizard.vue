@@ -1,10 +1,18 @@
 <template>
     <div>
-        <v-stepper v-if="showChecklist && hasProceedContent" v-model="step" flat hide-actions alt-labels class="wizard-stepper mb-2">
+        <v-stepper v-if="showChecklist && hasProceedContent && !singlePage" v-model="step" flat hide-actions alt-labels class="wizard-stepper mb-2">
             <v-stepper-header>
-                <v-stepper-item :value="1" title="Review" subtitle="Checklist & proceed" complete-icon="mdi-check" />
+                <v-stepper-item :value="1" title="Review" subtitle="Checklist & proceed">
+                    <template #icon="{ hasCompleted }">
+                        <v-icon v-if="hasCompleted">mdi-check</v-icon>
+                    </template>
+                </v-stepper-item>
                 <v-divider />
-                <v-stepper-item :value="2" title="Requirements" subtitle="Upload files" complete-icon="mdi-check" />
+                <v-stepper-item :value="2" title="Requirements" subtitle="Upload files">
+                    <template #icon="{ hasCompleted }">
+                        <v-icon v-if="hasCompleted">mdi-check</v-icon>
+                    </template>
+                </v-stepper-item>
             </v-stepper-header>
         </v-stepper>
 
@@ -12,12 +20,12 @@
             <!-- PAGE 1: review — requirements status + checklist ticks.
                  First page in two-page mode; the only page in single-step
                  (checklist-only) mode where its footer allows Proceed. -->
-            <v-window-item v-if="showChecklist" :value="1">
+            <v-window-item v-if="showChecklist && !singlePage" :value="1">
                 <!-- Single-step fallback: no requirements, so station info lives here -->
                 <template v-if="!hasRequirements && ((fields || []).length || (stepData || []).length)">
                     <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
                     <StepInfoFields :fields="fields" :form="form" />
-                    <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" />
+                    <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" :modern="modern" />
                     <v-divider class="my-3" />
                 </template>
 
@@ -51,7 +59,16 @@
                 </v-card>
 
                 <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
-                <div class="text-subtitle-2 font-weight-bold mb-1">Checklist</div>
+                <div v-if="modern" class="text-h6 font-weight-bold mb-3">Review</div>
+                <div class="d-flex justify-space-between align-baseline mb-1">
+                    <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">Checklist</div>
+                    <div v-if="modern && (checklist || []).length" class="text-body-2" :class="checklistComplete ? 'text-success' : 'text-medium-emphasis'">
+                        {{ verifiedChecklistCount }} of {{ (checklist || []).length }} verified
+                    </div>
+                </div>
+                <div v-if="modern && (checklist || []).length && !isReturnSelected" class="text-body-2 text-medium-emphasis mb-2">
+                    Tick each box when you have seen the hard copies. Required items must be ticked.
+                </div>
                 <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
                     Return action — checklist not required.
                 </div>
@@ -59,11 +76,11 @@
                     No checklist items for this station.
                 </div>
                 <div v-else>
-                    <div v-if="hasPrevColumnChecklist" class="text-caption text-medium-emphasis mb-2">
+                    <div v-if="hasPrevColumnChecklist && !modern" class="text-caption text-medium-emphasis mb-2">
                         <b>Prev</b> shows what the previous station ticked (read-only).
                         <b>Verify</b> is your tick — mark it only when you've seen the hard copy. Required items must be verified before you can Proceed.
                     </div>
-                    <div v-else class="text-caption text-medium-emphasis mb-2">
+                    <div v-else-if="!modern" class="text-caption text-medium-emphasis mb-2">
                         Tick each item as done. Required items must be ticked before you can Proceed.
                     </div>
                     <div v-if="hasPrevColumnChecklist" class="d-flex align-center ga-2">
@@ -88,7 +105,7 @@
                         </div>
                         <v-checkbox
                             :model-value="!!c.checked"
-                            :label="`${c.name}${c.is_required ? ' (required)' : ''}`"
+                            :label="modern ? c.name : `${c.name}${c.is_required ? ' (required)' : ''}`"
                             density="compact"
                             hide-details="auto"
                             style="flex: 1 1 auto"
@@ -96,6 +113,8 @@
                             :loading="savingChecklist && savingChecklistItemId === c.id"
                             @update:model-value="(v) => emit('toggle-checklist', c, v)"
                         />
+                        <v-chip v-if="modern && c.is_required" size="small" variant="tonal" color="error" rounded="pill">Required</v-chip>
+                        <v-chip v-else-if="modern" size="small" variant="outlined" color="grey" rounded="pill">Optional</v-chip>
                         <v-btn
                             v-for="a in viewableFiles(c)"
                             :key="a.id"
@@ -148,6 +167,7 @@
                     :remarks-label="remarksLabel"
                     :remarks-placeholder="remarksPlaceholder"
                     :attachments-title="attachmentsTitle"
+                    :modern="modern"
                     @attachment-deleted="(id) => emit('attachment-deleted', id)"
                 />
             </v-window-item>
@@ -156,19 +176,25 @@
                  Last page in two-page mode; the only page in single-page mode
                  (step 1 → step 2, no checklist): remarks + move attachments
                  render below so it never shows a second screen. -->
-            <v-window-item v-if="hasRequirements || hasStepData || !showChecklist" :value="2">
+            <v-window-item v-if="hasRequirements || hasStepData || !showChecklist" :value="singlePage ? 1 : 2">
                 <template v-if="(fields || []).length">
-                    <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
+                    <div :class="numberedSection ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'" class="mb-2">{{ numberedSection && sectionNumbers.info ? `Step ${sectionNumbers.info}: ` : '' }}Station info</div>
                     <StepInfoFields :fields="fields" :form="form" />
 
                     <v-divider class="my-3" />
                 </template>
-                <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" />
+                <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" :modern="modern" :numbered="numberedSection" :start-number="sectionNumbers.dataStart" />
                 <div class="d-flex justify-space-between align-baseline mb-2">
-                    <div class="text-subtitle-2 font-weight-bold">Requirements to proceed</div>
-                    <div v-if="(requirements || []).length" class="text-caption" :class="requirementsComplete ? 'text-success' : 'text-medium-emphasis'">
+                    <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">{{ numberedSection && sectionNumbers.reqs ? `Step ${sectionNumbers.reqs}: ` : '' }}Requirements to proceed</div>
+                    <div v-if="modern && (requirements || []).length && requiredTotalCount > 0" class="text-body-2 text-success">
+                        {{ requiredTickedCount }} of {{ requiredTotalCount }} required ticked
+                    </div>
+                    <div v-else-if="(requirements || []).length" class="text-caption" :class="requirementsComplete ? 'text-success' : 'text-medium-emphasis'">
                         {{ checkedRequirementsCount }} of {{ (requirements || []).length }} complete
                     </div>
+                </div>
+                <div v-if="modern && (requirements || []).length" class="text-body-2 text-medium-emphasis mb-2">
+                    Tick each box when it is done. Items marked Required must be ticked.
                 </div>
 
                 <div v-if="!(isReturnSelected && !(requirements || []).length) && (requirements || []).length" class="d-flex flex-column ga-3">
@@ -207,8 +233,8 @@
                                 :loading="savingChecklist && savingRequirementId === r.definition.id"
                                 @update:model-value="(v) => emit('toggle-requirement', r, v)"
                             />
-                            <v-chip v-if="r?.pivot?.is_required" size="x-small" variant="tonal" :color="r.checked ? 'success' : 'warning'" rounded="lg"><v-icon v-if="r.checked" start size="x-small">mdi-check</v-icon>Required</v-chip>
-                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="lg">optional</v-chip>
+                            <v-chip v-if="r?.pivot?.is_required" :size="modern ? 'small' : 'x-small'" variant="tonal" :color="modern ? 'error' : (r.checked ? 'success' : 'warning')" :rounded="modern ? 'pill' : 'lg'"><v-icon v-if="r.checked && !modern" start size="x-small">mdi-check</v-icon>Required</v-chip>
+                            <v-chip v-else :size="modern ? 'small' : 'x-small'" :variant="modern ? 'outlined' : 'tonal'" color="grey" :rounded="modern ? 'pill' : 'lg'">{{ modern ? 'Optional' : 'optional' }}</v-chip>
                         </div>
                     </div>
                     <v-card
@@ -231,7 +257,7 @@
                             <v-chip v-if="uploadRequired(r)" size="x-small" variant="tonal" :color="hasReqFiles(r) ? 'success' : 'error'" rounded="lg">
                                 <v-icon start size="x-small">{{ hasReqFiles(r) ? 'mdi-check' : 'mdi-upload' }}</v-icon>{{ hasReqFiles(r) ? 'file uploaded' : 'upload required' }}
                             </v-chip>
-                            <v-chip v-else size="x-small" variant="tonal" color="grey" rounded="lg">optional</v-chip>
+                            <v-chip v-else size="x-small" :variant="modern ? 'outlined' : 'tonal'" color="grey" rounded="lg">optional</v-chip>
                             <v-chip
                                 v-if="mergedReqAttachments(r).length"
                                 size="x-small"
@@ -288,6 +314,7 @@
                     :remarks-label="remarksLabel"
                     :remarks-placeholder="remarksPlaceholder"
                     :attachments-title="attachmentsTitle"
+                    :modern="modern"
                     @attachment-deleted="(id) => emit('attachment-deleted', id)"
                 />
             </v-window-item>
@@ -345,6 +372,11 @@ const props = defineProps({
     attachmentsTitle: { type: String, default: 'Additional files' },
     // Previous station context (last move only, read-only): { step, run, fields, step_data }.
     prevContext: { type: Object, default: null },
+    // Redesign flags (proceed modal mockup; My-transaction dialog only).
+    // `modern` restyles pills, counters, hints and validation lines.
+    // `singlePage` renders the numbered single-scroll layout (first step only).
+    modern: { type: Boolean, default: false },
+    singlePage: { type: Boolean, default: false },
 })
 
 // Page 2 holds the uploads. In single-page mode (step 1 → step 2) it is the
@@ -359,6 +391,31 @@ const requirementsComplete = computed(
 )
 const hasProceedContent = computed(
     () => hasRequirements.value || hasStepData.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
+)
+
+// Redesign flags: numbered "Step N:" section headers only in the
+// single-page first-step layout; modern counters/pills whenever modern.
+const numberedSection = computed(() => props.modern && props.singlePage)
+const sectionNumbers = computed(() => {
+    const nums = { info: 0, dataStart: 1, reqs: 0 }
+    let n = 0
+    if ((props.fields || []).length) nums.info = ++n
+    nums.dataStart = n + 1
+    n += (props.stepData || []).length
+    if ((props.requirements || []).length) nums.reqs = ++n
+    return nums
+})
+
+// Required-only tick counter ("2 of 2 required ticked").
+const requiredTotalCount = computed(() => (props.requirements || []).filter((r) => !!r?.pivot?.is_required).length)
+const requiredTickedCount = computed(
+    () => (props.requirements || []).filter((r) => !!r?.pivot?.is_required && !!r.checked).length,
+)
+
+// Checklist verify counter ("1 of 3 verified").
+const verifiedChecklistCount = computed(() => (props.checklist || []).filter((c) => !!c.checked).length)
+const checklistComplete = computed(
+    () => (props.checklist || []).length > 0 && verifiedChecklistCount.value >= (props.checklist || []).length,
 )
 
 // Previous station context (last move only, read-only) shown above Checklist.

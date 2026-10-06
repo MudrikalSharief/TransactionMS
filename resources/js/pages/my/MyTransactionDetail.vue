@@ -447,13 +447,13 @@
 
         <v-dialog v-model="remarksDialog" max-width="800" scrollable>
             <v-card rounded="xl" style="overflow: hidden">
-                <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
+                <div class="px-6 pt-4"><StepBadge :tx="tx" modern /></div>
                 <v-card-title>
                     {{ proceedModalTitle }}
                 </v-card-title>
                 <v-divider />
                 <v-card-text class="proceed-scroll">
-                    <ReturnBanner :info="autoReturnInfo" />
+                    <ReturnBanner :info="autoReturnInfo" modern />
                     <ProceedWizard
                         ref="wizardRef"
                         v-model:step="wizardStep"
@@ -468,6 +468,8 @@
                         v-model:step-data-form="stepDataForm"
                         :step-data="tx?.current_step_data || []"
                         :prev-context="tx?.previous_step_context || null"
+                        modern
+                        :single-page="isAtFirstStep"
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
@@ -491,11 +493,24 @@
                     />
                 </v-card-text>
                 <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="remarksDialog = false">Cancel</v-btn>
-                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="text" @click="wizardStep = 1">Back</v-btn>
-                    <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !skipReview" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || skipReview" color="grey-darken-3" rounded="0" :loading="saving" :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0" @click="executeSelected">Proceed</v-btn>
+                <v-card-actions class="align-center ga-2 px-6 py-4">
+                    <div class="mr-auto">
+                        <template v-if="footerStatus.ok">
+                            <span class="font-weight-bold text-success">{{ footerStatus.title }}</span>
+                            <span class="text-success"> {{ footerStatus.message }}</span>
+                        </template>
+                        <template v-else-if="footerStatus.titleOnly">
+                            <span class="font-weight-bold text-error">{{ footerStatus.title }}</span>
+                        </template>
+                        <template v-else>
+                            <div class="font-weight-bold text-error">{{ footerStatus.title }}</div>
+                            <div class="text-body-2 text-medium-emphasis">{{ footerStatus.message }}</div>
+                        </template>
+                    </div>
+                    <v-btn variant="outlined" rounded="lg" @click="remarksDialog = false">Cancel</v-btn>
+                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="outlined" rounded="lg" @click="wizardStep = 1">Back</v-btn>
+                    <v-btn v-if="showNextBtn" variant="outlined" rounded="lg" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
+                    <v-btn v-if="wizardStep === 2 || skipReview" color="black" rounded="lg" :loading="saving" :disabled="proceedDisabled" @click="executeSelected">{{ proceedButtonLabel }}</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -504,6 +519,7 @@
             v-model:open="jumpDialog"
             :current-label="jumpCurrentLabel"
             :destination-label="jumpDestinationLabel"
+            :subject="tx?.title || ''"
             :confirm-label="mainActionButtonLabel"
             :saving="saving"
             :is-forward="isJumpForward"
@@ -1060,9 +1076,10 @@ function openProceed() {
             : [];
     attachmentName.value = "";
     executeError.value = "";
-    // Single-page mode (step 1 → step 2): everything happens on the
-    // Requirements page (now page 2). Otherwise start on Review (page 1).
-    wizardStep.value = skipReview.value ? 2 : 1;
+    // First-step single-page layout always starts on its only page.
+    // Otherwise single-page mode (step 1 → step 2) shows the Requirements
+    // page (now page 2), or start on Review (page 1).
+    wizardStep.value = isAtFirstStep.value ? 1 : (skipReview.value ? 2 : 1);
     wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
 }
@@ -1443,7 +1460,7 @@ function proceedTitle(prefix) {
         cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
         dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
     ).trim();
-    return office ? `${prefix} "${name}" (${office})` : `${prefix} "${name}"`;
+    return office ? `${prefix} ${name} (${office})` : `${prefix} ${name}`;
 }
 
 // Single-line Proceed modal title: destination step name + office.
@@ -1455,7 +1472,37 @@ const proceedModalTitle = computed(() => {
     }
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return proceedTitle("Return to");
-    return proceedTitle("Proceeding to");
+    return proceedTitle("Proceed to");
+});
+
+// Black primary button label: Proceed to {destination office code}.
+const destOfficeCode = computed(() => destStepForTitle()?.office?.code || '');
+const proceedButtonLabel = computed(() => {
+    if (isReturnSelected.value || isJumpSelected.value) return mainActionButtonLabel.value;
+    if (destOfficeCode.value) return `Proceed to ${destOfficeCode.value}`;
+    const dest = destStepForTitle();
+    const name = dest?.name || dest?.code;
+    if (name) return `Proceed to ${name}`;
+    return 'Proceed';
+});
+
+// Footer Next-button visibility (mirrors the template condition).
+const showNextBtn = computed(() => wizardStep.value === 1 && !isSingleStepProceed.value && !skipReview.value);
+// Single source of truth for the Proceed disabled state (mirrors backend gating).
+const proceedDisabled = computed(() =>
+    !selectedRouteId.value ||
+    (!isReturnSelected.value && (missingRequiredUploadLabels.value.length > 0 || missingRequiredTickLabels.value.length > 0 || missingRequiredChecklistLabels.value.length > 0)) ||
+    missingRequiredFields.value.length > 0 ||
+    missingRequiredStepDataLabels.value.length > 0,
+);
+const proceedActionWord = computed(() => (showNextBtn.value ? 'Next' : 'Proceed'));
+// Footer status line (mockup: green "All set." vs red "Required" + reason).
+const footerStatus = computed(() => {
+    if (!selectedRouteId.value) return { ok: false, title: 'Required', message: 'Select a destination to proceed.', titleOnly: false };
+    if (missingRequiredUploadLabels.value.length > 0) return { ok: false, title: 'Required', message: `Upload the required files to enable ${proceedActionWord.value}.`, titleOnly: false };
+    if (missingRequiredFields.value.length > 0 || missingRequiredStepDataLabels.value.length > 0) return { ok: false, title: 'This field is required.', message: '', titleOnly: true };
+    if (missingRequiredTickLabels.value.length > 0 || missingRequiredChecklistLabels.value.length > 0) return { ok: false, title: 'Required', message: `Tick the required items to enable ${proceedActionWord.value}.`, titleOnly: false };
+    return { ok: true, title: 'All set.', message: 'You can proceed.', titleOnly: false };
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so
