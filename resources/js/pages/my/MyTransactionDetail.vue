@@ -459,6 +459,7 @@
                         v-model:step="wizardStep"
                         v-model:remarks="remarks"
                         v-model:proceed-attachments="proceedAttachments"
+                        v-model:attachment-name="attachmentName"
                         :tx-id="route.params.id"
                         :requirements="tx?.current_step_requirements || []"
                         :checklist="tx?.current_step_checklist || []"
@@ -482,7 +483,7 @@
                         :saving-requirement-id="savingRequirementId"
                         :remarks-label="autoReturnInfo?.sender ? `Reply to ${autoReturnInfo.sender} (optional)` : 'Remarks (optional)'"
                         remarks-placeholder="Explain what you changed or fixed"
-                        attachments-title="Other attachments (optional)"
+                        attachments-title="Additional files"
                         @toggle-requirement="onWizardToggle"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
@@ -642,6 +643,7 @@ const wizardStep = ref(1);
 const wizardRef = ref(null);
 const selectedRouteId = ref(null);
 const proceedAttachments = ref([]);
+const attachmentName = ref("");
 const checkAttachments = ref([]);
 
 // Stations the paper already passed (meta.visited_step_ids). Powers the
@@ -1056,6 +1058,7 @@ function openProceed() {
         : destVisited
             ? [...currentStepAttachments()]
             : [];
+    attachmentName.value = "";
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the
     // Requirements page (now page 2). Otherwise start on Review (page 1).
@@ -1175,6 +1178,7 @@ async function executeSelected() {
         remarksDialog.value = false;
         wizardStep.value = 1;
         proceedAttachments.value = [];
+        attachmentName.value = "";
         // New station, new outgoing routes — force a fresh selection so the
         // closed dropdown never shows the previous route's raw id.
         selectedRouteId.value = null;

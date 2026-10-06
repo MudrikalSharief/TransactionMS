@@ -18,6 +18,7 @@ class TransactionAttachmentResource extends JsonResource
             'step_run_id' => $this->step_run_id,
             'origin' => $this->requirement_definition_id ? 'check' : 'proceed',
             'original_name' => $this->original_name,
+            'label' => $this->label,
             'mime' => $this->mime,
             'size_bytes' => (int) $this->size_bytes,
             'uploaded_by' => $this->whenLoaded('uploader', fn () => $this->uploader?->only(['id', 'name'])),

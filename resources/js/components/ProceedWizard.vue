@@ -114,12 +114,28 @@
                     </div>
                 </div>
 
+                <!-- Previous step's Additional files (last move only, view-only). -->
+                <div v-if="hasPrevFiles" class="mt-3">
+                    <div class="text-subtitle-2 font-weight-bold mb-2">Additional files</div>
+                    <AttachmentList
+                        :items="prevContext?.attachments || []"
+                        :tx-id="txId"
+                        :is-admin="false"
+                        detailed
+                        group-by-label
+                        hide-delete
+                        :show-details="false"
+                        action="view"
+                    />
+                </div>
+
                 <!-- Single-step mode only (no requirements): remarks + move
                      attachments live here so checklist-only flows can Proceed. -->
                 <ProceedFooter
                     v-if="!hasRequirements"
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
+                    v-model:attachment-name="attachmentName"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :is-return-selected="isReturnSelected"
@@ -259,6 +275,7 @@
                 <ProceedFooter
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
+                    v-model:attachment-name="attachmentName"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :is-return-selected="isReturnSelected"
@@ -292,6 +309,7 @@ import { fileViewUrl, isOfficeDoc } from '@/composables/useFileView'
 const step = defineModel('step', { default: 1 })
 const remarks = defineModel('remarks', { default: '' })
 const proceedAttachments = defineModel('proceedAttachments', { default: () => [] })
+const attachmentName = defineModel('attachmentName', { default: '' })
 // Step-data draft keyed by definition code; sent as `step_data` on Proceed.
 const stepDataForm = defineModel('stepDataForm', { default: () => ({}) })
 
@@ -324,7 +342,7 @@ const props = defineProps({
     savingRequirementId: { type: [Number, String, null], default: null },
     remarksLabel: { type: String, default: 'Remarks (optional)' },
     remarksPlaceholder: { type: String, default: '' },
-    attachmentsTitle: { type: String, default: 'Other attachments (optional)' },
+    attachmentsTitle: { type: String, default: 'Additional files' },
     // Previous station context (last move only, read-only): { step, run, fields, step_data }.
     prevContext: { type: Object, default: null },
 })
@@ -365,6 +383,7 @@ const prevRemarksText = computed(() => props.prevContext?.run?.remarks || '')
 const prevFieldRows = computed(() => props.prevContext?.fields || [])
 const prevStepDataRows = computed(() => props.prevContext?.step_data || [])
 const hasPrevDataRows = computed(() => prevFieldRows.value.length > 0 || prevStepDataRows.value.length > 0)
+const hasPrevFiles = computed(() => (props.prevContext?.attachments || []).length > 0)
 
 function displayPrevValue(v) {
     if (v === null || v === undefined || v === '') return '—'
@@ -430,6 +449,7 @@ const emit = defineEmits([
     'attachment-deleted',
     'update:remarks',
     'update:proceedAttachments',
+    'update:attachmentName',
 ])
 
 function hasReqFiles(r) {

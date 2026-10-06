@@ -11,14 +11,22 @@
             density="comfortable"
             @update:model-value="(v) => emit('update:remarks', v)"
         />
-        <div class="text-subtitle-2 font-weight-bold mb-2">{{ attachmentsTitle }}</div>
+        <div class="text-subtitle-2 font-weight-bold mb-1">{{ attachmentsTitle }}</div>
+        <div class="text-caption text-medium-emphasis mb-2">Input file name</div>
         <AttachmentUploader
             :tx-id="txId"
             :is-admin="isAdmin"
             :model-value="proceedAttachments"
             :show-header="false"
-            file-action="download"
+            file-action="view"
+            :file-label="attachmentName"
+            require-label
+            list-show-eye
+            list-detailed
+            list-group-by-label
+            show-label-input
             @update:model-value="(files) => emit('update:proceedAttachments', files)"
+            @update:file-label="(v) => emit('update:attachmentName', v)"
             @deleted="(id) => emit('attachment-deleted', id)"
         />
         <v-alert v-if="executeError" type="error" variant="tonal" class="mt-3">
@@ -35,6 +43,7 @@ import AttachmentUploader from '@/components/AttachmentUploader.vue'
 // otherwise), so each screen shows exactly one footer.
 const remarks = defineModel('remarks', { default: '' })
 const proceedAttachments = defineModel('proceedAttachments', { default: () => [] })
+const attachmentName = defineModel('attachmentName', { default: '' })
 
 defineProps({
     txId: { type: [Number, String], required: true },
@@ -49,12 +58,13 @@ defineProps({
     executeError: { type: String, default: '' },
     remarksLabel: { type: String, default: 'Remarks (optional)' },
     remarksPlaceholder: { type: String, default: '' },
-    attachmentsTitle: { type: String, default: 'Other attachments (optional)' },
+    attachmentsTitle: { type: String, default: 'Additional files' },
 })
 
 const emit = defineEmits([
     'attachment-deleted',
     'update:remarks',
     'update:proceedAttachments',
+    'update:attachmentName',
 ])
 </script>

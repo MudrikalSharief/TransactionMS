@@ -77,6 +77,7 @@ class TransactionAttachmentController extends Controller
             'workflow_step_id' => $stepId,
             'requirement_definition_id' => $requirementId,
             'original_name' => $file->getClientOriginalName(),
+            'label' => ($label = trim((string) ($validated['label'] ?? ''))) !== '' ? mb_substr($label, 0, 120) : null,
             'stored_path' => $path,
             'disk' => 'local',
             'mime' => $file->getMimeType(),
