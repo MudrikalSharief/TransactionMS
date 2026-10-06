@@ -16,6 +16,7 @@ class UploadAttachmentRequest extends FormRequest
         return [
             'file' => ['required', 'file', 'max:20480'],
             'requirement_definition_id' => ['nullable', 'integer', 'exists:requirement_definitions,id'],
+            'label' => ['nullable', 'string', 'max:120'],
         ];
     }
 

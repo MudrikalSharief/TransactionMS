@@ -12,6 +12,7 @@ class TransactionAttachment extends Model
         'requirement_definition_id',
         'step_run_id',
         'original_name',
+        'label',
         'stored_path',
         'disk',
         'mime',

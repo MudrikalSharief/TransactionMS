@@ -141,6 +141,7 @@ class TransactionResource extends JsonResource
                     'attachments' => $reqAtts->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
+                        'label' => $a->label,
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'step_run_id' => $a->step_run_id,
@@ -212,6 +213,7 @@ class TransactionResource extends JsonResource
                     'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
+                        'label' => $a->label,
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'requirement_definition_id' => $a->requirement_definition_id,
@@ -300,6 +302,7 @@ class TransactionResource extends JsonResource
                         'attachments' => $reqAtts->map(fn ($a) => [
                             'id' => $a->id,
                             'original_name' => $a->original_name,
+                        'label' => $a->label,
                             'mime' => $a->mime,
                             'size_bytes' => (int) $a->size_bytes,
                             'step_run_id' => $a->step_run_id,
@@ -326,6 +329,7 @@ class TransactionResource extends JsonResource
                     'attachments' => $allAtts->get(((int) $s->id) . ':0', collect())->values()->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
+                        'label' => $a->label,
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'step_run_id' => $a->step_run_id,
@@ -406,6 +410,76 @@ class TransactionResource extends JsonResource
                     return (new TransactionStepRunResource($pending))->toArray(request());
                 }
             ),
+
+            'previous_step_context' => $this->buildPreviousStepContext($stationChecklist ?? []),
+        ];
+    }
+
+    /**
+     * Previous station context for the Proceed Review page (last move only,
+     * read-only): step identity + remarks/who/when + station field values +
+     * station step-data values + station move-level attachments
+     * (Additional files). Null when there is no previous move
+     * (e.g. still at step 1).
+     */
+    private function buildPreviousStepContext(array $stationChecklist): ?array
+    {
+        if (!$this->relationLoaded('runs')) return null;
+        $lastRun = collect($this->runs ?? [])->sortBy(fn ($r) => (int) ($r->id ?? 0))->last();
+        if (!$lastRun) return null;
+        $prevStepId = (int) ($lastRun->from_step_id ?? 0);
+        if (!$prevStepId) return null;
+
+        $fromStep = $lastRun->relationLoaded('fromStep') ? $lastRun->fromStep : null;
+        if (!$fromStep && $this->relationLoaded('workflow')) {
+            $fromStep = collect($this->workflow->steps ?? [])->firstWhere(fn ($s) => (int) $s->id === $prevStepId);
+        }
+
+        $station = collect($stationChecklist)->firstWhere(fn ($s) => (int) ($s['step']['id'] ?? 0) === $prevStepId);
+        $fields = collect($station['fields'] ?? [])
+            ->map(fn ($f) => [
+                'code' => $f['definition']['code'] ?? null,
+                'name' => $f['definition']['name'] ?? null,
+                'value' => $f['value'] ?? null,
+            ])
+            ->filter(fn ($f) => $f['value'] !== null && $f['value'] !== '' && $f['value'] !== [])
+            ->values()
+            ->all();
+
+        $this->loadMissing(['stepData.enterer']);
+        $defs = \App\Models\WorkflowStepData::where('workflow_step_id', $prevStepId)
+            ->orderBy('display_order')
+            ->get();
+        $latestByDef = collect($this->stepData ?? [])
+            ->where('workflow_step_id', $prevStepId)
+            ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
+            ->keyBy('workflow_step_data_id');
+        $stepData = $defs->map(fn ($d) => [
+            'code' => $d->code,
+            'name' => $d->display_name,
+            'value' => $latestByDef->get($d->id)?->data_value,
+        ])
+            ->filter(fn ($row) => $row['value'] !== null && $row['value'] !== '')
+            ->values()
+            ->all();
+
+        $performer = $lastRun->relationLoaded('performer') ? $lastRun->performer : null;
+
+        return [
+            'step' => [
+                'id' => $prevStepId,
+                'name' => $fromStep?->name,
+                'order_number' => $fromStep?->order_number,
+                'office' => $fromStep?->office?->only(['id', 'code', 'name']),
+            ],
+            'run' => [
+                'remarks' => $lastRun->remarks,
+                'performed_by' => $performer?->only(['id', 'name']),
+                'performed_at' => $lastRun->performed_at?->toISOString(),
+            ],
+            'fields' => $fields,
+            'step_data' => $stepData,
+            'attachments' => array_values($station['attachments'] ?? []),
         ];
     }
 

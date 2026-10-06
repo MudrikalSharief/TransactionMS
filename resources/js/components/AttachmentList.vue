@@ -1,24 +1,87 @@
 <template>
     <div v-if="items?.length">
-        <div v-if="detailed" class="d-flex flex-column ga-2">
+        <div v-if="detailed && groupByLabel" class="d-flex flex-column ga-3 px-1 py-1">
+            <v-card
+                v-for="g in labelGroups"
+                :key="g.key"
+                rounded="lg"
+                class="pa-2"
+                style="box-shadow: 0 0 8px 1px rgba(0, 0, 0, 0.18); background: rgba(0, 0, 0, 0.015)"
+            >
+                <div class="d-flex align-center ga-2 mb-2">
+                    <span class="text-subtitle-2 font-weight-bold text-truncate">{{ g.title }}</span>
+                    <v-chip size="x-small" variant="tonal" color="grey-darken-3" rounded="lg">{{ g.files.length }} file{{ g.files.length === 1 ? '' : 's' }}</v-chip>
+                </div>
+                <div class="d-flex flex-wrap ga-1 align-center">
+                    <div
+                        v-for="a in g.files"
+                        :key="a.id"
+                        class="d-inline-flex align-center ga-1 py-1 px-2 rounded"
+                        style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.25); width: fit-content; max-width: 100%"
+                    >
+                        <v-icon size="default" color="error">{{ fileIconFor(a) }}</v-icon>
+                        <div class="flex-1-1" style="min-width: 0; max-width: 220px">
+                            <div class="text-body-2 text-truncate">{{ a.original_name }}</div>
+                            <div class="text-caption text-medium-emphasis">{{ formatSize(a.size_bytes) }}</div>
+                        </div>
+                        <v-btn
+                            icon="mdi-eye-outline"
+                            size="x-small"
+                            variant="text"
+                            color="grey-darken-1"
+                            :title="`View ${a.original_name}`"
+                            :href="fileViewUrl(a)"
+                            target="_blank"
+                            rel="noopener"
+                            :disabled="!fileViewUrl(a)"
+                            @click.stop
+                        />
+                        <v-btn
+                            v-if="canDelete && !hideDelete"
+                            icon="mdi-trash-can-outline"
+                            size="x-small"
+                            variant="text"
+                            color="grey-darken-1"
+                            :title="`Remove ${a.original_name}`"
+                            :loading="deletingId === a.id"
+                            :disabled="deletingId !== null"
+                            @click.stop="askDelete(a)"
+                        />
+                    </div>
+                </div>
+            </v-card>
+        </div>
+        <div v-else-if="detailed" class="d-flex flex-wrap ga-1 align-center">
             <div
                 v-for="a in items"
                 :key="a.id"
-                class="d-flex align-center ga-2 pa-2 rounded-lg"
-                style="background: rgba(0,0,0,0.03)"
+                class="d-inline-flex align-center ga-1 py-1 px-2 rounded"
+                style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.25); width: fit-content; max-width: 100%"
             >
-                <v-icon size="large" color="error">{{ fileIconFor(a) }}</v-icon>
-                <div class="flex-1-1" style="min-width: 0">
-                    <div class="text-body-2 text-truncate">{{ a.original_name }}</div>
-                    <div class="text-caption text-medium-emphasis">{{ formatSize(a.size_bytes) }} · uploaded</div>
+                <v-icon size="default" color="error">{{ fileIconFor(a) }}</v-icon>
+                <div class="flex-1-1" style="min-width: 0; max-width: 220px">
+                    <div class="text-body-2 text-truncate">{{ displayLabel(a) || a.original_name }}</div>
+                    <div class="text-caption text-medium-emphasis">{{ formatSize(a.size_bytes) }}</div>
                 </div>
                 <v-btn
-                    v-if="canDelete"
+                    icon="mdi-eye-outline"
+                    size="x-small"
+                    variant="text"
+                    color="grey-darken-1"
+                    :title="`View ${displayLabel(a) || a.original_name}`"
+                    :href="fileViewUrl(a)"
+                    target="_blank"
+                    rel="noopener"
+                    :disabled="!fileViewUrl(a)"
+                    @click.stop
+                />
+                <v-btn
+                    v-if="canDelete && !hideDelete"
                     icon="mdi-trash-can-outline"
                     size="x-small"
                     variant="text"
                     color="grey-darken-1"
-                    :title="`Remove ${a.original_name}`"
+                    :title="`Remove ${displayLabel(a) || a.original_name}`"
                     :loading="deletingId === a.id"
                     :disabled="deletingId !== null"
                     @click.stop="askDelete(a)"
@@ -70,17 +133,36 @@
                             </v-btn>
                         </a>
                     </template>
-                    <div class="font-weight-bold text-caption">{{ a.original_name }}</div>
+                    <div v-if="displayLabel(a)" class="font-weight-bold text-caption">{{ displayLabel(a) }}</div>
+                    <div class="text-caption" :class="displayLabel(a) ? 'text-medium-emphasis' : 'font-weight-bold'">{{ a.original_name }}</div>
                     <div class="text-caption text-medium-emphasis">
-                        <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] · </template>{{ formatSize(a.size_bytes) }}
+                        <template v-if="reqLabel(a) && reqLabel(a) !== displayLabel(a)">[{{ reqLabel(a) }}] · </template>{{ formatSize(a.size_bytes) }}
                     </div>
                     <div class="text-caption mt-1">
                         <a v-if="action === 'download'" :href="a.download_url" class="text-white" @click.stop>Download</a>
                         <a v-else :href="fileViewUrl(a)" target="_blank" rel="noopener" class="text-white" @click.stop>View</a>
                     </div>
                 </v-tooltip>
+                <span
+                    class="text-caption font-weight-bold text-truncate"
+                    style="max-width: 160px"
+                    :title="displayLabel(a) || a.original_name"
+                >{{ displayLabel(a) || a.original_name }}</span>
                 <v-btn
-                    v-if="canDelete"
+                    v-if="showEye"
+                    icon="mdi-eye-outline"
+                    size="x-small"
+                    variant="text"
+                    color="grey-darken-1"
+                    :title="`View ${displayLabel(a) || a.original_name}`"
+                    :href="fileViewUrl(a)"
+                    target="_blank"
+                    rel="noopener"
+                    :disabled="!fileViewUrl(a)"
+                    @click.stop
+                />
+                <v-btn
+                    v-if="canDelete && !hideDelete"
                     icon="mdi-delete"
                     size="x-small"
                     variant="text"
@@ -124,7 +206,7 @@
                 <v-icon size="small">mdi-eye</v-icon>
             </a>
             <v-btn
-                v-if="canDelete"
+                v-if="canDelete && !hideDelete"
                 icon="mdi-delete"
                 size="x-small"
                 variant="text"
@@ -142,9 +224,9 @@
         </v-alert>
         <div v-if="!compact && showDetails" class="mt-1">
             <div v-for="a in items" :key="'d-' + a.id" class="text-caption text-medium-emphasis">
-                <template v-if="reqLabel(a)">[{{ reqLabel(a) }}] </template>{{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
+                <template v-if="displayLabel(a)">[{{ displayLabel(a) }}] </template><template v-else-if="reqLabel(a)">[{{ reqLabel(a) }}] </template>{{ a.original_name }} • {{ displayUploader(a) }} • {{ a.created_at }} •
                 <a :href="fileViewUrl(a)" target="_blank" rel="noopener">View</a>
-                <template v-if="canDelete">
+                <template v-if="canDelete && !hideDelete">
                     •
                     <a href="#" class="text-error" @click.prevent="askDelete(a)">Delete</a>
                 </template>
@@ -203,6 +285,15 @@ const props = defineProps({
     // 'view' opens a preview tab; 'download' fetches the file directly.
     // Upload pickers use 'download'.
     action: { type: String, default: 'view' },
+    // When true, compact cards show an eye button opening a preview tab
+    // (used by the Proceed modal Other-attachments list only).
+    showEye: { type: Boolean, default: false },
+    // When true with detailed, files group into one big card per batch
+    // name (used by the Proceed modal Additional-files list only).
+    groupByLabel: { type: Boolean, default: false },
+    // When true, hides all delete buttons (view-only display of
+    // previous-step files in the Proceed Review page).
+    hideDelete: { type: Boolean, default: false },
 });
 const emit = defineEmits(["deleted"]);
 
@@ -224,7 +315,32 @@ function displayUploader(a) {
     return a.uploaded_by?.name || a.uploader?.name || "—";
 }
 
+function displayLabel(a) {
+    const label = String(a?.label || '').trim();
+    return label || '';
+}
+
+// Group detailed files by batch name (first-appearance order); unlabeled
+// legacy files collect under their own "Other files" group.
+const labelGroups = computed(() => {
+    const groups = [];
+    const byKey = new Map();
+    for (const a of (props.items || [])) {
+        const label = displayLabel(a);
+        const key = label || '__unlabeled__';
+        let g = byKey.get(key);
+        if (!g) {
+            g = { key, title: label || 'Other files', files: [] };
+            byKey.set(key, g);
+            groups.push(g);
+        }
+        g.files.push(a);
+    }
+    return groups;
+});
+
 function reqLabel(a) {
+    if (displayLabel(a)) return displayLabel(a);
     if (a?.requirement?.name) return a.requirement.name;
     if (a?.requirement?.code) return a.requirement.code;
     if (a?.origin === "proceed" || (!a?.requirement_definition_id && a?.origin !== "check")) {
@@ -277,6 +393,12 @@ async function doDelete() {
         pendingDelete.value = null;
         emit("deleted", a.id);
     } catch (e) {
+        if (e?.response?.status === 404) {
+            confirmDialog.value = false;
+            pendingDelete.value = null;
+            emit("deleted", a.id);
+            return;
+        }
         deleteError.value = e?.response?.data?.message || "Delete failed.";
     } finally {
         deletingId.value = null;

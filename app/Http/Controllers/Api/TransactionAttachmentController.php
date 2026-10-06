@@ -70,13 +70,14 @@ class TransactionAttachmentController extends Controller
         if (in_array($ext, ['php', 'phtml', 'phar', 'exe', 'bat', 'cmd', 'sh', 'js'], true)) {
             abort(422, 'File type not allowed.');
         }
-        $path = $file->store("attachments/{$transaction->id}/{$stepId}", 'local');
+        $path = $file->store('attachments/'.now()->format('Y/m')."/{$transaction->id}/{$stepId}", 'local');
 
         $attachment = TransactionAttachment::create([
             'transaction_id' => $transaction->id,
             'workflow_step_id' => $stepId,
             'requirement_definition_id' => $requirementId,
             'original_name' => $file->getClientOriginalName(),
+            'label' => ($label = trim((string) ($validated['label'] ?? ''))) !== '' ? mb_substr($label, 0, 120) : null,
             'stored_path' => $path,
             'disk' => 'local',
             'mime' => $file->getMimeType(),
@@ -133,8 +134,13 @@ class TransactionAttachmentController extends Controller
         );
     }
 
-    public function destroy(Request $request, Transaction $transaction, TransactionAttachment $attachment)
+    public function destroy(Request $request, Transaction $transaction, int $attachment)
     {
+        $model = TransactionAttachment::whereKey($attachment)->first();
+        if (!$model) {
+            abort(404, 'File not found or already deleted.');
+        }
+
         $user = $request->user();
         $user->loadMissing('roles');
 
@@ -142,9 +148,11 @@ class TransactionAttachmentController extends Controller
             abort(403, 'Only superadmin can delete attachments.');
         }
 
-        if ((int) $attachment->transaction_id !== (int) $transaction->id) {
+        if ((int) $model->transaction_id !== (int) $transaction->id) {
             abort(404);
         }
+
+        $attachment = $model;
 
         Storage::disk($attachment->disk ?: 'local')->delete($attachment->stored_path);
         $attachment->delete();

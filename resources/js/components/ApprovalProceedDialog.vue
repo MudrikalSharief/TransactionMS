@@ -44,12 +44,14 @@
                             v-model:step="wizardStep"
                             v-model:remarks="remarks"
                             v-model:proceed-attachments="proceedAttachments"
+                            v-model:attachment-name="attachmentName"
                             v-model:step-data-form="stepDataForm"
                             :tx-id="tx.id"
                             :requirements="tx.current_step_requirements || []"
                             :checklist="tx.current_step_checklist || []"
                             :fields="tx.current_step_fields"
                             :step-data="tx.current_step_data || []"
+                            :prev-context="tx.previous_step_context || null"
                             :form="form"
                             :selected-action-label="selectedActionLabel"
                             :selected-route-id="selectedRouteId"
@@ -65,11 +67,11 @@
                             :saving-checklist-item-id="savingChecklistItemId"
                             :saving-requirement-id="savingRequirementId"
                             remarks-placeholder="Explain what you changed or fixed"
-                            attachments-title="Other attachments (optional)"
+                            attachments-title="Additional files"
                             @toggle-requirement="onRequirementToggle"
                             @toggle-checklist="onChecklistToggle"
                             @requirement-uploaded="refreshTxPreservingForm"
-                            @attachment-deleted="refreshTxPreservingForm"
+                            @attachment-deleted="onAttachmentDeleted"
                         />
                     </template>
                 </template>
@@ -130,6 +132,7 @@ const wizardRef = ref(null);
 const selectedRouteId = ref(null);
 const remarks = ref("");
 const proceedAttachments = ref([]);
+const attachmentName = ref("");
 const form = ref({});
 // Step-data draft keyed by definition code, prefilled from latest values.
 const stepDataForm = ref({});
@@ -313,6 +316,7 @@ function resetWizardForRoute() {
     const destId = selectedAction.value?.to_step?.id;
     const destVisited = destId != null && (visitedStepIds.value || []).map(Number).includes(Number(destId));
     proceedAttachments.value = destVisited ? [...currentStepAttachments()] : [];
+    attachmentName.value = "";
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the
     // Requirements page (now page 2). Otherwise start on Review (page 1).
@@ -326,6 +330,7 @@ async function load() {
     error.value = "";
     tx.value = null;
     remarks.value = "";
+    attachmentName.value = "";
     try {
         const res = await getOne(props.txId);
         applyResponse(res.tx, res.meta);
@@ -355,6 +360,11 @@ async function refreshTxPreservingForm() {
     } catch (e) {
         error.value = formatApiError(e, "Failed to refresh transaction.");
     }
+}
+
+function onAttachmentDeleted(id) {
+    wizardRef.value?.removeReqFile?.(id);
+    refreshTxPreservingForm();
 }
 
 async function goWizardNext() {

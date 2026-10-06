@@ -21,6 +21,35 @@
                     <v-divider class="my-3" />
                 </template>
 
+                <!-- Previous station remarks (last move only, read-only). Hidden when no remarks. -->
+                <v-card v-if="prevContext && hasPrevRemarks" rounded="lg" border variant="outlined" class="pa-3 mb-3">
+                    <div class="text-subtitle-2 font-weight-bold">
+                        Remarks from {{ prevStepTitle }}
+                    </div>
+                    <div v-if="prevRunBy" class="text-caption text-medium-emphasis mb-2">{{ prevRunBy }}</div>
+                    <div class="text-body-2">{{ prevRemarksText }}</div>
+                </v-card>
+
+                <!-- Previous station data (last move only, read-only). Independent of remarks. -->
+                <v-card v-if="hasPrevDataRows" rounded="lg" border variant="outlined" class="pa-3 mb-3">
+                    <div class="text-subtitle-2 font-weight-bold">
+                        Data from {{ prevStepTitle }}
+                    </div>
+                    <template v-if="prevFieldRows.length">
+                        <div v-for="f in prevFieldRows" :key="f.code || f.name" class="d-flex ga-2 py-1">
+                            <span class="text-caption text-medium-emphasis" style="min-width: 140px">{{ f.name }}</span>
+                            <span class="text-body-2">{{ displayPrevValue(f.value) }}</span>
+                        </div>
+                    </template>
+                    <template v-if="prevStepDataRows.length">
+                        <v-divider v-if="prevFieldRows.length" class="my-2" />
+                        <div v-for="d in prevStepDataRows" :key="d.code || d.name" class="d-flex ga-2 py-1">
+                            <span class="text-caption text-medium-emphasis" style="min-width: 140px">{{ d.name }}</span>
+                            <span class="text-body-2">{{ displayPrevValue(d.value) }}</span>
+                        </div>
+                    </template>
+                </v-card>
+
                 <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
                 <div class="text-subtitle-2 font-weight-bold mb-1">Checklist</div>
                 <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
@@ -85,12 +114,28 @@
                     </div>
                 </div>
 
+                <!-- Previous step's Additional files (last move only, view-only). -->
+                <div v-if="hasPrevFiles" class="mt-3">
+                    <div class="text-subtitle-2 font-weight-bold mb-2">Additional files</div>
+                    <AttachmentList
+                        :items="prevContext?.attachments || []"
+                        :tx-id="txId"
+                        :is-admin="false"
+                        detailed
+                        group-by-label
+                        hide-delete
+                        :show-details="false"
+                        action="view"
+                    />
+                </div>
+
                 <!-- Single-step mode only (no requirements): remarks + move
                      attachments live here so checklist-only flows can Proceed. -->
                 <ProceedFooter
                     v-if="!hasRequirements"
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
+                    v-model:attachment-name="attachmentName"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :is-return-selected="isReturnSelected"
@@ -219,17 +264,18 @@
                             :tx-id="txId"
                             :is-admin="isAdmin"
                             detailed
+                            :show-details="false"
                             action="download"
                             @deleted="(id) => onReqAttachmentDeleted(r, id)"
                         />
                             </div>
                         </div>
                     </v-card>
-                    <div class="text-caption text-medium-emphasis">PDF only, up to 20 MB per file. Tick a box above to enable its uploads.</div>
                 </div>
                 <ProceedFooter
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
+                    v-model:attachment-name="attachmentName"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :is-return-selected="isReturnSelected"
@@ -263,6 +309,7 @@ import { fileViewUrl, isOfficeDoc } from '@/composables/useFileView'
 const step = defineModel('step', { default: 1 })
 const remarks = defineModel('remarks', { default: '' })
 const proceedAttachments = defineModel('proceedAttachments', { default: () => [] })
+const attachmentName = defineModel('attachmentName', { default: '' })
 // Step-data draft keyed by definition code; sent as `step_data` on Proceed.
 const stepDataForm = defineModel('stepDataForm', { default: () => ({}) })
 
@@ -295,7 +342,9 @@ const props = defineProps({
     savingRequirementId: { type: [Number, String, null], default: null },
     remarksLabel: { type: String, default: 'Remarks (optional)' },
     remarksPlaceholder: { type: String, default: '' },
-    attachmentsTitle: { type: String, default: 'Other attachments (optional)' },
+    attachmentsTitle: { type: String, default: 'Additional files' },
+    // Previous station context (last move only, read-only): { step, run, fields, step_data }.
+    prevContext: { type: Object, default: null },
 })
 
 // Page 2 holds the uploads. In single-page mode (step 1 → step 2) it is the
@@ -311,6 +360,37 @@ const requirementsComplete = computed(
 const hasProceedContent = computed(
     () => hasRequirements.value || hasStepData.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
 )
+
+// Previous station context (last move only, read-only) shown above Checklist.
+const prevStepTitle = computed(() => {
+    const s = props.prevContext?.step
+    if (!s) return ''
+    const n = s.order_number
+    const name = s.name || `Step ${n ?? ''}`
+    const office = s.office?.code || s.office?.name
+    const prefix = n != null && n !== '' ? `${n}. ` : ''
+    return office ? `${prefix}${name} (${office})` : `${prefix}${name}`
+})
+const prevRunBy = computed(() => {
+    const run = props.prevContext?.run
+    if (!run) return ''
+    const who = run.performed_by?.name || ''
+    const when = run.performed_at ? new Date(run.performed_at).toLocaleString() : ''
+    return [who, when].filter(Boolean).join(' · ')
+})
+const hasPrevRemarks = computed(() => !!String(props.prevContext?.run?.remarks || '').trim())
+const prevRemarksText = computed(() => props.prevContext?.run?.remarks || '')
+const prevFieldRows = computed(() => props.prevContext?.fields || [])
+const prevStepDataRows = computed(() => props.prevContext?.step_data || [])
+const hasPrevDataRows = computed(() => prevFieldRows.value.length > 0 || prevStepDataRows.value.length > 0)
+const hasPrevFiles = computed(() => (props.prevContext?.attachments || []).length > 0)
+
+function displayPrevValue(v) {
+    if (v === null || v === undefined || v === '') return '—'
+    if (Array.isArray(v)) return v.length ? v.join(', ') : '—'
+    if (typeof v === 'object') return JSON.stringify(v)
+    return String(v)
+}
 
 // Page 2 display order: required first, then tick-only rows before
 // file-input (uploader) rows within each band. Further ties keep backend
@@ -369,6 +449,7 @@ const emit = defineEmits([
     'attachment-deleted',
     'update:remarks',
     'update:proceedAttachments',
+    'update:attachmentName',
 ])
 
 function hasReqFiles(r) {
@@ -406,13 +487,13 @@ function mergedReqAttachments(r) {
     return [...server, ...staged.filter((a) => !seen.has(a.id))]
 }
 
-// Delete from the merged list: staged files drop from local state,
-// server files go through the parent's persisted-delete path.
+// Delete from the merged list: always delete the server row (staged
+// copies are already persisted on upload), and drop any staged copy so
+// the card never reappears or gets deleted twice.
 function onReqAttachmentDeleted(r, id) {
     const staged = getReqFiles(r.definition.id) || []
     if (staged.some((a) => a.id === id)) {
         setReqFiles(r.definition.id, staged.filter((a) => a.id !== id))
-        return
     }
     emit('attachment-deleted', id)
 }
@@ -456,7 +537,15 @@ function clearReqFiles() {
     reqFiles.value = {}
 }
 
-defineExpose({ clearReqFiles, getReqFiles })
+function removeReqFile(id) {
+    const next = {}
+    for (const [key, files] of Object.entries(reqFiles.value || {})) {
+        next[key] = (files || []).filter((a) => a.id !== id)
+    }
+    reqFiles.value = next
+}
+
+defineExpose({ clearReqFiles, getReqFiles, removeReqFile })
 </script>
 
 <style scoped>

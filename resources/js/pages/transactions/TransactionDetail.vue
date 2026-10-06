@@ -528,6 +528,7 @@
                         v-model:step="wizardStep"
                         v-model:remarks="remarks"
                         v-model:proceed-attachments="proceedAttachments"
+                        v-model:attachment-name="attachmentName"
                         :tx-id="route.params.id"
                         is-admin
                         :requirements="tx?.current_step_requirements || []"
@@ -536,6 +537,7 @@
                         :form="form"
                         v-model:step-data-form="stepDataForm"
                         :step-data="tx?.current_step_data || []"
+                        :prev-context="tx?.previous_step_context || null"
                         :selected-action-label="selectedActionLabel"
                         :selected-route-id="selectedRouteId"
                         :is-return-selected="isReturnSelected"
@@ -551,7 +553,7 @@
                         :saving-requirement-id="savingRequirementId"
                         :remarks-label="autoReturnInfo?.sender ? `Reply to ${autoReturnInfo.sender} (optional)` : 'Remarks (optional)'"
                         remarks-placeholder="Explain what you changed or fixed"
-                        attachments-title="Other attachments (optional)"
+                        attachments-title="Additional files"
                         @toggle-requirement="onWizardToggle"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
@@ -784,6 +786,7 @@ function returnAttachments() {
 }
 const remarks = ref("");
 const proceedAttachments = ref([]);
+const attachmentName = ref("");
 const checkAttachments = ref([]);
 
 const form = ref({});
@@ -1128,6 +1131,7 @@ function openProceed() {
         : destVisited
             ? [...currentStepAttachments()]
             : [];
+    attachmentName.value = "";
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the
     // Requirements page (now page 2). Otherwise start on Review (page 1).
@@ -1263,6 +1267,7 @@ async function executeSelected() {
         remarksDialog.value = false;
         wizardStep.value = 1;
         proceedAttachments.value = [];
+        attachmentName.value = "";
         // New station, new outgoing routes — force a fresh selection so the
         // closed dropdown never shows the previous route's raw id.
         selectedRouteId.value = null;
@@ -1607,6 +1612,7 @@ function displayValue(v) {
 // Prune a superadmin-deleted attachment from every local list so the UI
 // stays in sync without a full reload (which would wipe staged form input).
 function removeAttachment(id) {
+    wizardRef.value?.removeReqFile?.(id);
     proceedAttachments.value = (proceedAttachments.value || []).filter((a) => a.id !== id);
     checkAttachments.value = (checkAttachments.value || []).filter((a) => a.id !== id);
     if (tx.value?.attachments) tx.value.attachments = tx.value.attachments.filter((a) => a.id !== id);
