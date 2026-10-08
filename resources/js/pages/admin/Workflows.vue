@@ -190,12 +190,9 @@
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <div v-else class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
-                            <v-avatar color="grey-lighten-3" size="56" class="mb-3">
-                                <v-icon color="grey-darken-1" size="30">mdi-source-branch</v-icon>
-                            </v-avatar>
+                            <img :src="mascotEmptyUrl" alt="No workflow yet" width="180" class="mb-3" style="border-radius: 18px" />
                             <div class="font-weight-bold">No workflow yet.</div>
-                            <div class="text-caption text-medium-emphasis mb-3">Click Add Step to create step 1.</div>
-                            <v-btn color="primary" rounded="0" prepend-icon="mdi-plus" @click="clickAddStep">Add Step</v-btn>
+                            <v-btn color="primary" rounded="0" prepend-icon="mdi-plus" class="mt-3" @click="clickAddStep">Add Step</v-btn>
                         </div>
                     </div>
                         </v-window-item>
@@ -210,11 +207,8 @@
                             <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
                         <div v-else class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
-                            <v-avatar color="grey-lighten-3" size="56" class="mb-3">
-                                <v-icon color="grey-darken-1" size="30">mdi-routes</v-icon>
-                            </v-avatar>
+                            <img :src="mascotEmptyUrl" alt="No routes yet" width="180" class="mb-3" style="border-radius: 18px" />
                             <div class="font-weight-bold">No routes yet.</div>
-                            <div class="text-caption text-medium-emphasis">Add at least two steps, then connect them with Add Route.</div>
                         </div>
                     </div>
                         </v-window-item>
@@ -253,12 +247,9 @@
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <div v-if="!loading && !resolvingSteps && activeDef && !flatStepRows.length" class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
-                    <v-avatar color="grey-lighten-3" size="56" class="mb-3">
-                        <v-icon color="grey-darken-1" size="30">mdi-source-branch</v-icon>
-                    </v-avatar>
+                        <img :src="mascotEmptyUrl" alt="No steps yet" width="180" class="mb-3" style="border-radius: 18px" />
                     <div class="font-weight-bold">No steps yet.</div>
-                    <div class="text-caption text-medium-emphasis mb-3">Click Add Step to create step 1.</div>
-                    <v-btn color="primary" rounded="0" prepend-icon="mdi-plus" @click="clickAddStep">Add Step</v-btn>
+                    <v-btn color="primary" rounded="0" prepend-icon="mdi-plus" class="mt-3" @click="clickAddStep">Add Step</v-btn>
                 </div>
                 <v-data-table
                     v-show="flatStepRows.length && !loading && !resolvingSteps"
@@ -420,11 +411,8 @@
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
                 <div v-if="!loading && !resolvingSteps && activeDef && !sortedRoutes.length" class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
-                    <v-avatar color="grey-lighten-3" size="56" class="mb-3">
-                        <v-icon color="grey-darken-1" size="30">mdi-routes</v-icon>
-                    </v-avatar>
+                    <img :src="mascotEmptyUrl" alt="No routes yet" width="180" class="mb-3" style="border-radius: 18px" />
                     <div class="font-weight-bold">No routes yet.</div>
-                    <div class="text-caption text-medium-emphasis">Add at least two steps, then connect them with Add Route.</div>
                 </div>
                 <v-data-table
                     v-show="sortedRoutes.length && !loading && !resolvingSteps"
@@ -794,6 +782,7 @@ import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
 import { useOffices } from "@/composables/useOffices";
 import TableLoader from '@/components/TableLoader.vue';
+import mascotEmptyUrl from '@/assets/mascots/mascot-empty.jpg';
 import LoadingVeil from '@/components/LoadingVeil.vue';
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus';
 

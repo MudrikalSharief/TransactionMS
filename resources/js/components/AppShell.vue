@@ -274,19 +274,9 @@
                     <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="confirmLogout = false" />
                 </v-card-title>
                 <v-card-text class="pa-12 text-center">
-                    <div style="height: 16px" aria-hidden="true" />
-                    <div class="d-flex align-center justify-center ga-4 mb-10">
-                        <v-chip rounded="0" size="x-large" color="grey-darken-3" variant="tonal" class="font-weight-bold" style="font-size: 1.5rem; height: 60px; padding: 0 28px;">
-                            <v-icon start>mdi-account-circle</v-icon>
-                            {{ auth.user.value?.name || "Current session" }}
-                        </v-chip>
-                        <v-icon color="error" size="56">mdi-chevron-double-right</v-icon>
-                        <v-chip rounded="0" size="x-large" color="error" variant="flat" class="font-weight-bold" style="font-size: 1.5rem; height: 60px; padding: 0 28px;">
-                            <v-icon start>mdi-logout</v-icon>
-                            LOG OUT
-                        </v-chip>
+                    <div class="d-flex justify-center">
+                        <img :src="mascotLogoutUrl" alt="See you soon" width="240" style="border-radius: 18px" />
                     </div>
-                    <div class="text-subtitle-2 font-weight-bold">CONFIRM TO LOG OUT</div>
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
@@ -310,6 +300,7 @@ import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
 const router = useRouter();
 const route = useRoute();
@@ -649,6 +640,26 @@ const loadTemperature = async () => {
     const openMeteoUrl =
         "https://api.open-meteo.com/v1/forecast?latitude=6.9214&longitude=122.0790&current=temperature_2m,weather_code,is_day&timezone=Asia%2FManila";
 
+    // Retry chain for transient boot failures (offline blip, proxy cold
+    // start): 15s -> 30s -> 60s, then surrender to the long interval.
+    // Without this, one failed boot fetch parks the chip on N/A until the
+    // next 10-30min tick, which reads as "needs a refresh".
+    const scheduleRetry = () => {
+        if (weatherFails >= WEATHER_RETRY_DELAYS.length) return;
+        clearTimeout(weatherRetryTimer);
+        weatherRetryTimer = setTimeout(() => {
+            loadTemperature();
+        }, WEATHER_RETRY_DELAYS[weatherFails]);
+        weatherFails += 1;
+    };
+    const markTempOk = () => {
+        weatherFails = 0;
+        if (weatherRetryTimer) {
+            clearTimeout(weatherRetryTimer);
+            weatherRetryTimer = null;
+        }
+    };
+
     try {
         const res = await fetch("/api/weather", { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error("proxy failed");
@@ -661,20 +672,38 @@ const loadTemperature = async () => {
         } else {
             applyTemp(data.temperature, data.code, data.is_day);
         }
+        markTempOk();
     } catch {
         try {
             const direct = await fetch(openMeteoUrl);
             const d = await direct.json();
             applyTemp(d?.current?.temperature_2m, d?.current?.weather_code, d?.current?.is_day);
+            markTempOk();
         } catch {
             temperature.value = "N/A";
             weatherIcon.value = "mdi-thermometer-off";
             weatherLabel.value = "unavailable";
+            scheduleRetry();
         }
     }
 };
 
 let weatherTimer = null;
+// Consecutive boot/refresh failures; reset on any success.
+let weatherFails = 0;
+let weatherRetryTimer = null;
+const WEATHER_RETRY_DELAYS = [15 * 1000, 30 * 1000, 60 * 1000];
+
+// Returning to a tab that parked on N/A/placeholder refreshes it.
+const onVisible = () => {
+    if (
+        !document.hidden &&
+        navigator.onLine &&
+        (temperature.value === "N/A" || temperature.value === "--°C")
+    ) {
+        loadTemperature();
+    }
+};
 
 // ---- Dark mode (persisted, applied via Vuetify theme + html.dark CSS layer) ----
 const theme = useTheme();
@@ -721,6 +750,11 @@ onMounted(() => {
         if (!document.hidden && navigator.onLine) loadTemperature();
         refreshApprovalBadge();
     }, 2500);
+    // Captive portals / slow office DHCP often mean "offline" at the boot
+    // tick above: recover the moment connectivity arrives instead of
+    // waiting out the long interval.
+    window.addEventListener("online", loadTemperature);
+    document.addEventListener("visibilitychange", onVisible);
     weatherTimer = setInterval(() => {
         if (!document.hidden && navigator.onLine) loadTemperature();
     }, (slowNet ? 30 : 10) * 60 * 1000);
@@ -732,6 +766,12 @@ onMounted(() => {
 onUnmounted(() => {
     if (clockTimer) clearInterval(clockTimer);
     if (weatherTimer) clearInterval(weatherTimer);
+    if (weatherRetryTimer) {
+        clearTimeout(weatherRetryTimer);
+        weatherRetryTimer = null;
+    }
+    window.removeEventListener("online", loadTemperature);
+    document.removeEventListener("visibilitychange", onVisible);
     if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
 });
 </script>

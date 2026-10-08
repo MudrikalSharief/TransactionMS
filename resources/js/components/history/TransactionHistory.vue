@@ -43,11 +43,8 @@
             </div>
 
             <div v-else-if="!filtered.length" class="text-center pa-8">
-                <v-avatar color="grey-lighten-3" size="52" class="mb-3">
-                    <v-icon color="grey-darken-1" size="28">mdi-history</v-icon>
-                </v-avatar>
+                <img :src="mascotEmptyUrl" alt="No history yet" width="180" class="mb-3" style="border-radius: 18px" />
                 <div class="font-weight-bold">No transaction history yet.</div>
-                <div class="text-caption text-medium-emphasis">Actions performed on this transaction will appear here.</div>
             </div>
 
             <!-- Desktop table -->
@@ -271,6 +268,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import AttachmentList from '@/components/AttachmentList.vue';
+import mascotEmptyUrl from '@/assets/mascots/mascot-empty.jpg';
 import {
     formatHistoryDate,
     formatMinutes,

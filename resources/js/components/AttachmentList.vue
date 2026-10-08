@@ -234,11 +234,8 @@
         </div>
     </div>
     <div v-else-if="!compact && centeredEmpty" class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 480px">
-        <v-avatar color="grey-lighten-3" size="56" class="mb-3">
-            <v-icon color="grey-darken-1" size="30">mdi-paperclip</v-icon>
-        </v-avatar>
+        <img :src="mascotEmptyUrl" alt="No files yet" width="180" class="mb-3" style="border-radius: 18px" />
         <div class="font-weight-bold">No files attached yet.</div>
-        <div class="text-caption text-medium-emphasis">Files uploaded to this transaction will appear here.</div>
     </div>
     <div v-else-if="!compact" class="text-caption text-medium-emphasis">No files attached yet.</div>
 
@@ -277,6 +274,7 @@ import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
 import { fileViewUrl } from "@/composables/useFileView";
+import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
