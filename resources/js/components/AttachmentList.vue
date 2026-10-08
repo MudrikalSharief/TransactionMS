@@ -233,6 +233,13 @@
             </div>
         </div>
     </div>
+    <div v-else-if="!compact && centeredEmpty" class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 480px">
+        <v-avatar color="grey-lighten-3" size="56" class="mb-3">
+            <v-icon color="grey-darken-1" size="30">mdi-paperclip</v-icon>
+        </v-avatar>
+        <div class="font-weight-bold">No files attached yet.</div>
+        <div class="text-caption text-medium-emphasis">Files uploaded to this transaction will appear here.</div>
+    </div>
     <div v-else-if="!compact" class="text-caption text-medium-emphasis">No files attached yet.</div>
 
     <v-dialog v-model="confirmDialog" max-width="500">
@@ -294,6 +301,9 @@ const props = defineProps({
     // When true, hides all delete buttons (view-only display of
     // previous-step files in the Proceed Review page).
     hideDelete: { type: Boolean, default: false },
+    // When true, the empty state renders as a centralized circle graphic
+    // instead of plain text (used by the Attached Files tab only).
+    centeredEmpty: { type: Boolean, default: false },
 });
 const emit = defineEmits(["deleted"]);
 

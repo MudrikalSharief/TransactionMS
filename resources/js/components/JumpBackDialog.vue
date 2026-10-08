@@ -2,11 +2,7 @@
     <v-dialog :model-value="open" max-width="560" @update:model-value="(v) => emit('update:open', v)">
         <v-card rounded="0">
             <v-card-title class="pa-5">
-<<<<<<< HEAD
                 <div class="text-h6 font-weight-bold">{{ isForward ? 'Resend to' : 'Return to' }} {{ destinationLabel }}</div>
-=======
-                <div class="text-h6 font-weight-bold">Return to {{ destinationLabel }}</div>
->>>>>>> versioncontrolcache
                 <div class="text-caption text-medium-emphasis font-weight-bold mt-1">
                     From {{ currentLabel }}. Saved checks at other stations are kept.
                 </div>
@@ -16,11 +12,7 @@
                 <v-textarea
                     v-model="remarks"
                     label="Remarks (required)"
-<<<<<<< HEAD
                     :placeholder="isForward ? 'Why are you resending it?' : 'Why are you returning it?'"
-=======
-                    placeholder="Why are you returning it?"
->>>>>>> versioncontrolcache
                     rows="4"
                     auto-grow
                     :disabled="saving"
@@ -69,11 +61,7 @@ watch(() => props.open, (v) => {
 
 function confirm() {
     if (!remarks.value.trim()) {
-<<<<<<< HEAD
         remarksError.value = props.isForward ? 'Remarks are required to resend.' : 'Remarks are required to return.'
-=======
-        remarksError.value = 'Remarks are required to return.'
->>>>>>> versioncontrolcache
         return
     }
     emit('confirm', remarks.value.trim())

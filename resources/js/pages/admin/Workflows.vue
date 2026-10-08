@@ -2,96 +2,93 @@
     <div>
         <LoadingVeil :show="loading || resolvingSteps" label="workflow steps" icon="mdi-source-branch" />
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-source-branch</v-icon>
+            <v-card-title class="d-flex align-center pa-5 lgu-head">
+                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                    <v-icon color="#1E40AF">mdi-source-branch</v-icon>
                 </v-avatar>
                 <div>
-                    <span class="text-h6 font-weight-bold">WORKFLOW STEPS</span>
+                    <span class="text-h6 font-weight-bold">TRANSACTION TYPE STEPS AND ROUTES</span>
                     <div v-if="selectedTypeName" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedTypeName }}</div>
                     <div v-else class="text-caption text-medium-emphasis">Select a transaction type</div>
-                    <div v-if="activeDef" class="d-flex flex-wrap align-center ga-2 mt-1">
-                        <v-menu open-on-hover location="bottom" open-delay="250">
-                            <template #activator="{ props }">
-                                <v-chip
-                                    rounded="0"
-                                    size="small"
-                                    variant="tonal"
-                                    :color="activeDef.status === 'published' ? 'success' : activeDef.status === 'draft' ? 'warning' : 'grey'"
-                                    class="font-weight-bold"
-                                    v-bind="props"
-                                >
-                                    {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current version" : "Previous" }}
-                                </v-chip>
-                            </template>
-                            <v-card rounded="0" min-width="340" max-width="420">
-                                <v-card-title class="text-subtitle-2 font-weight-bold pa-3">
-                                    Workflow versions · {{ selectedTypeName }}
-                                    <div class="text-caption text-medium-emphasis font-weight-medium">
-                                        New transactions use the live version · old versions are kept
-                                    </div>
-                                </v-card-title>
-                                <v-divider />
-                                <v-list density="compact" class="py-1">
+                </div>
+                <v-spacer />
+                <div class="d-flex gap-2 align-center">
+                    <v-chip
+                        v-if="activeDef"
+                        rounded="0"
+                        size="small"
+                        variant="tonal"
+                        :color="activeDef.status === 'published' ? 'primary' : activeDef.status === 'draft' ? 'warning' : 'grey'"
+                        class="font-weight-bold"
+                        append-icon="mdi-menu-down"
+                        style="cursor: pointer"
+                        @click="versionDialog = true"
+                    >
+                        {{ activeDef.status === "draft" ? "Draft" : isLiveDef(activeDef) ? "Current version" : "Previous" }}
+                    </v-chip>
+                    <v-dialog v-model="versionDialog" max-width="560">
+                        <v-card rounded="0">
+                            <v-card-title class="d-flex align-center pa-5 lgu-head">
+                                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                                    <v-icon color="#1E40AF">mdi-source-branch</v-icon>
+                                </v-avatar>
+                                <div>
+                                    <div class="text-h6 font-weight-bold lh-1">Workflow versions</div>
+                                    <div v-if="selectedTypeShortName" class="text-caption text-medium-emphasis">{{ selectedTypeShortName }}</div>
+                                </div>
+                                <v-spacer />
+                                <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="versionDialog = false" />
+                            </v-card-title>
+                            <v-card-text class="pa-4">
+                                <v-list density="comfortable" class="py-0">
                                     <v-list-item
                                         v-for="d in (defs || [])"
                                         :key="d.id"
                                         :active="isLiveDef(d)"
-                                        rounded="lg"
+                                        rounded="0"
+                                        class="mb-1"
                                     >
-                                        <template #prepend>
-                                            <v-icon :color="wfStatusColor(d.status)" size="small">{{ wfStatusIcon(d.status) }}</v-icon>
-                                        </template>
-                                        <v-list-item-title class="font-weight-bold">
-                                            v{{ d.version }}<span v-if="d.name"> · {{ d.name }}</span> · {{ (d.steps || []).length }} steps
+                                        <v-list-item-title class="font-weight-bold d-flex align-center flex-wrap ga-2">
+                                            <span>v{{ d.version }}</span>
+                                            <span v-if="d.name" class="status-dot" style="background: #000" aria-hidden="true" />
+                                            <span v-if="d.name" class="text-primary">{{ d.name }}</span>
+                                            <span class="text-medium-emphasis font-weight-medium">|</span>
+                                            <span v-if="d.published_at" class="text-medium-emphasis font-weight-medium">{{ fmtLiveDate(d.published_at) }}</span>
+                                            <span v-else-if="d.status === 'draft'" class="text-medium-emphasis font-weight-medium">publish first to go live</span>
+                                        </v-list-item-title>
+                                        <template #append>
                                             <v-chip
                                                 v-if="isLiveDef(d)"
-                                                color="success"
+                                                color="primary"
                                                 variant="flat"
                                                 rounded="0"
                                                 size="x-small"
-                                                class="ml-1 font-weight-bold"
+                                                class="font-weight-bold"
                                             >
                                                 ACTIVE
                                             </v-chip>
-                                        </v-list-item-title>
-                                        <v-list-item-subtitle>
-                                            {{ wfStatusLabel(d.status) }}<span v-if="d.published_at"> · {{ fmtLiveDate(d.published_at) }}</span><span v-else-if="d.status === 'draft'"> · publish first to go live</span>
-                                        </v-list-item-subtitle>
-                                        <template #append>
                                             <v-btn
-                                                v-if="d.status === 'published' && !isLiveDef(d)"
+                                                v-else-if="d.status === 'published'"
                                                 size="x-small"
                                                 variant="outlined"
-                                                color="grey-darken-3"
+                                                color="primary"
                                                 rounded="0"
                                                 class="font-weight-bold"
                                                 v-tooltip="'Make this version live for new transactions'"
-                                                @click="askMakeLive(d)"
+                                                @click="versionDialog = false; askMakeLive(d)"
                                             >
-                                                Make live
+                                                SELECT VERSION
                                             </v-btn>
-                                            <v-btn
-                                                v-else
-                                                icon="mdi-eye"
-                                                v-tooltip="'View (read-only)'"
-                                                size="x-small"
-                                                variant="text"
-                                                color="primary"
-                                                @click="viewDef(d)"
-                                            />
                                         </template>
                                     </v-list-item>
                                 </v-list>
-                            </v-card>
-                        </v-menu>
-                        <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
-                            {{ (activeDef.steps || []).length }} steps
-                        </v-chip>
-                    </div>
-                </div>
-                <v-spacer />
-                <div class="d-flex gap-2 align-center">
+                            </v-card-text>
+                            <v-divider />
+                            <v-card-actions class="justify-end">
+                                <v-btn variant="text" @click="versionDialog = false">Close</v-btn>
+                            </v-card-actions>
+                        </v-card>
+                    </v-dialog>
                     <v-btn
                         variant="text"
                         color="grey-darken-3"
@@ -160,11 +157,24 @@
                 />
 
                 <template v-if="!activeDef && (selectedTypeId || bootSkeleton)">
-                    <div class="d-flex align-center mb-2">
-                        <div class="text-subtitle-1 font-weight-bold">Steps</div>
+                    <v-tabs v-model="wfTab" color="primary" density="comfortable" class="wf-type-tabs">
+                        <v-tab :value="0" class="font-weight-bold" style="color: rgb(var(--v-theme-primary))">
+                            Steps
+                            <v-chip size="x-small" variant="tonal" color="grey-darken-3" class="ml-2">{{ flatStepRows.length }}</v-chip>
+                        </v-tab>
+                        <v-tab :value="1" class="font-weight-bold" style="color: rgb(var(--v-theme-primary))">
+                            Routes
+                            <v-chip size="x-small" variant="tonal" color="grey-darken-3" class="ml-2">{{ sortedRoutes.length }}</v-chip>
+                        </v-tab>
+                    </v-tabs>
+                    <v-divider />
+                    <v-window v-model="wfTab" class="wf-tabs-window">
+                        <v-window-item :value="0">
+                    <div class="d-flex align-center mb-2 mt-4">
+                        <div class="text-subtitle-1 font-weight-bold">Steps ({{ flatStepRows.length }})</div>
                         <v-spacer />
                         <v-btn
-                            color="grey-darken-3"
+                            color="primary"
                             rounded="0"
                             prepend-icon="mdi-plus"
                             :loading="saving"
@@ -179,15 +189,19 @@
                             <v-skeleton-loader type="table-tbody" class="mt-2" />
                             <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
-                        <v-alert v-else type="info" variant="tonal" class="mb-3">
-                            No workflow yet for this transaction type — click <b>Add Step</b> to create step 1.
-                        </v-alert>
+                        <div v-else class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
+                            <v-avatar color="grey-lighten-3" size="56" class="mb-3">
+                                <v-icon color="grey-darken-1" size="30">mdi-source-branch</v-icon>
+                            </v-avatar>
+                            <div class="font-weight-bold">No workflow yet.</div>
+                            <div class="text-caption text-medium-emphasis mb-3">Click Add Step to create step 1.</div>
+                            <v-btn color="primary" rounded="0" prepend-icon="mdi-plus" @click="clickAddStep">Add Step</v-btn>
+                        </div>
                     </div>
-
-                    <v-divider class="my-3" />
-
-                    <div class="d-flex align-center mb-2 mt-6">
-                        <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
+                        </v-window-item>
+                        <v-window-item :value="1">
+                    <div class="d-flex align-center mb-2 mt-4">
+                        <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES ({{ sortedRoutes.length }})</div>
                     </div>
                     <div class="d-flex flex-column" style="min-height: 510px">
                         <template v-if="loading || resolvingSteps">
@@ -195,16 +209,40 @@
                             <v-skeleton-loader type="table-tbody" class="mt-2" />
                             <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
                         </template>
+                        <div v-else class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
+                            <v-avatar color="grey-lighten-3" size="56" class="mb-3">
+                                <v-icon color="grey-darken-1" size="30">mdi-routes</v-icon>
+                            </v-avatar>
+                            <div class="font-weight-bold">No routes yet.</div>
+                            <div class="text-caption text-medium-emphasis">Add at least two steps, then connect them with Add Route.</div>
+                        </div>
                     </div>
+                        </v-window-item>
+                    </v-window>
                 </template>
 
                 <template v-if="activeDef">
 
-                <div class="d-flex align-center mb-2">
+                <v-tabs v-model="wfTab" color="primary" density="comfortable" class="wf-type-tabs">
+                    <v-tab :value="0" class="font-weight-bold" style="color: rgb(var(--v-theme-primary))">
+                        Steps
+                        <v-chip size="x-small" variant="tonal" color="grey-darken-3" class="ml-2">{{ flatStepRows.length }}</v-chip>
+                        <v-icon v-if="stepsDirty" size="10" color="warning" class="ml-1" title="Unsaved step changes">mdi-circle</v-icon>
+                    </v-tab>
+                    <v-tab :value="1" class="font-weight-bold" style="color: rgb(var(--v-theme-primary))">
+                        Routes
+                        <v-chip size="x-small" variant="tonal" color="grey-darken-3" class="ml-2">{{ sortedRoutes.length }}</v-chip>
+                        <v-icon v-if="routesDirty" size="10" color="warning" class="ml-1" title="Unsaved route changes">mdi-circle</v-icon>
+                    </v-tab>
+                </v-tabs>
+                <v-divider />
+                <v-window v-model="wfTab" class="wf-tabs-window">
+                    <v-window-item :value="0">
+                <div class="d-flex align-center mb-2 mt-4">
                     <div class="text-subtitle-1 font-weight-bold">Steps ({{ flatStepRows.length }})</div>
                     <v-spacer />
                     <v-btn
-                        color="grey-darken-3"
+                        color="primary"
                         rounded="0"
                         prepend-icon="mdi-plus"
                         :disabled="!selectedTypeId"
@@ -214,11 +252,16 @@
                     </v-btn>
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
-                <v-alert v-if="!loading && activeDef && !flatStepRows.length" type="info" variant="tonal" class="mb-3">
-                    This transaction type has no steps yet — click <b>Add Step</b> to create step 1.
-                </v-alert>
+                <div v-if="!loading && !resolvingSteps && activeDef && !flatStepRows.length" class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
+                    <v-avatar color="grey-lighten-3" size="56" class="mb-3">
+                        <v-icon color="grey-darken-1" size="30">mdi-source-branch</v-icon>
+                    </v-avatar>
+                    <div class="font-weight-bold">No steps yet.</div>
+                    <div class="text-caption text-medium-emphasis mb-3">Click Add Step to create step 1.</div>
+                    <v-btn color="primary" rounded="0" prepend-icon="mdi-plus" @click="clickAddStep">Add Step</v-btn>
+                </div>
                 <v-data-table
-                    v-show="!loading && !resolvingSteps"
+                    v-show="flatStepRows.length && !loading && !resolvingSteps"
                     v-model:page="stepPage"
                     :items="flatStepRows"
                     :headers="stepHeaders"
@@ -360,14 +403,13 @@
                     <TableLoader compact label="steps" icon="mdi-source-branch" style="flex: 1 1 auto" />
                 </template>
                 </div>
-
-                <v-divider class="my-3" />
-
-                <div class="d-flex align-center mb-2 mt-6">
-                    <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES</div>
+                    </v-window-item>
+                    <v-window-item :value="1">
+                <div class="d-flex align-center mb-2 mt-4">
+                    <div class="text-subtitle-1 font-weight-bold">WORKFLOW ROUTES ({{ sortedRoutes.length }})</div>
                     <v-spacer />
                     <v-btn
-                        color="grey-darken-3"
+                        color="primary"
                         rounded="0"
                         prepend-icon="mdi-plus"
                         :disabled="!selectedTypeId"
@@ -377,8 +419,15 @@
                     </v-btn>
                 </div>
                 <div class="d-flex flex-column" style="min-height: 510px">
+                <div v-if="!loading && !resolvingSteps && activeDef && !sortedRoutes.length" class="text-center pa-6 d-flex flex-column align-center justify-center" style="min-height: 320px">
+                    <v-avatar color="grey-lighten-3" size="56" class="mb-3">
+                        <v-icon color="grey-darken-1" size="30">mdi-routes</v-icon>
+                    </v-avatar>
+                    <div class="font-weight-bold">No routes yet.</div>
+                    <div class="text-caption text-medium-emphasis">Add at least two steps, then connect them with Add Route.</div>
+                </div>
                 <v-data-table
-                    v-show="!loading && !resolvingSteps"
+                    v-show="sortedRoutes.length && !loading && !resolvingSteps"
                     v-model:page="routePage"
                     :items="sortedRoutes"
                     :headers="routeHeaders"
@@ -455,53 +504,8 @@
                     <TableLoader compact label="routes" icon="mdi-source-branch" style="flex: 1 1 auto" />
                 </template>
                 </div>
-
-                <v-expansion-panels v-if="!loading && historyDefs.length" variant="accordion" class="mt-4">
-                    <v-expansion-panel rounded="0" title="History (previous versions, read-only)">
-                        <template #text>
-                            <v-list density="compact" class="py-0">
-                                <v-list-item
-                                    v-for="d in historyDefs"
-                                    :key="d.id"
-                                    rounded="lg"
-                                    @click="viewDef(d)"
-                                >
-                                    <template #prepend>
-                                        <v-icon :color="wfStatusColor(d.status)" size="small">{{ wfStatusIcon(d.status) }}</v-icon>
-                                    </template>
-                                    <v-list-item-title class="font-weight-bold">
-                                        {{ d.name || "Workflow" }} · {{ (d.steps || []).length }} steps
-                                    </v-list-item-title>
-                                    <v-list-item-subtitle>{{ wfStatusLabel(d.status) }}</v-list-item-subtitle>
-                                    <template #append>
-                                        <div class="d-flex align-center ga-1">
-                                            <v-btn
-                                                v-if="d.status === 'published' && !isLiveDef(d)"
-                                                size="small"
-                                                variant="outlined"
-                                                color="grey-darken-3"
-                                                rounded="0"
-                                                class="font-weight-bold"
-                                                v-tooltip="'Make this version live for new transactions'"
-                                                @click.stop="askMakeLive(d)"
-                                            >
-                                                Make live
-                                            </v-btn>
-                                            <v-btn
-                                                icon="mdi-eye"
-                                                v-tooltip="'View (read-only)'"
-                                                size="small"
-                                                variant="text"
-                                                color="primary"
-                                                @click.stop="viewDef(d)"
-                                            />
-                                        </div>
-                                    </template>
-                                </v-list-item>
-                            </v-list>
-                        </template>
-                    </v-expansion-panel>
-                </v-expansion-panels>
+                    </v-window-item>
+                </v-window>
                 </template>
             </v-card-text>
         </v-card>
@@ -737,27 +741,48 @@
         </v-dialog>
 
         <!-- Switch live version -->
-        <v-dialog v-model="liveDialog" max-width="500">
+        <v-dialog v-model="liveDialog" max-width="640">
             <v-card rounded="0">
-                <v-card-title>Switch live version?</v-card-title>
-                <v-divider />
-                <v-card-text>
-                    Change live from
-                    <b>v{{ currentDef?.version ?? "—" }}</b> to
-                    <b>v{{ liveTarget?.version }}</b>
-                    for <b>{{ selectedTypeName }}</b>?
-                    <v-alert type="info" variant="tonal" density="compact" class="mt-3">
-                        New transactions will use v{{ liveTarget?.version }}. Running
-                        transactions stay on their version. Old versions are kept.
-                    </v-alert>
+                <v-card-title class="d-flex align-center pa-5 lgu-head">
+                    <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                        <v-icon color="#1E40AF">mdi-swap-horizontal</v-icon>
+                    </v-avatar>
+                    <span class="text-h6 font-weight-bold">SWITCH LIVE VERSION?</span>
+                    <v-spacer />
+                    <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="liveDialog = false" />
+                </v-card-title>
+                <v-card-text class="pa-12 text-center">
+                    <div style="height: 16px" aria-hidden="true" />
+                    <div class="d-flex align-center justify-center ga-4 mb-10">
+                        <v-chip rounded="0" size="x-large" color="grey-darken-3" variant="tonal" class="font-weight-bold" style="font-size: 1.5rem; height: 60px; padding: 0 28px;">
+                            v{{ currentDef?.version ?? "—" }}
+                        </v-chip>
+                        <v-icon color="primary" size="56">mdi-chevron-double-right</v-icon>
+                        <v-chip rounded="0" size="x-large" color="primary" variant="flat" class="font-weight-bold" style="font-size: 1.5rem; height: 60px; padding: 0 28px;">
+                            v{{ liveTarget?.version }}
+                        </v-chip>
+                    </div>
+                    <div class="text-subtitle-2 font-weight-bold">CONFIRM TO CHANGE VERSION</div>
                 </v-card-text>
                 <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="liveDialog = false">Cancel</v-btn>
-                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="confirmMakeLive">Switch</v-btn>
+                <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
+                    <v-btn variant="text" color="grey-darken-3" rounded="0" size="large" style="width: 40%" @click="liveDialog = false">Cancel</v-btn>
+                    <v-divider vertical :thickness="2" class="align-self-stretch" />
+                    <v-btn color="primary" rounded="0" size="large" style="width: 40%" :loading="saving" @click="confirmMakeLive">Switch</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <!-- End-of-workflow footer: same deep-blue bar as the dashboard foot. -->
+        <v-sheet v-if="selectedTypeId" color="#1E3A8A" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
+            <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
+                <v-icon color="#1E40AF" size="32">mdi-flag-checkered</v-icon>
+            </v-avatar>
+            <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
+            <div class="text-left">
+                <div class="text-h6 font-weight-bold text-white lh-1">END OF WORKFLOW</div>
+            </div>
+        </v-sheet>
     </div>
 </template>
 
@@ -812,6 +837,12 @@ const tableRoutes = computed(() => {
     return activeDef.value?.routes || [];
 });
 const stagingDirty = computed(() => !!stagingBucket.value?.dirty);
+// Per-tab unsaved dots: steps/routes table edits only (sub-page edits
+// keep the global dirty flag). Cleared with the bucket on save/discard.
+const stepsDirty = computed(() => !!stagingBucket.value?.stepsDirty);
+const routesDirty = computed(() => !!stagingBucket.value?.routesDirty);
+// Steps/Routes tab state (panes stay mounted, so paging survives switches).
+const wfTab = ref(0);
 // Tmp rows (unsaved) carry string ids — no sub-page configuration yet.
 const isTmpRow = (item) => typeof item?.id === "string";
 
@@ -907,6 +938,12 @@ const selectedTypeName = computed(() => {
     return t ? `${t.name} (${t.code})` : "";
 });
 
+// Modal subtitle: bare type name (no code duplication).
+const selectedTypeShortName = computed(() => {
+    const t = (types.value || []).find((x) => Number(x.id) === Number(selectedTypeId.value));
+    return t ? t.name : "";
+});
+
 const typePickerOptions = computed(() =>
     (types.value || []).map((t) => ({
         id: Number(t.id),
@@ -947,21 +984,10 @@ const toStepOptions = computed(() => {
         return true;
     });
 });
-        if (!Number.isNaN(fromOrder)) {
-            const order = stepOrderOf(o.id);
-            if (!Number.isNaN(order) && order < fromOrder) return false;
-        }
-        return true;
-    });
-});
 
 function stepOrderOf(id) {
     return Number(
-function stepOrderOf(id) {
-    return Number(
         ((activeDef.value?.steps || tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? NaN),
-    );
-}
     );
 }
 
@@ -975,9 +1001,6 @@ function routeClientError() {
     const fromOrder = stepOrderOf(from);
     const toOrder = stepOrderOf(to);
     if (Number.isNaN(fromOrder) || Number.isNaN(toOrder)) return "Both steps must belong to this workflow.";
-    const fromOrder = stepOrderOf(from);
-    const toOrder = stepOrderOf(to);
-    if (Number.isNaN(fromOrder) || Number.isNaN(toOrder)) return "Both steps must belong to this workflow.";
     if (toOrder < fromOrder) return `Routes must move forward: Step ${fromOrder} → Step ${toOrder} is not allowed.`;
     const clash = (activeDef.value?.routes || tableRoutes.value || []).find(
         (r) =>
@@ -985,9 +1008,6 @@ function routeClientError() {
             String(r.to_step_id) === String(to) &&
             String(r.id) !== String(routeForm.value.id) &&
             String(r.client_id ?? r.id) !== String(routeForm.value.client_id ?? routeForm.value.id),
-    );
-    if (clash) return "This route already exists (same From → To), regardless of action.";
-    return "";
     );
     if (clash) return "This route already exists (same From → To), regardless of action.";
     return "";
@@ -1047,13 +1067,8 @@ function descendantsOfStep(id) {
 // Routes table: forward-only, ordered start→end by station order.
 const sortedRoutes = computed(() => {
     const orderOf = (id) =>
-const sortedRoutes = computed(() => {
-    const orderOf = (id) =>
         Number((activeDef.value?.steps || tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? 9999);
     return [...(activeDef.value?.routes || tableRoutes.value || [])].sort((a, b) => {
-        return orderOf(a.from_step_id) - orderOf(b.from_step_id) || orderOf(a.to_step_id) - orderOf(b.to_step_id);
-    });
-});
         return orderOf(a.from_step_id) - orderOf(b.from_step_id) || orderOf(a.to_step_id) - orderOf(b.to_step_id);
     });
 });
@@ -1147,6 +1162,7 @@ watch(selectedTypeId, async (id) => {
     activeDef.value = null;
     stepPage.value = 1;
     routePage.value = 1;
+    wfTab.value = 0;
     if (!id) {
         return;
     }
@@ -1245,48 +1261,12 @@ function workingRowFor(item) {
     return hit || item;
 }
 
-function clickAddStep() {
-    error.value = "";
-    notice.value = "";
-    openStepDialog();
-}
-
-function clickAddRoute() {
-    error.value = "";
-    notice.value = "";
-    openRouteDialog();
-}
-
-function editStep(item) {
-    error.value = "";
-    notice.value = "";
-    openStepDialog(workingRowFor(item));
-}
-
-function goStepFields(item) {
-    error.value = "";
-    notice.value = "";
-    const target = stepRouteTarget(item);
-    if (!target) return;
-    const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-    router.push({ path: `/admin/workflows/${target.defId}/steps/${target.stepId}/fields`, query: q });
-}
-
 function stepRouteTarget(item) {
     // Sub-pages address rows by id; the working copy is the single scope,
     // so map history-viewed rows onto it by code first.
     const row = workingRowFor(item);
     if (!row?.id || isTmpRow(row) || !stagingSourceDefId.value) return null;
     return { defId: stagingSourceDefId.value, stepId: row.id };
-}
-
-function goStepRequirements(item) {
-    error.value = "";
-    notice.value = "";
-    const target = stepRouteTarget(item);
-    if (!target) return;
-    const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-    router.push({ path: `/admin/workflows/${target.defId}/steps/${target.stepId}/requirements`, query: q });
 }
 
 function goStepChecklist(item) {
@@ -1313,12 +1293,6 @@ function workingRouteFor(route) {
             return rf === from && rt === to && r.action_code === route.action_code;
         }) || route
     );
-}
-
-function editRoute(route) {
-    error.value = "";
-    notice.value = "";
-    openRouteDialog(workingRouteFor(route));
 }
 
 async function viewDef(def) {
@@ -1495,11 +1469,6 @@ async function editRoute(route) {
     } finally {
         saving.value = false;
     }
-}
-
-function viewDef(def) {
-    activeDef.value = def;
-    if (t) seedFromActiveDef();
 }
 
 // Save version: names what you are viewing and stores it as a brand-new
@@ -1731,10 +1700,9 @@ function deleteStep(step) {
 
 // Routes
 const routeDialog = ref(false);
+const versionDialog = ref(false);
 const routeForm = ref({});
 // Dialog-scoped error: route guard/API failures show inside the modal,
-// not on the page above the steps table.
-const routeError = ref("");
 // not on the page above the steps table.
 const routeError = ref("");
 
@@ -1786,43 +1754,14 @@ function saveRoute() {
     }
     let cond = null;
     try {
-        // Instant client guard (backend re-validates): forward-only, no
-        // self-loops, no duplicate From → To.
-        const guard = routeClientError();
-        if (guard) {
-            routeError.value = guard;
-            return;
+        if (routeForm.value.condition_expression_json?.trim()) {
+            cond = JSON.parse(routeForm.value.condition_expression_json);
         }
-        let cond = null;
-        try {
-            if (routeForm.value.condition_expression_json?.trim()) {
-                cond = JSON.parse(routeForm.value.condition_expression_json);
-            }
-        } catch {
-            routeError.value = "Condition must be valid JSON.";
-            return;
-        }
-
-        const payload = {
-            from_step_id: Number(routeForm.value.from_step_id),
-            to_step_id: Number(routeForm.value.to_step_id),
-            action_code: routeForm.value.action_code,
-            // Return routes are retired: routes are forward-only.
-            is_return_route: false,
-            route_group: routeForm.value.route_group || null,
-            required_approvals_count: routeForm.value.required_approvals_count
-                ? Number(routeForm.value.required_approvals_count)
-                : null,
-            condition_expression: cond,
-        };
-
-        if (routeForm.value.id)
-            await updateRoute(activeDef.value.id, routeForm.value.id, payload);
-        else await addRoute(activeDef.value.id, payload);
-
-        routeDialog.value = false;
-        await goLive();
+    } catch {
+        routeError.value = "Condition must be valid JSON.";
+        return;
     }
+
     staging.upsertRoute(selectedTypeId.value, {
         id: routeForm.value.id ?? undefined,
         client_id: routeForm.value.client_id ?? undefined,
@@ -1877,6 +1816,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Tabbed Steps/Routes: panes keep their own min-height stages, and the
+   window reserves the tallest footprint so switching never shifts. */
+.wf-tabs-window {
+    min-height: 580px;
+}
 .skel-fill td {
     height: 38px;
     background: #fff;

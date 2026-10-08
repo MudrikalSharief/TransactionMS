@@ -263,17 +263,36 @@
             <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
         </v-main>
 
-        <v-dialog v-model="confirmLogout" max-width="420">
+        <v-dialog v-model="confirmLogout" max-width="640">
             <v-card rounded="0">
-                <v-card-title>Log out?</v-card-title>
-                <v-divider />
-                <v-card-text>
-                        Are you sure you want to log out of TransactionMF?
+                <v-card-title class="d-flex align-center pa-5 lgu-head">
+                    <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                        <v-icon color="#1E40AF">mdi-logout</v-icon>
+                    </v-avatar>
+                    <span class="text-h6 font-weight-bold">LOG OUT?</span>
+                    <v-spacer />
+                    <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="confirmLogout = false" />
+                </v-card-title>
+                <v-card-text class="pa-12 text-center">
+                    <div style="height: 16px" aria-hidden="true" />
+                    <div class="d-flex align-center justify-center ga-4 mb-10">
+                        <v-chip rounded="0" size="x-large" color="grey-darken-3" variant="tonal" class="font-weight-bold" style="font-size: 1.5rem; height: 60px; padding: 0 28px;">
+                            <v-icon start>mdi-account-circle</v-icon>
+                            {{ auth.user.value?.name || "Current session" }}
+                        </v-chip>
+                        <v-icon color="error" size="56">mdi-chevron-double-right</v-icon>
+                        <v-chip rounded="0" size="x-large" color="error" variant="flat" class="font-weight-bold" style="font-size: 1.5rem; height: 60px; padding: 0 28px;">
+                            <v-icon start>mdi-logout</v-icon>
+                            LOG OUT
+                        </v-chip>
+                    </div>
+                    <div class="text-subtitle-2 font-weight-bold">CONFIRM TO LOG OUT</div>
                 </v-card-text>
                 <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="confirmLogout = false">Cancel</v-btn>
-                    <v-btn color="error" rounded="0" :loading="loggingOut" @click="onLogout">Log out</v-btn>
+                <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
+                    <v-btn variant="text" color="grey-darken-3" rounded="0" size="large" style="width: 40%" @click="confirmLogout = false">Cancel</v-btn>
+                    <v-divider vertical :thickness="2" class="align-self-stretch" />
+                    <v-btn color="error" rounded="0" size="large" style="width: 40%" :loading="loggingOut" @click="onLogout">Log out</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>

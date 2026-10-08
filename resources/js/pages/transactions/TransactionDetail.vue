@@ -1,10 +1,10 @@
 <template>
     <div>
-        <h1 class="text-h5 font-weight-bold mb-5">Transaction Detail</h1>
+        <LoadingVeil :show="!tx && loading" label="transaction" icon="mdi-file-document-outline" />
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-file-document</v-icon>
+            <v-card-title class="d-flex align-center pa-5 lgu-head">
+                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                    <v-icon color="#1E40AF">mdi-file-document</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">
                     Transaction: <b>{{ tx?.reference_number }}</b>
@@ -18,20 +18,32 @@
 
             <v-divider />
 
-            <v-card-text v-if="tx" class="pa-4">
-                <div class="mb-2">
-                    <b>Transaction Type:</b> {{ tx.transaction_type?.name }}
-                </div>
+            <v-card-text v-if="tx" class="pa-0">
+                <v-row no-gutters>
+                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3">
+                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
+                            <v-icon size="20">mdi-shape-outline</v-icon>
+                        </v-avatar>
+                        <div class="min-w-0">
+                            <div class="text-caption text-medium-emphasis">Transaction Type</div>
+                            <div class="text-body-1 font-weight-bold">{{ tx.transaction_type?.name }}</div>
+                        </div>
+                    </v-col>
+                    <v-divider class="d-sm-none" />
+                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3 meta-divide">
+                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
+                            <v-icon size="20">mdi-source-branch</v-icon>
+                        </v-avatar>
+                        <div class="min-w-0">
+                            <div class="text-caption text-medium-emphasis">Current Step</div>
+                            <div class="text-body-1 font-weight-bold">{{ tx.current_step?.name }}</div>
+                        </div>
+                    </v-col>
+                </v-row>
 
-                <div class="mb-2">
-                    <b>Current Step:</b> {{ tx.current_step?.name }}
-                </div>
+                <v-alert v-if="error" type="error" variant="tonal" class="ma-4 mt-0">{{ error }}</v-alert>
 
-                <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
-                    {{ error }}
-                </v-alert>
-
-                <v-divider class="my-3" />
+                <v-divider />
 
             </v-card-text>
 
@@ -45,91 +57,7 @@
             </v-card-text>
         </v-card>
 
-        <template v-if="!tx && loading">
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-text class="pa-4">
-                    <div class="d-flex flex-wrap ga-1">
-                        <v-skeleton-loader v-for="n in 6" :key="n" type="chip" width="110" />
-                    </div>
-                </v-card-text>
-            </v-card>
-
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-swap-horizontal</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Available Actions</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="actions" />
-                </v-card-text>
-            </v-card>
-
-            <!-- Stations tracker skeleton: holds the tracker's place so the
-                step dots don't pop the layout when workflow_steps arrive. -->
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-source-branch</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Transaction Stations</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <div class="d-flex align-start ga-2 flex-wrap">
-                        <div v-for="n in 5" :key="n" class="d-flex flex-column align-center" style="min-width: 96px">
-                            <v-skeleton-loader type="avatar" width="52" />
-                            <v-skeleton-loader type="text" width="84" class="mt-2" />
-                        </div>
-                    </div>
-                </v-card-text>
-            </v-card>
-
-            <!-- Step Form skeleton hidden with its card (see above). -->
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-form-textbox</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Step Form</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="paragraph" />
-                </v-card-text>
-            </v-card>
-
-            <!-- Checklist skeleton hidden with its card (see below). -->
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-clipboard-check-outline</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Checklist</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="table-thead" />
-                    <v-skeleton-loader type="table-tbody" />
-                </v-card-text>
-            </v-card>
-
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-history</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">History</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="table-thead" />
-                    <v-skeleton-loader type="table-tbody" />
-                </v-card-text>
-            </v-card>
-        </template>
+        <!-- Covered by LoadingVeil above while the transaction loads. -->
 
         <div v-if="(tx?.workflow_steps || []).length" class="mb-4">
             <StepProgress
@@ -191,27 +119,37 @@
                     </v-alert>
 
                     <div v-else>
-                        <v-row v-if="hasActionOptions">
-                            <v-col cols="12">
+                        <RouteFlowPreview
+                            v-if="hasActionOptions"
+                            :prev-step="tx?.previous_step_context?.step ?? null"
+                            :current-step="tx?.current_step ?? null"
+                            :dest-step="selectedRouteId ? destStepForTitle() : null"
+                            :workflow-steps="tx?.workflow_steps || []"
+                            :direction="!selectedRouteId ? null : (isJumpSelected ? (isJumpForward ? 'resend' : 'return') : (isReturnSelected ? 'return' : 'forward'))"
+                            :has-selection="!!selectedRouteId"
+                        />
+
+                        <v-row class="mt-1" align="stretch">
+                            <v-col v-if="hasActionOptions" cols="12" md="7">
                                 <v-select
-                                    v-model="selectedRouteId"
+                                    :model-value="selectedRouteId"
                                     :items="unifiedRouteOptions"
                                     item-title="label"
                                     item-value="value"
                                     label="Select Action"
-                                    clearable
+                                    density="comfortable"
+                                    hide-details="auto"
                                     :disabled="saving"
+                                    @update:model-value="onSelectAction"
                                 />
                             </v-col>
-                        </v-row>
-
-                        <v-row class="mt-1">
-                            <v-col cols="12" class="d-flex justify-end ga-2">
+                            <v-col cols="12" :md="hasActionOptions ? 5 : 12" class="d-flex justify-end ga-2" style="flex-wrap: wrap">
                                 <v-btn
                                     v-if="showFinalize"
                                     variant="outlined"
                                     color="grey-darken-3"
                                     rounded="0"
+                                    height="100%"
                                     :disabled="saving"
                                     :loading="saving"
                                     @click="finalizeDialog = true"
@@ -220,13 +158,16 @@
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
-                                    color="grey-darken-3"
+                                    color="primary"
                                     rounded="0"
+                                    append-icon="mdi-chevron-triple-right"
+                                    style="min-width: 220px; flex: 1 1 auto"
+                                    height="100%"
                                     :disabled="!selectedRouteId || saving"
                                     :loading="saving"
                                     @click="isJumpSelected ? openJump() : openProceed()"
                                 >
-                                    {{ mainActionButtonLabel }}
+                                    {{ actionButtonLabel }}
                                 </v-btn>
                             </v-col>
                         </v-row>
@@ -491,28 +432,15 @@
             </v-card-text>
         </v-card>
 
-        <TransactionHistory
+        <HistoryAttachmentsTabs
             v-if="tx || loading"
             :runs="tx?.runs || []"
             :loading="loading"
             :tx-id="route.params.id"
             is-admin
+            :attachments="tx?.attachments || []"
             @deleted="removeAttachment"
         />
-
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-paperclip</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">Attached Files</span>
-                <v-chip size="small" variant="tonal" class="ml-2">{{ (tx.attachments || []).length }}</v-chip>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <AttachmentList :items="tx.attachments || []" :tx-id="route.params.id" is-admin :show-details="false" @deleted="removeAttachment" />
-            </v-card-text>
-        </v-card>
 
         <v-dialog v-model="remarksDialog" max-width="800" scrollable>
             <v-card rounded="xl" style="overflow: hidden">
@@ -672,6 +600,18 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <!-- End-of-transaction footer: same deep-blue bar as the dashboard foot. -->
+        <v-sheet v-if="tx" color="#1E3A8A" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
+            <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
+                <v-icon color="#1E40AF" size="32">mdi-flag-checkered</v-icon>
+            </v-avatar>
+            <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
+            <div class="text-left">
+                <div class="text-h6 font-weight-bold text-white lh-1">END OF TRANSACTION</div>
+                <div class="text-caption" style="color: rgba(255, 255, 255, 0.75)">TRANSACTION: {{ tx.reference_number }}</div>
+            </div>
+        </v-sheet>
     </div>
 </template>
 
@@ -682,7 +622,9 @@ import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
+import LoadingVeil from '@/components/LoadingVeil.vue';
 import StepProgress from '@/components/StepProgress.vue';
+import RouteFlowPreview from '@/components/RouteFlowPreview.vue';
 import JumpBackDialog from '@/components/JumpBackDialog.vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
@@ -692,7 +634,7 @@ import ReturnBanner from '@/components/ReturnBanner.vue';
 import StepBadge from '@/components/StepBadge.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
-import TransactionHistory from '@/components/history/TransactionHistory.vue';
+import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
 import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
@@ -760,6 +702,11 @@ const isFirstStepTransition = computed(() =>
 // predecessor checklist, so Review would only ever be its empty state.
 const isAtFirstStep = computed(() => Number(tx.value?.current_step?.order_number) === 1);
 const skipReview = computed(() => isFirstStepTransition.value || isAtFirstStep.value);
+// Dropdown selection: the '__clear' entry ("CANCEL") maps back
+// to null so the box always shows a real destination or the placeholder.
+function onSelectAction(v) {
+    selectedRouteId.value = v === '__clear' ? null : v;
+}
 // Drop a selection that no longer exists in the refreshed action list.
 // Otherwise the closed select renders the raw route id (e.g. "42") with
 // no matching label after a move or a condition flip.
@@ -1412,6 +1359,7 @@ function labelForAction(a) {
 }
 
 const unifiedRouteOptions = computed(() => [
+    { value: '__clear', label: 'CANCEL' },
     ...forwardActions.value.map((a) => ({
         value: a.route_id,
         route_id: a.route_id,
@@ -1512,6 +1460,15 @@ const mainActionButtonLabel = computed(() => {
     if (!selectedAction.value) return "Proceed";
     if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
     return `Proceed to Station ${selectedStepNumber.value}`;
+});
+// Action-bar button keeps the verb only (destination is shown in the
+// graphic above it): Proceed / Return / Resend.
+const actionButtonLabel = computed(() => {
+    if (!selectedRouteId.value) return "Proceed";
+    if (isJumpSelected.value) return isJumpForward.value ? "Resend" : "Return";
+    if (!selectedAction.value) return "Proceed";
+    if (isReturnSelected.value) return "Return";
+    return "Proceed";
 });
 
 // Proceed modal title: Proceeding to "stepname" (office code). Name comes from
@@ -1661,5 +1618,15 @@ onMounted(load);
 }
 .proceed-scroll::-webkit-scrollbar-track {
     background: transparent;
+}
+/* Header meta split: vertical divider between Type and Step on sm+ only
+   (stacked rows get the horizontal v-divider instead). */
+@media (min-width: 600px) {
+    .meta-divide {
+        border-left: 1px solid rgba(0, 0, 0, 0.12);
+    }
+    html.dark .meta-divide {
+        border-left-color: rgba(255, 255, 255, 0.12);
+    }
 }
 </style>

@@ -41,6 +41,10 @@ function bucket(typeId) {
             removedRouteIds: [],
             removedReqIds: [],
             dirty: false,
+            // Per-entity dirty mirrors for tab dots (cleared with the
+            // bucket by discard/markClean, same lifecycle as `dirty`).
+            stepsDirty: false,
+            routesDirty: false,
         })
     }
     return buckets.get(key)
@@ -140,6 +144,7 @@ export function useWorkflowStaging() {
         if (idx >= 0) b.steps.splice(idx, 1, { ...b.steps[idx], ...next })
         else b.steps.push(next)
         touch(b)
+        b.stepsDirty = true
         return next
     }
 
@@ -161,6 +166,9 @@ export function useWorkflowStaging() {
         delete b.fields[k]
         b.resyncSteps = b.resyncSteps.filter((s) => s !== k)
         touch(b)
+        // Removing a step also prunes its staged routes above.
+        b.stepsDirty = true
+        b.routesDirty = true
     }
 
     function upsertRoute(typeId, row) {
@@ -173,6 +181,7 @@ export function useWorkflowStaging() {
         if (idx >= 0) b.routes.splice(idx, 1, { ...b.routes[idx], ...next })
         else b.routes.push(next)
         touch(b)
+        b.routesDirty = true
         return next
     }
 
@@ -184,6 +193,7 @@ export function useWorkflowStaging() {
         const [gone] = b.routes.splice(idx, 1)
         if (typeof gone?.id === 'number') b.removedRouteIds.push(gone.id)
         touch(b)
+        b.routesDirty = true
     }
 
     function upsertReqDef(typeId, row) {

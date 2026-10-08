@@ -1,6 +1,7 @@
 <template>
-    <v-card rounded="0" elevation="1" class="lgu-card mb-4">
+    <v-card :rounded="bare ? undefined : '0'" :elevation="bare ? 0 : 1" :class="bare ? 'history-bare' : 'lgu-card mb-4'">
         <v-card-title class="d-flex align-center flex-wrap pa-5 ga-3">
+            <template v-if="!bare">
             <v-avatar color="grey-darken-3" rounded="0" size="36" class="mr-1">
                 <v-icon color="white" size="20">mdi-history</v-icon>
             </v-avatar>
@@ -9,6 +10,7 @@
                 <div class="text-caption text-medium-emphasis">Track every action and movement made on this transaction.</div>
             </div>
             <v-spacer />
+            </template>
             <v-select
                 v-model="actionFilter"
                 :items="actionOptions"
@@ -69,8 +71,8 @@
                                 <td>
                                     <v-avatar
                                         size="32"
-                                        :color="idx === 0 ? 'grey-darken-3' : 'white'"
-                                        :class="idx === 0 ? 'text-white font-weight-bold' : 'history-step-ring font-weight-bold'"
+                                        color="white"
+                                        :class="idx === 0 ? 'history-step-latest font-weight-bold' : 'history-step-ring font-weight-bold'"
                                     >
                                         {{ stepLabelOf(run, filtered.length - idx) }}
                                     </v-avatar>
@@ -189,8 +191,8 @@
                             <div class="d-flex align-center ga-2">
                                 <v-avatar
                                     size="28"
-                                    :color="idx === 0 ? 'grey-darken-3' : 'white'"
-                                    :class="idx === 0 ? 'text-white font-weight-bold text-caption' : 'history-step-ring font-weight-bold text-caption'"
+                                    color="white"
+                                    :class="idx === 0 ? 'history-step-latest font-weight-bold text-caption' : 'history-step-ring font-weight-bold text-caption'"
                                 >
                                     {{ stepLabelOf(run, filtered.length - idx) }}
                                 </v-avatar>
@@ -287,6 +289,9 @@ const props = defineProps({
     loading: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
+    // Bare mode: melt into a parent tab pane (no outer chrome/title),
+    // keeping the filter + search toolbar above the same content.
+    bare: { type: Boolean, default: false },
 });
 const emit = defineEmits(['deleted']);
 
@@ -373,8 +378,14 @@ function slaCaption(run) {
     background: rgba(248, 250, 252, 0.7);
 }
 .history-step-ring {
-    border: 1px solid #cbd5e1;
-    color: #334155;
+    border: 1px solid rgba(30, 64, 175, 0.45);
+    color: rgb(var(--v-theme-primary));
+}
+/* Latest row: header-icon language — white fill, primary number + ring. */
+.history-step-latest {
+    border: 2px solid rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
 }
 .history-details-cell {
     background: rgba(248, 250, 252, 0.7);
@@ -408,5 +419,9 @@ function slaCaption(run) {
     height: 1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
+}
+/* Bare mode (inside tab pane): no card surface of its own. */
+.history-bare {
+    background-color: transparent;
 }
 </style>

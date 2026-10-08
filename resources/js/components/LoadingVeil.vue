@@ -42,16 +42,33 @@
 </template>
 
 <script setup>
+import { onUnmounted, watch } from 'vue'
+
 // Visibility binds DIRECTLY to `show` with no grace timer: the table is
 // v-show="!loading" on the same flag, so loader and table are mutually
 // exclusive on the same tick and loading strictly comes first. Any delay
 // here lets fast responses paint the table before the veil appears,
 // which reads as table-then-loading.
-defineProps({
+const props = defineProps({
     // Bind the page's loading flag directly.
     show: { type: Boolean, default: false },
     label: { type: String, default: 'records' },
     icon: { type: String, default: 'mdi-database-sync' },
+})
+
+// Immersion: while the veil covers the page, the body scrollbar is
+// hidden and the background can't scroll. Always restored on hide
+// and on unmount (e.g. navigating away mid-load).
+watch(
+    () => props.show,
+    (v) => {
+        document.documentElement.style.overflow = v ? 'hidden' : ''
+    },
+    { immediate: true },
+)
+
+onUnmounted(() => {
+    document.documentElement.style.overflow = ''
 })
 </script>
 
