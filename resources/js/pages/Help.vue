@@ -118,9 +118,41 @@
                             <div class="font-weight-bold">Transaction Steps &amp; Routes</div>
                             <div class="text-caption text-medium-emphasis">Stations are steps · arrows are routes · Procurement 14-station example</div>
                         </div>
-                    </div>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
+                        <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+            <v-col v-for="(n, i) in notes" :key="'n'+i" cols="12" md="6">
+                <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('note-'+i)">
+                    <v-card-text class="d-flex align-center pa-4">
+                        <v-avatar color="#BF360C" rounded="0" size="40" class="mr-3">
+                            <v-icon color="white">{{ n.icon }}</v-icon>
+                        </v-avatar>
+                        <div class="flex-grow-1">
+                            <div class="font-weight-bold">{{ n.title }}</div>
+                            <div class="text-caption text-medium-emphasis help-hint">{{ n.hint }}</div>
+                        </div>
+                        <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
+    </div>
+
+    <!-- Window dialog -->
+    <v-dialog v-model="windowOpen" max-width="800">
+        <v-card v-if="activeContent" rounded="xl" style="overflow: hidden">
+            <v-card-title class="d-flex align-center pa-5">
+                <v-avatar :color="activeContent.color" rounded="0" size="40" class="mr-3">
+                    <v-icon color="white">{{ activeContent.icon }}</v-icon>
+                </v-avatar>
+                <span class="text-h6 font-weight-bold">{{ activeContent.title }}</span>
+                <v-spacer />
+                <v-btn icon="mdi-close" variant="text" @click="windowOpen = false" />
+            </v-card-title>
+            <v-divider />
+            <v-card-text class="pa-5">
+                <div v-if="activeKey === 'stations'">
                     <v-row>
                         <v-col cols="12" md="6">
                             <div class="text-subtitle-2 font-weight-bold mb-2">

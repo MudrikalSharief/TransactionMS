@@ -145,6 +145,8 @@ class TransactionResource extends JsonResource
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'step_run_id' => $a->step_run_id,
+                        'source_attachment_id' => $a->source_attachment_id,
+                        'is_linked' => $a->source_attachment_id !== null,
                         'requirement_definition_id' => $a->requirement_definition_id,
                         'requirement' => ['id' => $r->id, 'code' => $r->code, 'name' => $r->name],
                         'uploaded_by' => $a->uploader?->only(['id','name']),

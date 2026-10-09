@@ -16,6 +16,8 @@ class TransactionAttachmentResource extends JsonResource
             'requirement_definition_id' => $this->requirement_definition_id,
             'requirement' => $this->whenLoaded('requirement', fn () => $this->requirement?->only(['id', 'code', 'name'])),
             'step_run_id' => $this->step_run_id,
+            'source_attachment_id' => $this->source_attachment_id,
+            'is_linked' => $this->source_attachment_id !== null,
             'origin' => $this->requirement_definition_id ? 'check' : 'proceed',
             'original_name' => $this->original_name,
             'label' => $this->label,

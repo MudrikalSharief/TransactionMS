@@ -500,7 +500,7 @@
 
         <!-- Step Dialog -->
         <v-dialog v-model="stepDialog" max-width="800">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>{{
                     stepForm.id ? "Edit Step" : "New Step"
                 }}</v-card-title>
@@ -630,7 +630,7 @@
 
         <!-- Route Dialog -->
         <v-dialog v-model="routeDialog" max-width="900">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>{{
                     routeForm.id ? "Edit Route" : "New Route"
                 }}</v-card-title>
@@ -693,8 +693,9 @@
 
         <!-- Save as new live version -->
         <v-dialog v-model="saveDialog" max-width="500">
-            <v-card rounded="0">
-                <v-card-title>Save version</v-card-title>
+        <v-dialog v-model="saveDialog" max-width="500">
+            <v-card rounded="xl" style="overflow: hidden">
+                <v-card-title>Save as new version</v-card-title>
                 <v-divider />
                 <v-card-text>
                     <div class="text-caption text-medium-emphasis mb-3">
@@ -751,6 +752,13 @@
                         </v-chip>
                     </div>
                     <div class="text-subtitle-2 font-weight-bold">CONFIRM TO CHANGE VERSION</div>
+                    <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+                        New transactions will use v{{ liveTarget?.version }}. Running
+                        transactions stay on their version. Old versions are kept.
+                    </v-alert>
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">

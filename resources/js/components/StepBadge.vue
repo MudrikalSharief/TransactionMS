@@ -1,6 +1,6 @@
 <template>
     <div v-if="stepNumber || stepName" class="d-flex align-center ga-2">
-        <v-chip size="x-small" variant="flat" color="primary" rounded="lg">{{ badgeText }}</v-chip>
+        <v-chip size="x-small" :variant="modern ? 'tonal' : 'flat'" color="primary" rounded="lg">{{ badgeText }}</v-chip>
         <span class="text-caption text-medium-emphasis">{{ stepName }}</span>
     </div>
 </template>
@@ -12,6 +12,8 @@ import { computed } from 'vue'
 // `tx` shape: { current_step: { order_number, name }, workflow_steps: [] }
 const props = defineProps({
     tx: { type: Object, default: null },
+    // Redesign flag: light-blue tonal pill (proceed modal mockup).
+    modern: { type: Boolean, default: false },
 })
 
 const stepNumber = computed(() => props.tx?.current_step?.order_number ?? '')

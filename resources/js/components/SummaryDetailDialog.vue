@@ -14,7 +14,7 @@
             class="sd-panel"
             :class="{ 'sd-pending': pending }"
             :style="{ '--sd-accent': accent }"
-            rounded="lg"
+            rounded="xl"
         >
             <div ref="contentRef" class="sd-content d-flex flex-column" style="min-height: 0; height: 100%">
                 <header class="sd-head">

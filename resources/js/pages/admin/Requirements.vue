@@ -68,7 +68,7 @@
         </v-card>
 
         <v-dialog v-model="dialog" max-width="800">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>{{ form.id ? "Edit Requirement" : "New Requirement" }}</v-card-title>
                 <v-divider />
                 <v-card-text>

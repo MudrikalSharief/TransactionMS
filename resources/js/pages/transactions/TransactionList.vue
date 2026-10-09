@@ -161,7 +161,7 @@
     </v-card>
 
     <v-dialog v-model="dialog" max-width="700">
-      <v-card rounded="0">
+      <v-card rounded="xl" style="overflow: hidden">
         <v-card-title>New Transaction</v-card-title>
         <v-divider />
         <v-card-text>
@@ -194,7 +194,7 @@
     </v-dialog>
 
     <v-dialog v-model="confirmDialog" max-width="500">
-      <v-card rounded="0">
+      <v-card rounded="xl" style="overflow: hidden">
         <v-card-title>Delete transaction?</v-card-title>
         <v-divider />
         <v-card-text>

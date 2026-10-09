@@ -209,7 +209,7 @@
   </v-card>
 
   <v-dialog v-model="dialog" max-width="700">
-    <v-card rounded="0">
+    <v-card rounded="xl" style="overflow: hidden">
       <v-card-title>{{ form.id ? 'Edit Transaction Type' : 'New Transaction Type' }}</v-card-title>
       <v-divider />
       <v-card-text>
@@ -237,7 +237,7 @@
   </v-dialog>
 
   <v-dialog v-model="liveDialog" max-width="500">
-    <v-card rounded="0">
+    <v-card rounded="xl" style="overflow: hidden">
       <v-card-title>Switch live version?</v-card-title>
       <v-divider />
       <v-card-text>

@@ -32,6 +32,16 @@
                 :loading="uploading"
                 @click="fileInput?.click()"
             >{{ addButtonLabel }}</v-btn>
+            <v-btn
+                v-if="showExistingBtn"
+                size="small"
+                variant="tonal"
+                rounded="0"
+                prepend-icon="mdi-history"
+                class="flex-0-0 mt-1"
+                :disabled="existingDisabled || uploading"
+                @click="emit('open-existing')"
+            >Existing files</v-btn>
             <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
         </div>
         <!-- Minimal picker: small button + inline hint (used in grouped upload sections). -->
@@ -128,8 +138,12 @@ const props = defineProps({
     labelInputLabel: { type: String, default: 'Name' },
     labelInputPlaceholder: { type: String, default: 'e.g. Additional DTR' },
     addButtonLabel: { type: String, default: 'Add file' },
+    // When true, shows an inline "Existing files" button beside Add file
+    // (Additional-files reuse from the previous step; no Name needed).
+    showExistingBtn: { type: Boolean, default: false },
+    existingDisabled: { type: Boolean, default: false },
 });
-const emit = defineEmits(["update:modelValue", "uploaded", "deleted", "error", "update:fileLabel"]);
+const emit = defineEmits(["update:modelValue", "uploaded", "deleted", "error", "update:fileLabel", "open-existing"]);
 
 const { api } = useApi();
 const picked = ref([]);

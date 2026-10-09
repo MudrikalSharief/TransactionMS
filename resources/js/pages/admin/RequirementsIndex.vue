@@ -173,7 +173,7 @@
         </v-card>
 
         <v-dialog v-model="bindDialog" max-width="800" scrollable>
-            <v-card rounded="0" class="lgu-card">
+            <v-card rounded="xl" style="overflow: hidden" class="lgu-card">
                 <v-card-title class="d-flex align-center pa-5">
                     <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
                         <v-icon color="white">mdi-link-variant</v-icon>
@@ -301,7 +301,7 @@
         </v-dialog>
 
         <v-dialog v-model="dialog" max-width="800">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>
                     {{ form.id ? "Edit Requirement" : "New Requirement" }}
                 </v-card-title>

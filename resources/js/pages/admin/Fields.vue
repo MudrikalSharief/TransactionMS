@@ -83,7 +83,7 @@
   </v-card>
 
   <v-dialog v-model="dialog" max-width="900">
-    <v-card rounded="0">
+    <v-card rounded="xl" style="overflow: hidden">
       <v-card-title>{{ form.id ? 'Edit Field' : 'Create Field' }}</v-card-title>
       <v-divider />
       <v-card-text>
@@ -166,7 +166,7 @@
   </v-dialog>
 
   <v-dialog v-model="deleteDialog" max-width="520">
-    <v-card rounded="0">
+    <v-card rounded="xl" style="overflow: hidden">
       <v-card-title>Delete Field</v-card-title>
       <v-divider />
       <v-card-text>

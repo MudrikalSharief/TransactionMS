@@ -101,6 +101,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
     Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
+    Route::post('/transactions/{transaction}/attachments/reuse', [TransactionAttachmentController::class, 'reuse']);
+    Route::delete('/transactions/{transaction}/attachments/{attachment}/unlink', [TransactionAttachmentController::class, 'unlink']);
     Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
     Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
@@ -191,6 +193,8 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
 
         Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
         Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
+        Route::post('/transactions/{transaction}/attachments/reuse', [TransactionAttachmentController::class, 'reuse']);
+        Route::delete('/transactions/{transaction}/attachments/{attachment}/unlink', [TransactionAttachmentController::class, 'unlink']);
         Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
         Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
         Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
