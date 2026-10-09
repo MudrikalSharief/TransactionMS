@@ -495,7 +495,7 @@
 
         <!-- Step Dialog -->
         <v-dialog v-model="stepDialog" max-width="800">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>{{
                     stepForm.id ? "Edit Step" : "New Step"
                 }}</v-card-title>
@@ -625,7 +625,7 @@
 
         <!-- Route Dialog -->
         <v-dialog v-model="routeDialog" max-width="900">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>{{
                     routeForm.id ? "Edit Route" : "New Route"
                 }}</v-card-title>
@@ -688,7 +688,7 @@
 
         <!-- Save as new live version -->
         <v-dialog v-model="saveDialog" max-width="500">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Save as new version</v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -721,7 +721,7 @@
 
         <!-- Switch live version -->
         <v-dialog v-model="liveDialog" max-width="500">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Switch live version?</v-card-title>
                 <v-divider />
                 <v-card-text>

@@ -58,7 +58,7 @@
   </v-card>
 
   <v-dialog v-model="dialog" max-width="600">
-    <v-card rounded="0">
+    <v-card rounded="xl" style="overflow: hidden">
       <v-card-title>{{ form.id ? 'Edit Role' : 'New Role' }}</v-card-title>
       <v-divider />
       <v-card-text>

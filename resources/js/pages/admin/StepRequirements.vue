@@ -129,7 +129,7 @@
         </v-card>
 
         <v-dialog v-model="addDialog" max-width="600">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Add requirement</v-card-title>
                 <v-divider />
                 <v-card-text>

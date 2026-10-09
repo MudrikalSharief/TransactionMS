@@ -168,7 +168,10 @@
                     :remarks-placeholder="remarksPlaceholder"
                     :attachments-title="attachmentsTitle"
                     :modern="modern"
+                    :show-existing-btn="showExistingBtn"
+                    :existing-disabled="saving || savingChecklist"
                     @attachment-deleted="(id) => emit('attachment-deleted', id)"
+                    @open-existing="openExistingAdditional"
                 />
             </v-window-item>
 
@@ -285,6 +288,17 @@
                             @uploaded="() => emit('requirement-uploaded', r.definition.id)"
                             @deleted="(id) => emit('attachment-deleted', id)"
                         />
+                        <div v-if="showExistingBtn" class="d-flex align-center ga-2 mt-2 mb-3">
+                            <v-btn
+                                size="small"
+                                variant="tonal"
+                                rounded="0"
+                                prepend-icon="mdi-history"
+                                :disabled="isUploadLocked(r) || saving || savingChecklist"
+                                @click="openExisting(r)"
+                            >Existing files</v-btn>
+                            <span class="text-caption text-medium-emphasis">from {{ prevStepLabel }}</span>
+                        </div>
                         <AttachmentList
                             :items="mergedReqAttachments(r)"
                             :tx-id="txId"
@@ -315,10 +329,131 @@
                     :remarks-placeholder="remarksPlaceholder"
                     :attachments-title="attachmentsTitle"
                     :modern="modern"
+                    :show-existing-btn="showExistingBtn"
+                    :existing-disabled="saving || savingChecklist"
                     @attachment-deleted="(id) => emit('attachment-deleted', id)"
+                    @open-existing="openExistingAdditional"
                 />
             </v-window-item>
         </v-window>
+
+        <v-dialog v-model="existingDialog" max-width="700" scrollable>
+            <v-card rounded="xl" style="overflow: hidden">
+                <v-card-title class="px-6 pt-5 pb-4">
+                    <div class="d-flex align-center ga-3">
+                        <v-avatar color="grey-darken-3" rounded="lg" size="40">
+                            <v-icon color="white">mdi-history</v-icon>
+                        </v-avatar>
+                        <div class="text-h6 font-weight-bold" style="line-height: 1.25">
+                            Select file from {{ prevStepLabel }}
+                        </div>
+                    </div>
+                    <div class="text-caption text-medium-emphasis mt-1">
+                        Reuse a file without re-uploading
+                    </div>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="px-6 pt-4 pb-2">
+                    <div v-if="existingForAdditional" class="text-body-2 mb-2">
+                        Link a file already uploaded in
+                        <b>{{ prevStepLabel }}</b> into your Additional files without re-uploading.
+                    </div>
+                    <div v-else class="text-body-2 mb-2">
+                        Link a file already uploaded for
+                        <b>{{ existingTarget?.definition?.name }}</b> without re-uploading.
+                    </div>
+                    <v-text-field
+                        v-model="existingSearch"
+                        label="Search files"
+                        placeholder="File name, requirement, uploader…"
+                        variant="outlined"
+                        density="compact"
+                        hide-details="auto"
+                        prepend-inner-icon="mdi-magnify"
+                        class="mb-3"
+                    />
+                    <v-alert v-if="existingError" type="error" variant="tonal" density="compact" class="mb-3">
+                        {{ existingError }}
+                    </v-alert>
+                    <div v-if="filteredExisting.length" class="d-flex flex-column ga-2">
+                        <template v-for="(row, i) in groupedExisting" :key="row.kind === 'sep' ? `sep-${i}` : row.file.id">
+                            <div v-if="row.kind === 'sep'" class="d-flex align-center ga-2 mt-1">
+                                <v-divider />
+                                <span class="text-caption text-medium-emphasis text-no-wrap flex-shrink-0">Additional files</span>
+                                <v-divider />
+                            </div>
+                            <div
+                                v-else
+                                class="d-flex align-center ga-2 pa-3 rounded"
+                                style="border: 1px solid rgba(0,0,0,0.12)"
+                            >
+                                <v-icon color="error">{{ 'mdi-file-document' }}</v-icon>
+                                <div class="flex-1-1" style="min-width: 0">
+                                    <div class="text-body-2 text-truncate font-weight-medium">{{ row.file.original_name }}</div>
+                                    <div class="d-flex flex-wrap align-center ga-1 my-1">
+                                        <v-chip
+                                            v-if="sourceStepLabel(row.file)"
+                                            size="x-small"
+                                            variant="tonal"
+                                            color="grey-darken-3"
+                                            rounded="lg"
+                                        ><v-icon start size="x-small">mdi-source-branch</v-icon>{{ sourceStepLabel(row.file) }}</v-chip>
+                                        <v-chip
+                                            v-if="row.file.requirement?.name"
+                                            size="x-small"
+                                            variant="flat"
+                                            color="blue-grey"
+                                            rounded="lg"
+                                        >{{ row.file.requirement.name }}</v-chip>
+                                        <v-chip
+                                            v-if="row.file.label"
+                                            size="x-small"
+                                            variant="flat"
+                                            color="blue-grey"
+                                            rounded="lg"
+                                        >{{ row.file.label }}</v-chip>
+                                    </div>
+                                    <div class="text-caption text-medium-emphasis">
+                                        {{ formatPrevSize(row.file.size_bytes) }}
+                                        <span v-if="row.file.uploader?.name || row.file.uploaded_by?.name"> · {{ row.file.uploader?.name || row.file.uploaded_by?.name }}</span>
+                                    </div>
+                                </div>
+                                <v-btn
+                                    size="x-small"
+                                    variant="text"
+                                    color="grey-darken-1"
+                                    icon="mdi-eye-outline"
+                                    :title="`View ${row.file.original_name}`"
+                                    :href="fileViewUrl(row.file)"
+                                    target="_blank"
+                                    rel="noopener"
+                                    :disabled="!fileViewUrl(row.file)"
+                                    @click.stop
+                                />
+                                <v-btn
+                                    size="small"
+                                    variant="tonal"
+                                    rounded="0"
+                                    color="grey-darken-3"
+                                    :loading="existingSavingId === row.file.id"
+                                    :disabled="existingSavingId !== null"
+                                    @click="selectExisting(row.file)"
+                                >Use file</v-btn>
+                            </div>
+                        </template>
+                    </div>
+                    <div v-else class="text-caption text-medium-emphasis">No files found in {{ prevStepLabel }}.</div>
+                    <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+                        Linked files stay owned by {{ prevStepLabel }}. You can remove the reference from your step,
+                        but only the previous step's delete removes it everywhere — then this requirement shows as missing again.
+                    </v-alert>
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="justify-end px-6 py-4">
+                    <v-btn variant="text" :disabled="existingSavingId !== null" @click="existingDialog = false">Close</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
@@ -329,6 +464,7 @@ import StepDataFields from '@/components/StepDataFields.vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import AttachmentList from '@/components/AttachmentList.vue'
 import ProceedFooter from '@/components/ProceedFooter.vue'
+import { useApi } from '@/composables/useApi'
 import { fileViewUrl, isOfficeDoc } from '@/composables/useFileView'
 
 // Wizard step + remarks + move-level attachments are two-way bound to the parent
@@ -377,6 +513,11 @@ const props = defineProps({
     // `singlePage` renders the numbered single-scroll layout (first step only).
     modern: { type: Boolean, default: false },
     singlePage: { type: Boolean, default: false },
+    // Full transaction file list (tx.attachments) for the "Existing files"
+    // picker. Filtered to the immediately previous step number only.
+    existingAttachments: { type: Array, default: () => [] },
+    currentStepOrder: { type: [Number, String], default: 1 },
+    workflowSteps: { type: Array, default: () => [] },
 })
 
 // Page 2 holds the uploads. In single-page mode (step 1 → step 2) it is the
@@ -600,6 +741,150 @@ function removeReqFile(id) {
         next[key] = (files || []).filter((a) => a.id !== id)
     }
     reqFiles.value = next
+}
+
+// "Existing files" picker: reuse a file from the immediately previous
+// step number (step 5 sees step 4 only). Step 1 has no predecessor, so
+// the button never renders there.
+const prevStep = computed(() => {
+    const cur = Number(props.currentStepOrder)
+    if (!Number.isFinite(cur) || cur <= 1) return null
+    return (props.workflowSteps || []).find((s) => Number(s.order_number) === cur - 1) || null
+})
+const prevStepLabel = computed(() => {
+    if (!prevStep.value) return ''
+    const n = prevStep.value.order_number
+    const name = prevStep.value.name || prevStep.value.code || ''
+    return `Step ${n}${name ? ` · ${name}` : ''}`
+})
+const eligiblePrevFiles = computed(() => {
+    if (!prevStep.value) return []
+    const pid = Number(prevStep.value.id)
+    return (props.existingAttachments || []).filter(
+        (a) => Number(a.workflow_step_id) === pid && !a.source_attachment_id && !a.is_linked,
+    )
+})
+const showExistingBtn = computed(() => !!prevStep.value && eligiblePrevFiles.value.length > 0)
+
+const { api } = useApi()
+const existingDialog = ref(false)
+const existingTarget = ref(null)
+const existingForAdditional = ref(false)
+const existingSearch = ref('')
+const existingError = ref('')
+const existingSavingId = ref(null)
+
+function openExisting(r) {
+    existingTarget.value = r
+    existingForAdditional.value = false
+    existingSearch.value = ''
+    existingError.value = ''
+    existingSavingId.value = null
+    existingDialog.value = true
+}
+
+function openExistingAdditional() {
+    existingTarget.value = null
+    existingForAdditional.value = true
+    existingSearch.value = ''
+    existingError.value = ''
+    existingSavingId.value = null
+    existingDialog.value = true
+}
+
+const filteredExisting = computed(() => {
+    const q = String(existingSearch.value || '').trim().toLowerCase()
+    if (!q) return eligiblePrevFiles.value
+    return eligiblePrevFiles.value.filter((a) => {
+        const hay = [
+            a.original_name,
+            a.label,
+            a.requirement?.name,
+            a.requirement?.code,
+            a.uploader?.name,
+            a.uploaded_by?.name,
+            sourceStepLabel(a),
+        ].filter(Boolean).join(' ').toLowerCase()
+        return hay.includes(q)
+    })
+})
+
+// Proceed-level (Additional files) rows carry a label and no requirement;
+// requirement-bound rows carry requirement_definition_id.
+function isAdditionalFile(f) {
+    return !f?.requirement_definition_id
+}
+
+const existingReqFiles = computed(() => filteredExisting.value.filter((f) => !isAdditionalFile(f)))
+const existingAdditionalFiles = computed(() => filteredExisting.value.filter(isAdditionalFile))
+
+// Picker order: requirement files first, then a labelled separator,
+// then Additional files at the bottom. The separator always shows above
+// Additional files whenever that section is non-empty.
+const groupedExisting = computed(() => {
+    const rows = existingReqFiles.value.map((f) => ({ kind: 'file', file: f }))
+    if (existingAdditionalFiles.value.length) {
+        rows.push({ kind: 'sep' })
+        for (const f of existingAdditionalFiles.value) rows.push({ kind: 'file', file: f })
+    }
+    return rows
+})
+
+// "Step N · Station name" for a previous-step file card. Resolves the
+// order number from workflowSteps (the API step payload has no
+// order_number); falls back to the dialog-level prevStepLabel.
+function sourceStepLabel(f) {
+    const match = (props.workflowSteps || []).find(
+        (s) => Number(s.id) === Number(f?.workflow_step_id),
+    )
+    if (match) {
+        const n = match.order_number
+        const name = match.name || match.code || f?.step?.name || ''
+        return `Step ${n}${name ? ` · ${name}` : ''}`
+    }
+    if (f?.step?.name) return f.step.name
+    return prevStepLabel.value
+}
+
+function formatPrevSize(b) {
+    const n = Number(b || 0)
+    if (n < 1024) return `${n} B`
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+async function selectExisting(f) {
+    if (existingSavingId.value !== null) return
+    if (!existingForAdditional.value && !existingTarget.value) return
+    existingSavingId.value = f.id
+    existingError.value = ''
+    try {
+        const base = props.isAdmin
+            ? `/api/admin/transactions/${props.txId}/attachments/reuse`
+            : `/api/transactions/${props.txId}/attachments/reuse`
+        if (existingForAdditional.value) {
+            // Proceed-level (Additional files) link: auto-carry the source name.
+            const res = await api.post(base, { source_attachment_id: f.id })
+            const created = res.data?.data ?? res.data
+            if (created && created.id) {
+                proceedAttachments.value = [...(proceedAttachments.value || []), created]
+            }
+            emit('requirement-uploaded', null)
+        } else {
+            await api.post(base, {
+                source_attachment_id: f.id,
+                requirement_definition_id: existingTarget.value.definition.id,
+            })
+            emit('requirement-uploaded', existingTarget.value.definition.id)
+        }
+        existingDialog.value = false
+        existingTarget.value = null
+        existingForAdditional.value = false
+    } catch (e) {
+        existingError.value = e?.response?.data?.message || 'Failed to link file.'
+    } finally {
+        existingSavingId.value = null
+    }
 }
 
 defineExpose({ clearReqFiles, getReqFiles, removeReqFile })

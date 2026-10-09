@@ -1,6 +1,6 @@
 <template>
     <v-dialog :model-value="open" max-width="640" @update:model-value="(v) => emit('update:open', v)">
-        <v-card rounded="xl">
+        <v-card rounded="xl" style="overflow: hidden">
             <v-card-title class="px-6 pt-5 pb-1">
                 <div class="text-h6 font-weight-bold">{{ dialogTitle }}</div>
                 <div class="d-flex align-center ga-2 mt-3 flex-wrap">

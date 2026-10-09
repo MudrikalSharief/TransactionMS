@@ -485,12 +485,12 @@
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
                     <v-icon color="white">mdi-paperclip</v-icon>
                 </v-avatar>
-                <span class="text-h6 font-weight-bold">Attached Files</span>
+                <span class="text-h6 font-weight-bold">All transaction files</span>
                 <v-chip size="small" variant="tonal" class="ml-2">{{ (tx.attachments || []).length }}</v-chip>
             </v-card-title>
             <v-divider />
             <v-card-text class="pa-4">
-                <AttachmentList :items="tx.attachments || []" :tx-id="route.params.id" is-admin :show-details="false" @deleted="removeAttachment" />
+                <AttachmentList :items="tx.attachments || []" :tx-id="route.params.id" is-admin :show-details="false" :workflow-steps="tx?.workflow_steps || []" show-step sort-by-step group-by-step @deleted="removeAttachment" />
             </v-card-text>
         </v-card>
 
@@ -512,6 +512,9 @@
                         :tx-id="route.params.id"
                         is-admin
                         :requirements="tx?.current_step_requirements || []"
+                        :existing-attachments="tx?.attachments || []"
+                        :current-step-order="tx?.current_step?.order_number"
+                        :workflow-steps="tx?.workflow_steps || []"
                         :checklist="tx?.current_step_checklist || []"
                         :fields="tx?.current_step_fields"
                         :form="form"
@@ -592,7 +595,7 @@
         />
 
         <v-dialog v-model="checkDialog" max-width="700">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Check: {{ checkTarget?.definition?.name }}</v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -633,7 +636,7 @@
         </v-dialog>
 
         <v-dialog v-model="uncheckDialog" max-width="600">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Uncheck: {{ uncheckTarget?.definition?.name }}</v-card-title>
                 <v-divider />
                 <v-card-text>

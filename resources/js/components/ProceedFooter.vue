@@ -29,9 +29,12 @@
                     list-detailed
                     list-group-by-label
                     show-label-input
+                    :show-existing-btn="showExistingBtn"
+                    :existing-disabled="existingDisabled"
                     @update:model-value="(files) => emit('update:proceedAttachments', files)"
                     @update:file-label="(v) => emit('update:attachmentName', v)"
                     @deleted="(id) => emit('attachment-deleted', id)"
+                    @open-existing="emit('open-existing')"
                 />
             </div>
         </div>
@@ -67,6 +70,10 @@ defineProps({
     attachmentsTitle: { type: String, default: 'Additional files' },
     // Redesign flag: Additional-files block renders before remarks (mockup order).
     modern: { type: Boolean, default: false },
+    // Shows the inline "Existing files" reuse button beside Add file
+    // (visible step 2+ only when the previous step has files).
+    showExistingBtn: { type: Boolean, default: false },
+    existingDisabled: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -74,5 +81,6 @@ const emit = defineEmits([
     'update:remarks',
     'update:proceedAttachments',
     'update:attachmentName',
+    'open-existing',
 ])
 </script>

@@ -105,7 +105,7 @@
 
     <!-- Window dialog -->
     <v-dialog v-model="windowOpen" max-width="800">
-        <v-card v-if="activeContent" rounded="0">
+        <v-card v-if="activeContent" rounded="xl" style="overflow: hidden">
             <v-card-title class="d-flex align-center pa-5">
                 <v-avatar :color="activeContent.color" rounded="0" size="40" class="mr-3">
                     <v-icon color="white">{{ activeContent.icon }}</v-icon>
