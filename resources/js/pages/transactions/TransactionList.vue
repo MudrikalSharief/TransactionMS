@@ -31,7 +31,7 @@
         <v-data-table
           v-show="!loading"
           :headers="headers"
-          :items="padded"
+          :items="filtered"
           :loading="loading"
           item-key="id"
           density="compact"
@@ -41,8 +41,7 @@
           hide-default-footer
           hover
           class="lgu-table table-pages"
-          :row-props="(item) => (item.__pad ? { class: 'pad-row' } : {})"
-          @click:row="(_, row) => { if (!row.item.__pad) go(row.item.id) }"
+          @click:row="(_, row) => go(row.item.id)"
         >
           <template v-slot:bottom>
             <div class="page-slot">
@@ -156,6 +155,7 @@
             <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
           </template>
         </v-data-table>
+        <div v-if="!loading && filtered.length" class="table-filler" :style="{ height: `${fillerHeight}px` }" />
         </div>
       </v-card-text>
     </v-card>
@@ -285,23 +285,15 @@ const filtered = computed(() => items.value || [])
 const tablePage = ref(1)
 const clientPages = computed(() => Math.max(1, Math.ceil((filtered.value || []).length / 7)))
 
-// Pad short pages with invisible filler rows so every page paints a full
-// 7 rows, exactly like full tabs — same density, same card, no perceived
-// shortness. Fillers sort last (epoch date), never navigate, never hover,
-// and render no content (CSS hides it) while keeping their 60px rhythm.
-const padded = computed(() => {
-  const rows = filtered.value || []
-  if (!rows.length) return rows
-  const need = (7 - (rows.length % 7)) % 7
-  if (!need) return rows
-  return [
-    ...rows,
-    ...Array.from({ length: need }, (_, i) => ({
-      __pad: true,
-      id: `__pad-${i}`,
-      created_at: '1970-01-01T00:00:00Z',
-    })),
-  ]
+// Layout filler keeps every page a full 7-row height without fake data
+// rows. Fake `__pad` rows leaked as visible N/A / Unassigned / Jan 1 1970
+// rows when the hiding CSS missed (v-menu teleport, sorting). A plain div
+// below the table preserves the card rhythm with zero row content.
+const fillerHeight = computed(() => {
+  const n = (filtered.value || []).length
+  if (!n) return 0
+  const visible = Math.min(7, n - (tablePage.value - 1) * 7)
+  return Math.max(0, 7 - visible) * 60
 })
 
 // Default-footer style range for the visible chunk: "1–7 of 25".
@@ -531,15 +523,10 @@ useSmartPoll(async () => {
 .lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
   color: #ffffff !important;
 }
-/* Filler rows: full 60px rhythm, zero paint — no hover, no clicks,
-   no cell content (hidden but layout-preserving). */
-.lgu-table :deep(tr.pad-row) {
+/* Layout filler below the table: preserves the full 7-row card height
+   on short pages with no fake rows and no content to leak. */
+.table-filler {
+  width: 100%;
   pointer-events: none;
-}
-.lgu-table :deep(tr.pad-row:hover) {
-  background: transparent !important;
-}
-.lgu-table :deep(tr.pad-row > td > *) {
-  visibility: hidden;
 }
 </style>
