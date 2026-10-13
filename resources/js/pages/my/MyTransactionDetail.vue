@@ -164,7 +164,7 @@
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
-                                    :color="isReturnAction ? 'warning' : 'primary'"
+                                    :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'primary'"
                                     rounded="0"
                                     :append-icon="isReturnAction ? 'mdi-chevron-triple-left' : 'mdi-chevron-triple-right'"
                                     style="width: 100%; flex: 1 1 auto"
@@ -466,7 +466,7 @@
                     <v-btn variant="outlined" rounded="lg" @click="remarksDialog = false">Cancel</v-btn>
                     <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="outlined" rounded="lg" @click="wizardStep = 1">Back</v-btn>
                     <v-btn v-if="showNextBtn" variant="outlined" rounded="lg" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || skipReview" :color="isReturnAction ? 'warning' : 'black'" rounded="lg" :loading="saving" :disabled="proceedDisabled" @click="executeSelected">{{ proceedButtonLabel }}</v-btn>
+                    <v-btn v-if="wizardStep === 2 || skipReview" :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'black'" rounded="lg" :loading="saving" :disabled="proceedDisabled" @click="executeSelected">{{ proceedButtonLabel }}</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -1415,6 +1415,7 @@ const isJumpForward = computed(() => !!selectedJumpOption.value?.is_forward);
 // True for any backward move: return-route selection or backward jump.
 // Drives the orange (warning) button styling on return actions.
 const isReturnAction = computed(() => isReturnSelected.value || (isJumpSelected.value && !isJumpForward.value));
+const isResendAction = computed(() => isJumpSelected.value && isJumpForward.value);
 const mainActionButtonLabel = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {

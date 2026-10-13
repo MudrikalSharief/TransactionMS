@@ -175,7 +175,7 @@
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
-                                    :color="isReturnAction ? 'warning' : 'primary'"
+                                    :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'primary'"
                                     rounded="0"
                                     :append-icon="isReturnAction ? 'mdi-chevron-triple-left' : 'mdi-chevron-triple-right'"
                                     style="width: 100%; flex: 1 1 auto"
@@ -528,7 +528,7 @@
                     >Next</v-btn>
                     <v-btn
                         v-if="wizardStep === 2 || skipReview"
-                        :color="isReturnAction ? 'warning' : 'grey-darken-3'"
+                        :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'grey-darken-3'"
                         rounded="0"
                         :loading="saving"
                         :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0"
@@ -1503,6 +1503,7 @@ const isJumpForward = computed(() => !!selectedJumpOption.value?.is_forward);
 // True for any backward move: return-route selection or backward jump.
 // Drives the orange (warning) button styling on return actions.
 const isReturnAction = computed(() => isReturnSelected.value || (isJumpSelected.value && !isJumpForward.value));
+const isResendAction = computed(() => isJumpSelected.value && isJumpForward.value);
 const mainActionButtonLabel = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {

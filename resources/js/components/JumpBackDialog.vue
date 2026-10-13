@@ -38,7 +38,7 @@
                 <v-btn
                     variant="outlined"
                     rounded="lg"
-                    :color="isForward ? undefined : 'warning'"
+                    :color="isForward ? 'purple-darken-2' : 'warning'"
                     :loading="saving"
                     :disabled="!remarks.trim() || saving"
                     @click="confirm"
