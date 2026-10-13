@@ -130,7 +130,7 @@
                         />
 
                         <v-row class="mt-1" align="stretch">
-                            <v-col v-if="hasActionOptions" cols="12" md="7">
+                            <v-col v-if="hasActionOptions" cols="12" md="6">
                                 <v-select
                                     :model-value="selectedRouteId"
                                     :items="unifiedRouteOptions"
@@ -141,9 +141,26 @@
                                     hide-details="auto"
                                     :disabled="saving"
                                     @update:model-value="onSelectAction"
-                                />
+                                >
+                                    <template v-slot:selection="{ item }">
+                                        <span class="text-truncate">{{ item.title }}</span>
+                                    </template>
+                                    <template v-slot:item="{ item, props }">
+                                        <v-list-item v-bind="props">
+                                            <template #prepend>
+                                                <v-icon :color="actionKindColor(item.raw.kind)">{{ actionKindIcon(item.raw.kind) }}</v-icon>
+                                            </template>
+                                            <template #title>
+                                                <span class="font-weight-bold" :class="{ 'text-error': item.raw.kind === 'clear' }">{{ item.raw.verb }}</span><span v-if="item.raw.detail" class="text-medium-emphasis"> · {{ item.raw.detail }}</span>
+                                            </template>
+                                            <template v-if="String(item.raw.value) === String(selectedRouteId)" #append>
+                                                <v-icon :color="actionKindColor(item.raw.kind)">mdi-check</v-icon>
+                                            </template>
+                                        </v-list-item>
+                                    </template>
+                                </v-select>
                             </v-col>
-                            <v-col cols="12" :md="hasActionOptions ? 5 : 12" class="d-flex justify-end ga-2" style="flex-wrap: wrap">
+                            <v-col cols="12" :md="hasActionOptions ? 6 : 12" class="d-flex justify-end ga-2" style="flex-wrap: wrap">
                                 <v-btn
                                     v-if="showFinalize"
                                     variant="outlined"
@@ -158,10 +175,10 @@
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions"
-                                    color="primary"
+                                    :color="isReturnAction ? 'warning' : 'primary'"
                                     rounded="0"
-                                    append-icon="mdi-chevron-triple-right"
-                                    style="min-width: 220px; flex: 1 1 auto"
+                                    :append-icon="isReturnAction ? 'mdi-chevron-triple-left' : 'mdi-chevron-triple-right'"
+                                    style="width: 100%; flex: 1 1 auto"
                                     height="100%"
                                     :disabled="!selectedRouteId || saving"
                                     :loading="saving"
@@ -446,7 +463,7 @@
         <v-dialog v-model="remarksDialog" max-width="800" scrollable>
             <v-card rounded="xl" style="overflow: hidden">
                 <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
-                <v-card-title>
+                <v-card-title :class="{ 'text-warning': isReturnAction }">
                     {{ proceedModalTitle }}
                 </v-card-title>
                 <v-divider />
@@ -511,7 +528,7 @@
                     >Next</v-btn>
                     <v-btn
                         v-if="wizardStep === 2 || skipReview"
-                        color="grey-darken-3"
+                        :color="isReturnAction ? 'warning' : 'grey-darken-3'"
                         rounded="0"
                         :loading="saving"
                         :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0"
@@ -1363,18 +1380,43 @@ function labelForAction(a) {
     return n != null && n !== "" ? `${n}. ${name}` : `${name}`;
 }
 
+// Dropdown dressing: per-option icon/color. Verb stays bold black;
+// only the arrow carries color (return = orange, like the image).
+function actionKindIcon(kind) {
+    if (kind === 'clear') return 'mdi-close';
+    if (kind === 'return') return 'mdi-arrow-left';
+    return 'mdi-arrow-right';
+}
+function actionKindColor(kind) {
+    if (kind === 'clear') return 'error';
+    if (kind === 'return') return 'warning';
+    if (kind === 'resend') return 'purple-darken-2';
+    return 'primary';
+}
+
 const unifiedRouteOptions = computed(() => [
-    { value: '__clear', label: 'CANCEL' },
+    { value: '__clear', label: 'CANCEL', kind: 'clear', verb: 'Cancel', detail: '' },
     ...forwardActions.value.map((a) => ({
         value: a.route_id,
         route_id: a.route_id,
         label: `Proceed → ${labelForAction(a)}`,
+        kind: 'proceed',
+        verb: 'Proceed',
+        detail: labelForAction(a),
     })),
-    ...returnActions.value.map((a) => ({
-        value: a.route_id,
-        route_id: a.route_id,
-        label: `Return → ${labelForAction(a)}`,
-    })),
+    ...returnActions.value.map((a) => {
+        const n = a?.to_step?.order_number ?? a?.to_step_id;
+        const name = a?.to_step?.name ?? labelForAction(a);
+        const hasStation = n != null && n !== '';
+        return {
+            value: a.route_id,
+            route_id: a.route_id,
+            label: `Return → ${labelForAction(a)}`,
+            kind: 'return',
+            verb: hasStation ? `Return to Station ${n}` : 'Return',
+            detail: hasStation ? String(name) : labelForAction(a),
+        };
+    }),
     ...jumpRouteOptions.value,
 ]);
 
@@ -1418,6 +1460,9 @@ const jumpRouteOptions = computed(() => {
                 is_jump: true,
                 is_forward: forward,
                 label: `${forward ? 'Resend to' : 'Return to'} Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
+                kind: forward ? 'resend' : 'return',
+                verb: `${forward ? 'Resend to' : 'Return to'} Station ${s.order_number}`,
+                detail: s.name || s.code || '',
             };
         });
 });
@@ -1455,6 +1500,9 @@ const selectedStepNumber = computed(
     () => selectedAction.value?.to_step?.order_number ?? selectedAction.value?.to_step_id ?? "",
 );
 const isJumpForward = computed(() => !!selectedJumpOption.value?.is_forward);
+// True for any backward move: return-route selection or backward jump.
+// Drives the orange (warning) button styling on return actions.
+const isReturnAction = computed(() => isReturnSelected.value || (isJumpSelected.value && !isJumpForward.value));
 const mainActionButtonLabel = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {

@@ -4,8 +4,21 @@
         role="img"
         :aria-label="ariaLabel"
     >
-        <!-- Previous station -->
-        <div class="flow-node">
+        <!-- Left station: return target when returning, otherwise previous -->
+        <div v-if="isReturn" class="flow-node">
+            <v-avatar
+                color="white"
+                size="46"
+                :class="['flow-circle', 'flow-ring', destRingClass]"
+            >
+                <span class="font-weight-bold" :class="destNumberClass">{{ destNumber !== '' ? destNumber : '→' }}</span>
+            </v-avatar>
+            <div class="flow-caption">
+                <div class="flow-caption-name font-weight-bold" :title="destName || 'Selected station'">{{ destName || 'Selected station' }}</div>
+                <v-chip size="x-small" variant="tonal" color="warning" rounded="0" class="mt-1">Returning to</v-chip>
+            </div>
+        </div>
+        <div v-else class="flow-node">
             <v-avatar
                 color="white"
                 size="46"
@@ -20,8 +33,22 @@
             </div>
         </div>
 
-        <!-- Static link: prev -> current -->
-        <div class="flow-link is-static" aria-hidden="true"><span class="flow-line"></span></div>
+        <!-- Left link: animated return arrow on returns, static history otherwise -->
+        <div v-if="isReturn" class="flow-link is-animated is-return is-reverse" aria-hidden="true">
+            <div class="flow-arrow-row" aria-hidden="true">
+                <v-icon :size="20" color="warning" class="flow-arrow-icon">mdi-chevron-double-left</v-icon>
+                <span class="flow-line"></span>
+            </div>
+            <div class="flow-action-label">
+                <v-chip
+                    size="x-small"
+                    variant="tonal"
+                    color="warning"
+                    rounded="0"
+                >Return to</v-chip>
+            </div>
+        </div>
+        <div v-else class="flow-link is-static" aria-hidden="true"><span class="flow-line"></span></div>
 
         <!-- Current station (left emphasis) -->
         <div class="flow-node">
@@ -34,10 +61,9 @@
             </div>
         </div>
 
-        <!-- Animated link: current -> destination. Arrow row (dash segments
-             + chevron) stays pinned to avatar middle; action pill sits
-             centered below the arrow. -->
+        <!-- Right link: static context on returns, animated current -> dest otherwise. -->
         <div
+            v-if="!isReturn"
             class="flow-link is-animated"
             :class="directionClass"
         >
@@ -55,9 +81,32 @@
                 >{{ actionChipLabel }}</v-chip>
             </div>
         </div>
+        <div v-else class="flow-link is-static" aria-hidden="true"><span class="flow-line"></span></div>
 
-        <!-- Destination preview -->
-        <div class="flow-node">
+        <!-- Right station: next-step context on returns, destination otherwise -->
+        <div v-if="isReturn" class="flow-node">
+            <v-avatar
+                v-if="nextStep"
+                color="white"
+                size="46"
+                class="flow-circle flow-ring"
+            >
+                <span class="font-weight-bold text-grey-darken-3">{{ nextNumber !== '' ? nextNumber : '•' }}</span>
+            </v-avatar>
+            <v-avatar
+                v-else
+                color="white"
+                size="46"
+                class="flow-circle flow-ring is-placeholder"
+            >
+                <v-icon size="20" color="grey-darken-1">mdi-flag-checkered</v-icon>
+            </v-avatar>
+            <div class="flow-caption">
+                <div class="flow-caption-name" :title="nextStep ? (nextName || 'Next station') : 'No next step'">{{ nextStep ? (nextName || 'Next station') : 'No next step' }}</div>
+                <v-chip size="x-small" variant="tonal" color="grey" rounded="0" class="mt-1">Next</v-chip>
+            </div>
+        </div>
+        <div v-else class="flow-node">
             <v-avatar
                 v-if="hasSelection && destStep"
                 color="white"
@@ -125,6 +174,27 @@ const currentName = computed(() => lookupName(props.currentStep))
 const destNumber = computed(() => lookupNumber(props.destStep))
 const destName = computed(() => lookupName(props.destStep))
 
+// Return layout: the animated arrow lives on the LEFT link pointing back
+// at the return target; the right node is context-only (next step).
+const isReturn = computed(() => props.hasSelection && props.direction === 'return')
+
+// Next forward step after current (right-side context on returns).
+// Derived from workflowSteps so parents pass nothing new.
+const nextStep = computed(() => {
+    const steps = [...(props.workflowSteps || [])].sort(
+        (a, b) => Number(a?.order_number ?? 0) - Number(b?.order_number ?? 0),
+    )
+    if (!steps.length) return null
+    const curOrder = Number(lookupNumber(props.currentStep))
+    if (Number.isFinite(curOrder)) {
+        return steps.find((s) => Number(s?.order_number) > curOrder) ?? null
+    }
+    const idx = steps.findIndex((s) => String(s?.id) === String(props.currentStep?.id))
+    return idx >= 0 ? (steps[idx + 1] ?? null) : null
+})
+const nextNumber = computed(() => lookupNumber(nextStep.value))
+const nextName = computed(() => lookupName(nextStep.value))
+
 const directionClass = computed(() => {
     if (!props.hasSelection || !props.direction) return 'is-idle'
     if (props.direction === 'return') return 'is-return'
@@ -139,9 +209,9 @@ const arrowColor = computed(() => {
     return 'primary'
 })
 
-// Flow always originates at Current (middle) and travels to Dest (right),
-// regardless of step order. Return only changes color + chip label,
-// never arrow direction.
+// Forward/resend originate at Current (middle) and travel to Dest
+// (right). Return flips: the arrow lives on the left link pointing back
+// at the return target; only the color + chip label change otherwise.
 const arrowIcon = computed(() => {
     return 'mdi-chevron-double-right'
 })
@@ -176,6 +246,10 @@ const ariaLabel = computed(() => {
     const prev = prevName.value ? `Previous ${prevNumber.value} ${prevName.value}` : 'No previous station'
     const cur = currentName.value ? `Current ${currentNumber.value} ${currentName.value}` : 'Current station'
     if (!props.hasSelection || !props.destStep) return `${prev}, ${cur}, no action selected`
+    if (props.direction === 'return') {
+        const next = nextStep.value ? `, next ${nextNumber.value} ${nextName.value}` : ''
+        return `${cur}, returning to ${destNumber.value} ${destName.value}${next}`
+    }
     const verb = actionChipLabel.value
     return `${prev}, ${cur}, ${verb} ${destNumber.value} ${destName.value}`
 })
@@ -337,6 +411,10 @@ const ariaLabel = computed(() => {
 /* Return / resend share the same left-to-right motion as forward —
    only the color differs, so the arrow always comes from Current. */
 
+.flow-link.is-animated.is-reverse .flow-line {
+    animation: flow-dash-rev 1.1s linear infinite;
+}
+
 .flow-link.is-animated.is-idle .flow-line {
     background-image: linear-gradient(to right, #bdbdbd 55%, transparent 45%);
     animation: none;
@@ -351,6 +429,12 @@ const ariaLabel = computed(() => {
 @keyframes flow-dash {
     to {
         background-position: 24px 0;
+    }
+}
+
+@keyframes flow-dash-rev {
+    to {
+        background-position: -24px 0;
     }
 }
 

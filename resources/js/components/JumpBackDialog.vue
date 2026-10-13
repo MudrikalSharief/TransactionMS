@@ -2,11 +2,11 @@
     <v-dialog :model-value="open" max-width="640" @update:model-value="(v) => emit('update:open', v)">
         <v-card rounded="xl" style="overflow: hidden">
             <v-card-title class="px-6 pt-5 pb-1">
-                <div class="text-h6 font-weight-bold">{{ dialogTitle }}</div>
+                <div class="text-h6 font-weight-bold"><span :class="{ 'text-warning': !isForward }">{{ titleHead }}</span>{{ titleTail }}</div>
                 <div class="d-flex align-center ga-2 mt-3 flex-wrap">
                     <v-chip variant="outlined" color="grey" rounded="lg" size="small">{{ currentLabel }}</v-chip>
-                    <v-icon size="small" color="grey">mdi-arrow-right</v-icon>
-                    <v-chip rounded="lg" size="small" style="background: #DCE9FD; color: #1E4ED8">{{ destinationLabel }}</v-chip>
+                    <v-icon size="small" :color="isForward ? 'grey' : 'warning'">mdi-arrow-right</v-icon>
+                    <v-chip rounded="lg" size="small" :style="isForward ? 'background: #DCE9FD; color: #1E4ED8' : 'background: #FEF3C7; color: #92400E'">{{ destinationLabel }}</v-chip>
                 </div>
             </v-card-title>
             <v-card-text class="px-6 pt-2 pb-4">
@@ -38,6 +38,7 @@
                 <v-btn
                     variant="outlined"
                     rounded="lg"
+                    :color="isForward ? undefined : 'warning'"
                     :loading="saving"
                     :disabled="!remarks.trim() || saving"
                     @click="confirm"
@@ -73,6 +74,21 @@ const dialogTitle = computed(() => {
     const verb = props.isForward ? 'Resend' : 'Return'
     if (props.subject && shortDestination.value) return `${verb} ${props.subject} to ${shortDestination.value}`
     return `${verb} to ${props.destinationLabel}`
+})
+
+// Yellow head on returns ("Return to Station 1"), plain tail
+// (" · Submit PR to GSO"). Forwards keep the single plain title.
+const titleHead = computed(() => {
+    if (props.isForward) return dialogTitle.value
+    const verb = 'Return'
+    if (props.subject && shortDestination.value) return `${verb} ${props.subject} to ${shortDestination.value}`
+    return `${verb} to ${shortDestination.value}`
+})
+const titleTail = computed(() => {
+    if (props.isForward) return ''
+    const full = dialogTitle.value
+    const head = titleHead.value
+    return full.startsWith(head) ? full.slice(head.length) : ''
 })
 
 watch(() => props.open, (v) => {
