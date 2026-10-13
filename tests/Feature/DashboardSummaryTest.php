@@ -18,7 +18,7 @@ use Tests\TestCase;
 
 /**
  * Dashboard "Transaction Summary" card. Completed counts by finalize date;
- * everything else by created date. Periods: last week (the previous Mon–Sun
+ * everything else by created date. Periods: this week (the current Mon–Sun
  * calendar week in Manila), or a Manila month.
  */
 class DashboardSummaryTest extends TestCase
@@ -112,33 +112,32 @@ class DashboardSummaryTest extends TestCase
         return $this->getJson('/api/admin/dashboard/summary?' . http_build_query($query))->assertOk();
     }
 
-    public function test_counts_each_status_in_the_previous_calendar_week(): void
+    public function test_counts_each_status_in_the_current_calendar_week(): void
     {
-        // Now is Sat 26 Sep, 12:00 Manila, so last week is Mon 14 – Sun 20 Sep.
-        $this->tx($this->payroll, 7, ['enteredHoursAgo' => 30]);        // in process, overdue (30h > 24h)
-        $this->tx($this->payroll, 12, ['enteredHoursAgo' => 5]);        // created Mon 14: in process, on time
-        $this->tx($this->procurement, 10, ['finalizedDaysAgo' => 6]);   // finalized Sun 20: completed
-        $this->tx($this->procurement, 60, ['finalizedDaysAgo' => 8]);   // created long ago, finalized last week -> completed
-        $this->tx($this->payroll, 9, ['finalizedDaysAgo' => 2]);        // finalized this week: not counted
+        // Now is Sat 26 Sep, 12:00 Manila, so this week is Mon 21 – Sun 27 Sep.
+        $this->tx($this->payroll, 3, ['enteredHoursAgo' => 30]);        // in process, overdue (30h > 24h)
+        $this->tx($this->payroll, 5, ['enteredHoursAgo' => 5]);         // created Mon 21: in process, on time
+        $this->tx($this->procurement, 10, ['finalizedDaysAgo' => 1]);   // finalized this week: completed
+        $this->tx($this->procurement, 60, ['finalizedDaysAgo' => 4]);   // created long ago, finalized Tue 22 -> completed
+        $this->tx($this->payroll, 9, ['finalizedDaysAgo' => 6]);        // finalized Sun 20 (last week): not counted
         $this->tx($this->payroll, 50, ['finalizedDaysAgo' => 35]);      // finalized before the period: not counted
-        $this->tx($this->payroll, 8, ['deleted' => true]);              // deleted
-        $this->tx($this->payroll, 5, ['enteredHoursAgo' => 99]);        // created Mon 21 (this week): not counted
-        $this->tx($this->payroll, 13, ['enteredHoursAgo' => 99]);       // created Sun 13 (week before): not counted
+        $this->tx($this->payroll, 2, ['deleted' => true]);              // deleted
+        $this->tx($this->payroll, 6, ['enteredHoursAgo' => 99]);        // created Sun 20 (last week): not counted
 
         $this->summary()
-            ->assertJsonPath('period.key', 'last_week')
-            ->assertJsonPath('period.label', 'Last week (Sep 14–20)')
+            ->assertJsonPath('period.key', 'this_week')
+            ->assertJsonPath('period.label', 'This week (Sep 21–27)')
             ->assertJsonPath('completed', 2)
             ->assertJsonPath('in_process', 2)
             ->assertJsonPath('overdue', 1)
             ->assertJsonPath('deleted', 1);
     }
 
-    public function test_last_week_label_spans_two_months_when_the_week_does(): void
+    public function test_this_week_label_spans_two_months_when_the_week_does(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-10-07 04:00:00', 'UTC')); // Wed 7 Oct, Manila
+        Carbon::setTestNow(Carbon::parse('2026-09-30 04:00:00', 'UTC')); // Wed 30 Sep, Manila
 
-        $this->summary()->assertJsonPath('period.label', 'Last week (Sep 28–Oct 4)');
+        $this->summary()->assertJsonPath('period.label', 'This week (Sep 28–Oct 4)');
     }
 
     public function test_month_period_uses_manila_month_boundaries(): void

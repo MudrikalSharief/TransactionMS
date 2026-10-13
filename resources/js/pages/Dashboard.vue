@@ -338,7 +338,7 @@
             :process-name="detail.processName"
             :origin-el="detail.originEl"
             :query="summaryQuery"
-            :period-label="summary?.period?.label || 'Last week'"
+            :period-label="summary?.period?.label || 'This week'"
         />
     </div>
 </template>
@@ -670,11 +670,11 @@ const graphSeries = computed(() => {
 })
 
 // ---- Transaction Summary card (superadmin) ----
-// Period: last week (the previous Mon–Sun week), or one of the last 12
+// Period: this week (the current Mon–Sun week), or one of the last 12
 // months (Manila calendar).
 // Completed counts by finalize date, the rest by created date (server side).
-const summaryPeriod = ref('last_week')
-const periodOptions = computed(() => [{ title: 'Last week', value: 'last_week' }, ...monthOptions.value])
+const summaryPeriod = ref('this_week')
+const periodOptions = computed(() => [{ title: 'This week', value: 'this_week' }, ...monthOptions.value])
 
 const summary = ref(null)
 const summaryLoading = ref(false)
@@ -683,8 +683,13 @@ const summaryError = ref('')
 // Same scope as the graph, but independent of the graph's Month and
 // Process filters. No office assigned: the backend aggregates all offices.
 const summaryQuery = computed(() => ({
+<<<<<<< Updated upstream
     month: summaryPeriod.value === 'last_week' ? undefined : summaryPeriod.value,
     ...(scopeCode.value ? { office_code: scopeCode.value } : {}),
+=======
+    month: summaryPeriod.value === 'this_week' ? undefined : summaryPeriod.value,
+    office_code: DASHBOARD_OFFICE.code,
+>>>>>>> Stashed changes
 }))
 
 let summaryRequest = 0
@@ -715,7 +720,7 @@ async function loadSummary() {
 watch(summaryQuery, loadSummary, { deep: true })
 
 const summaryScopeText = computed(
-    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'Last week',
+    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'This week',
 )
 
 // Status tiles: the icon carries the status color, the number stays in text ink.

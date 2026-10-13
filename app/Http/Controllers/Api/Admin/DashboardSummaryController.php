@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
 /**
  * Dashboard "Transaction Summary" card (superadmin).
  *
- * Period: last week (default: the previous Mon–Sun calendar week) or a
+ * Period: this week (default: the current Mon–Sun calendar week) or a
  * calendar month, both in Manila time.
  * Completed counts by finalize date; everything else by created date.
  * Process/office filters narrow every count, except by_process, which
@@ -294,14 +294,14 @@ class DashboardSummaryController extends Controller
             ]];
         }
 
-        // Last week: the previous full Monday–Sunday week, not the current one.
-        $end = now(self::TZ)->startOfWeek(Carbon::MONDAY);
-        $start = $end->copy()->subWeek();
+        // This week: the current Monday–Sunday week (so far).
+        $start = now(self::TZ)->startOfWeek(Carbon::MONDAY);
+        $end = $start->copy()->addWeek();
         $sunday = $end->copy()->subDay();
 
         return [$start->copy()->utc(), $end->copy()->utc(), [
-            'key' => 'last_week',
-            'label' => sprintf('Last week (%s–%s)', $start->format('M j'), $sunday->format($sunday->isSameMonth($start) ? 'j' : 'M j')),
+            'key' => 'this_week',
+            'label' => sprintf('This week (%s–%s)', $start->format('M j'), $sunday->format($sunday->isSameMonth($start) ? 'j' : 'M j')),
             'from' => $start->toIso8601String(),
             'to' => $end->toIso8601String(),
         ]];
