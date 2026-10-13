@@ -693,7 +693,6 @@
 
         <!-- Save as new live version -->
         <v-dialog v-model="saveDialog" max-width="500">
-        <v-dialog v-model="saveDialog" max-width="500">
             <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Save as new version</v-card-title>
                 <v-divider />
@@ -731,7 +730,7 @@
 
         <!-- Switch live version -->
         <v-dialog v-model="liveDialog" max-width="640">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
                         <v-icon color="#1E40AF">mdi-swap-horizontal</v-icon>
@@ -756,9 +755,6 @@
                         New transactions will use v{{ liveTarget?.version }}. Running
                         transactions stay on their version. Old versions are kept.
                     </v-alert>
-                </v-card-text>
-                <v-divider />
-                <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
