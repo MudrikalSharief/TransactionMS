@@ -118,11 +118,18 @@
                             <div class="font-weight-bold">Transaction Steps &amp; Routes</div>
                             <div class="text-caption text-medium-emphasis">Stations are steps · arrows are routes · Procurement 14-station example</div>
                         </div>
-                        <v-icon color="grey-darken-3">mdi-chevron-right</v-icon>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-            <v-col v-for="(n, i) in notes" :key="'n'+i" cols="12" md="6">
+                    </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                    <div class="text-body-2">Stations are steps where papers sit; arrows are routes papers travel. See the Procurement 14-station example in the full guide.</div>
+                    <div class="d-flex justify-end mt-3">
+                        <v-btn color="primary" rounded="0" @click="openWindow('stations')" append-icon="mdi-arrow-right">Open full guide</v-btn>
+                    </div>
+                </v-expansion-panel-text>
+            </v-expansion-panel>
+        </v-expansion-panels>
+        <v-row v-if="filteredNotes.length">
+            <v-col v-for="{ n, i } in filteredNotes" :key="'n'+i" cols="12" md="6">
                 <v-card rounded="0" elevation="1" class="lgu-card help-panel" @click="openWindow('note-'+i)">
                     <v-card-text class="d-flex align-center pa-4">
                         <v-avatar color="#BF360C" rounded="0" size="40" class="mr-3">
@@ -137,7 +144,6 @@
                 </v-card>
             </v-col>
         </v-row>
-    </div>
 
     <!-- Window dialog -->
     <v-dialog v-model="windowOpen" max-width="800">
@@ -272,31 +278,15 @@
                     <div class="d-flex justify-end mt-3">
                         <v-btn color="primary" rounded="0" to="/admin/transaction-types" append-icon="mdi-arrow-right">Open page</v-btn>
                     </div>
-                </v-expansion-panel-text>
-            </v-expansion-panel>
-            <v-expansion-panel
-                v-for="item in filteredNotes"
-                :key="'note-' + item.i"
-                :value="'note-' + item.i"
-                rounded="0"
-                class="help-entry"
-            >
-                <v-expansion-panel-title>
-                    <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
-                        <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
-                            <v-icon color="#1E40AF" size="18">{{ item.n.icon }}</v-icon>
-                        </v-avatar>
-                        <div style="min-width: 0">
-                            <div class="font-weight-bold">{{ item.n.title }}</div>
-                            <div class="text-caption text-medium-emphasis">{{ item.n.hint }}</div>
-                        </div>
-                    </div>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                    <div class="text-body-2" v-html="item.n.body" />
-                </v-expansion-panel-text>
-            </v-expansion-panel>
-        </v-expansion-panels>
+                </div>
+                <div v-else-if="activeContent?.body" class="text-body-2" v-html="activeContent.body" />
+            </v-card-text>
+            <v-divider />
+            <v-card-actions class="justify-end">
+                <v-btn variant="text" @click="windowOpen = false">Close</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
         <v-alert v-if="query.trim() && !anyVisible" type="info" variant="tonal" class="mb-4">
             No help topics match "{{ query.trim() }}".
             <v-btn variant="text" color="primary" @click="query = ''">Clear search</v-btn>
@@ -482,6 +472,25 @@ const filteredNotes = computed(() => {
         .map((n, i) => ({ n, i }))
         .filter(({ n }) => matches(q, n.title, n.hint, n.body))
 })
+
+// Detail window (stations full guide + note cards). Keys: 'stations', 'note-<index>'.
+const windowOpen = ref(false)
+const activeKey = ref(null)
+const activeContent = computed(() => {
+    if (activeKey.value === 'stations') {
+        return { icon: 'mdi-source-branch', title: 'Transaction Steps & Routes', color: '#1E40AF' }
+    }
+    const m = /^note-(\d+)$/.exec(activeKey.value || '')
+    if (m) {
+        const n = notes[Number(m[1])]
+        if (n) return { icon: n.icon, title: n.title, color: '#BF360C', body: n.body }
+    }
+    return null
+})
+function openWindow(key) {
+    activeKey.value = key
+    windowOpen.value = true
+}
 
 const anyVisible = computed(
     () =>

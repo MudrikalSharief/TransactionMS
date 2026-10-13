@@ -9,7 +9,7 @@
                 </v-tab>
                 <v-tab :value="1">
                     <v-icon start>mdi-paperclip</v-icon>
-                    Attached Files
+                    All transaction files
                     <v-chip size="x-small" variant="tonal" class="ml-2">{{ (attachments || []).length }}</v-chip>
                 </v-tab>
             </v-tabs>
@@ -36,6 +36,10 @@
                         :tx-id="txId"
                         :is-admin="isAdmin"
                         :show-details="false"
+                        :workflow-steps="workflowSteps"
+                        show-step
+                        sort-by-step
+                        group-by-step
                         centered-empty
                         @deleted="(id) => emit('deleted', id)"
                     />
@@ -57,6 +61,7 @@ const props = defineProps({
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
     attachments: { type: Array, default: () => [] },
+    workflowSteps: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['deleted'])

@@ -34,17 +34,26 @@
             </div>
         </div>
 
-        <!-- Animated link: current -> destination. The chevron sits
-             between two dash segments in one flex row, so icon and
-             dashes share the same vertical center by construction. -->
+        <!-- Animated link: current -> destination. Arrow row (dash segments
+             + chevron) stays pinned to avatar middle; action pill sits
+             centered below the arrow. -->
         <div
             class="flow-link is-animated"
             :class="directionClass"
-            aria-hidden="true"
         >
-            <span class="flow-line"></span>
-            <v-icon :size="20" :color="arrowColor" class="flow-arrow-icon">{{ arrowIcon }}</v-icon>
-            <span class="flow-line"></span>
+            <div class="flow-arrow-row" aria-hidden="true">
+                <span class="flow-line"></span>
+                <v-icon :size="20" :color="arrowColor" class="flow-arrow-icon">{{ arrowIcon }}</v-icon>
+                <span class="flow-line"></span>
+            </div>
+            <div class="flow-action-label">
+                <v-chip
+                    size="x-small"
+                    variant="tonal"
+                    :color="actionChipColor"
+                    rounded="0"
+                >{{ actionChipLabel }}</v-chip>
+            </div>
         </div>
 
         <!-- Destination preview -->
@@ -71,13 +80,6 @@
                     :class="{ 'font-weight-bold': hasSelection }"
                     :title="hasSelection ? (destName || 'Selected station') : 'Select an action'"
                 >{{ hasSelection ? (destName || 'Selected station') : 'Select an action' }}</div>
-                <v-chip
-                    size="x-small"
-                    variant="tonal"
-                    :color="actionChipColor"
-                    rounded="0"
-                    class="mt-1"
-                >{{ actionChipLabel }}</v-chip>
             </div>
         </div>
     </div>
@@ -137,10 +139,10 @@ const arrowColor = computed(() => {
     return 'primary'
 })
 
-// Return flows backwards, so the chevron points back toward the left.
+// Flow always originates at Current (middle) and travels to Dest (right),
+// regardless of step order. Return only changes color + chip label,
+// never arrow direction.
 const arrowIcon = computed(() => {
-    if (!props.hasSelection || !props.direction) return 'mdi-chevron-double-right'
-    if (props.direction === 'return') return 'mdi-chevron-double-left'
     return 'mdi-chevron-double-right'
 })
 
@@ -280,12 +282,32 @@ const ariaLabel = computed(() => {
 }
 
 /* Animated current -> destination connector: moving dashes.
-   Single flex row (dash segment, chevron, dash segment) sharing one
-   vertical center, so the arrow can never drift off the line. */
+   Column layout — top row (dash segment, chevron, dash segment) shares
+   one vertical center pinned to avatar middle; action pill sits centered
+   directly below the arrow. */
 .flow-link.is-animated {
     color: #bdbdbd;
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    height: auto;
+    min-height: 46px;
+    overflow: visible;
+}
+
+.flow-arrow-row {
+    display: flex;
     align-items: center;
+    height: 46px;
+    width: 100%;
+}
+
+.flow-action-label {
+    display: flex;
+    justify-content: center;
+    margin-top: 2px;
+    white-space: nowrap;
 }
 
 .flow-link.is-animated .flow-line {
@@ -312,9 +334,8 @@ const ariaLabel = computed(() => {
     color: #7c3aed;
 }
 
-.flow-link.is-animated.is-return .flow-line {
-    animation-direction: reverse;
-}
+/* Return / resend share the same left-to-right motion as forward —
+   only the color differs, so the arrow always comes from Current. */
 
 .flow-link.is-animated.is-idle .flow-line {
     background-image: linear-gradient(to right, #bdbdbd 55%, transparent 45%);
