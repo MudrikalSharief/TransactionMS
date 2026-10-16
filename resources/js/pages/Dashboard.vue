@@ -338,7 +338,7 @@
             :process-name="detail.processName"
             :origin-el="detail.originEl"
             :query="summaryQuery"
-            :period-label="summary?.period?.label || 'Last week'"
+            :period-label="summary?.period?.label || 'This week'"
         />
     </div>
 </template>
@@ -351,6 +351,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
+import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
@@ -364,6 +365,7 @@ const { api } = useApi()
 
 const txStore = useTransactions()
 const myStore = useMyTransactions()
+const typeStore = useTransactionTypes()
 
 const loading = ref(false)
 const refreshedAt = ref(null)
@@ -622,11 +624,25 @@ const processRanking = computed(() => {
 // only their bars.
 const processFilter = ref([])
 
-const processOptions = computed(() =>
-    processRanking.value.map((p) => ({ title: `${p.label} (${p.total})`, value: p.label }))
+// Every active process in the system. The lookup is an admin endpoint, so
+// other users only get the processes found in their own transactions.
+const systemProcessNames = computed(() =>
+    isSuperadmin.value
+        ? (typeStore.items.value || []).filter((t) => t.is_active !== false && t.name).map((t) => t.name)
+        : []
 )
 
-// Drop picks that have no transactions in the month now shown.
+// Options: every process, with its count for the month (0 when it has none),
+// busiest first.
+const processOptions = computed(() => {
+    const totals = new Map(processRanking.value.map((p) => [p.label, p.total]))
+    for (const name of systemProcessNames.value) if (!totals.has(name)) totals.set(name, 0)
+    return [...totals.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([label, total]) => ({ title: `${label} (${total})`, value: label }))
+})
+
+// Drop picks that are no longer offered.
 watch(processOptions, (options) => {
     const names = new Set(options.map((o) => o.value))
     if (processFilter.value.some((name) => !names.has(name))) {
@@ -670,11 +686,11 @@ const graphSeries = computed(() => {
 })
 
 // ---- Transaction Summary card (superadmin) ----
-// Period: last week (the previous Mon–Sun week), or one of the last 12
+// Period: this week (the current Mon–Sun week), or one of the last 12
 // months (Manila calendar).
 // Completed counts by finalize date, the rest by created date (server side).
-const summaryPeriod = ref('last_week')
-const periodOptions = computed(() => [{ title: 'Last week', value: 'last_week' }, ...monthOptions.value])
+const summaryPeriod = ref('this_week')
+const periodOptions = computed(() => [{ title: 'This week', value: 'this_week' }, ...monthOptions.value])
 
 const summary = ref(null)
 const summaryLoading = ref(false)
@@ -683,7 +699,7 @@ const summaryError = ref('')
 // Same scope as the graph, but independent of the graph's Month and
 // Process filters. No office assigned: the backend aggregates all offices.
 const summaryQuery = computed(() => ({
-    month: summaryPeriod.value === 'last_week' ? undefined : summaryPeriod.value,
+    month: summaryPeriod.value === 'this_week' ? undefined : summaryPeriod.value,
     ...(scopeCode.value ? { office_code: scopeCode.value } : {}),
 }))
 
@@ -715,7 +731,7 @@ async function loadSummary() {
 watch(summaryQuery, loadSummary, { deep: true })
 
 const summaryScopeText = computed(
-    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'Last week',
+    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'This week',
 )
 
 // Status tiles: the icon carries the status color, the number stays in text ink.
@@ -725,9 +741,7 @@ const summaryTiles = computed(() => {
     return [
         { key: 'completed', label: 'Completed', icon: 'mdi-check-circle', color: 'success', accent: dark ? '#2fa84f' : '#008300', value: s.completed ?? '—', hint: 'Finalized in this period' },
         { key: 'in_process', label: 'In-process', icon: 'mdi-progress-clock', color: 'grey-darken-1', accent: dark ? '#3987e5' : '#2a78d6', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
-        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', color: 'warning', accent: dark ? '#e0a526' : '#c98500', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
-        { key: 'deleted', label: 'Deleted', icon: 'mdi-delete-outline', color: 'grey', accent: dark ? '#a3a19b' : '#6f6d68', value: s.deleted ?? '—', hint: 'Created in this period, then deleted' },
-    ]
+        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', color: 'warning', accent: dark ? '#e0a526' : '#c98500', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },    ]
 })
 
 // ---- Detail pop-up: grows out of the tile / process bar that was clicked ----
@@ -836,6 +850,8 @@ onMounted(async () => {
     loading.value = !warm
     const opts = { silent: warm }
     loadSummary()
+    // Process filter options; cached, so this never holds up the page.
+    if (isSuperadmin.value) typeStore.fetchAll({ silent: true }).catch(() => {})
 
     try {
         if (isSuperadmin.value) {
