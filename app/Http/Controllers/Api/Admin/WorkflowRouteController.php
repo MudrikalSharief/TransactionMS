@@ -18,6 +18,12 @@ class WorkflowRouteController extends Controller
         $svc->assertDraft($workflowDefinition);
 
         $data = $request->validated();
+        // Backup guard (the form request already rejects these): return
+        // routes are retired — going back is done via jump (Returned).
+        if (!empty($data['is_return_route'])) {
+            abort(422, 'Return routes are no longer allowed. Going back is done via jump to a visited station.');
+        }
+        $this->assertForwardUnique($workflowDefinition, (int) $data['from_step_id'], (int) $data['to_step_id']);
         $route = $workflowDefinition->routes()->create($data);
 
         // A new link feeds the destination's checklist from its predecessors.
@@ -37,7 +43,12 @@ class WorkflowRouteController extends Controller
         }
 
         $oldToStepId = (int) $workflowRoute->to_step_id;
-        $workflowRoute->update($request->validated());
+        $data = $request->validated();
+        if (!empty($data['is_return_route'])) {
+            abort(422, 'Return routes are no longer allowed. Going back is done via jump to a visited station.');
+        }
+        $this->assertForwardUnique($workflowDefinition, (int) $data['from_step_id'], (int) $data['to_step_id'], (int) $workflowRoute->id);
+        $workflowRoute->update($data);
 
         // Re-derive every checklist that could have gained/lost a predecessor.
         foreach (array_unique([$oldToStepId, (int) $workflowRoute->to_step_id]) as $stepId) {
@@ -65,5 +76,36 @@ class WorkflowRouteController extends Controller
         }
 
         return response()->json(['message' => 'Deleted']);
+    }
+
+    /**
+     * Backup guard mirroring UpsertWorkflowRouteRequest: forward-only,
+     * no self-loops, no duplicate From → To (regardless of action).
+     * Grandfathered rows are untouched until edited.
+     */
+    private function assertForwardUnique(WorkflowDefinition $workflowDefinition, int $fromId, int $toId, int $selfId = 0): void
+    {
+        if ($fromId === $toId) {
+            abort(422, 'From and To cannot be the same step.');
+        }
+
+        $steps = $workflowDefinition->steps()->whereIn('id', [$fromId, $toId])->get()->keyBy('id');
+        $from = $steps->get($fromId);
+        $to = $steps->get($toId);
+        if (!$from || !$to) {
+            abort(422, 'Both steps must belong to this workflow definition.');
+        }
+        if ((int) $to->order_number < (int) $from->order_number) {
+            abort(422, "Routes must move forward: Step {$from->order_number} → Step {$to->order_number} is not allowed.");
+        }
+
+        $duplicate = $workflowDefinition->routes()
+            ->where('from_step_id', $fromId)
+            ->where('to_step_id', $toId)
+            ->when($selfId > 0, fn ($q) => $q->where('id', '!=', $selfId))
+            ->exists();
+        if ($duplicate) {
+            abort(422, 'This route already exists (same From → To), regardless of action.');
+        }
     }
 }

@@ -4,35 +4,125 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transactions\ExecuteActionRequest;
+use App\Http\Resources\TransactionListResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use App\Services\RoutingEngine;
 use App\Services\TransactionEngine;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class UserTransactionController extends Controller
 {
+    /**
+     * Lightweight change signal for 20s smart-polling.
+     * Returns aggregate stamps only (no rows, no eager loads) so open
+     * tabs can check cheaply and only full-fetch when something changed.
+     * Covers moves (transactions/states/runs) as well as ticks/uploads
+     * (checks/attachments) which don't touch the transaction row itself.
+     */
+    public function version()
+    {
+        $maxOf = function (string $table, array $columns) {
+            try {
+                if (!Schema::hasTable($table)) return null;
+                $max = null;
+                foreach ($columns as $col) {
+                    try {
+                        $v = DB::table($table)->max($col);
+                    } catch (\Throwable $e) {
+                        continue;
+                    }
+                    if ($v !== null && ($max === null || $v > $max)) $max = $v;
+                }
+                return $max;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
+
+        $txMax = $maxOf('transactions', ['updated_at']);
+        $stateMax = $maxOf('transaction_states', ['updated_at']);
+        $runMax = $maxOf('transaction_step_runs', ['updated_at', 'performed_at', 'received_at']);
+        $attachMax = $maxOf('transaction_attachments', ['updated_at', 'created_at']);
+        $reqCheckMax = $maxOf('transaction_requirement_checks', ['updated_at', 'checked_at', 'created_at']);
+        $checkMax = $maxOf('transaction_checklist_checks', ['updated_at', 'checked_at', 'created_at']);
+
+        $stamps = array_filter([$txMax, $stateMax, $runMax, $attachMax, $reqCheckMax, $checkMax]);
+        rsort($stamps);
+        $latest = $stamps[0] ?? null;
+
+        try {
+            $count = Schema::hasTable('transactions') ? (int) DB::table('transactions')->count() : 0;
+        } catch (\Throwable $e) {
+            $count = 0;
+        }
+
+        return response()->json([
+            'version' => implode('|', [$latest ?? 'none', $count]),
+            'updated_at' => $latest,
+            'count' => $count,
+        ]);
+    }
+
     public function index(Request $request, RoutingEngine $routing)
     {
         $user = $request->user();
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $perPage = (int) ($data['per_page'] ?? 25);
+        $q = trim($data['q'] ?? '');
 
-        $items = Transaction::query()
+        $user->loadMissing('roles');
+        $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
+
+        $query = Transaction::query()
             ->with([
-                'type',
-                'office',
-                'workflow',
+                'type:id,code,name',
+                'office:id,code,name',
+                'workflow.steps.office:id,code,name',
                 'workflow.stepRoles.role',
-                'state.currentStep',
-                'creator',
+                'state.currentStep.office:id,code,name',
+                'creator:id,name,email',
             ])
-            ->latest()
-            ->get();
+            ->latest();
 
-        $filtered = $items->filter(function (Transaction $tx) use ($routing, $user) {
-            return $routing->userCanWorkOnCurrentStep($tx, $user);
-        })->values();
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('reference_number', 'like', "%{$q}%")
+                    ->orWhere('title', 'like', "%{$q}%");
+            });
+        }
 
-        return TransactionResource::collection($filtered);
+        if (!$isSuperadmin) {
+            if (empty($roleIds)) {
+                return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
+            }
+            // Push the role gate to SQL (no schema change): only rows whose
+            // current station lists one of the user's roles. Keeps the exact
+            // userCanWorkOnCurrentStep() semantics for the paged rows below.
+            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
+                $r->whereIn('roles.id', $roleIds);
+            });
+        }
+
+        $page = $query->paginate($perPage);
+
+        // Final in-memory guard preserves exact RoutingEngine semantics
+        // (e.g. rows with no current step) for the 25 rows on this page —
+        // cheap, unlike filtering the whole table.
+        $page->setCollection(
+            $page->getCollection()->filter(
+                fn (Transaction $tx) => $isSuperadmin || $routing->userCanWorkOnCurrentStep($tx, $user)
+            )->values()
+        );
+
+        return TransactionListResource::collection($page);
     }
 
     public function show(Transaction $transaction, Request $request, RoutingEngine $routing)
@@ -44,9 +134,11 @@ class UserTransactionController extends Controller
             'office',
             'office.steps',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'creator',
             'runs.fromStep',
             'runs.fromStep.office',
@@ -85,9 +177,11 @@ class UserTransactionController extends Controller
         $transaction->load([
             'type',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'state.currentStep.requirementDefinitions',
             'requirementChecks',
             'checklistChecks',
@@ -120,7 +214,8 @@ class UserTransactionController extends Controller
             $request->validated()['remarks'] ?? null,
             $request->user()->id,
             is_array($fields) ? $fields : [],
-            $request->validated()['attachment_ids'] ?? []
+            $request->validated()['attachment_ids'] ?? [],
+            $request->validated()['step_data'] ?? []
         );
 
         $actions = $routing->availableActions($tx, $request->user());

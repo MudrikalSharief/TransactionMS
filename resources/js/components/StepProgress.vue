@@ -53,7 +53,7 @@
             </div>
         </v-card-text>
         <template v-if="$slots.actions">
-            <v-divider />
+            <v-divider class="actions-divider" />
             <div class="pa-4">
                 <div class="d-flex align-center mb-3">
                     <v-icon color="grey-darken-3" class="mr-2">mdi-swap-horizontal</v-icon>
@@ -270,6 +270,13 @@ function moveFor(s) {
 }
 .step-link.done {
     background: #4CAF50;
+}
+/* Clearer break between the STEP x OF x tracker and Available Actions:
+   2px primary-tinted rule so the action zone reads as its own section. */
+.actions-divider {
+    border-top-width: 2px;
+    border-top-color: rgb(var(--v-theme-primary));
+    opacity: 0.35;
 }
 .snake-row {
     width: 100%;

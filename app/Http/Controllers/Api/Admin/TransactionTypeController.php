@@ -14,9 +14,15 @@ class TransactionTypeController extends Controller
 {
     public function index()
     {
-        return TransactionTypeResource::collection(
-            TransactionType::query()->with('offices')->orderBy('name')->get()
+        // Static lookup fetched on almost every page (create dialogs, filters):
+        // 10min server cache + frontend localStorage cache = 1 tiny hit.
+        $items = \Illuminate\Support\Facades\Cache::remember(
+            'lookup:transaction-types',
+            600,
+            fn () => TransactionType::query()->with('offices')->orderBy('name')->get()
         );
+
+        return TransactionTypeResource::collection($items);
     }
 
     public function store(StoreTransactionTypeRequest $request, AuditService $audit)
@@ -34,6 +40,8 @@ class TransactionTypeController extends Controller
         $audit->log($request, 'transaction_types.create', $type, [
             'payload' => $request->validated(),
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types');
 
         return (new TransactionTypeResource($type->load('offices')))->response()->setStatusCode(201);
     }
@@ -60,6 +68,8 @@ class TransactionTypeController extends Controller
             ]),
         ]);
 
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types');
+
         return new TransactionTypeResource($transactionType->load('offices'));
     }
 
@@ -70,6 +80,8 @@ class TransactionTypeController extends Controller
         $audit->log($request, 'transaction_types.delete', $transactionType, [
             'note' => 'Soft deleted transaction type',
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types');
 
         return response()->json(['message' => 'Deleted.']);
     }

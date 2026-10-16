@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transactions\CreateTransactionRequest;
 use App\Http\Requests\Transactions\ExecuteActionRequest;
+use App\Http\Resources\TransactionListResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use App\Services\AuditService;
@@ -16,18 +17,35 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
-        $items = Transaction::query()
-            ->with([
-                'type',
-                'office',
-                'workflow',
-                'state.currentStep',
-                'creator',
-            ])
-            ->latest()
-            ->get();
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
 
-        return TransactionResource::collection($items);
+        $perPage = (int) ($data['per_page'] ?? 25);
+        $q = trim($data['q'] ?? '');
+
+        $query = Transaction::query()
+            // Slim eager loads only: everything TransactionListResource reads.
+            // No fieldValues/checks/attachments/runs on lists (detail only).
+            ->with([
+                'type:id,code,name',
+                'office:id,code,name',
+                'workflow.steps.office:id,code,name',
+                'state.currentStep.office:id,code,name',
+                'creator:id,name,email',
+            ])
+            ->latest();
+
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('reference_number', 'like', "%{$q}%")
+                    ->orWhere('title', 'like', "%{$q}%");
+            });
+        }
+
+        return TransactionListResource::collection($query->paginate($perPage));
     }
 
     public function store(CreateTransactionRequest $request, TransactionEngine $engine)
@@ -62,9 +80,11 @@ class TransactionController extends Controller
             'office',
             'office.steps',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'state.currentStep.requirementDefinitions',
             'creator',
             'runs.fromStep',
@@ -102,9 +122,11 @@ class TransactionController extends Controller
             'office',
             'office.steps',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'state.currentStep.requirementDefinitions',
             'creator',
             'runs.fromStep',
@@ -156,9 +178,11 @@ class TransactionController extends Controller
         $transaction->load([
             'type',
             'workflow.steps',
+            'workflow.steps.office',
             'workflow.routes',
             'workflow.stepRoles.role',
             'state.currentStep',
+            'state.currentStep.office',
             'state.currentStep.requirementDefinitions',
             'fieldValues.fieldDefinition',
             'requirementChecks.checker',
@@ -191,7 +215,8 @@ class TransactionController extends Controller
             $request->validated()['remarks'] ?? null,
             $request->user()->id,
             is_array($fields) ? $fields : [],
-            $request->validated()['attachment_ids'] ?? []
+            $request->validated()['attachment_ids'] ?? [],
+            $request->validated()['step_data'] ?? []
         );
 
         $actions = $routing->availableActions($tx, $request->user());

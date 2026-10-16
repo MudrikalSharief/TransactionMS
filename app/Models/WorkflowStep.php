@@ -107,4 +107,9 @@ class WorkflowStep extends Model
     {
         return $this->hasMany(ChecklistOverride::class, 'workflow_step_id');
     }
+
+    public function stepDataDefinitions(): HasMany
+    {
+        return $this->hasMany(WorkflowStepData::class, 'workflow_step_id')->orderBy('display_order');
+    }
 }

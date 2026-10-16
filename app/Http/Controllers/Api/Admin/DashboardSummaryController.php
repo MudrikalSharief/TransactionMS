@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Office;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,10 +15,13 @@ use Illuminate\Support\Collection;
 /**
  * Dashboard "Transaction Summary" card (superadmin).
  *
- * Period: the last 4 weeks (default) or a calendar month in Manila time.
+ * Period: this week (default: the current Mon–Sun calendar week) or a
+ * calendar month, both in Manila time.
  * Completed counts by finalize date; everything else by created date.
  * Process/office filters narrow every count, except by_process, which
  * ignores the process filter so the card can fade unpicked processes.
+ * office_code limits everything to one office by its code (the dashboard
+ * sends the office its graph covers).
  *
  * The tile counts (__invoke) and the detail lists (details) share the same
  * queries below, so a list always has exactly as many rows as its tile.
@@ -32,31 +36,42 @@ class DashboardSummaryController extends Controller
     private array $periodMeta;
     private array $processes = [];
     private array $offices = [];
+    private ?int $officeId = null;
 
     public function __invoke(Request $request)
     {
         $this->resolveScope($request);
 
-        $inProcess = $this->inProcess();
+        // Tile counts are polled silently every 20s by every open Dashboard —
+        // 60s server cache cuts that to 1 query-batch per minute per filter.
+        $key = 'dash:summary:'.md5(json_encode([
+            $this->periodMeta, $this->processes, $this->offices, $this->officeId,
+        ]));
 
-        $byProcess = $this->createdInPeriod($this->filtered(Transaction::query(), withProcess: false))
-            ->join('transaction_types', 'transaction_types.id', '=', 'transactions.transaction_type_id')
-            ->groupBy('transaction_types.id', 'transaction_types.name')
-            ->selectRaw('transaction_types.id as id, transaction_types.name as name, COUNT(*) as count')
-            ->orderByDesc('count')
-            ->orderBy('transaction_types.name')
-            ->get()
-            ->map(fn ($row) => ['id' => (int) $row->id, 'name' => $row->name, 'count' => (int) $row->count])
-            ->values();
+        $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
+            $inProcess = $this->inProcess();
 
-        return response()->json([
-            'period' => $this->periodMeta,
-            'completed' => $this->completedQuery()->count(),
-            'in_process' => $inProcess->count(),
-            'overdue' => $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)->count(),
-            'deleted' => $this->deletedQuery()->count(),
-            'by_process' => $byProcess,
-        ]);
+            $byProcess = $this->createdInPeriod($this->filtered(Transaction::query(), withProcess: false))
+                ->join('transaction_types', 'transaction_types.id', '=', 'transactions.transaction_type_id')
+                ->groupBy('transaction_types.id', 'transaction_types.name')
+                ->selectRaw('transaction_types.id as id, transaction_types.name as name, COUNT(*) as count')
+                ->orderByDesc('count')
+                ->orderBy('transaction_types.name')
+                ->get()
+                ->map(fn ($row) => ['id' => (int) $row->id, 'name' => $row->name, 'count' => (int) $row->count])
+                ->values();
+
+            return [
+                'period' => $this->periodMeta,
+                'completed' => $this->completedQuery()->count(),
+                'in_process' => $inProcess->count(),
+                'overdue' => $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)->count(),
+                'deleted' => $this->deletedQuery()->count(),
+                'by_process' => $byProcess,
+            ];
+        });
+
+        return response()->json($payload);
     }
 
     /**
@@ -97,17 +112,23 @@ class DashboardSummaryController extends Controller
             'processes.*' => ['integer'],
             'offices' => ['nullable', 'array'],
             'offices.*' => ['integer'],
+            'office_code' => ['nullable', 'string', 'max:50'],
         ], $extra));
 
         [$this->from, $this->to, $this->periodMeta] = $this->period($data['month'] ?? null);
         $this->processes = array_map('intval', $data['processes'] ?? []);
         $this->offices = array_map('intval', $data['offices'] ?? []);
+        // An unknown code resolves to 0, which matches no transaction (never every office).
+        $this->officeId = filled($data['office_code'] ?? null)
+            ? (int) Office::whereRaw('UPPER(code) = ?', [mb_strtoupper($data['office_code'])])->value('id')
+            : null;
     }
 
     private function filtered(Builder $q, bool $withProcess = true): Builder
     {
         if ($withProcess && $this->processes) $q->whereIn('transactions.transaction_type_id', $this->processes);
         if ($this->offices) $q->whereIn('transactions.office_id', $this->offices);
+        if ($this->officeId !== null) $q->where('transactions.office_id', $this->officeId);
 
         return $q;
     }
@@ -273,14 +294,16 @@ class DashboardSummaryController extends Controller
             ]];
         }
 
-        $end = now();
-        $start = $end->copy()->subWeeks(4);
+        // This week: the current Monday–Sunday week (so far).
+        $start = now(self::TZ)->startOfWeek(Carbon::MONDAY);
+        $end = $start->copy()->addWeek();
+        $sunday = $end->copy()->subDay();
 
-        return [$start, $end, [
-            'key' => 'last_4_weeks',
-            'label' => 'Last 4 weeks',
-            'from' => $start->copy()->setTimezone(self::TZ)->toIso8601String(),
-            'to' => $end->copy()->setTimezone(self::TZ)->toIso8601String(),
+        return [$start->copy()->utc(), $end->copy()->utc(), [
+            'key' => 'this_week',
+            'label' => sprintf('This week (%s–%s)', $start->format('M j'), $sunday->format($sunday->isSameMonth($start) ? 'j' : 'M j')),
+            'from' => $start->toIso8601String(),
+            'to' => $end->toIso8601String(),
         ]];
     }
 }

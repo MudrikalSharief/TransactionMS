@@ -1,6 +1,7 @@
 <template>
     <v-dialog v-model="open" max-width="800" scrollable>
-        <v-card rounded="0">
+        <v-card rounded="xl" style="overflow: hidden">
+            <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
             <v-card-title>
                 {{ proceedModalTitle }}
                 <div v-if="tx" class="text-caption text-medium-emphasis">
@@ -8,8 +9,9 @@
                 </div>
             </v-card-title>
             <v-divider />
-            <v-card-text>
-                <TableLoader v-if="loading" label="transaction" compact />
+            <v-card-text class="proceed-scroll">
+                    <ReturnBanner :info="null" />
+                    <TableLoader v-if="loading" label="transaction" compact />
 
                 <template v-else-if="tx">
                     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">
@@ -42,15 +44,19 @@
                             v-model:step="wizardStep"
                             v-model:remarks="remarks"
                             v-model:proceed-attachments="proceedAttachments"
+                            v-model:attachment-name="attachmentName"
+                            v-model:step-data-form="stepDataForm"
                             :tx-id="tx.id"
                             :requirements="tx.current_step_requirements || []"
                             :checklist="tx.current_step_checklist || []"
                             :fields="tx.current_step_fields"
+                            :step-data="tx.current_step_data || []"
+                            :prev-context="tx.previous_step_context || null"
                             :form="form"
                             :selected-action-label="selectedActionLabel"
                             :selected-route-id="selectedRouteId"
                             :is-return-selected="false"
-                            :show-checklist="!isFirstStepTransition"
+                            :show-checklist="!skipReview"
                             :missing-required-upload-labels="missingRequiredUploadLabels"
                             :missing-required-tick-labels="missingRequiredTickLabels"
                             :missing-required-checklist-labels="missingRequiredChecklistLabels"
@@ -60,11 +66,13 @@
                             :saving-checklist="savingChecklist"
                             :saving-checklist-item-id="savingChecklistItemId"
                             :saving-requirement-id="savingRequirementId"
+                            remarks-placeholder="Explain what you changed or fixed"
+                            attachments-title="Additional files"
                             @toggle-requirement="onRequirementToggle"
                             @return-missing="returnForMissing"
                             @toggle-checklist="onChecklistToggle"
                             @requirement-uploaded="refreshTxPreservingForm"
-                            @attachment-deleted="refreshTxPreservingForm"
+                            @attachment-deleted="onAttachmentDeleted"
                         />
                     </template>
                 </template>
@@ -79,9 +87,9 @@
                 <v-spacer />
                 <v-btn variant="text" @click="open = false">Cancel</v-btn>
                 <template v-if="tx && selectedRouteId">
-                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !isFirstStepTransition" variant="text" @click="wizardStep = 1">Back</v-btn>
-                    <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !isFirstStepTransition" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || isFirstStepTransition || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0" @click="executeSelected">Proceed</v-btn>
+                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="text" @click="wizardStep = 1">Back</v-btn>
+                    <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !skipReview" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
+                    <v-btn v-if="wizardStep === 2 || skipReview || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0" @click="executeSelected">Proceed</v-btn>
                 </template>
             </v-card-actions>
         </v-card>
@@ -98,6 +106,8 @@ import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useApi } from "@/composables/useApi";
 import ProceedWizard from "@/components/ProceedWizard.vue";
+import ReturnBanner from "@/components/ReturnBanner.vue";
+import StepBadge from "@/components/StepBadge.vue";
 import TableLoader from "@/components/TableLoader.vue";
 
 const open = defineModel("open", { default: false });
@@ -123,7 +133,20 @@ const wizardRef = ref(null);
 const selectedRouteId = ref(null);
 const remarks = ref("");
 const proceedAttachments = ref([]);
+const attachmentName = ref("");
 const form = ref({});
+// Step-data draft keyed by definition code, prefilled from latest values.
+const stepDataForm = ref({});
+
+function hydrateStepDataForm() {
+    const next = {};
+    for (const row of tx.value?.current_step_data ?? []) {
+        const code = row?.definition?.code;
+        if (!code) continue;
+        next[code] = row.value ?? "";
+    }
+    stepDataForm.value = next;
+}
 const savingChecklist = ref(false);
 const savingChecklistItemId = ref(null);
 const savingRequirementId = ref(null);
@@ -154,11 +177,45 @@ const selectedAction = computed(() =>
 );
 const selectedActionLabel = computed(() => (selectedAction.value ? labelForAction(selectedAction.value) : ""));
 
-// Single-line Proceed modal title: destination step number only.
+// Proceed modal title: Proceeding to "stepname" (office code). Name comes from
+// the destination step (workflow_routes.to_step_id → workflow_steps); office
+// code comes from the CURRENT step's Destination Office (where the paper is
+// being sent from, e.g. General Service Office when on step 1).
+function destStepForTitle() {
+    const direct = selectedAction.value?.to_step;
+    const routeId = Number(selectedRouteId.value);
+    const route = (tx.value?.workflow_routes || []).find((r) => Number(r.id) === routeId);
+    const toId = direct?.id ?? route?.to_step_id;
+    if (toId != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(toId));
+        if (s) return { ...direct, ...s, office: s.office ?? direct?.office ?? null };
+    }
+    return direct ?? null;
+}
+function currentOfficeForTitle() {
+    const cur = tx.value?.current_step;
+    if (cur?.office?.code || cur?.office?.name || cur?.stage) return cur;
+    const cid = cur?.id;
+    if (cid != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(cid));
+        if (s) return s;
+    }
+    return cur ?? null;
+}
+
+// Single-line Proceed modal title: destination step name + current office code.
 const proceedModalTitle = computed(() => {
-    const n = selectedAction.value?.to_step?.order_number;
-    if (!selectedRouteId.value || !selectedAction.value || n == null || n === "") return "Proceed";
-    return `Proceed to Step ${n}`;
+    if (!selectedRouteId.value || !selectedAction.value) return "Proceed";
+    const dest = destStepForTitle();
+    const n = dest?.order_number;
+    const name = dest?.name || dest?.code || (n != null && n !== "" ? `Step ${n}` : "");
+    if (!name) return "Proceed";
+    const cur = currentOfficeForTitle();
+    const office = String(
+        cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
+        dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
+    ).trim();
+    return office ? `Proceeding to "${name}" (${office})` : `Proceeding to "${name}"`;
 });
 
 // Step 1 → step 2 shows requirements only (same rule as the transaction page).
@@ -166,6 +223,10 @@ const isFirstStepTransition = computed(() =>
     Number(tx.value?.current_step?.order_number) === 1 &&
     Number(selectedAction.value?.to_step?.order_number) === 2,
 );
+// Step 1 stations skip the Review page entirely: step 1 holds no
+// predecessor checklist, so Review would only ever be its empty state.
+const isAtFirstStep = computed(() => Number(tx.value?.current_step?.order_number) === 1);
+const skipReview = computed(() => isFirstStepTransition.value || isAtFirstStep.value);
 const hasProceedRequirements = computed(() => (tx.value?.current_step_requirements || []).length > 0);
 const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 
@@ -182,7 +243,7 @@ const missingRequiredUploadLabels = computed(() =>
 );
 
 const missingRequiredChecklistLabels = computed(() => {
-    if (isFirstStepTransition.value) return [];
+    if (skipReview.value) return [];
     return (tx.value?.current_step_checklist ?? [])
         .filter((c) => c.is_required && !c.checked)
         .map((c) => c.name)
@@ -210,6 +271,20 @@ const missingRequiredFields = computed(() => {
     return out;
 });
 
+// Required step-data values still empty in the draft. Approval moves are
+// forward-only, so no return exemption here.
+const missingRequiredStepDataLabels = computed(() => {
+    const out = [];
+    for (const row of tx.value?.current_step_data ?? []) {
+        if (!row?.definition?.is_required) continue;
+        const v = stepDataForm.value?.[row.definition.code];
+        if (v === null || v === undefined || String(v).trim() === "") {
+            out.push(row.definition.display_name || row.definition.code);
+        }
+    }
+    return out;
+});
+
 function hydrateForm() {
     const next = {};
     for (const row of tx.value?.current_step_fields ?? []) {
@@ -229,19 +304,24 @@ function applyResponse(nextTx, meta) {
 }
 
 // Files already saved on this station, prefilled when re-walking a station.
+// Move-level only: requirement files already show in their requirement
+// sections above, so they are excluded from the below-remarks list.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
-    return (tx.value?.attachments || []).filter((a) => Number(a.workflow_step_id) === cur);
+    return (tx.value?.attachments || [])
+        .filter((a) => Number(a.workflow_step_id) === cur)
+        .filter((a) => a.requirement_definition_id == null || Number(a.requirement_definition_id) === 0);
 }
 
 function resetWizardForRoute() {
     const destId = selectedAction.value?.to_step?.id;
     const destVisited = destId != null && (visitedStepIds.value || []).map(Number).includes(Number(destId));
     proceedAttachments.value = destVisited ? [...currentStepAttachments()] : [];
+    attachmentName.value = "";
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the
     // Requirements page (now page 2). Otherwise start on Review (page 1).
-    wizardStep.value = isFirstStepTransition.value ? 2 : 1;
+    wizardStep.value = skipReview.value ? 2 : 1;
     wizardRef.value?.clearReqFiles?.();
 }
 
@@ -251,10 +331,12 @@ async function load() {
     error.value = "";
     tx.value = null;
     remarks.value = "";
+    attachmentName.value = "";
     try {
         const res = await getOne(props.txId);
         applyResponse(res.tx, res.meta);
         hydrateForm();
+        hydrateStepDataForm();
         // The usual case is exactly one forward route: pick it for the user.
         selectedRouteId.value = forwardActions.value.length === 1 ? forwardActions.value[0].route_id : null;
         if (selectedRouteId.value) resetWizardForRoute();
@@ -279,6 +361,11 @@ async function refreshTxPreservingForm() {
     } catch (e) {
         error.value = formatApiError(e, "Failed to refresh transaction.");
     }
+}
+
+function onAttachmentDeleted(id) {
+    wizardRef.value?.removeReqFile?.(id);
+    refreshTxPreservingForm();
 }
 
 async function goWizardNext() {
@@ -343,6 +430,7 @@ async function executeSelected() {
             remarks: remarks.value || null,
             field_values: payloadFields,
             attachment_ids: (proceedAttachments.value || []).map((a) => a.id),
+            step_data: { ...(stepDataForm.value || {}) },
         });
 
         open.value = false;
@@ -380,3 +468,24 @@ function openTransaction() {
     router.push(`/my/transactions/${props.txId}`);
 }
 </script>
+
+<style scoped>
+/* Slim inner scroll: keeps scrolling inside the curved modal. */
+.proceed-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    padding-right: 8px;
+}
+.proceed-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.proceed-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+}
+.proceed-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+</style>

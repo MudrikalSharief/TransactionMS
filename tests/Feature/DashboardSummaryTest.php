@@ -18,7 +18,8 @@ use Tests\TestCase;
 
 /**
  * Dashboard "Transaction Summary" card. Completed counts by finalize date;
- * everything else by created date. Periods: last 4 weeks, or a Manila month.
+ * everything else by created date. Periods: this week (the current Mon–Sun
+ * calendar week in Manila), or a Manila month.
  */
 class DashboardSummaryTest extends TestCase
 {
@@ -111,22 +112,32 @@ class DashboardSummaryTest extends TestCase
         return $this->getJson('/api/admin/dashboard/summary?' . http_build_query($query))->assertOk();
     }
 
-    public function test_counts_each_status_in_the_last_four_weeks(): void
+    public function test_counts_each_status_in_the_current_calendar_week(): void
     {
+        // Now is Sat 26 Sep, 12:00 Manila, so this week is Mon 21 – Sun 27 Sep.
         $this->tx($this->payroll, 3, ['enteredHoursAgo' => 30]);        // in process, overdue (30h > 24h)
-        $this->tx($this->payroll, 2, ['enteredHoursAgo' => 5]);         // in process, on time
-        $this->tx($this->procurement, 10, ['finalizedDaysAgo' => 1]);   // completed this period
-        $this->tx($this->procurement, 60, ['finalizedDaysAgo' => 2]);   // created long ago, finalized now -> completed
+        $this->tx($this->payroll, 5, ['enteredHoursAgo' => 5]);         // created Mon 21: in process, on time
+        $this->tx($this->procurement, 10, ['finalizedDaysAgo' => 1]);   // finalized this week: completed
+        $this->tx($this->procurement, 60, ['finalizedDaysAgo' => 4]);   // created long ago, finalized Tue 22 -> completed
+        $this->tx($this->payroll, 9, ['finalizedDaysAgo' => 6]);        // finalized Sun 20 (last week): not counted
         $this->tx($this->payroll, 50, ['finalizedDaysAgo' => 35]);      // finalized before the period: not counted
-        $this->tx($this->payroll, 4, ['deleted' => true]);              // deleted
-        $this->tx($this->payroll, 45, ['enteredHoursAgo' => 99]);       // created before period: not counted
+        $this->tx($this->payroll, 2, ['deleted' => true]);              // deleted
+        $this->tx($this->payroll, 6, ['enteredHoursAgo' => 99]);        // created Sun 20 (last week): not counted
 
         $this->summary()
-            ->assertJsonPath('period.key', 'last_4_weeks')
+            ->assertJsonPath('period.key', 'this_week')
+            ->assertJsonPath('period.label', 'This week (Sep 21–27)')
             ->assertJsonPath('completed', 2)
             ->assertJsonPath('in_process', 2)
             ->assertJsonPath('overdue', 1)
             ->assertJsonPath('deleted', 1);
+    }
+
+    public function test_this_week_label_spans_two_months_when_the_week_does(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-30 04:00:00', 'UTC')); // Wed 30 Sep, Manila
+
+        $this->summary()->assertJsonPath('period.label', 'This week (Sep 28–Oct 4)');
     }
 
     public function test_month_period_uses_manila_month_boundaries(): void
@@ -151,10 +162,41 @@ class DashboardSummaryTest extends TestCase
         $this->tx($this->payroll, 2);
         $this->tx($this->procurement, 2, ['office' => $this->chrmo->id]);
 
-        $this->summary(['processes' => [$this->payroll->id]])->assertJsonPath('in_process', 2);
-        $this->summary(['offices' => [$this->chrmo->id]])->assertJsonPath('in_process', 2);
-        $this->summary(['processes' => [$this->payroll->id], 'offices' => [$this->chrmo->id]])
+        $month = ['month' => '2026-09'];
+        $this->summary($month + ['processes' => [$this->payroll->id]])->assertJsonPath('in_process', 2);
+        $this->summary($month + ['offices' => [$this->chrmo->id]])->assertJsonPath('in_process', 2);
+        $this->summary($month + ['processes' => [$this->payroll->id], 'offices' => [$this->chrmo->id]])
             ->assertJsonPath('in_process', 1);
+    }
+
+    public function test_office_code_limits_every_count_to_that_office(): void
+    {
+        $csd = Office::create(['code' => 'CSD', 'name' => 'Computer Service Division']);
+        $this->tx($this->payroll, 2, ['office' => $csd->id]);
+        $this->tx($this->procurement, 3, ['office' => $csd->id, 'finalizedDaysAgo' => 1]);
+        $this->tx($this->payroll, 2, ['office' => $csd->id, 'deleted' => true]);
+        $this->tx($this->payroll, 2, ['office' => $this->chrmo->id]);
+        $this->tx($this->procurement, 2);
+
+        // The code matches in any letter case.
+        $this->summary(['month' => '2026-09', 'office_code' => 'csd'])
+            ->assertJsonPath('in_process', 1)
+            ->assertJsonPath('completed', 1)
+            ->assertJsonPath('deleted', 1)
+            ->assertJsonPath('by_process', [
+                ['id' => $this->payroll->id, 'name' => 'Payroll', 'count' => 1],
+                ['id' => $this->procurement->id, 'name' => 'Procurement', 'count' => 1],
+            ]);
+
+        $this->getJson('/api/admin/dashboard/summary/in_process?month=2026-09&office_code=CSD')
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('rows.0.office.code', 'CSD');
+
+        // An unknown office matches nothing; it never falls back to every office.
+        $this->summary(['month' => '2026-09', 'office_code' => 'NOPE'])
+            ->assertJsonPath('in_process', 0)
+            ->assertJsonPath('by_process', []);
     }
 
     public function test_by_process_ignores_process_filter_but_respects_office(): void
@@ -165,13 +207,13 @@ class DashboardSummaryTest extends TestCase
         $this->tx($this->procurement, 2, ['deleted' => true]); // deleted: not in by_process
 
         // Process filter must not hide the other processes (the card fades them instead).
-        $this->summary(['processes' => [$this->payroll->id]])
+        $this->summary(['month' => '2026-09', 'processes' => [$this->payroll->id]])
             ->assertJsonPath('by_process', [
                 ['id' => $this->payroll->id, 'name' => 'Payroll', 'count' => 2],
                 ['id' => $this->procurement->id, 'name' => 'Procurement', 'count' => 1],
             ]);
 
-        $this->summary(['offices' => [$this->chrmo->id]])
+        $this->summary(['month' => '2026-09', 'offices' => [$this->chrmo->id]])
             ->assertJsonPath('by_process', [
                 ['id' => $this->payroll->id, 'name' => 'Payroll', 'count' => 2],
             ]);

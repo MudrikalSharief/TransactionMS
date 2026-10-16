@@ -4,7 +4,7 @@
             v-if="showAuthUi"
             color="white"
             elevation="0"
-            style="border-bottom: 2px solid #7C3AED"
+            style="border-bottom: 2px solid #1E40AF"
         >
             <v-app-bar-nav-icon
                 icon="mdi-menu"
@@ -32,15 +32,15 @@
                 >
                     <div
                         class="font-weight-bold text-primary"
-                        style="font-size: 1.25rem; line-height: 1"
+                        style="font-size: 1.1rem; line-height: 1"
                     >
-                        TrMS
+                        TransactionMF
                     </div>
                     <div
                         class="font-weight-bold text-medium-emphasis"
                         style="font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; margin-top: 3px"
                     >
-                        Management System
+                        Management Framework
                     </div>
                 </div>
             </div>
@@ -117,7 +117,7 @@
                     icon="mdi-logout"
                     v-tooltip="'Log out'"
                     color="primary"
-                    @click="onLogout"
+                    @click="confirmLogout = true"
                 />
             </div>
         </v-app-bar>
@@ -126,7 +126,7 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
-            style="border-right: 2px solid #7C3AED"
+            style="border-right: 2px solid #1E40AF"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
@@ -135,6 +135,7 @@
                     <v-list-item-title>DASHBOARD</v-list-item-title>
                 </v-list-item>
                 <v-list-item
+                    v-if="!isSuperadmin"
                     to="/my/transactions"
                     prepend-icon="mdi-file-document-multiple"
                     rounded="lg"
@@ -259,7 +260,34 @@
             <template v-else>
                 <router-view />
             </template>
+            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
         </v-main>
+
+        <v-dialog v-model="confirmLogout" max-width="640">
+            <v-card rounded="0">
+                <v-card-title class="d-flex align-center pa-5 lgu-head">
+                    <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                        <v-icon color="#1E40AF">mdi-logout</v-icon>
+                    </v-avatar>
+                    <span class="text-h6 font-weight-bold">LOG OUT?</span>
+                    <v-spacer />
+                    <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="confirmLogout = false" />
+                </v-card-title>
+                <v-card-text class="pa-12 text-center">
+                    <div class="d-flex justify-center">
+                        <img :src="mascotLogoutUrl" alt="See you soon" width="240" style="border-radius: 18px" />
+                    </div>
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
+                    <v-btn variant="text" color="grey-darken-3" rounded="0" size="large" style="width: 40%" @click="confirmLogout = false">Cancel</v-btn>
+                    <v-divider vertical :thickness="2" class="align-self-stretch" />
+                    <v-btn color="error" rounded="0" size="large" style="width: 40%" :loading="loggingOut" @click="onLogout">Log out</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
+        <ConfirmDialog />
     </v-app>
 </template>
 
@@ -271,6 +299,8 @@ import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
 const router = useRouter();
 const route = useRoute();
@@ -342,9 +372,18 @@ const userTooltip = computed(() => {
     return roles ? `${u.email || u.name} (${roles})` : u.email || u.name || "User";
 });
 
+const confirmLogout = ref(false);
+const loggingOut = ref(false);
+
 async function onLogout() {
-    await auth.logout();
-    await router.push({ name: "login" });
+    loggingOut.value = true;
+    try {
+        await auth.logout();
+        confirmLogout.value = false;
+        await router.push({ name: "login" });
+    } finally {
+        loggingOut.value = false;
+    }
 }
 
 // ---- Global navbar search (transactions + pages) ----
@@ -359,14 +398,16 @@ const allTx = useTransactions();
 const searchPages = computed(() => {
     const pages = [
         { title: "Dashboard", subtitle: "Page", icon: "mdi-view-dashboard", to: "/" },
-        {
+        { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
+    ];
+    if (!isSuperadmin.value) {
+        pages.splice(1, 0, {
             title: "My Transactions",
             subtitle: "Page",
             icon: "mdi-file-document-multiple",
             to: "/my/transactions",
-        },
-        { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
-    ];
+        });
+    }
     if (showApprovals.value) {
         pages.splice(2, 0, {
             title: "Approvals",
@@ -420,13 +461,14 @@ async function ensureSearchData() {
     if (searchLoaded || searchLoading.value) return;
     searchLoading.value = true;
     try {
-        await myTx.fetchAll();
         if (isSuperadmin.value) {
             try {
-                await allTx.fetchAll();
+                await allTx.fetchAll({ q: searchText.value });
             } catch {
-                /* my list is enough */
+                await myTx.fetchAll({ q: searchText.value }).catch(() => {});
             }
+        } else {
+            await myTx.fetchAll({ q: searchText.value });
         }
     } catch {
         /* search stays page-only */
@@ -435,6 +477,34 @@ async function ensureSearchData() {
         searchLoaded = true;
     }
 }
+
+// Debounced server search: typing queries ?q= (ref/title) instead of
+// filtering a stale page-1 snapshot — correct results on large datasets
+// with one small 25-row payload per pause, not per keystroke.
+let searchTimer = null;
+watch(searchText, (q) => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+        const query = String(q || "").trim();
+        if (!query) return;
+        searchLoading.value = true;
+        try {
+            if (isSuperadmin.value) {
+                try {
+                    await allTx.fetchAll({ q: query, silent: true });
+                } catch {
+                    await myTx.fetchAll({ q: query, silent: true }).catch(() => {});
+                }
+            } else {
+                await myTx.fetchAll({ q: query, silent: true });
+            }
+        } catch {
+            /* keep previous suggestions */
+        } finally {
+            searchLoading.value = false;
+        }
+    }, 400);
+});
 
 const searchResults = computed(() => {
     const q = (searchText.value || "").trim().toLowerCase();
@@ -459,9 +529,10 @@ const searchResults = computed(() => {
         });
     };
 
-    (myTx.items.value || []).forEach((tx) => pushTx(tx, "/my/transactions"));
     if (isSuperadmin.value) {
         (allTx.items.value || []).forEach((tx) => pushTx(tx, "/transactions"));
+    } else {
+        (myTx.items.value || []).forEach((tx) => pushTx(tx, "/my/transactions"));
     }
 
     return [
@@ -488,11 +559,12 @@ const MANILA_TZ = "Asia/Manila";
 let clockTimer = null;
 
 const tickClock = () => {
+    // Minute precision pairs with the 30s timer above — cheaper on low-end
+    // devices than a per-second re-render, still accurate to the minute.
     clock.value = new Date().toLocaleTimeString("en-PH", {
         timeZone: MANILA_TZ,
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit",
         hour12: true,
     });
 };
@@ -568,6 +640,26 @@ const loadTemperature = async () => {
     const openMeteoUrl =
         "https://api.open-meteo.com/v1/forecast?latitude=6.9214&longitude=122.0790&current=temperature_2m,weather_code,is_day&timezone=Asia%2FManila";
 
+    // Retry chain for transient boot failures (offline blip, proxy cold
+    // start): 15s -> 30s -> 60s, then surrender to the long interval.
+    // Without this, one failed boot fetch parks the chip on N/A until the
+    // next 10-30min tick, which reads as "needs a refresh".
+    const scheduleRetry = () => {
+        if (weatherFails >= WEATHER_RETRY_DELAYS.length) return;
+        clearTimeout(weatherRetryTimer);
+        weatherRetryTimer = setTimeout(() => {
+            loadTemperature();
+        }, WEATHER_RETRY_DELAYS[weatherFails]);
+        weatherFails += 1;
+    };
+    const markTempOk = () => {
+        weatherFails = 0;
+        if (weatherRetryTimer) {
+            clearTimeout(weatherRetryTimer);
+            weatherRetryTimer = null;
+        }
+    };
+
     try {
         const res = await fetch("/api/weather", { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error("proxy failed");
@@ -580,20 +672,38 @@ const loadTemperature = async () => {
         } else {
             applyTemp(data.temperature, data.code, data.is_day);
         }
+        markTempOk();
     } catch {
         try {
             const direct = await fetch(openMeteoUrl);
             const d = await direct.json();
             applyTemp(d?.current?.temperature_2m, d?.current?.weather_code, d?.current?.is_day);
+            markTempOk();
         } catch {
             temperature.value = "N/A";
             weatherIcon.value = "mdi-thermometer-off";
             weatherLabel.value = "unavailable";
+            scheduleRetry();
         }
     }
 };
 
 let weatherTimer = null;
+// Consecutive boot/refresh failures; reset on any success.
+let weatherFails = 0;
+let weatherRetryTimer = null;
+const WEATHER_RETRY_DELAYS = [15 * 1000, 30 * 1000, 60 * 1000];
+
+// Returning to a tab that parked on N/A/placeholder refreshes it.
+const onVisible = () => {
+    if (
+        !document.hidden &&
+        navigator.onLine &&
+        (temperature.value === "N/A" || temperature.value === "--°C")
+    ) {
+        loadTemperature();
+    }
+};
 
 // ---- Dark mode (persisted, applied via Vuetify theme + html.dark CSS layer) ----
 const theme = useTheme();
@@ -601,7 +711,7 @@ const THEME_KEY = "lgu-tx:theme";
 const isDark = computed(() => theme.global.name.value === "pixivDark");
 
 function applyTheme(name) {
-    theme.global.name.value = name;
+    theme.change(name);
     document.documentElement.classList.toggle("dark", name === "pixivDark");
     try {
         localStorage.setItem(THEME_KEY, name);
@@ -622,16 +732,46 @@ onMounted(() => {
         /* ignore */
     }
     if (saved === "pixivDark" || saved === "pixivLight") applyTheme(saved);
+    // Low-end tuning: clock at 30s (minute precision is enough; 1s forces a
+    // re-render every second on weak CPUs). Weather + badge are deferred
+    // until after first paint and skipped on hidden tabs / offline / 2g.
+    const slowNet =
+        (typeof navigator !== "undefined" &&
+            (navigator.connection?.saveData ||
+                ["slow-2g", "2g"].includes(navigator.connection?.effectiveType))) ||
+        false;
     tickClock();
-    clockTimer = setInterval(tickClock, 1000);
-    loadTemperature();
-    weatherTimer = setInterval(loadTemperature, 10 * 60 * 1000);
-    approvalBadgeTimer = setInterval(refreshApprovalBadge, 60 * 1000);
+    clockTimer = setInterval(tickClock, 30 * 1000);
+    const boot = (fn, delay) => {
+        if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout: delay });
+        else setTimeout(fn, delay);
+    };
+    boot(() => {
+        if (!document.hidden && navigator.onLine) loadTemperature();
+        refreshApprovalBadge();
+    }, 2500);
+    // Captive portals / slow office DHCP often mean "offline" at the boot
+    // tick above: recover the moment connectivity arrives instead of
+    // waiting out the long interval.
+    window.addEventListener("online", loadTemperature);
+    document.addEventListener("visibilitychange", onVisible);
+    weatherTimer = setInterval(() => {
+        if (!document.hidden && navigator.onLine) loadTemperature();
+    }, (slowNet ? 30 : 10) * 60 * 1000);
+    approvalBadgeTimer = setInterval(() => {
+        if (!document.hidden && navigator.onLine) refreshApprovalBadge();
+    }, (slowNet ? 5 : 1) * 60 * 1000);
 });
 
 onUnmounted(() => {
     if (clockTimer) clearInterval(clockTimer);
     if (weatherTimer) clearInterval(weatherTimer);
+    if (weatherRetryTimer) {
+        clearTimeout(weatherRetryTimer);
+        weatherRetryTimer = null;
+    }
+    window.removeEventListener("online", loadTemperature);
+    document.removeEventListener("visibilitychange", onVisible);
     if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
 });
 </script>
@@ -660,6 +800,19 @@ onUnmounted(() => {
     min-width: 18px;
     height: 18px;
 }
+/* Active nav item: solid dark fill instead of the faint primary tint. */
+:deep(.v-navigation-drawer .v-list-item--active) {
+    background-color: #1E3A8A !important;
+    color: #ffffff !important;
+}
+:deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
+    opacity: 0 !important;
+}
+:deep(.v-navigation-drawer .v-list-item--active .v-icon),
+:deep(.v-navigation-drawer .v-list-item--active .v-list-item-title) {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
 /* Footer theme/help pair */
 .drawer-footer .v-btn {
     min-width: 0;
@@ -678,15 +831,24 @@ onUnmounted(() => {
     padding-bottom: 4px;
 }
 .search-pixiv :deep(.v-field--focused) {
-    box-shadow: 0 0 0 2px #7C3AED;
+    box-shadow: 0 0 0 2px #1E40AF;
 }
 .search-pixiv :deep(.v-field__prepend-inner .v-icon) {
-    color: #7C3AED;
+    color: #1E40AF;
     opacity: 1;
 }
 .search-pixiv :deep(input),
 .search-pixiv :deep(input::placeholder) {
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-weight: 700;
+}
+/* Bottom footer container: plain in-flow bar, no overlay, no z-index games. */
+.app-foot-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1E3A8A;
+    padding: 16px 24px;
+    margin-top: 24px;
 }
 </style>

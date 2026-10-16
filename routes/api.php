@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Admin\StepFieldController;
 use App\Http\Controllers\Api\Admin\RequirementDefinitionController;
 use App\Http\Controllers\Api\Admin\StepRequirementController;
 use App\Http\Controllers\Api\Admin\StepChecklistController;
+use App\Http\Controllers\Api\Admin\StepDataController;
 
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\TransactionRequirementController;
@@ -41,35 +42,42 @@ Route::prefix('auth')->group(function () {
 });
 
 // Public: current weather in Zamboanga City (proxied via Open-Meteo, no key needed)
+// 30min server cache: previously every AppShell mount hit upstream with an 8s
+// timeout — brutal on bad networks. Now one upstream call per 30min max.
 Route::get('/weather', function () {
-    try {
-        $res = Http::timeout(8)->get('https://api.open-meteo.com/v1/forecast', [
-            'latitude' => 6.9214,
-            'longitude' => 122.0790,
-            'current' => 'temperature_2m,weather_code,is_day',
-            'timezone' => 'Asia/Manila',
-        ]);
+    $data = \Illuminate\Support\Facades\Cache::remember('weather:zamboanga', 1800, function () {
+        try {
+            $res = Http::timeout(4)->get('https://api.open-meteo.com/v1/forecast', [
+                'latitude' => 6.9214,
+                'longitude' => 122.0790,
+                'current' => 'temperature_2m,weather_code,is_day',
+                'timezone' => 'Asia/Manila',
+            ]);
 
-        if ($res->failed()) throw new \Exception('weather upstream failed');
+            if ($res->failed()) throw new \Exception('weather upstream failed');
 
-        $current = $res->json('current', []);
+            $current = $res->json('current', []);
 
-        return response()->json([
-            'temperature' => $current['temperature_2m'] ?? null,
-            'code' => $current['weather_code'] ?? null,
-            'is_day' => $current['is_day'] ?? 1,
-            'time' => $current['time'] ?? null,
-            'place' => 'Zamboanga City',
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'temperature' => null,
-            'code' => null,
-            'is_day' => 1,
-            'time' => null,
-            'place' => 'Zamboanga City',
-        ], 200);
-    }
+            return [
+                'temperature' => $current['temperature_2m'] ?? null,
+                'code' => $current['weather_code'] ?? null,
+                'is_day' => $current['is_day'] ?? 1,
+                'time' => $current['time'] ?? null,
+                'place' => 'Zamboanga City',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'temperature' => null,
+                'code' => null,
+                'is_day' => 1,
+                'time' => null,
+                'place' => 'Zamboanga City',
+            ];
+        }
+    });
+
+    return response()->json($data)
+        ->header('Cache-Control', 'public, max-age=600');
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -77,6 +85,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/approvals/count', [ApprovalController::class, 'count']);
 
     Route::get('/transactions', [UserTransactionController::class, 'index']);
+    // Static path must precede {transaction} or "version" binds as a model id.
+    Route::get('/transactions/version', [UserTransactionController::class, 'version']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
     Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
@@ -91,6 +101,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
     Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
+    Route::post('/transactions/{transaction}/attachments/reuse', [TransactionAttachmentController::class, 'reuse']);
+    Route::delete('/transactions/{transaction}/attachments/{attachment}/unlink', [TransactionAttachmentController::class, 'unlink']);
     Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
     Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
@@ -117,6 +129,11 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::get('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'show']);
         Route::delete('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'destroy']);
         Route::post('workflow-definitions/{workflowDefinition}/publish', [WorkflowDefinitionController::class, 'publish']);
+        Route::post('workflow-definitions/{workflowDefinition}/make-live', [WorkflowDefinitionController::class, 'makeLive']);
+        Route::post('workflow-definitions/{workflowDefinition}/save-as', [WorkflowDefinitionController::class, 'saveAs']);
+        // Staged save: one atomic apply of client-staged steps/routes/
+        // requirements/checklists/field-assignments onto the open draft.
+        Route::post('workflow-definitions/{workflowDefinition}/apply-staged', [WorkflowDefinitionController::class, 'applyStaged']);
 
         // Workflows - Routes
         Route::post('workflow-definitions/{workflowDefinition}/routes', [WorkflowRouteController::class, 'store']);
@@ -152,6 +169,12 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
         Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
 
+        // Step data - per-step text data (receipt number, etc.), history per visit
+        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'index']);
+        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'store']);
+        Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'update']);
+        Route::delete('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'destroy']);
+
         // Dashboard - Transaction Summary card
         Route::get('/dashboard/summary', DashboardSummaryController::class);
         Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
@@ -170,6 +193,8 @@ Route::middleware(['auth:sanctum', EnsureRole::class . ':superadmin'])
 
         Route::get('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'index']);
         Route::post('/transactions/{transaction}/attachments', [TransactionAttachmentController::class, 'store']);
+        Route::post('/transactions/{transaction}/attachments/reuse', [TransactionAttachmentController::class, 'reuse']);
+        Route::delete('/transactions/{transaction}/attachments/{attachment}/unlink', [TransactionAttachmentController::class, 'unlink']);
         Route::get('/transactions/{transaction}/attachments/{attachment}/download', [TransactionAttachmentController::class, 'download']);
         Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
         Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);

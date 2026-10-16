@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\FieldValue;
 use App\Models\Transaction;
 use App\Models\TransactionState;
+use App\Models\TransactionStepData;
 use App\Models\TransactionStepRun;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowRoute;
@@ -21,8 +22,11 @@ class TransactionEngine
     public function create(int $transactionTypeId, ?string $title, int $userId, ?int $officeId = null): Transaction
     {
         return DB::transaction(function () use ($transactionTypeId, $title, $userId, $officeId) {
+            // Live-flagged version wins; fallback to the highest published
+            // version for rows predating the is_live backfill.
             $workflow = WorkflowDefinition::where('transaction_type_id', $transactionTypeId)
                 ->where('status', 'published')
+                ->orderByDesc('is_live')
                 ->orderByDesc('version')
                 ->with('steps')
                 ->first();
@@ -79,6 +83,7 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'state.currentStep',
                 'creator',
@@ -102,13 +107,15 @@ class TransactionEngine
         ?string $remarks,
         int $userId,
         array $fieldValuesByCode = [],
-        array $attachmentIds = []
+        array $attachmentIds = [],
+        array $stepDataByCode = []
     ): Transaction {
-        return DB::transaction(function () use ($tx, $route, $remarks, $userId, $fieldValuesByCode, $attachmentIds) {
+        return DB::transaction(function () use ($tx, $route, $remarks, $userId, $fieldValuesByCode, $attachmentIds, $stepDataByCode) {
             $tx->loadMissing([
                 'state.currentStep',
                 'workflow',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'fieldValues.fieldDefinition',
             ]);
@@ -147,6 +154,10 @@ class TransactionEngine
             $toStepId = (int) $route->to_step_id;
             $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
                 ?? \App\Models\WorkflowStep::find($toStepId);
+
+            // Validate per-step text data (receipt number, etc.) before moving.
+            $stepDataDefs = $currentStep->stepDataDefinitions()->orderBy('display_order')->get();
+            $this->validateStepData($stepDataDefs, $stepDataByCode);
 
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
@@ -197,6 +208,28 @@ class TransactionEngine
                 ->whereNull('step_run_id')
                 ->update(['step_run_id' => $run->id]);
 
+            // History per visit: one row per definition per run (receipt no, etc.).
+            foreach ($stepDataDefs as $def) {
+                $code = $def->code;
+                if (!is_array($stepDataByCode) || !array_key_exists($code, $stepDataByCode)) {
+                    continue;
+                }
+                $val = $stepDataByCode[$code];
+                $val = is_string($val) ? trim($val) : (is_null($val) ? null : (string) $val);
+                if ($val === '') {
+                    $val = null;
+                }
+                TransactionStepData::create([
+                    'transaction_id' => $tx->id,
+                    'workflow_step_data_id' => $def->id,
+                    'transaction_step_run_id' => $run->id,
+                    'workflow_step_id' => $currentStepId,
+                    'data_value' => $val,
+                    'entered_by' => $userId,
+                    'entered_at' => now(),
+                ]);
+            }
+
             $tx->state->update([
                 'current_step_id' => $toStepId,
                 'entered_at' => now(),
@@ -237,6 +270,7 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep',
@@ -262,9 +296,12 @@ class TransactionEngine
     }
 
     /**
-     * Jump to an already-visited station (free navigation). No checklist
-     * gating — callers validate the destination. Complete destinations
-     * keep their saved work via the intact-arrival rule; gappy ones reset.
+     * Jump to an already-visited station (both directions). Backward jumps
+     * return work; forward jumps resend to a passed station (e.g. 1 -> 3
+     * after a 3 -> 1 return). Remarks-only, no checklist gating.
+     * Backward arrivals keep the intact-arrival rule (complete destinations
+     * keep saved work, gappy ones reset); forward resends preserve all
+     * saved work. Recorded as Returned (backward) or Resent (forward).
      */
     public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId, string $actionCode = 'revisit'): Transaction
     {
@@ -281,13 +318,23 @@ class TransactionEngine
 
             $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
                 ?? \App\Models\WorkflowStep::find($toStepId);
+            $currentStep = $tx->workflow->steps->firstWhere('id', $currentStepId);
+
+            // Forward = target sits ahead in workflow order (quick resend).
+            $isForward = $currentStep && $toStep
+                && (int) $toStep->order_number > (int) $currentStep->order_number;
 
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
                 'to_step_id' => $toStepId,
+<<<<<<< HEAD
                 'action_code' => $actionCode,
                 'remarks' => $remarks ?? 'Jumped to a passed station',
+=======
+                'action_code' => $isForward ? 'resend' : 'return',
+                'remarks' => $remarks ?? ($isForward ? 'Resent to a passed station' : 'Returned to a passed station'),
+>>>>>>> Adustment-Temporary
                 'performed_by' => $userId,
                 'performed_at' => now(),
                 'received_at' => null,
@@ -308,7 +355,10 @@ class TransactionEngine
                 'entered_at' => now(),
             ]);
 
-            if (!$this->destinationArrivalIntact($tx, $toStepId)) {
+            // Forward resends are remarks-only: preserve all saved work at
+            // the destination. Backward returns keep the intact-arrival
+            // rule (reset gappy destinations so items are re-verified).
+            if (!$isForward && !$this->destinationArrivalIntact($tx, $toStepId)) {
                 \App\Models\TransactionRequirementCheck::query()
                     ->where('transaction_id', $tx->id)
                     ->where('workflow_step_id', $toStepId)
@@ -320,6 +370,7 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep',
@@ -380,6 +431,7 @@ class TransactionEngine
                 'office',
                 'office.steps',
                 'workflow.steps',
+                'workflow.steps.office',
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep',
@@ -494,5 +546,34 @@ class TransactionEngine
     private function makeReference(): string
     {
         return strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4));
+    }
+
+    private function validateStepData($defs, ?array $input): void
+    {
+        $input = is_array($input) ? $input : [];
+        $errors = [];
+        foreach ($defs as $def) {
+            $raw = $input[$def->code] ?? null;
+            $val = is_string($raw) ? trim($raw) : $raw;
+            if ($val === '') {
+                $val = null;
+            }
+            if ((bool) $def->is_required && ($val === null || $val === '')) {
+                $errors[$def->code] = $def->display_name . ' is required.';
+                continue;
+            }
+            if ($val !== null && is_string($val)) {
+                $len = mb_strlen($val);
+                if ($def->min_length !== null && $len < (int) $def->min_length) {
+                    $errors[$def->code] = $def->display_name . " must be at least {$def->min_length} characters.";
+                }
+                if ($def->max_length !== null && $len > (int) $def->max_length) {
+                    $errors[$def->code] = $def->display_name . " may not exceed {$def->max_length} characters.";
+                }
+            }
+        }
+        if (count($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 }

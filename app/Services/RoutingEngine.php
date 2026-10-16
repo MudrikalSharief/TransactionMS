@@ -17,6 +17,7 @@ class RoutingEngine
         $tx->loadMissing([
             'workflow.routes',
             'workflow.steps',
+            'workflow.steps.office',
             'state.currentStep',
             'workflow.stepRoles.role',
             'fieldValues.fieldDefinition',
@@ -52,7 +53,10 @@ class RoutingEngine
                     'route_id' => $route->id,
                     'action_code' => $route->action_code,
                     'is_return_route' => (bool) $route->is_return_route,
-                    'to_step' => $toStep?->only(['id', 'code', 'name', 'order_number', 'stage', 'is_end']),
+                    'to_step' => $toStep ? array_merge(
+                        $toStep->only(['id', 'code', 'name', 'order_number', 'stage', 'is_end', 'office_id']),
+                        ['office' => $toStep->office?->only(['id', 'code', 'name'])]
+                    ) : null,
                     'route_group' => $route->route_group,
                     'required_approvals_count' => $route->required_approvals_count,
                 ];
@@ -143,7 +147,9 @@ class RoutingEngine
         $tx->loadMissing([
             'workflow.routes',
             'workflow.steps',
+            'workflow.steps.office',
             'state.currentStep',
+            'state.currentStep.office',
             'state.currentStep.requirementDefinitions',
             'requirementChecks',
             'checklistChecks',
