@@ -61,8 +61,48 @@ class TransactionResource extends JsonResource
 
         $currentStepRequirements = [];
         $currentStepChecklist = [];
+        // Linked-file origin: a reused file's source_attachment_id points at
+        // the original row in this same transaction, so its station is
+        // resolved in memory (no extra queries). Exposed as `source_step`
+        // on attachment payloads so hover cards can show
+        // "from Step N · Station name".
+        $attById = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])->keyBy(fn ($a) => (int) $a->id);
+        $stepsById = collect($this->relationLoaded('workflow') && $this->workflow?->relationLoaded('steps') ? ($this->workflow->steps ?? []) : [])->keyBy(fn ($s) => (int) $s->id);
+        $sourceStepOf = function ($a) use ($attById, $stepsById) {
+            $srcId = $a->source_attachment_id ?? null;
+            if (!$srcId) return null;
+            $src = $attById->get((int) $srcId);
+            if (!$src) return null;
+            $st = $stepsById->get((int) ($src->workflow_step_id ?? 0));
+            if (!$st) return null;
+            return ['id' => $st->id, 'order_number' => $st->order_number, 'code' => $st->code, 'name' => $st->name];
+        };
         if ($currentStep) {
             $this->loadMissing(['requirementChecks.checker', 'checklistChecks.checker', 'attachments.uploader']);
+            // Structured return flags aimed at this station: latest arrival
+            // at the current step wins (empty flags clear old ones). Matched
+            // by requirement CODE — every station owns its own definition
+            // IDs — with name as fallback.
+            $flaggedCodes = [];
+            $flaggedNames = [];
+            if ($this->relationLoaded('runs')) {
+                $arrival = collect($this->runs ?? [])
+                    ->filter(fn ($r) => (int) ($r->to_step_id ?? 0) === (int) $currentStep->id)
+                    ->sortByDesc(fn ($r) => (int) ($r->id ?? 0))
+                    ->first();
+                $flaggedCodes = collect($arrival?->flagged_items ?? [])
+                    ->map(fn ($f) => strtolower(trim((string) ($f['code'] ?? ''))))
+                    ->filter()->values()->all();
+                $flaggedNames = collect($arrival?->flagged_items ?? [])
+                    ->map(fn ($f) => strtolower(trim((string) ($f['name'] ?? ''))))
+                    ->filter()->values()->all();
+            }
+            $isFlagged = function (?string $code, ?string $name) use ($flaggedCodes, $flaggedNames): bool {
+                $c = strtolower(trim((string) ($code ?? '')));
+                if ($c !== '' && in_array($c, $flaggedCodes, true)) return true;
+                $n = strtolower(trim((string) ($name ?? '')));
+                return $n !== '' && in_array($n, $flaggedNames, true);
+            };
             $checks = collect($this->requirementChecks ?? [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->keyBy('requirement_definition_id');
@@ -153,8 +193,10 @@ class TransactionResource extends JsonResource
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
                         'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                        'source_step' => $sourceStepOf($a),
                     ])->all(),
                     'attachment_count' => $reqAtts->count(),
+                    'flagged_on_return' => $isFlagged($r->code ?? null, $r->name ?? null),
                 ];
             }
 
@@ -223,8 +265,10 @@ class TransactionResource extends JsonResource
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
                         'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                        'source_step' => $sourceStepOf($a),
                     ])->all(),
                     'attachment_count' => ($sourceStep ? $sourceAtts : $itemAtts)->count(),
+                    'flagged_on_return' => $isFlagged($item->code ?? null, $item->name ?? null),
                 ];
             }
         }
@@ -314,6 +358,7 @@ class TransactionResource extends JsonResource
                             'created_at' => $a->created_at?->toISOString(),
                             'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
                             'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                            'source_step' => $sourceStepOf($a),
                         ])->all(),
                     ];
                 }
@@ -340,6 +385,7 @@ class TransactionResource extends JsonResource
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
                         'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                        'source_step' => $sourceStepOf($a),
                     ])->all(),
                     'fields' => collect($s->fieldDefinitions ?? [])
                         ->sortBy(fn ($f) => (int) ($f->order_number ?? 0))
@@ -476,6 +522,7 @@ class TransactionResource extends JsonResource
             ],
             'run' => [
                 'remarks' => $lastRun->remarks,
+                'flagged_items' => $lastRun->flagged_items ?? [],
                 'performed_by' => $performer?->only(['id', 'name']),
                 'performed_at' => $lastRun->performed_at?->toISOString(),
             ],

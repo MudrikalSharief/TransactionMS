@@ -35,6 +35,7 @@
                         :items="attachments || []"
                         :tx-id="txId"
                         :is-admin="isAdmin"
+                        :current-step-id="currentStepId"
                         :show-details="false"
                         :workflow-steps="workflowSteps"
                         show-step
@@ -62,6 +63,9 @@ const props = defineProps({
     isAdmin: { type: Boolean, default: false },
     attachments: { type: Array, default: () => [] },
     workflowSteps: { type: Array, default: () => [] },
+    // Current step id: files that already moved forward hide their remove
+    // buttons (step lock). Passed from detail pages.
+    currentStepId: { type: [Number, String], default: null },
 })
 
 const emit = defineEmits(['deleted'])

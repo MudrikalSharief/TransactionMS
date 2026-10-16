@@ -13,11 +13,17 @@
                     <v-chip size="x-small" variant="tonal" color="grey-darken-3" rounded="lg">{{ g.files.length }} file{{ g.files.length === 1 ? '' : 's' }}</v-chip>
                 </div>
                 <div class="d-flex flex-wrap ga-1 align-center">
-                    <div
+                    <v-tooltip
                         v-for="a in g.files"
                         :key="a.id"
+                        location="top"
+                        max-width="320"
+                    >
+                        <template #activator="{ props: tipProps }">
+                    <div
+                        v-bind="tipProps"
                         class="d-inline-flex align-center ga-1 py-1 px-2 rounded"
-                        style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.25); width: fit-content; max-width: 100%"
+                        :style="oldFileStyle(a)"
                     >
                         <v-icon size="default" color="error">{{ fileIconFor(a) }}</v-icon>
                         <div class="flex-1-1" style="min-width: 0; max-width: 220px">
@@ -48,16 +54,27 @@
                             @click.stop="askDelete(a)"
                         />
                         <v-chip v-if="isLinked(a)" size="x-small" variant="tonal" color="info" rounded="lg">linked</v-chip>
+                        <v-chip v-if="isOldFile(a)" size="x-small" variant="tonal" color="grey-darken-2" rounded="lg"><v-icon start size="x-small">mdi-history</v-icon>old file</v-chip>
                     </div>
+                        </template>
+                        <div class="font-weight-bold text-caption">{{ a.original_name }}</div>
+                        <div class="text-caption">Uploaded {{ uploadTooltipDate(a) }} by {{ displayUploader(a) }}</div>
+                    </v-tooltip>
                 </div>
             </v-card>
         </div>
         <div v-else-if="detailed" class="d-flex flex-wrap ga-1 align-center">
-            <div
+            <v-tooltip
                 v-for="a in items"
                 :key="a.id"
+                location="top"
+                max-width="320"
+            >
+                <template #activator="{ props: tipProps }">
+            <div
+                v-bind="tipProps"
                 class="d-inline-flex align-center ga-1 py-1 px-2 rounded"
-                style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.25); width: fit-content; max-width: 100%"
+                :style="oldFileStyle(a)"
             >
                 <v-icon size="default" color="error">{{ fileIconFor(a) }}</v-icon>
                 <div class="flex-1-1" style="min-width: 0; max-width: 220px">
@@ -88,7 +105,12 @@
                     @click.stop="askDelete(a)"
                 />
                 <v-chip v-if="isLinked(a)" size="x-small" variant="tonal" color="info" rounded="lg">linked</v-chip>
+                <v-chip v-if="isOldFile(a)" size="x-small" variant="tonal" color="grey-darken-2" rounded="lg"><v-icon start size="x-small">mdi-history</v-icon>old file</v-chip>
             </div>
+                </template>
+                <div class="font-weight-bold text-caption">{{ displayLabel(a) || a.original_name }}</div>
+                <div class="text-caption">Uploaded {{ uploadTooltipDate(a) }} by {{ displayUploader(a) }}</div>
+            </v-tooltip>
         </div>
         <div v-else-if="compact" class="d-flex flex-wrap ga-1">
             <span v-for="a in items" :key="a.id" class="d-inline-flex align-center ga-1 border rounded-0 pa-1">
@@ -140,6 +162,7 @@
                     <div class="text-caption text-medium-emphasis">
                         <template v-if="reqLabel(a) && reqLabel(a) !== displayLabel(a)">[{{ reqLabel(a) }}] · </template>{{ formatSize(a.size_bytes) }}
                     </div>
+                    <div class="text-caption text-medium-emphasis">Uploaded {{ uploadTooltipDate(a) }} by {{ displayUploader(a) }}</div>
                     <div class="text-caption mt-1">
                         <a v-if="action === 'download'" :href="a.download_url" class="text-white" @click.stop>Download</a>
                         <a v-else :href="fileViewUrl(a)" target="_blank" rel="noopener" class="text-white" @click.stop>View</a>
@@ -198,6 +221,7 @@
                         variant="tonal"
                         color="grey-darken-3"
                         class="mr-1 mb-1"
+                        :title="`${a.original_name} — Uploaded ${uploadTooltipDate(a)} by ${displayUploader(a)}`"
                     >
                         <v-icon start size="small">mdi-paperclip</v-icon>
                         <v-chip
@@ -253,6 +277,7 @@
             variant="tonal"
             color="grey-darken-3"
             class="mr-1 mb-1"
+            :title="`${a.original_name} — Uploaded ${uploadTooltipDate(a)} by ${displayUploader(a)}`"
         >
             <v-icon start size="small">mdi-paperclip</v-icon>
             <v-chip
@@ -372,13 +397,21 @@ const props = defineProps({
     items: { type: Array, default: () => [] },
     compact: { type: Boolean, default: false },
     // Detailed file rows (requirements redesign): icon + name + size·uploaded + trash.
-    // Delete stays superadmin-gated via canDelete.
+    // Delete follows the step lock (current-step workers, untravelled files).
     detailed: { type: Boolean, default: false },
     // When false, hides the plain-text detail lines below the chips
     // (used in history expanded details to avoid showing each file twice).
     showDetails: { type: Boolean, default: true },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
+    // Current step id of the transaction. Files that already moved forward
+    // (step_run_id set, or sitting on another step) are locked: their
+    // remove buttons hide. Null = unknown, only the travelled check applies.
+    currentStepId: { type: [Number, String], default: null },
+    // When true, files carried from a previous visit (step_run_id set)
+    // render as grey "old file" cards in detailed lists. Used by the
+    // Proceed wizard requirement rows on revisited stations only.
+    markOldFiles: { type: Boolean, default: false },
     // 'view' opens a preview tab; 'download' fetches the file directly.
     // Upload pickers use 'download'.
     action: { type: String, default: 'view' },
@@ -416,23 +449,46 @@ const deleteError = ref("");
 const confirmDialog = ref(false);
 const pendingDelete = ref(null);
 
-const isSuperadmin = computed(() =>
-    (auth.user.value?.roles || []).some((r) => r.code === "superadmin"),
-);
-
-// Delete button only renders for superadmin on a persisted transaction.
-// Unlink (remove a linked reference) renders for any signed-in user on a
-// persisted transaction — the backend enforces current-step worker gate.
-const canDelete = computed(() => isSuperadmin.value && props.txId !== null && props.txId !== undefined && props.txId !== "");
+// Step-locked evidence: any signed-in worker may remove a file uploaded
+// on the current step before it moves forward (wrong-file replace). The
+// backend enforces the worker + current-step + untravelled gates; locked
+// files hide their buttons via canRemove below.
+const canDelete = computed(() => !!auth.user.value && props.txId !== null && props.txId !== undefined && props.txId !== "");
 const canUnlink = computed(() => !!auth.user.value && props.txId !== null && props.txId !== undefined && props.txId !== "");
 
 function isLinked(a) {
     return !!((a?.source_attachment_id ?? a?.is_linked) ?? false);
 }
 
+// True once the file left its upload station: stamped by a move
+// (step_run_id) or sitting on another step (legacy rows included).
+function isLocked(a) {
+    if (a?.step_run_id !== null && a?.step_run_id !== undefined) return true;
+    const cur = props.currentStepId;
+    if (cur !== null && cur !== undefined && cur !== '') {
+        const ws = a?.workflow_step_id;
+        if (ws !== null && ws !== undefined && ws !== '') {
+            return Number(ws) !== Number(cur);
+        }
+    }
+    return false;
+}
+
 function canRemove(a) {
     if (props.hideDelete) return false;
+    if (isLocked(a)) return false;
     return isLinked(a) ? canUnlink.value : canDelete.value;
+}
+
+// Carried over from a previous visit (stamped by an earlier move).
+// Fresh uploads in this visit have no step_run_id.
+function isOldFile(a) {
+    return !!props.markOldFiles && a?.step_run_id !== null && a?.step_run_id !== undefined;
+}
+
+function oldFileStyle(a) {
+    if (isOldFile(a)) return 'background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.18); width: fit-content; max-width: 100%';
+    return 'background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.25); width: fit-content; max-width: 100%';
 }
 
 function removeTitle(a) {
@@ -442,6 +498,23 @@ function removeTitle(a) {
 
 function displayUploader(a) {
     return a.uploaded_by?.name || a.uploader?.name || "—";
+}
+
+function uploadTooltipDate(a) {
+    const iso = a?.created_at;
+    if (!iso) return "Unknown date";
+    try {
+        return new Date(iso).toLocaleString("en-PH", {
+            timeZone: "Asia/Manila",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
+    } catch {
+        return "Unknown date";
+    }
 }
 
 function displayLabel(a) {

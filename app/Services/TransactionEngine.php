@@ -108,9 +108,10 @@ class TransactionEngine
         int $userId,
         array $fieldValuesByCode = [],
         array $attachmentIds = [],
-        array $stepDataByCode = []
+        array $stepDataByCode = [],
+        array $flaggedItems = []
     ): Transaction {
-        return DB::transaction(function () use ($tx, $route, $remarks, $userId, $fieldValuesByCode, $attachmentIds, $stepDataByCode) {
+        return DB::transaction(function () use ($tx, $route, $remarks, $userId, $fieldValuesByCode, $attachmentIds, $stepDataByCode, $flaggedItems) {
             $tx->loadMissing([
                 'state.currentStep',
                 'workflow',
@@ -165,6 +166,7 @@ class TransactionEngine
                 'to_step_id' => $toStepId,
                 'action_code' => $route->action_code,
                 'remarks' => $remarks,
+                'flagged_items' => $this->normalizeFlaggedItems($flaggedItems),
                 'performed_by' => $userId,
                 'performed_at' => now(),
                 // Pending receipt: next office must click Receive.
@@ -303,9 +305,9 @@ class TransactionEngine
      * keep saved work, gappy ones reset); forward resends preserve all
      * saved work. Recorded as Returned (backward) or Resent (forward).
      */
-    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId): Transaction
+    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId, array $flaggedItems = []): Transaction
     {
-        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId) {
+        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId, $flaggedItems) {
             $tx->loadMissing(['state.currentStep', 'workflow', 'workflow.steps']);
 
             $currentStepId = (int) $tx->state?->current_step_id;
@@ -330,6 +332,7 @@ class TransactionEngine
                 'to_step_id' => $toStepId,
                 'action_code' => $isForward ? 'resend' : 'return',
                 'remarks' => $remarks ?? ($isForward ? 'Resent to a passed station' : 'Returned to a passed station'),
+                'flagged_items' => $this->normalizeFlaggedItems($flaggedItems),
                 'performed_by' => $userId,
                 'performed_at' => now(),
                 'received_at' => null,
@@ -541,6 +544,35 @@ class TransactionEngine
     private function makeReference(): string
     {
         return strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4));
+    }
+
+    /**
+     * Structured return flags: checklist items the sender flagged.
+     * Normalized to [{requirement_definition_id, code, name}]; entries
+     * with neither code nor name are dropped, capped at 50. Stored on
+     * the run — separate from free-text remarks so they cannot be erased
+     * and can highlight the receiver's checklist. Cross-station matching
+     * uses CODE (every station owns its own definition IDs).
+     */
+    private function normalizeFlaggedItems(mixed $input): ?array
+    {
+        if (!is_array($input) || !count($input)) return null;
+        $out = [];
+        foreach (array_slice(array_values($input), 0, 50) as $row) {
+            if (is_string($row)) $row = ['name' => $row];
+            if (!is_array($row)) continue;
+            $reqId = isset($row['requirement_definition_id']) && $row['requirement_definition_id'] !== null
+                && $row['requirement_definition_id'] !== '' ? (int) $row['requirement_definition_id'] : null;
+            $code = isset($row['code']) ? strtolower(trim((string) $row['code'])) : '';
+            $name = isset($row['name']) ? trim((string) $row['name']) : '';
+            if ($code === '' && $name === '') continue;
+            $out[] = [
+                'requirement_definition_id' => $reqId,
+                'code' => mb_substr($code, 0, 120),
+                'name' => mb_substr($name, 0, 255),
+            ];
+        }
+        return count($out) ? array_values($out) : null;
     }
 
     private function validateStepData($defs, ?array $input): void

@@ -215,7 +215,8 @@ class UserTransactionController extends Controller
             $request->user()->id,
             is_array($fields) ? $fields : [],
             $request->validated()['attachment_ids'] ?? [],
-            $request->validated()['step_data'] ?? []
+            $request->validated()['step_data'] ?? [],
+            $request->validated()['flagged_items'] ?? []
         );
 
         $actions = $routing->availableActions($tx, $request->user());

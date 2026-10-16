@@ -1,14 +1,14 @@
 <template>
     <div>
-        <v-stepper v-if="showChecklist && hasProceedContent && !singlePage" v-model="step" flat hide-actions alt-labels class="wizard-stepper mb-2">
+        <v-stepper v-if="showChecklist && hasProceedContent && !singlePage" v-model="step" flat hide-actions alt-labels :class="`wizard-stepper mb-2 is-step-${step}`">
             <v-stepper-header>
-                <v-stepper-item :value="1" title="Review" subtitle="Checklist & proceed">
+                <v-stepper-item :value="1" title="Review" subtitle="Checklist & proceed" :color="step === 1 ? 'warning' : '#FDE68A'" class="review-step">
                     <template #icon="{ hasCompleted }">
                         <v-icon v-if="hasCompleted">mdi-check</v-icon>
                     </template>
                 </v-stepper-item>
-                <v-divider />
-                <v-stepper-item :value="2" title="Requirements" subtitle="Upload files">
+                <v-divider class="wizard-connector" aria-hidden="true" />
+                <v-stepper-item :value="2" title="Requirements" subtitle="Upload files" :color="step === 2 ? 'primary' : '#BFDBFE'" class="req-step">
                     <template #icon="{ hasCompleted }">
                         <v-icon v-if="hasCompleted">mdi-check</v-icon>
                     </template>
@@ -29,8 +29,9 @@
                     <v-divider class="my-3" />
                 </template>
 
-                <!-- Previous station remarks (last move only, read-only). Hidden when no remarks. -->
-                <v-card v-if="prevContext && hasPrevRemarks" rounded="lg" border variant="outlined" class="pa-3 mb-3">
+                <!-- Previous station remarks (last move only, read-only). Hidden when no remarks.
+                     When flagged returns show, the remark lives inside the orange card below instead. -->
+                <v-card v-if="prevContext && hasPrevRemarks && !flaggedChecklist.length" rounded="lg" border variant="outlined" class="pa-3 mb-3">
                     <div class="text-subtitle-2 font-weight-bold">
                         Remarks from {{ prevStepTitle }}
                     </div>
@@ -59,6 +60,57 @@
                 </v-card>
 
                 <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
+                <div v-if="flaggedChecklist.length" class="mb-3">
+                    <v-card rounded="lg" variant="tonal" color="warning" class="pa-3">
+                        <template v-if="prevContext && hasPrevRemarks">
+                            <div class="text-subtitle-1 font-weight-bold" style="color: #92400E">Remarks from {{ prevStepTitle }}</div>
+                            <div v-if="prevRunBy" class="text-caption text-medium-emphasis mb-2">{{ prevRunBy }}</div>
+                            <div class="text-body-2" style="color: #000">{{ prevRemarksText }}</div>
+                            <v-divider class="my-3" />
+                        </template>
+                        <div class="text-subtitle-2 font-weight-bold" style="color: #92400E">Flagged on return</div>
+                        <div class="text-caption text-medium-emphasis mb-2">The returning station flagged these items for re-check:</div>
+                        <div class="d-flex flex-wrap ga-1 align-center">
+                            <template v-for="c in flaggedChecklist" :key="c.id ?? c.name">
+                                <v-tooltip v-if="viewableFiles(c).length" location="top" max-width="320">
+                                    <template #activator="{ props }">
+                                        <v-chip
+                                            v-bind="props"
+                                            size="small"
+                                            variant="flat"
+                                            color="warning"
+                                            rounded="lg"
+                                        ><v-icon start size="x-small">mdi-flag</v-icon>{{ c.name }}
+                                            <a
+                                                v-for="a in viewableFiles(c)"
+                                                :key="`flag-eye-${c.id ?? c.name}-${a.id}`"
+                                                :href="fileViewUrl(a)"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="ml-1 d-inline-flex align-center"
+                                                style="color: inherit"
+                                                :title="`View ${a.original_name}`"
+                                                @click.stop
+                                            ><v-icon size="x-small">mdi-eye</v-icon></a>
+                                        </v-chip>
+                                    </template>
+                                    <div v-for="a in viewableFiles(c)" :key="`flag-tip-${c.id ?? c.name}-${a.id}`" class="mb-1">
+                                        <div class="font-weight-bold">{{ a.original_name }}</div>
+                                        <div class="text-caption">{{ formatPrevSize(a.size_bytes) }}<span v-if="a.uploaded_by?.name"> · {{ a.uploaded_by.name }}</span><span v-if="a.created_at"> · {{ new Date(a.created_at).toLocaleString() }}</span></div>
+                                        <div v-if="a.requirement?.name || a.label" class="text-caption">{{ a.requirement?.name || a.label }}</div>
+                                    </div>
+                                </v-tooltip>
+                                <v-chip
+                                    v-else
+                                    size="small"
+                                    variant="flat"
+                                    color="warning"
+                                    rounded="lg"
+                                ><v-icon start size="x-small">mdi-flag</v-icon>{{ c.name }}</v-chip>
+                            </template>
+                        </div>
+                    </v-card>
+                </div>
                 <div v-if="modern" class="text-h6 font-weight-bold mb-3">Review</div>
                 <div class="d-flex justify-space-between align-baseline mb-1">
                     <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">Checklist</div>
@@ -105,7 +157,7 @@
                         </div>
                         <v-checkbox
                             :model-value="!!c.checked"
-                            :label="modern ? c.name : `${c.name}${c.is_required ? ' (required)' : ''}`"
+                            :label="c.name"
                             density="compact"
                             hide-details="auto"
                             style="flex: 1 1 auto"
@@ -113,8 +165,6 @@
                             :loading="savingChecklist && savingChecklistItemId === c.id"
                             @update:model-value="(v) => emit('toggle-checklist', c, v)"
                         />
-                        <v-chip v-if="modern && c.is_required" size="small" variant="tonal" color="error" rounded="pill">Required</v-chip>
-                        <v-chip v-else-if="modern" size="small" variant="outlined" color="grey" rounded="pill">Optional</v-chip>
                         <v-btn
                             v-for="a in viewableFiles(c)"
                             :key="a.id"
@@ -155,9 +205,11 @@
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
                     v-model:attachment-name="attachmentName"
+                    v-model:flagged="flagged"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :is-return-selected="isReturnSelected"
+                    :checklist="checklist"
                     :show-checklist="showChecklist"
                     :missing-required-upload-labels="missingRequiredUploadLabels"
                     :missing-required-tick-labels="missingRequiredTickLabels"
@@ -187,31 +239,28 @@
                     <v-divider class="my-3" />
                 </template>
                 <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" :modern="modern" :numbered="numberedSection" :start-number="sectionNumbers.dataStart" />
-                <div class="d-flex justify-space-between align-baseline mb-2">
-                    <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">{{ numberedSection && sectionNumbers.reqs ? `Step ${sectionNumbers.reqs}: ` : '' }}Requirements to proceed</div>
+                <div v-if="tickRequirements.length" class="d-flex justify-space-between align-baseline mb-2">
+                    <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">{{ numberedSection && sectionNumbers.reqs ? `Step ${sectionNumbers.reqs}: ` : '' }}{{ isCompleting ? 'Requirements to Complete step' : (isReturnSelected ? 'Requirements to return' : 'Requirements to proceed') }}</div>
                     <div v-if="modern && (requirements || []).length && requiredTotalCount > 0" class="text-body-2 text-success">
                         {{ requiredTickedCount }} of {{ requiredTotalCount }} required ticked
-                    </div>
-                    <div v-else-if="(requirements || []).length" class="text-caption" :class="requirementsComplete ? 'text-success' : 'text-medium-emphasis'">
-                        {{ checkedRequirementsCount }} of {{ (requirements || []).length }} complete
                     </div>
                 </div>
                 <div v-if="modern && (requirements || []).length" class="text-body-2 text-medium-emphasis mb-2">
                     Tick each box when it is done. Items marked Required must be ticked.
                 </div>
 
-                <div v-if="!(isReturnSelected && !(requirements || []).length) && (requirements || []).length" class="d-flex flex-column ga-3">
+                <div v-if="tickRequirements.length" class="d-flex flex-column ga-3">
                     <!-- Tick group: previous-station mirror (Prev, display-only)
                         + current verify tick. Ticking a required row unlocks
                         its section below. Step 1 has no predecessor, so it
                         renders today's single checkbox. -->
-                    <div v-if="sortedRequirements.length" class="d-flex flex-column">
+                    <div v-if="tickRequirements.length" class="d-flex flex-column">
                         <div v-if="hasPrevColumn" class="d-flex align-center ga-2">
                             <span style="width: 44px" class="text-caption text-medium-emphasis text-center">Prev</span>
                             <span class="text-caption text-medium-emphasis">Verify</span>
                         </div>
                         <div
-                            v-for="r in sortedRequirements"
+                            v-for="r in tickRequirements"
                             :key="r.definition.id"
                             class="d-flex align-center ga-2 py-1"
                         >
@@ -236,12 +285,13 @@
                                 :loading="savingChecklist && savingRequirementId === r.definition.id"
                                 @update:model-value="(v) => emit('toggle-requirement', r, v)"
                             />
-                            <v-chip v-if="r?.pivot?.is_required" :size="modern ? 'small' : 'x-small'" variant="tonal" :color="modern ? 'error' : (r.checked ? 'success' : 'warning')" :rounded="modern ? 'pill' : 'lg'"><v-icon v-if="r.checked && !modern" start size="x-small">mdi-check</v-icon>Required</v-chip>
+                            <v-chip v-if="r?.pivot?.is_required" :size="modern ? 'small' : 'x-small'" variant="tonal" :color="r.checked ? 'success' : 'error'" :rounded="modern ? 'pill' : 'lg'"><v-icon v-if="r.checked && !modern" start size="x-small">mdi-check</v-icon>Required</v-chip>
                             <v-chip v-else :size="modern ? 'small' : 'x-small'" :variant="modern ? 'outlined' : 'tonal'" color="grey" :rounded="modern ? 'pill' : 'lg'">{{ modern ? 'Optional' : 'optional' }}</v-chip>
+                            <v-chip v-if="r.flagged_on_return" :size="modern ? 'small' : 'x-small'" variant="flat" color="warning" :rounded="modern ? 'pill' : 'lg'"><v-icon start size="x-small">mdi-flag</v-icon>flagged on return</v-chip>
                         </div>
                     </div>
                     <v-card
-                        v-if="sortedRequirements.length"
+                        v-if="uploadFirstRequirements.length"
                         rounded="lg"
                         border
                         variant="outlined"
@@ -303,6 +353,8 @@
                             :items="mergedReqAttachments(r)"
                             :tx-id="txId"
                             :is-admin="isAdmin"
+                            :current-step-id="currentStepId"
+                            mark-old-files
                             detailed
                             :show-details="false"
                             action="download"
@@ -316,9 +368,11 @@
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
                     v-model:attachment-name="attachmentName"
+                    v-model:flagged="flagged"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :is-return-selected="isReturnSelected"
+                    :checklist="checklist"
                     :show-checklist="showChecklist"
                     :missing-required-upload-labels="missingRequiredUploadLabels"
                     :missing-required-tick-labels="missingRequiredTickLabels"
@@ -475,10 +529,16 @@ const proceedAttachments = defineModel('proceedAttachments', { default: () => []
 const attachmentName = defineModel('attachmentName', { default: '' })
 // Step-data draft keyed by definition code; sent as `step_data` on Proceed.
 const stepDataForm = defineModel('stepDataForm', { default: () => ({}) })
+// Structured return flags, two-way bound to the page (sent as
+// flagged_items on execute). Passed down to both footers.
+const flagged = defineModel('flagged', { default: () => [] })
 
 const props = defineProps({
     txId: { type: [Number, String], required: true },
     isAdmin: { type: Boolean, default: false },
+    // Current step id: requirement files that already moved forward are
+    // locked (remove buttons hide). Passed from detail pages / dialogs.
+    currentStepId: { type: [Number, String], default: null },
     // tx.current_step_requirements — current step only.
     requirements: { type: Array, default: () => [] },
     // tx.current_step_checklist — mirrors the previous station's requirements.
@@ -492,6 +552,9 @@ const props = defineProps({
     selectedActionLabel: { type: String, default: '' },
     selectedRouteId: { type: [Number, String, null], default: null },
     isReturnSelected: { type: Boolean, default: false },
+    // True when the modal is completing the last station (Complete Step).
+    // Switches copy like "Requirements to Complete step".
+    isCompleting: { type: Boolean, default: false },
     // False for step 1 → step 2: requirements only, checklist hidden entirely.
     showChecklist: { type: Boolean, default: true },
     missingRequiredUploadLabels: { type: Array, default: () => [] },
@@ -558,6 +621,8 @@ const verifiedChecklistCount = computed(() => (props.checklist || []).filter((c)
 const checklistComplete = computed(
     () => (props.checklist || []).length > 0 && verifiedChecklistCount.value >= (props.checklist || []).length,
 )
+// Items the previous station flagged when returning this work.
+const flaggedChecklist = computed(() => (props.checklist || []).filter((c) => !!c.flagged_on_return))
 
 // Previous station context (last move only, read-only) shown above Checklist.
 const prevStepTitle = computed(() => {
@@ -590,6 +655,15 @@ function displayPrevValue(v) {
     return String(v)
 }
 
+// "PR with number" rows are proceed-only: hide their tick + upload card
+// when returning (main-bar return or in-modal return mode).
+function isPrNumberRow(r) {
+    const code = String(r?.definition?.code || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (code === 'prnumber' || code === 'prwithnumber' || code === 'prno' || code === 'prnum') return true;
+    const name = String(r?.definition?.name || '').toLowerCase();
+    return /\bpr\b/.test(name) && name.includes('number');
+}
+
 // Page 2 display order: required first, then tick-only rows before
 // file-input (uploader) rows within each band. Further ties keep backend
 // display_order, then name. Length/empty checks keep using props.requirements.
@@ -610,6 +684,14 @@ const sortedRequirements = computed(() => {
         })
         .map((x) => x.r)
 })
+
+// Tick group hides "PR with number" rows on return (upload-only there —
+// no verify tick), while the upload card below keeps them so the file
+// can still travel with the return.
+const tickRequirements = computed(() => props.isReturnSelected
+    ? sortedRequirements.value.filter((r) => !isPrNumberRow(r))
+    : sortedRequirements.value,
+)
 
 // First (Prev) column shows only when some requirement carries a
 // previous-station tick — step 1 has no predecessor, so it keeps the
@@ -636,7 +718,8 @@ function prevCheckTitle(c) {
 
 // Group card order: true upload inputs first, then tick-only sections.
 // Stable sort preserves the required-first order inside each band.
-const uploadFirstRequirements = computed(() => [...sortedRequirements.value].sort(
+// Built from the visible (return-filtered) rows so PR cards hide on return.
+const uploadFirstRequirements = computed(() => [...tickRequirements.value].sort(
     (a, b) => (uploadRequired(a) ? 0 : 1) - (uploadRequired(b) ? 0 : 1),
 ))
 
@@ -893,6 +976,46 @@ defineExpose({ clearReqFiles, getReqFiles, removeReqFile })
 <style scoped>
 .wizard-stepper {
     background: transparent;
+}
+
+/* Animated broken-line connector between Review (orange) and Requirements (blue).
+   Uses Vuetify's own divider layout so Review/Requirements stay aligned. */
+.wizard-stepper .wizard-connector {
+    border: 0 !important;
+    border-top: 0 !important;
+    min-height: 2px;
+    height: 2px;
+    background-color: transparent !important;
+    background-image: linear-gradient(to right, currentColor 55%, transparent 45%) !important;
+    background-size: 10px 2px !important;
+    background-repeat: repeat-x !important;
+    opacity: 0.6;
+    animation: wizard-dash-move 1.2s linear infinite;
+}
+@keyframes wizard-dash-move {
+    from { background-position-x: 0; }
+    to { background-position-x: 20px; }
+}
+
+/* Stepper circles: Review orange, Requirements blue. Pale opposite state
+   enforced via step-bound classes (Vuetify ignores color on inactive). */
+.wizard-stepper .review-step {
+    --v-stepper-item-color: var(--v-theme-warning);
+}
+.wizard-stepper .req-step {
+    --v-stepper-item-color: var(--v-theme-primary);
+}
+.wizard-stepper.is-step-1 :deep(.req-step .v-avatar),
+.wizard-stepper.is-step-1 :deep(.req-step .v-stepper-item__avatar) {
+    background-color: #BFDBFE !important;
+    border-color: #BFDBFE !important;
+    color: #1E40AF !important;
+}
+.wizard-stepper.is-step-2 :deep(.review-step .v-avatar),
+.wizard-stepper.is-step-2 :deep(.review-step .v-stepper-item__avatar) {
+    background-color: #FDE68A !important;
+    border-color: #FDE68A !important;
+    color: #92400E !important;
 }
 
 /* Auto-filled Prev ticks: subtle green when checked. Unchecked Prev

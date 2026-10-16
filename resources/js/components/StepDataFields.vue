@@ -23,6 +23,9 @@
         <template v-else>
             <div class="text-subtitle-2 font-weight-bold mb-2">Step data</div>
             <div v-for="row in (stepData || [])" :key="row.definition.id" class="mb-2">
+                <div v-if="row.definition.is_required" class="mb-1">
+                    <v-chip size="x-small" variant="tonal" color="error" rounded="lg">Required</v-chip>
+                </div>
                 <v-text-field
                     :model-value="form[row.definition.code] ?? ''"
                     :label="`${row.definition.display_name}${row.definition.is_required ? ' *' : ''}`"
@@ -33,6 +36,8 @@
                     variant="outlined"
                     density="compact"
                     :disabled="saving"
+                    :error="isStepDataEmpty(row)"
+                    :error-messages="isStepDataEmpty(row) ? ['* required'] : []"
                     @update:model-value="(v) => setValue(row.definition.code, v)"
                 />
             </div>
@@ -61,6 +66,12 @@ defineProps({
 
 function setValue(code, v) {
     form.value = { ...(form.value || {}), [code]: v }
+}
+
+function isStepDataEmpty(row) {
+    if (!row?.definition?.is_required) return false;
+    const v = form.value?.[row.definition.code];
+    return v === null || v === undefined || String(v).trim() === '';
 }
 
 function hint(row) {

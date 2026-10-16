@@ -113,8 +113,8 @@ export function useTransactions() {
     }
   }
 
-  async function finalize(id) {
-    const res = await api.post(`/api/admin/transactions/${id}/finalize`)
+  async function finalize(id, payload = {}) {
+    const res = await api.post(`/api/admin/transactions/${id}/finalize`, payload)
     return {
       tx: res.data.data ?? res.data,
       meta: res.data.meta ?? {},

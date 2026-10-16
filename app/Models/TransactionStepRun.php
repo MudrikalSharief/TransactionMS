@@ -12,6 +12,7 @@ class TransactionStepRun extends Model
         'to_step_id',
         'action_code',
         'remarks',
+        'flagged_items',
         'performed_by',
         'performed_at',
         'received_at',
@@ -21,6 +22,7 @@ class TransactionStepRun extends Model
     ];
 
     protected $casts = [
+        'flagged_items' => 'array',
         'performed_at' => 'datetime',
         'received_at' => 'datetime',
         'sla_minutes_snapshot' => 'integer',

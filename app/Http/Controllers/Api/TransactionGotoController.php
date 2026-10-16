@@ -65,7 +65,8 @@ class TransactionGotoController extends Controller
             $transaction,
             $toStepId,
             $request->validated()['remarks'] ?? null,
-            (int) $request->user()->id
+            (int) $request->user()->id,
+            $request->validated()['flagged_items'] ?? []
         );
 
         $tx->load([

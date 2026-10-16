@@ -18,7 +18,7 @@
                 <v-chip size="x-small" variant="tonal" color="warning" rounded="0" class="mt-1">Returning to</v-chip>
             </div>
         </div>
-        <div v-else class="flow-node">
+        <div v-else-if="!hidePrevious" class="flow-node">
             <v-avatar
                 color="white"
                 size="46"
@@ -48,7 +48,7 @@
                 >Return to</v-chip>
             </div>
         </div>
-        <div v-else class="flow-link is-static" aria-hidden="true"><span class="flow-line"></span></div>
+        <div v-else-if="!hidePrevious" class="flow-link is-static" aria-hidden="true"><span class="flow-line"></span></div>
 
         <!-- Current station (left emphasis) -->
         <div class="flow-node">
@@ -148,6 +148,8 @@ const props = defineProps({
     // 'forward' | 'return' | 'resend' | null (null = nothing selected)
     direction: { type: String, default: null },
     hasSelection: { type: Boolean, default: false },
+    // Step 1 has no previous station — hide the Previous node + its link.
+    hidePrevious: { type: Boolean, default: false },
 })
 
 function lookupNumber(step) {

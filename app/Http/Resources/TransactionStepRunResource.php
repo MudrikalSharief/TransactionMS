@@ -20,6 +20,7 @@ class TransactionStepRunResource extends JsonResource
             'to_step' => $this->stepPayload($this->toStep),
             'action_code' => $this->action_code,
             'remarks' => $this->remarks,
+            'flagged_items' => $this->flagged_items ?? [],
             // #3 From user / #1 From (releasing) timestamp
             'performed_by' => $this->userPayload($this->performer),
             'performed_at' => $this->performed_at?->toISOString(),
