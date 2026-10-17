@@ -578,8 +578,7 @@
                         >Complete Step</v-btn
                     >
                     <template v-if="isReturnMode">
-                        <span v-if="!selectedRouteId || !isReturnAction" class="text-caption text-medium-emphasis mr-2">Select where to return.</span>
-                        <span v-else-if="missingRequiredFields.length > 0" class="text-caption text-medium-emphasis mr-2">Fill required station info: {{ missingRequiredFields.join(', ') }}.</span>
+                        <span v-if="missingRequiredFields.length > 0" class="text-caption text-medium-emphasis mr-2">Fill required station info: {{ missingRequiredFields.join(', ') }}.</span>
                         <v-btn
                             color="warning"
                             rounded="0"
