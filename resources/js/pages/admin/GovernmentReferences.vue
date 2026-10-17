@@ -7,7 +7,7 @@
       </v-avatar>
       <span class="text-h6 font-weight-bold">Government References</span>
       <v-spacer />
-      <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
+      <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
         Add Reference
       </v-btn>
     </v-card-title>
@@ -55,7 +55,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end row-actions">
+          <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit reference'"
@@ -101,11 +101,15 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useAuth, hasPermission } from '@/composables/useAuth'
 import { useGovernmentReferences } from '@/composables/useGovernmentReferences'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
+const auth = useAuth()
 const { items, loading, fetchAll, create, update, remove } = useGovernmentReferences()
+
+const canManage = computed(() => hasPermission(auth.user.value, 'government_references.manage'))
 
 const headers = [
   { title: 'Code', key: 'code', width: 150 },

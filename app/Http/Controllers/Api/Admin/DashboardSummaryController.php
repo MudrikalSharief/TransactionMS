@@ -15,8 +15,8 @@ use Illuminate\Support\Collection;
 /**
  * Dashboard "Transaction Summary" card (superadmin).
  *
- * Period: this week (default: the current Mon–Sun calendar week) or a
- * calendar month, both in Manila time.
+ * Period: this week (default: the current Mon–Sun calendar week), a
+ * calendar month, or all time, all in Manila time.
  * Completed counts by finalize date; everything else by created date.
  * Process/office filters narrow every count, except by_process, which
  * ignores the process filter so the card can fade unpicked processes.
@@ -107,7 +107,7 @@ class DashboardSummaryController extends Controller
     private function resolveScope(Request $request, array $extra = []): void
     {
         $data = $request->validate(array_merge([
-            'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'month' => ['nullable', 'regex:/^(\d{4}-(0[1-9]|1[0-2])|all)$/'],
             'processes' => ['nullable', 'array'],
             'processes.*' => ['integer'],
             'offices' => ['nullable', 'array'],
@@ -122,6 +122,12 @@ class DashboardSummaryController extends Controller
         $this->officeId = filled($data['office_code'] ?? null)
             ? (int) Office::whereRaw('UPPER(code) = ?', [mb_strtoupper($data['office_code'])])->value('id')
             : null;
+
+        $user = $request->user();
+        if ($user && !$user->hasRole('superadmin')) {
+            $this->offices = $user->office_id ? [(int) $user->office_id] : [-1];
+            $this->officeId = null;
+        }
     }
 
     private function filtered(Builder $q, bool $withProcess = true): Builder
@@ -282,6 +288,18 @@ class DashboardSummaryController extends Controller
     /** @return array{0: Carbon, 1: Carbon, 2: array} [from, to (exclusive), meta] in UTC */
     private function period(?string $month): array
     {
+        if ($month === 'all') {
+            $from = Carbon::parse('1970-01-01 00:00:00', 'UTC');
+            $to = Carbon::parse('9999-12-31 23:59:59', 'UTC');
+
+            return [$from, $to, [
+                'key' => 'all',
+                'label' => 'All time',
+                'from' => $from->toIso8601String(),
+                'to' => $to->toIso8601String(),
+            ]];
+        }
+
         if ($month) {
             $start = Carbon::parse("{$month}-01 00:00:00", self::TZ);
             $end = $start->copy()->addMonthNoOverflow();

@@ -64,6 +64,7 @@ class AuthController extends Controller
                         'code' => $r->code,
                         'name' => $r->name,
                     ])->values(),
+                    'permissions' => $user->permissionCodes(),
                 ],
             ]);
     }

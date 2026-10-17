@@ -20,7 +20,7 @@
           class="mr-2"
           style="max-width: 260px"
         />
-        <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">New Transaction</v-btn>
+        <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">New Transaction</v-btn>
       </v-card-title>
       <v-divider />
 
@@ -217,7 +217,7 @@ import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth, hasPermission } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
@@ -232,6 +232,8 @@ const auth = useAuth()
 const isSuperadmin = computed(() =>
   (auth.user.value?.roles || []).some((r) => r.code === 'superadmin')
 )
+
+const canManage = computed(() => hasPermission(auth.user.value, 'transactions.manage'))
 
 const dialog = ref(false)
 const confirmDialog = ref(false)
@@ -249,9 +251,16 @@ const form = ref({
   title: '',
 })
 
-const typeOptions = computed(() =>
-  (types.value || []).map(t => ({ id: t.id, label: `${t.name} (${t.code})` }))
-)
+const typeOptions = computed(() => {
+  const myOfficeId = auth.user.value?.office?.id ?? null
+  return (types.value || [])
+    .filter((t) => {
+      const ids = t.office_ids ?? (t.offices || []).map((o) => o.id)
+      if (!ids.length) return true
+      return myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId))
+    })
+    .map((t) => ({ id: t.id, label: `${t.name} (${t.code})` }))
+})
 
 const officeOptions = computed(() =>
   (offices.value || [])

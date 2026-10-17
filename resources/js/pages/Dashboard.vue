@@ -122,6 +122,25 @@
                                 hide-details
                                 class="process-filter"
                             />
+                            <v-select
+                                v-if="isSuperadmin"
+                                v-model="officeFilter"
+                                :items="officeOptions"
+                                label="Offices"
+                                placeholder="All offices"
+                                persistent-placeholder
+                                variant="outlined"
+                                density="compact"
+                                rounded="0"
+                                hide-details
+                                multiple
+                                clearable
+                                class="process-filter"
+                            >
+                                <template v-slot:selection="{ item }">
+                                    <v-chip size="small" variant="tonal" class="mr-1">{{ item.raw.code }}</v-chip>
+                                </template>
+                            </v-select>
                         </v-card-title>
                         <v-divider />
                         <v-card-text class="pa-4">
@@ -339,6 +358,7 @@
             :origin-el="detail.originEl"
             :query="summaryQuery"
             :period-label="summary?.period?.label || 'This week'"
+            :scope-chips="officeScopeChips"
         />
     </div>
 </template>
@@ -347,11 +367,12 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth, hasPermission } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
+import { useOffices } from '@/composables/useOffices'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
@@ -366,6 +387,7 @@ const { api } = useApi()
 const txStore = useTransactions()
 const myStore = useMyTransactions()
 const typeStore = useTransactionTypes()
+const officeStore = useOffices()
 
 const loading = ref(false)
 const refreshedAt = ref(null)
@@ -375,11 +397,13 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
+const canViewSummary = computed(() => isSuperadmin.value || hasPermission(auth.user.value, 'dashboard.view'))
+
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
-// Default order; Transaction Summary is superadmin only.
+// Default order; Transaction Summary is superadmin / dashboard.view only.
 const cardIds = computed(() =>
-    ['summary', 'graph', 'start', 'recent', 'action'].filter((id) => id !== 'summary' || isSuperadmin.value)
+    ['summary', 'graph', 'start', 'recent', 'action'].filter((id) => id !== 'summary' || canViewSummary.value)
 )
 const {
     order: cardOrder,
@@ -528,9 +552,41 @@ const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dar
 // Labels always state the scope, so the numbers are never ambiguous.
 const myOffice = computed(() => auth.user.value?.office ?? null)
 const scopeCode = computed(() => myOffice.value?.code?.toUpperCase() ?? null)
-const scopeProcessTitle = computed(() =>
-    scopeCode.value ? `${scopeCode.value} Transactions per Process` : 'All Transactions per Process'
+
+const officeFilter = ref([])
+const officeById = computed(() => new Map((officeStore.items.value || []).map((o) => [o.id, o])))
+const officeIds = computed(() => new Set(officeFilter.value || []))
+const officeOptions = computed(() =>
+    [...(officeStore.items.value || [])]
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id, code: o.code || o.name }))
 )
+const officeScopeChips = computed(() =>
+    officeFilter.value
+        .map((id) => officeById.value.get(id)?.code?.toUpperCase())
+        .filter(Boolean)
+)
+const officeScopeLabel = computed(() => {
+    if (!officeScopeChips.value.length) return scopeCode.value
+    return officeScopeChips.value.length <= 2
+        ? officeScopeChips.value.join('/')
+        : `${officeScopeChips.value.length} offices`
+})
+const scopeProcessTitle = computed(() =>
+    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions per Process` : 'All Transactions per Process'
+)
+
+function inOfficeScope(tx) {
+    if (officeIds.value.size) return officeIds.value.has(tx.office?.id)
+    return !scopeCode.value || tx.office?.code?.toUpperCase() === scopeCode.value
+}
+
+watch(officeOptions, (options) => {
+    const ids = new Set(options.map((o) => o.value))
+    if (officeFilter.value?.some((id) => !ids.has(id))) {
+        officeFilter.value = officeFilter.value.filter((id) => ids.has(id))
+    }
+})
 
 // ---- Graph: the office's transactions per process, one bar per process per week ----
 const monthValue = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -580,13 +636,13 @@ const graphPeriodLabel = computed(
 )
 
 const graphEmptyText = computed(() =>
-    scopeCode.value
-        ? `No ${scopeCode.value} transactions in ${graphPeriodLabel.value}`
+    officeScopeLabel.value
+        ? `No ${officeScopeLabel.value} transactions in ${graphPeriodLabel.value}`
         : `No transactions in ${graphPeriodLabel.value}`
 )
 const graphAriaLabel = computed(() =>
-    scopeCode.value
-        ? `${scopeCode.value} transactions per process per week, ${graphPeriodLabel.value}`
+    officeScopeLabel.value
+        ? `${officeScopeLabel.value} transactions per process per week, ${graphPeriodLabel.value}`
         : `Transactions per process per week, ${graphPeriodLabel.value}`
 )
 
@@ -600,11 +656,10 @@ function txTypeLabel(tx) {
     return tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
 }
 
-// Visible transactions created in the chosen month (own office, if assigned).
+// Visible transactions created in the chosen month (own office, if assigned,
+// or the offices picked by a superadmin).
 const graphTx = computed(() =>
-    scopeSource.value.filter(
-        (tx) => (!scopeCode.value || tx.office?.code?.toUpperCase() === scopeCode.value) && weekIndexOf(tx) >= 0,
-    )
+    scopeSource.value.filter((tx) => inOfficeScope(tx) && weekIndexOf(tx) >= 0)
 )
 
 // Per-process weekly counts, busiest process first.
@@ -690,7 +745,11 @@ const graphSeries = computed(() => {
 // months (Manila calendar).
 // Completed counts by finalize date, the rest by created date (server side).
 const summaryPeriod = ref('this_week')
-const periodOptions = computed(() => [{ title: 'This week', value: 'this_week' }, ...monthOptions.value])
+const periodOptions = computed(() => [
+    { title: 'All time', value: 'all' },
+    { title: 'This week', value: 'this_week' },
+    ...monthOptions.value,
+])
 
 const summary = ref(null)
 const summaryLoading = ref(false)
@@ -701,11 +760,12 @@ const summaryError = ref('')
 const summaryQuery = computed(() => ({
     month: summaryPeriod.value === 'this_week' ? undefined : summaryPeriod.value,
     ...(scopeCode.value ? { office_code: scopeCode.value } : {}),
+    ...(officeFilter.value?.length ? { offices: [...officeFilter.value].sort((a, b) => a - b) } : {}),
 }))
 
 let summaryRequest = 0
 async function loadSummary() {
-    if (!isSuperadmin.value) return
+    if (!canViewSummary.value) return
     const mine = ++summaryRequest
     // Instant illusion: last summary for this period/office paints at once
     // (template already dims stale tiles via .summary-stale), then the
@@ -781,7 +841,10 @@ const actionQueue = computed(() => {
 })
 
 const recent = computed(() => {
-    const list = [...(scopeSource.value || [])]
+    const source = scopeSource.value || []
+    const list = officeIds.value.size
+        ? source.filter((tx) => officeIds.value.has(tx.office?.id))
+        : [...source]
     list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
     return list.slice(0, 4)
 })
@@ -850,8 +913,11 @@ onMounted(async () => {
     loading.value = !warm
     const opts = { silent: warm }
     loadSummary()
-    // Process filter options; cached, so this never holds up the page.
-    if (isSuperadmin.value) typeStore.fetchAll({ silent: true }).catch(() => {})
+    // Process/office filter options; cached, so these never hold up the page.
+    if (isSuperadmin.value) {
+        typeStore.fetchAll({ silent: true }).catch(() => {})
+        officeStore.fetchAll({ silent: true }).catch(() => {})
+    }
 
     try {
         if (isSuperadmin.value) {

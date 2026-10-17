@@ -38,6 +38,35 @@ class TransactionController extends Controller
             ])
             ->latest();
 
+        $user = $request->user();
+        $user->loadMissing('roles');
+        $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+
+        if (!$isSuperadmin) {
+            if ($user->isOfficeAdmin()) {
+                // Office admins see every transaction of their office.
+                $query->where('transactions.office_id', $user->office_id);
+            } else {
+                // Regular users: office bound + role bound — only rows whose
+                // current station lists one of their roles and is at their
+                // office (office-agnostic steps keep the role-only behavior).
+                $roleIds = $user->roles->pluck('id')->filter()->values()->all();
+
+                if ($user->office_id === null || empty($roleIds)) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $query->where('transactions.office_id', $user->office_id)
+                        ->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->where(function ($w) use ($user) {
+                                    $w->whereNull('workflow_steps.office_id')
+                                        ->orWhere('workflow_steps.office_id', $user->office_id);
+                                });
+                        });
+                }
+            }
+        }
+
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('reference_number', 'like', "%{$q}%")

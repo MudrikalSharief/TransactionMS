@@ -28,6 +28,10 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
+        // MySQL-only repair: TIMESTAMPDIFF/INTERVAL and the timestamp
+        // behavior being repaired are MySQL-specific.
+        if (DB::connection()->getDriverName() !== 'mysql') return;
+
         DB::statement("
             UPDATE `transaction_step_runs`
             SET `received_at` = `received_at` - INTERVAL 8 HOUR

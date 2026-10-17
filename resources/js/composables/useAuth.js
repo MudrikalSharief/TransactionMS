@@ -15,6 +15,25 @@ export function canUseApprovals(u) {
     return codes.includes("superadmin") || !codes.includes("end_user");
 }
 
+// Office admin: holds the admin role AND an assigned office. Mirrors
+// User::isOfficeAdmin() on the backend (superadmin excluded on purpose).
+export function isOfficeAdminUser(u) {
+    if (!u || (u.office_id == null && u.office == null)) return false;
+    return (u.roles ?? []).some((r) => r.code === "admin");
+}
+
+// Role permission gate for admin modules ("users.view", "transactions.manage").
+// Superadmin's /me carries every catalog code, so no special-case here.
+// A granted "<module>.manage" also satisfies "<module>.view" checks.
+export function hasPermission(u, code) {
+    const codes = u?.permissions ?? [];
+    if (codes.includes(code)) return true;
+    if (code.endsWith(".view")) {
+        return codes.includes(`${code.slice(0, -5)}.manage`);
+    }
+    return false;
+}
+
 export function useAuth() {
     const { api, csrf } = useApi();
 

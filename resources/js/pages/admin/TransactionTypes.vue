@@ -19,7 +19,7 @@
         class="mr-2"
         style="max-width: 260px"
       />
-      <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
+      <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
         Add Transaction Type
       </v-btn>
     </v-card-title>
@@ -184,7 +184,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end row-actions">
+          <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit transaction type'"
@@ -217,6 +217,7 @@
         <v-text-field v-model="form.name" label="Name" />
         <v-textarea v-model="form.description" label="Description" rows="3" />
         <v-select
+          v-if="isSuperadmin"
           v-model="form.office_ids"
           :items="officeOptions"
           item-title="label"
@@ -226,6 +227,12 @@
           chips
           closable-chips
         />
+        <v-alert v-else type="info" variant="tonal" density="compact" class="mb-2">
+          Available to: <b>{{ auth.user.value?.office?.name || 'your office' }}</b>
+          <div class="text-caption">
+            Office admins manage their own office's types; clearing the list keeps your office assigned.
+          </div>
+        </v-alert>
         <v-switch v-model="form.is_active" label="Active" />
       </v-card-text>
       <v-divider />
@@ -262,6 +269,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useWorkflows } from '@/composables/useWorkflows'
 import { useOffices } from '@/composables/useOffices'
@@ -269,9 +277,14 @@ import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStat
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const router = useRouter()
+const auth = useAuth()
 const { items, loading, fetchAll, create, update, remove } = useTransactionTypes()
 const { defs, loading: defsLoading, fetchDefinitions, makeLive } = useWorkflows()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
+
+const isSuperadmin = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+const canManage = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
 const officeOptions = computed(() =>
   (offices.value || []).map((o) => ({ id: o.id, label: `${o.name} (${o.code})` })),
@@ -422,9 +435,11 @@ async function save() {
       code: form.value.code,
       name: form.value.name,
       description: form.value.description,
-      office_ids: form.value.office_ids || [],
       is_active: form.value.is_active,
     }
+    // Superadmin picks the offices; office admins keep their office's
+    // existing assignments (backend enforces their office stays included).
+    if (isSuperadmin.value) payload.office_ids = form.value.office_ids || []
 
     if (form.value.id) await update(form.value.id, payload)
     else await create(payload)

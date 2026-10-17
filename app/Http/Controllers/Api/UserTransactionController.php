@@ -79,6 +79,7 @@ class UserTransactionController extends Controller
 
         $user->loadMissing('roles');
         $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+        $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
         $query = Transaction::query()
@@ -100,15 +101,28 @@ class UserTransactionController extends Controller
         }
 
         if (!$isSuperadmin) {
-            if (empty($roleIds)) {
+            if ($isOfficeAdmin) {
+                $query->where('transactions.office_id', $user->office_id);
+            } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
+            } else {
+                // Push the role + office gate to SQL (no schema change): only
+                // rows whose current station lists one of the user's roles and
+                // belongs to the user's office (steps without an office keep
+                // the role-only behavior). Keeps the exact
+                // userCanWorkOnCurrentStep() semantics for the paged rows below.
+                $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                    $s->whereHas('roles', function ($r) use ($roleIds) {
+                        $r->whereIn('roles.id', $roleIds);
+                    });
+                    if ($user->office_id !== null) {
+                        $s->where(function ($w) use ($user) {
+                            $w->whereNull('workflow_steps.office_id')
+                                ->orWhere('workflow_steps.office_id', $user->office_id);
+                        });
+                    }
+                });
             }
-            // Push the role gate to SQL (no schema change): only rows whose
-            // current station lists one of the user's roles. Keeps the exact
-            // userCanWorkOnCurrentStep() semantics for the paged rows below.
-            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
-                $r->whereIn('roles.id', $roleIds);
-            });
         }
 
         $page = $query->paginate($perPage);

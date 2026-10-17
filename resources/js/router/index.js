@@ -31,7 +31,7 @@ const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
 const Help = () => import("@/pages/Help.vue");
 
-import { useAuth, canUseApprovals } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, hasPermission, isOfficeAdminUser } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 
@@ -51,69 +51,69 @@ export function createRouter() {
             {
                 path: "/admin/users",
                 component: AdminUsers,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "users.view" },
             },
             {
                 path: "/admin/roles",
                 component: AdminRoles,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "roles.view" },
             },
             {
                 path: "/admin/offices",
                 component: AdminOffices,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "offices.view" },
             },
             {
                 path: "/admin/offices/:officeId/steps",
                 name: "admin.office-steps",
                 component: AdminOfficeSteps,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "offices.view" },
             },
             {
                 path: "/admin/transaction-types",
                 component: AdminTransactionTypes,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, officeAdmin: true },
             },
             {
                 path: "/admin/government-references",
                 component: AdminGovernmentReferences,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "government_references.view" },
             },
             {
                 path: "/admin/workflows",
                 component: AdminWorkflows,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "workflows.view" },
             },
             {
                 path: "/admin/fields",
                 component: AdminFields,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "fields.view" },
             },
 
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/fields",
                 name: "admin.step-fields",
                 component: AdminStepFields,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "fields.view" },
             },
 
             {
                 path: "/admin/workflows/:workflowId/requirements",
                 name: "admin.requirements",
                 component: AdminRequirements,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "requirements.view" },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/requirements",
                 name: "admin.step-requirements",
                 component: AdminStepRequirements,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "requirements.view" },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/step-data",
                 name: "admin.step-data",
                 component: AdminStepData,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "requirements.view" },
             },
 
             {
@@ -130,7 +130,7 @@ export function createRouter() {
                 path: "/admin/requirements",
                 name: "admin.requirements",
                 component: AdminRequirementsIndex,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, permission: "requirements.view" },
             },
             {
                 path: "/my/transactions",
@@ -167,10 +167,14 @@ export function createRouter() {
             return { name: "dashboard" };
         if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
+        if (to.meta.permission && !hasPermission(auth.user.value, to.meta.permission))
+            return { name: "dashboard" };
         // My Transactions is redundant for superadmin (bypass returns all rows,
         // same as Transactions) — send them to the admin list instead.
         const roles = auth.user.value?.roles ?? [];
         const isSuperadmin = roles.some((r) => r.code === "superadmin");
+        if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
+            return { name: "dashboard" };
         if (isSuperadmin && to.path.startsWith("/my/transactions")) {
             const rest = to.path.slice("/my/transactions".length);
             return rest ? `/transactions${rest}` : "/transactions";

@@ -26,6 +26,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        // MySQL-only repair: other drivers never carried the implicit
+        // DEFAULT/ON UPDATE timestamp behavior this migration removes.
+        if (DB::connection()->getDriverName() !== 'mysql') return;
+
         // 1. Drop implicit DEFAULT + ON UPDATE from all rogue columns.
         DB::statement('ALTER TABLE `transaction_step_runs` MODIFY `performed_at` TIMESTAMP NULL DEFAULT NULL');
         DB::statement('ALTER TABLE `transaction_states` MODIFY `entered_at` TIMESTAMP NULL DEFAULT NULL');
@@ -49,6 +53,8 @@ return new class extends Migration {
 
     public function down(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql') return;
+
         // Data repair is not reversible; schema restores the original
         // nullability of performed_at WITHOUT re-adding the rogue
         // auto-props (re-adding them would reintroduce the bug).

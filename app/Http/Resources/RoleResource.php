@@ -16,6 +16,7 @@ class RoleResource extends JsonResource
             'description' => $this->description,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'permission_codes' => $this->whenLoaded('permissions', fn () => $this->permissions->pluck('code')->values()),
         ];
     }
 }

@@ -309,6 +309,10 @@ class RoutingEngine
         $user->loadMissing('roles');
         if ($user->roles->contains(fn ($r) => $r->code === 'superadmin')) return true;
 
+        if ($this->isOfficeAdminFor($tx, $user)) return true;
+
+        $tx->loadMissing(['workflow.steps', 'workflow.stepRoles.role']);
+
         $allowedRoleIds = $tx->workflow->stepRoles
             ->where('workflow_step_id', $stepId)
             ->pluck('role_id')
@@ -319,7 +323,27 @@ class RoutingEngine
 
         $userRoleIds = $user->roles->pluck('id')->values();
 
-        return $allowedRoleIds->intersect($userRoleIds)->isNotEmpty();
+        if ($allowedRoleIds->intersect($userRoleIds)->isEmpty()) return false;
+
+        return $this->stepOfficeMatchesUser($tx, $user, $stepId);
+    }
+
+    private function isOfficeAdminFor(Transaction $tx, User $user): bool
+    {
+        return $user->office_id !== null
+            && $tx->office_id !== null
+            && (int) $user->office_id === (int) $tx->office_id
+            && $user->isOfficeAdmin();
+    }
+
+    private function stepOfficeMatchesUser(Transaction $tx, User $user, int $stepId): bool
+    {
+        if ($user->office_id === null) return true;
+
+        $step = $tx->workflow?->steps?->firstWhere('id', $stepId);
+        if (!$step || $step->office_id === null) return true;
+
+        return (int) $step->office_id === (int) $user->office_id;
     }
 
     private function routeConditionPasses(WorkflowRoute $route, array $context): bool
