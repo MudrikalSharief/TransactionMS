@@ -180,14 +180,14 @@
                 >
                     <v-list-item-title>TRANSACTIONS</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="can('users.view')" to="/admin/users" prepend-icon="mdi-account-group" rounded="lg">
+                <v-list-item v-if="isSuperadmin" to="/admin/users" prepend-icon="mdi-account-group" rounded="lg">
                     <v-list-item-title>USERS</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="can('roles.view')" to="/admin/roles" prepend-icon="mdi-shield-account" rounded="lg">
+                <v-list-item v-if="isSuperadmin" to="/admin/roles" prepend-icon="mdi-shield-account" rounded="lg">
                     <v-list-item-title>ROLES</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                    v-if="can('offices.view')"
+                    v-if="isSuperadmin"
                     to="/admin/offices"
                     prepend-icon="mdi-office-building-outline"
                     rounded="lg"
@@ -203,7 +203,7 @@
                     <v-list-item-title>TRANSACTION TYPES</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                    v-if="can('fields.view')"
+                    v-if="isSuperadmin"
                     to="/admin/fields"
                     prepend-icon="mdi-form-textbox"
                     rounded="lg"
@@ -211,7 +211,7 @@
                     <v-list-item-title>FIELDS</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                    v-if="can('government_references.view')"
+                    v-if="isSuperadmin"
                     to="/admin/government-references"
                     prepend-icon="mdi-bank"
                     rounded="lg"
@@ -297,7 +297,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth, canUseApprovals, hasPermission, isOfficeAdminUser } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isOfficeAdminUser } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
@@ -345,8 +345,6 @@ const isSuperadmin = computed(() => {
     const roles = auth.user.value?.roles ?? [];
     return roles.some((r) => r.code === "superadmin");
 });
-
-const can = (code) => hasPermission(auth.user.value, code);
 
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
@@ -425,15 +423,16 @@ const searchPages = computed(() => {
     pages.push(
         { title: "Transactions", subtitle: "Page", icon: "mdi-swap-horizontal", to: "/transactions" }
     );
-    if (can("users.view")) pages.push({ title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" });
-    if (can("roles.view")) pages.push({ title: "Roles", subtitle: "Page · Admin", icon: "mdi-shield-account", to: "/admin/roles" });
-    if (can("offices.view")) {
-        pages.push({
-            title: "Offices",
-            subtitle: "Page · Admin",
-            icon: "mdi-office-building-outline",
-            to: "/admin/offices",
-        });
+    if (isSuperadmin.value) {
+        pages.push(
+            { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
+            { title: "Roles", subtitle: "Page · Admin", icon: "mdi-shield-account", to: "/admin/roles" },
+            { title: "Offices", subtitle: "Page · Admin", icon: "mdi-office-building-outline", to: "/admin/offices" },
+            { title: "Workflows", subtitle: "Page · Admin", icon: "mdi-source-branch", to: "/admin/workflows" },
+            { title: "Fields", subtitle: "Page · Admin", icon: "mdi-form-textbox", to: "/admin/fields" },
+            { title: "Requirements", subtitle: "Page · Admin", icon: "mdi-clipboard-check-outline", to: "/admin/requirements" },
+            { title: "Government References", subtitle: "Page · Admin", icon: "mdi-bank", to: "/admin/government-references" }
+        );
     }
     if (isSuperadmin.value || isOfficeAdmin.value) {
         pages.push({
@@ -441,31 +440,6 @@ const searchPages = computed(() => {
             subtitle: "Page · Admin",
             icon: "mdi-format-list-bulleted-type",
             to: "/admin/transaction-types",
-        });
-    }
-    if (can("workflows.view")) {
-        pages.push({
-            title: "Workflows",
-            subtitle: "Page · Admin",
-            icon: "mdi-source-branch",
-            to: "/admin/workflows",
-        });
-    }
-    if (can("fields.view")) pages.push({ title: "Fields", subtitle: "Page · Admin", icon: "mdi-form-textbox", to: "/admin/fields" });
-    if (can("requirements.view")) {
-        pages.push({
-            title: "Requirements",
-            subtitle: "Page · Admin",
-            icon: "mdi-clipboard-check-outline",
-            to: "/admin/requirements",
-        });
-    }
-    if (can("government_references.view")) {
-        pages.push({
-            title: "Government References",
-            subtitle: "Page · Admin",
-            icon: "mdi-bank",
-            to: "/admin/government-references",
         });
     }
     return pages.map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));

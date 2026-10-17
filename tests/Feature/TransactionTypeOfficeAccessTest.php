@@ -6,7 +6,6 @@ use App\Models\Office;
 use App\Models\Role;
 use App\Models\TransactionType;
 use App\Models\User;
-use Database\Seeders\PermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -29,8 +28,6 @@ class TransactionTypeOfficeAccessTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        $this->seed(PermissionsSeeder::class);
 
         $this->gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
         $this->cbo = Office::create(['code' => 'CBO', 'name' => 'City Budget Office']);

@@ -52,38 +52,4 @@ class User extends Authenticatable
         return $this->office_id !== null
             && $this->roles->contains(fn (Role $role) => $role->code === 'admin');
     }
-
-    public function hasPermission(string $code): bool
-    {
-        $this->loadMissing('roles.permissions');
-
-        if ($this->roles->contains(fn (Role $role) => $role->code === 'superadmin')) {
-            return true;
-        }
-
-        $codes = $this->roles->flatMap(fn (Role $role) => $role->permissions->pluck('code'));
-
-        if ($codes->contains($code)) {
-            return true;
-        }
-
-        return str_ends_with($code, '.view')
-            && $codes->contains(substr($code, 0, -5).'.manage');
-    }
-
-    public function permissionCodes(): array
-    {
-        $this->loadMissing('roles.permissions');
-
-        if ($this->roles->contains(fn (Role $role) => $role->code === 'superadmin')) {
-            return Permission::query()->orderBy('code')->pluck('code')->all();
-        }
-
-        return $this->roles
-            ->flatMap(fn (Role $role) => $role->permissions->pluck('code'))
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
-    }
 }

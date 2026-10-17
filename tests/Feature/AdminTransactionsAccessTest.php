@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Office;
-use App\Models\Permission;
 use App\Models\Role;
 use App\Models\StepRole;
 use App\Models\Transaction;
@@ -12,16 +11,16 @@ use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
-use Database\Seeders\PermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
  * Admin transaction routes: viewing is open to every signed-in user. Regular
- * users are office + role bound (their office's transactions at a station
- * that lists one of their roles), office admins see their whole office, and
- * superadmin sees all. Creating stays behind the Create Transactions grant.
+ * users see their own office's transactions plus rows whose current station
+ * lists one of their roles at their office; office admins see rows parked at
+ * their office; superadmin sees all. Any user with an office can create
+ * (non-superadmin creations are forced to their own office).
  */
 class AdminTransactionsAccessTest extends TestCase
 {
@@ -41,8 +40,6 @@ class AdminTransactionsAccessTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        $this->seed(PermissionsSeeder::class);
 
         $this->gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
         $this->cbo = Office::create(['code' => 'CBO', 'name' => 'City Budget Office']);
@@ -117,29 +114,35 @@ class AdminTransactionsAccessTest extends TestCase
         return $tx;
     }
 
-    public function test_regular_users_are_office_and_role_bound(): void
+    public function test_regular_users_see_own_office_and_step_matched_transactions(): void
     {
         $clerk = $this->userWithRole('clerk', $this->gso);
         $gsoTx = $this->makeTransaction($this->gso, $this->gsoStep);
-        $this->makeTransaction($this->gso, $this->gsoReviewStep);
+        $reviewTx = $this->makeTransaction($this->gso, $this->gsoReviewStep);
+        $incomingTx = $this->makeTransaction($this->cbo, $this->gsoStep);
         $cboTx = $this->makeTransaction($this->cbo, $this->cboStep);
 
         Sanctum::actingAs($clerk);
 
-        $this->getJson('/api/admin/transactions')
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $gsoTx->id);
+        $ids = collect($this->getJson('/api/admin/transactions')->assertOk()->json('data'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertEqualsCanonicalizing([$gsoTx->id, $reviewTx->id, $incomingTx->id], $ids);
 
         $this->getJson("/api/admin/transactions/{$gsoTx->id}")->assertOk();
+        $this->getJson("/api/admin/transactions/{$reviewTx->id}")->assertOk();
+        $this->getJson("/api/admin/transactions/{$incomingTx->id}")->assertOk();
         $this->getJson("/api/admin/transactions/{$cboTx->id}")->assertForbidden();
     }
 
-    public function test_office_admin_sees_their_whole_office_regardless_of_role(): void
+    public function test_office_admin_sees_transactions_parked_at_their_office_regardless_of_role(): void
     {
         $admin = $this->userWithRole('admin', $this->gso);
         $gsoTx = $this->makeTransaction($this->gso, $this->gsoStep);
         $reviewTx = $this->makeTransaction($this->gso, $this->gsoReviewStep);
+        $incomingTx = $this->makeTransaction($this->cbo, $this->gsoStep);
+        $outgoingTx = $this->makeTransaction($this->gso, $this->cboStep);
         $this->makeTransaction($this->cbo, $this->cboStep);
 
         Sanctum::actingAs($admin);
@@ -148,7 +151,11 @@ class AdminTransactionsAccessTest extends TestCase
             ->pluck('id')
             ->all();
 
-        $this->assertEqualsCanonicalizing([$gsoTx->id, $reviewTx->id], $ids);
+        $this->assertEqualsCanonicalizing([$gsoTx->id, $reviewTx->id, $incomingTx->id], $ids);
+
+        $this->getJson("/api/admin/transactions/{$gsoTx->id}")->assertOk();
+        $this->getJson("/api/admin/transactions/{$incomingTx->id}")->assertOk();
+        $this->getJson("/api/admin/transactions/{$outgoingTx->id}")->assertForbidden();
     }
 
     public function test_office_less_user_sees_an_empty_list(): void
@@ -171,32 +178,35 @@ class AdminTransactionsAccessTest extends TestCase
         $this->getJson('/api/admin/transactions')->assertOk()->assertJsonCount(2, 'data');
     }
 
-    public function test_create_requires_the_create_transactions_grant(): void
+    public function test_regular_user_creation_is_forced_to_their_own_office(): void
     {
         Sanctum::actingAs($this->userWithRole('clerk', $this->gso));
 
         $this->postJson('/api/admin/transactions', [
             'transaction_type_id' => $this->type->id,
-            'title' => 'Blocked',
-        ])->assertForbidden();
+            'office_id' => $this->cbo->id,
+            'title' => 'Forced to GSO',
+        ])->assertCreated()->assertJsonPath('data.office.id', $this->gso->id);
     }
 
-    public function test_granted_user_can_create_transactions(): void
+    public function test_superadmin_creation_uses_the_chosen_office(): void
     {
-        $role = Role::firstOrCreate(['code' => 'clerk'], ['name' => 'Clerk']);
-        $role->permissions()->attach(
-            Permission::where('code', 'transactions.manage')->firstOrFail()->id
-        );
-
-        $user = User::factory()->create(['office_id' => $this->gso->id]);
-        $user->roles()->attach($role->id);
-
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($this->userWithRole('superadmin'));
 
         $this->postJson('/api/admin/transactions', [
             'transaction_type_id' => $this->type->id,
-            'office_id' => $this->gso->id,
-            'title' => 'Granted create',
-        ])->assertCreated();
+            'office_id' => $this->cbo->id,
+            'title' => 'Superadmin create',
+        ])->assertCreated()->assertJsonPath('data.office.id', $this->cbo->id);
+    }
+
+    public function test_user_without_office_cannot_create(): void
+    {
+        Sanctum::actingAs($this->userWithRole('clerk'));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'title' => 'No office',
+        ])->assertStatus(422);
     }
 }

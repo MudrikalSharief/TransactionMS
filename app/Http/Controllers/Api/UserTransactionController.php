@@ -102,7 +102,8 @@ class UserTransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                $query->where('transactions.office_id', $user->office_id);
+                // Office admins: rows parked at their office.
+                $query->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.office_id', $user->office_id));
             } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
             } else {

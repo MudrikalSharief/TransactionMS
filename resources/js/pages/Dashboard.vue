@@ -367,7 +367,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
-import { useAuth, hasPermission } from '@/composables/useAuth'
+import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useMyTransactions } from '@/composables/useMyTransactions'
@@ -397,11 +397,11 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
-const canViewSummary = computed(() => isSuperadmin.value || hasPermission(auth.user.value, 'dashboard.view'))
+const canViewSummary = computed(() => isSuperadmin.value || isOfficeAdminUser(auth.user.value))
 
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
-// Default order; Transaction Summary is superadmin / dashboard.view only.
+// Default order; Transaction Summary is superadmin / office admin only.
 const cardIds = computed(() =>
     ['summary', 'graph', 'start', 'recent', 'action'].filter((id) => id !== 'summary' || canViewSummary.value)
 )

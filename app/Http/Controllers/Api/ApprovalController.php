@@ -82,7 +82,7 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                $query->where('transactions.office_id', $user->office_id);
+                $query->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.office_id', $user->office_id));
             } elseif (empty($roleIds)) {
                 return collect();
             } else {
@@ -189,7 +189,7 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                $query->where('transactions.office_id', $user->office_id);
+                $query->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.office_id', $user->office_id));
             } else {
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
                     $s->whereHas('roles', function ($r) use ($roleIds) {

@@ -159,7 +159,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
 import { useOffices } from '@/composables/useOffices'
-import { useAuth, hasPermission } from '@/composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const auth = useAuth()
@@ -167,7 +167,7 @@ const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = u
 const { roles, fetchRoles } = useRoles()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 
-const canManage = computed(() => hasPermission(auth.user.value, 'users.manage'))
+const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const headers = [
   { title: 'Name', key: 'name' },

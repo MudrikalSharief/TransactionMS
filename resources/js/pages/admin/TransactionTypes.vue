@@ -67,13 +67,14 @@
             variant="tonal"
             color="primary"
             class="font-weight-bold"
+            :clickable="isSuperadmin"
             @click="goSteps(item)"
           >
             <v-icon start size="small">mdi-format-list-numbered</v-icon>
             {{ stepsOf(item).count }} steps
           </v-chip>
           <v-btn
-            v-else
+            v-else-if="isSuperadmin"
             rounded="0"
             size="small"
             variant="outlined"
@@ -84,6 +85,7 @@
           >
             Add Step
           </v-btn>
+          <span v-else class="text-medium-emphasis">—</span>
         </template>
 
         <template v-slot:[`item.offices`]="{ item }">
@@ -385,6 +387,7 @@ async function confirmMakeLive() {
 const stepsLoading = computed(() => defsLoading.value)
 
 function goSteps(item) {
+  if (!isSuperadmin.value) return
   router.push(`/admin/workflows?type=${item.id}`)
 }
 

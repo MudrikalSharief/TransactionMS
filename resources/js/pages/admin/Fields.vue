@@ -187,14 +187,14 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useAuth, hasPermission } from '@/composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import { useFieldDefinitions } from '@/composables/useFieldDefinitions'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const auth = useAuth()
 const { items, loading, fetchAll, create, update, destroy } = useFieldDefinitions()
 
-const canManage = computed(() => hasPermission(auth.user.value, 'fields.manage'))
+const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const error = ref('')
 const dialog = ref(false)

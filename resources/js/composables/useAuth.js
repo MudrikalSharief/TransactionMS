@@ -22,18 +22,6 @@ export function isOfficeAdminUser(u) {
     return (u.roles ?? []).some((r) => r.code === "admin");
 }
 
-// Role permission gate for admin modules ("users.view", "transactions.manage").
-// Superadmin's /me carries every catalog code, so no special-case here.
-// A granted "<module>.manage" also satisfies "<module>.view" checks.
-export function hasPermission(u, code) {
-    const codes = u?.permissions ?? [];
-    if (codes.includes(code)) return true;
-    if (code.endsWith(".view")) {
-        return codes.includes(`${code.slice(0, -5)}.manage`);
-    }
-    return false;
-}
-
 export function useAuth() {
     const { api, csrf } = useApi();
 

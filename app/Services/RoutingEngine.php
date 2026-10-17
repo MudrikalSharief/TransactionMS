@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\WorkflowRoute;
+use App\Models\WorkflowStep;
 
 class RoutingEngine
 {
@@ -309,9 +310,12 @@ class RoutingEngine
         $user->loadMissing('roles');
         if ($user->roles->contains(fn ($r) => $r->code === 'superadmin')) return true;
 
-        if ($this->isOfficeAdminFor($tx, $user)) return true;
-
         $tx->loadMissing(['workflow.steps', 'workflow.stepRoles.role']);
+
+        $step = $tx->workflow?->steps?->firstWhere('id', $stepId);
+
+        // Office admins act on any step parked at their office, role aside.
+        if ($this->isOfficeAdminFor($step, $user)) return true;
 
         $allowedRoleIds = $tx->workflow->stepRoles
             ->where('workflow_step_id', $stepId)
@@ -328,11 +332,12 @@ class RoutingEngine
         return $this->stepOfficeMatchesUser($tx, $user, $stepId);
     }
 
-    private function isOfficeAdminFor(Transaction $tx, User $user): bool
+    private function isOfficeAdminFor(?WorkflowStep $step, User $user): bool
     {
         return $user->office_id !== null
-            && $tx->office_id !== null
-            && (int) $user->office_id === (int) $tx->office_id
+            && $step !== null
+            && $step->office_id !== null
+            && (int) $step->office_id === (int) $user->office_id
             && $user->isOfficeAdmin();
     }
 

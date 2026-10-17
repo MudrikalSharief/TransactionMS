@@ -173,12 +173,19 @@
             label="Transaction Type"
           />
           <v-select
+            v-if="isSuperadmin"
             v-model="form.office_id"
             :items="officeOptions"
             item-title="label"
             item-value="id"
             label="Office (optional)"
             clearable
+          />
+          <v-text-field
+            v-else
+            :model-value="auth.user.value?.office?.name"
+            label="Office"
+            readonly
           />
           <v-text-field v-model="form.title" label="Title (optional)" />
           <v-alert type="info" variant="tonal" class="mt-3">
@@ -217,7 +224,7 @@ import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
-import { useAuth, hasPermission } from '@/composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
@@ -233,7 +240,7 @@ const isSuperadmin = computed(() =>
   (auth.user.value?.roles || []).some((r) => r.code === 'superadmin')
 )
 
-const canManage = computed(() => hasPermission(auth.user.value, 'transactions.manage'))
+const canManage = computed(() => isSuperadmin.value || auth.user.value?.office != null)
 
 const dialog = ref(false)
 const confirmDialog = ref(false)

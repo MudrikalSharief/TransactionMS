@@ -44,11 +44,5 @@ export function useRoles() {
     invalidateCache(CacheKeys.roles)
   }
 
-  async function syncPermissions(id, permissionCodes) {
-    const res = await api.put(`/api/admin/roles/${id}/permissions`, { permission_codes: permissionCodes })
-    invalidateCache(CacheKeys.roles)
-    return res.data.data ?? res.data
-  }
-
-  return { roles, loading, fetchRoles, createRole, updateRole, deleteRole, syncPermissions }
+  return { roles, loading, fetchRoles, createRole, updateRole, deleteRole }
 }

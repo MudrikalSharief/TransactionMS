@@ -57,15 +57,6 @@
         <template v-slot:[`item.actions`]="{ item }">
           <div class="d-flex ga-3 justify-end row-actions">
             <v-btn
-              icon="mdi-shield-key-outline"
-              v-tooltip="'Permissions'"
-              size="small"
-              variant="outlined"
-              color="primary"
-              :disabled="item.code === 'superadmin'"
-              @click="openPermissions(item)"
-            />
-            <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit role'"
               size="small"
@@ -106,53 +97,14 @@
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="permDialog" max-width="640" scrollable>
-    <v-card rounded="xl" style="overflow: hidden">
-      <v-card-title>Permissions — {{ permRole?.name }}</v-card-title>
-      <v-divider />
-      <v-card-text>
-        <v-alert v-if="permError" type="error" variant="tonal" class="mb-3">{{ permError }}</v-alert>
-        <div v-for="g in permGroups" :key="g.module" class="perm-row">
-          <span class="text-body-2 font-weight-bold">{{ g.label }}</span>
-          <div class="d-flex ga-6">
-            <v-switch
-              v-if="g.view"
-              :model-value="permCodes.has(g.view.code)"
-              label="View"
-              color="primary"
-              density="compact"
-              hide-details
-              @update:model-value="(v) => togglePerm(g.view.code, v)"
-            />
-            <v-switch
-              v-if="g.manage"
-              :model-value="permCodes.has(g.manage.code)"
-              label="Manage"
-              color="primary"
-              density="compact"
-              hide-details
-              @update:model-value="(v) => togglePerm(g.manage.code, v)"
-            />
-          </div>
-        </div>
-      </v-card-text>
-      <v-divider />
-      <v-card-actions class="justify-end">
-        <v-btn variant="text" @click="permDialog = false">Cancel</v-btn>
-        <v-btn color="grey-darken-3" rounded="0" :loading="permSaving" @click="savePermissions">Save</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useApi } from '@/composables/useApi'
 import { useRoles } from '@/composables/useRoles'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
-const { api } = useApi()
-const { roles, loading, fetchRoles, createRole, updateRole, deleteRole, syncPermissions } = useRoles()
+const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } = useRoles()
 
 const headers = [
   { title: 'Code', key: 'code' },
@@ -228,80 +180,10 @@ async function remove(item) {
   }
 }
 
-const permissions = ref([])
-const permDialog = ref(false)
-const permRole = ref(null)
-const permCodes = ref(new Set())
-const permSaving = ref(false)
-const permError = ref('')
-
-const MODULE_LABELS = {
-  dashboard: 'Dashboard',
-  transactions: 'Transactions',
-  transaction_types: 'Transaction Types',
-  users: 'Users',
-  roles: 'Roles',
-  offices: 'Offices',
-  workflows: 'Workflows',
-  fields: 'Fields',
-  requirements: 'Requirements',
-  government_references: 'Government References',
-}
-
-const permGroups = computed(() => {
-  const map = new Map()
-  for (const p of permissions.value || []) {
-    const module = String(p.code).split('.')[0]
-    if (!map.has(module)) {
-      map.set(module, { module, label: MODULE_LABELS[module] || module, view: null, manage: null })
-    }
-    const group = map.get(module)
-    if (String(p.code).endsWith('.view')) group.view = p
-    else if (String(p.code).endsWith('.manage')) group.manage = p
-  }
-  return [...map.values()]
-})
-
-function openPermissions(item) {
-  permError.value = ''
-  permRole.value = item
-  permCodes.value = new Set(item.permission_codes || [])
-  permDialog.value = true
-}
-
-function togglePerm(code, on) {
-  const set = new Set(permCodes.value)
-  if (on) {
-    set.add(code)
-    if (code.endsWith('.manage')) set.add(`${code.slice(0, -7)}.view`)
-  } else {
-    set.delete(code)
-    if (code.endsWith('.view')) set.delete(`${code.slice(0, -5)}.manage`)
-  }
-  permCodes.value = set
-}
-
-async function savePermissions() {
-  permSaving.value = true
-  permError.value = ''
-  try {
-    await syncPermissions(permRole.value.id, [...permCodes.value])
-    permDialog.value = false
-    await fetchRoles()
-  } catch (e) {
-    permError.value = e?.response?.data?.message || 'Save failed.'
-  } finally {
-    permSaving.value = false
-  }
-}
-
 onMounted(() => {
   // Full scroll lock for this tab: no bars and no scrolling anywhere.
   document.documentElement.classList.add('lock-scroll')
   fetchRoles().catch(() => {})
-  api.get('/api/admin/permissions')
-    .then((res) => { permissions.value = res.data.data ?? res.data })
-    .catch(() => {})
   // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
   // the table is narrower, so flag html.nav-open to duck the row actions
   // away instead of letting them get cut off. Covers hover-expand + toggle.
@@ -334,13 +216,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.perm-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 4px 0;
-}
 /* Hide the table's internal scrollbar; drawer expand can never create a
    visible horizontal bar — overflow is clipped, not scrolled. */
 .lgu-table {

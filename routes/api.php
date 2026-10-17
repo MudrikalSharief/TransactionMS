@@ -3,14 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsureOfficeAdmin;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureTransactionOffice;
 
 use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
-use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\OfficeController;
 use App\Http\Controllers\Api\Admin\OfficeStepController;
 use App\Http\Controllers\Api\Admin\TransactionTypeController;
@@ -115,34 +113,73 @@ Route::middleware(['auth:sanctum'])->group(function () {
 Route::middleware(['auth:sanctum'])
     ->prefix('admin')
     ->group(function () {
-        Route::apiResource('users', UserController::class)->only(['index'])
-            ->middleware(EnsurePermission::class.':users.view');
-        Route::apiResource('users', UserController::class)->only(['store', 'update', 'destroy'])
-            ->middleware(EnsurePermission::class.':users.manage');
+        // Master data: superadmin only.
+        Route::middleware(EnsureRole::class.':superadmin')->group(function () {
+            Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
 
-        Route::get('permissions', [PermissionController::class, 'index'])
-            ->middleware(EnsurePermission::class.':roles.view');
-        Route::apiResource('roles', RoleController::class)->only(['index'])
-            ->middleware(EnsurePermission::class.':roles.view');
-        Route::apiResource('roles', RoleController::class)->only(['store', 'update', 'destroy'])
-            ->middleware(EnsurePermission::class.':roles.manage');
-        Route::put('roles/{role}/permissions', [RoleController::class, 'syncPermissions'])
-            ->middleware(EnsurePermission::class.':roles.manage');
+            Route::apiResource('roles', RoleController::class)->only(['index', 'store', 'update', 'destroy']);
 
-        Route::apiResource('offices', OfficeController::class)->only(['index'])
-            ->middleware(EnsurePermission::class.':offices.view');
-        Route::apiResource('offices', OfficeController::class)->only(['store', 'update', 'destroy'])
-            ->middleware(EnsurePermission::class.':offices.manage');
+            Route::apiResource('offices', OfficeController::class)->only(['index', 'store', 'update', 'destroy']);
 
-        // Offices - Steps (hierarchy 1 - 2 - 3)
-        Route::get('offices/{office}/steps', [OfficeStepController::class, 'index'])
-            ->middleware(EnsurePermission::class.':offices.view');
-        Route::post('offices/{office}/steps', [OfficeStepController::class, 'store'])
-            ->middleware(EnsurePermission::class.':offices.manage');
-        Route::put('offices/{office}/steps/{officeStep}', [OfficeStepController::class, 'update'])
-            ->middleware(EnsurePermission::class.':offices.manage');
-        Route::delete('offices/{office}/steps/{officeStep}', [OfficeStepController::class, 'destroy'])
-            ->middleware(EnsurePermission::class.':offices.manage');
+            // Offices - Steps (hierarchy 1 - 2 - 3)
+            Route::get('offices/{office}/steps', [OfficeStepController::class, 'index']);
+            Route::post('offices/{office}/steps', [OfficeStepController::class, 'store']);
+            Route::put('offices/{office}/steps/{officeStep}', [OfficeStepController::class, 'update']);
+            Route::delete('offices/{office}/steps/{officeStep}', [OfficeStepController::class, 'destroy']);
+
+            Route::apiResource('government-references', GovernmentReferenceController::class)->only(['index', 'store', 'update', 'destroy']);
+
+            Route::get('workflow-definitions', [WorkflowDefinitionController::class, 'index']);
+            Route::get('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'show']);
+            Route::post('workflow-definitions', [WorkflowDefinitionController::class, 'store']);
+            Route::delete('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'destroy']);
+            Route::post('workflow-definitions/{workflowDefinition}/publish', [WorkflowDefinitionController::class, 'publish']);
+            Route::post('workflow-definitions/{workflowDefinition}/make-live', [WorkflowDefinitionController::class, 'makeLive']);
+            Route::post('workflow-definitions/{workflowDefinition}/save-as', [WorkflowDefinitionController::class, 'saveAs']);
+            // Staged save: one atomic apply of client-staged steps/routes/
+            // requirements/checklists/field-assignments onto the open draft.
+            Route::post('workflow-definitions/{workflowDefinition}/apply-staged', [WorkflowDefinitionController::class, 'applyStaged']);
+
+            // Workflows - Routes
+            Route::post('workflow-definitions/{workflowDefinition}/routes', [WorkflowRouteController::class, 'store']);
+            Route::put('workflow-definitions/{workflowDefinition}/routes/{workflowRoute}', [WorkflowRouteController::class, 'update']);
+            Route::delete('workflow-definitions/{workflowDefinition}/routes/{workflowRoute}', [WorkflowRouteController::class, 'destroy']);
+
+            // Workflows - Steps
+            Route::get('workflow-definitions/{workflowDefinition}/steps', [WorkflowStepController::class, 'index']);
+            Route::post('workflow-definitions/{workflowDefinition}/steps', [WorkflowStepController::class, 'store']);
+            Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}', [WorkflowStepController::class, 'update']);
+            Route::delete('workflow-definitions/{workflowDefinition}/steps/{workflowStep}', [WorkflowStepController::class, 'destroy']);
+
+            // Dynamic Fields - Definitions
+            Route::apiResource('fields', FieldDefinitionController::class)->only(['index', 'store', 'update', 'destroy']);
+
+            // Dynamic Fields - Assign to a step
+            Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/fields', [StepFieldController::class, 'index']);
+            Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/fields/sync', [StepFieldController::class, 'sync']);
+
+            // Requirements - Definitions (versioned)
+            Route::get('workflow-definitions/{workflowDefinition}/requirements', [RequirementDefinitionController::class, 'index']);
+            Route::post('workflow-definitions/{workflowDefinition}/requirements', [RequirementDefinitionController::class, 'store']);
+            Route::put('workflow-definitions/{workflowDefinition}/requirements/{requirementDefinition}', [RequirementDefinitionController::class, 'update']);
+            Route::delete('workflow-definitions/{workflowDefinition}/requirements/{requirementDefinition}', [RequirementDefinitionController::class, 'destroy']);
+            Route::post('workflow-definitions/{workflowDefinition}/requirements/{requirementDefinition}/steps/sync', [RequirementDefinitionController::class, 'syncSteps']);
+
+            // Requirements - Assign to a step
+            Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements', [StepRequirementController::class, 'index']);
+            Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements/sync', [StepRequirementController::class, 'sync']);
+
+            // Checklist - per-step overrides (seeded from requirements, then free-edited)
+            Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index']);
+            Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync']);
+            Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
+
+            // Step data - per-step text data (receipt number, etc.), history per visit
+            Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'index']);
+            Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'store']);
+            Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'update']);
+            Route::delete('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'destroy']);
+        });
 
         // Open lookup (office-filtered in the controller); writes are
         // superadmin or office admins (admin role + office), enforced in
@@ -151,110 +188,22 @@ Route::middleware(['auth:sanctum'])
         Route::apiResource('transaction-types', TransactionTypeController::class)->only(['store', 'update', 'destroy'])
             ->middleware(EnsureOfficeAdmin::class);
 
-        Route::apiResource('government-references', GovernmentReferenceController::class)->only(['index'])
-            ->middleware(EnsurePermission::class.':government_references.view');
-        Route::apiResource('government-references', GovernmentReferenceController::class)->only(['store', 'update', 'destroy'])
-            ->middleware(EnsurePermission::class.':government_references.manage');
-
-        Route::get('workflow-definitions', [WorkflowDefinitionController::class, 'index'])
-            ->middleware(EnsurePermission::class.':workflows.view');
-        Route::get('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'show'])
-            ->middleware(EnsurePermission::class.':workflows.view');
-        Route::post('workflow-definitions', [WorkflowDefinitionController::class, 'store'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::delete('workflow-definitions/{workflowDefinition}', [WorkflowDefinitionController::class, 'destroy'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::post('workflow-definitions/{workflowDefinition}/publish', [WorkflowDefinitionController::class, 'publish'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::post('workflow-definitions/{workflowDefinition}/make-live', [WorkflowDefinitionController::class, 'makeLive'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::post('workflow-definitions/{workflowDefinition}/save-as', [WorkflowDefinitionController::class, 'saveAs'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        // Staged save: one atomic apply of client-staged steps/routes/
-        // requirements/checklists/field-assignments onto the open draft.
-        Route::post('workflow-definitions/{workflowDefinition}/apply-staged', [WorkflowDefinitionController::class, 'applyStaged'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-
-        // Workflows - Routes
-        Route::post('workflow-definitions/{workflowDefinition}/routes', [WorkflowRouteController::class, 'store'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::put('workflow-definitions/{workflowDefinition}/routes/{workflowRoute}', [WorkflowRouteController::class, 'update'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::delete('workflow-definitions/{workflowDefinition}/routes/{workflowRoute}', [WorkflowRouteController::class, 'destroy'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-
-        // Workflows - Steps
-        Route::get('workflow-definitions/{workflowDefinition}/steps', [WorkflowStepController::class, 'index'])
-            ->middleware(EnsurePermission::class.':workflows.view');
-        Route::post('workflow-definitions/{workflowDefinition}/steps', [WorkflowStepController::class, 'store'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}', [WorkflowStepController::class, 'update'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-        Route::delete('workflow-definitions/{workflowDefinition}/steps/{workflowStep}', [WorkflowStepController::class, 'destroy'])
-            ->middleware(EnsurePermission::class.':workflows.manage');
-
-        // Dynamic Fields - Definitions
-        Route::apiResource('fields', FieldDefinitionController::class)->only(['index'])
-            ->middleware(EnsurePermission::class.':fields.view');
-        Route::apiResource('fields', FieldDefinitionController::class)->only(['store', 'update', 'destroy'])
-            ->middleware(EnsurePermission::class.':fields.manage');
-
-        // Dynamic Fields - Assign to a step
-        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/fields', [StepFieldController::class, 'index'])
-            ->middleware(EnsurePermission::class.':fields.view');
-        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/fields/sync', [StepFieldController::class, 'sync'])
-            ->middleware(EnsurePermission::class.':fields.manage');
-
-        // Requirements - Definitions (versioned)
-        Route::get('workflow-definitions/{workflowDefinition}/requirements', [RequirementDefinitionController::class, 'index'])
-            ->middleware(EnsurePermission::class.':requirements.view');
-        Route::post('workflow-definitions/{workflowDefinition}/requirements', [RequirementDefinitionController::class, 'store'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-        Route::put('workflow-definitions/{workflowDefinition}/requirements/{requirementDefinition}', [RequirementDefinitionController::class, 'update'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-        Route::delete('workflow-definitions/{workflowDefinition}/requirements/{requirementDefinition}', [RequirementDefinitionController::class, 'destroy'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-        Route::post('workflow-definitions/{workflowDefinition}/requirements/{requirementDefinition}/steps/sync', [RequirementDefinitionController::class, 'syncSteps'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-
-        // Requirements - Assign to a step
-        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements', [StepRequirementController::class, 'index'])
-            ->middleware(EnsurePermission::class.':requirements.view');
-        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/requirements/sync', [StepRequirementController::class, 'sync'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-
-        // Checklist - per-step overrides (seeded from requirements, then free-edited)
-        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist', [StepChecklistController::class, 'index'])
-            ->middleware(EnsurePermission::class.':requirements.view');
-        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/sync', [StepChecklistController::class, 'sync'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-
-        // Step data - per-step text data (receipt number, etc.), history per visit
-        Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'index'])
-            ->middleware(EnsurePermission::class.':requirements.view');
-        Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'store'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-        Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'update'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-        Route::delete('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'destroy'])
-            ->middleware(EnsurePermission::class.':requirements.manage');
-
-        // Dashboard - Transaction Summary card
+        // Dashboard - Transaction Summary card (superadmin or office admin,
+        // scoped to their office for the latter).
         Route::get('/dashboard/summary', DashboardSummaryController::class)
-            ->middleware(EnsurePermission::class.':dashboard.view');
+            ->middleware(EnsureOfficeAdmin::class);
         Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
             ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process'])
-            ->middleware(EnsurePermission::class.':dashboard.view');
+            ->middleware(EnsureOfficeAdmin::class);
 
-        // Transactions: the list/detail/steps are open to everyone. Rows are
-        // office + role scoped (office admins see their whole office,
-        // superadmin sees all). Creating stays behind the Create Transactions
-        // toggle; delete/reassign stay superadmin-only.
+        // Transactions: the list/detail/steps are open to everyone. Regular
+        // users see their own office's rows plus rows waiting on one of
+        // their roles at their office; office admins see rows parked at
+        // their office; superadmin sees all. Creating is open to any user
+        // with an office (non-superadmin creations are forced to their own
+        // office); delete/reassign stay superadmin-only.
         Route::get('/transactions', [TransactionController::class, 'index']);
-        Route::post('/transactions', [TransactionController::class, 'store'])
-            ->middleware(EnsurePermission::class.':transactions.manage');
+        Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
             ->middleware(EnsureTransactionOffice::class);
         Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy'])

@@ -102,14 +102,14 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useAuth, hasPermission } from '@/composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import { useGovernmentReferences } from '@/composables/useGovernmentReferences'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const auth = useAuth()
 const { items, loading, fetchAll, create, update, remove } = useGovernmentReferences()
 
-const canManage = computed(() => hasPermission(auth.user.value, 'government_references.manage'))
+const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const headers = [
   { title: 'Code', key: 'code', width: 150 },

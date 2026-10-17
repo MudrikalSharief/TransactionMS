@@ -44,25 +44,30 @@ class TransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($user->isOfficeAdmin()) {
-                // Office admins see every transaction of their office.
-                $query->where('transactions.office_id', $user->office_id);
+                // Office admins see every transaction parked at their office.
+                $query->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.office_id', $user->office_id));
             } else {
-                // Regular users: office bound + role bound — only rows whose
-                // current station lists one of their roles and is at their
-                // office (office-agnostic steps keep the role-only behavior).
+                // Regular users: their own office's transactions, plus any
+                // row whose current station lists one of their roles and is
+                // at their office (office-agnostic steps keep the role-only
+                // behavior).
                 $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
-                if ($user->office_id === null || empty($roleIds)) {
+                if ($user->office_id === null) {
                     $query->whereRaw('1 = 0');
+                } elseif (empty($roleIds)) {
+                    $query->where('transactions.office_id', $user->office_id);
                 } else {
-                    $query->where('transactions.office_id', $user->office_id)
-                        ->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                                ->where(function ($w) use ($user) {
-                                    $w->whereNull('workflow_steps.office_id')
-                                        ->orWhere('workflow_steps.office_id', $user->office_id);
-                                });
-                        });
+                    $query->where(function ($w) use ($roleIds, $user) {
+                        $w->where('transactions.office_id', $user->office_id)
+                            ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                                $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                    ->where(function ($x) use ($user) {
+                                        $x->whereNull('workflow_steps.office_id')
+                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                    });
+                            });
+                    });
                 }
             }
         }
@@ -79,11 +84,21 @@ class TransactionController extends Controller
 
     public function store(CreateTransactionRequest $request, TransactionEngine $engine)
     {
+        $user = $request->user();
+
+        if ($user->hasRole('superadmin')) {
+            $officeId = $request->validated()['office_id'] ?? null;
+        } else {
+            $officeId = $user->office_id;
+
+            abort_if($officeId === null, 422, 'Your account has no office assigned.');
+        }
+
         $tx = $engine->create(
             (int) $request->validated()['transaction_type_id'],
             $request->validated()['title'] ?? null,
-            $request->user()->id,
-            $request->validated()['office_id'] ?? null
+            $user->id,
+            $officeId
         );
 
         return (new TransactionResource($tx))->response()->setStatusCode(201);

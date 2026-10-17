@@ -120,7 +120,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuth, hasPermission } from '@/composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import { useOffices } from '@/composables/useOffices'
 import TableLoader from '@/components/TableLoader.vue'
 
@@ -129,7 +129,7 @@ const officeId = route.params.officeId
 const auth = useAuth()
 const { items, fetchAll, fetchSteps, createStep, updateStep, removeStep } = useOffices()
 
-const canManage = computed(() => hasPermission(auth.user.value, 'offices.manage'))
+const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const office = ref(null)
 const steps = ref([])
