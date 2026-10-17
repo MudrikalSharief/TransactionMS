@@ -39,7 +39,7 @@ class TransactionStepRunResource extends JsonResource
             // #4 To user / #2 To (receiving) timestamp
             'received_by' => $this->receiver ? $this->userPayload($this->receiver) : null,
             'received_at' => $this->received_at?->toISOString(),
-            'received_office' => $this->whenLoaded('receivedOffice', fn () => $this->receivedOfficePayload()),
+            'received_office' => $this->receivedOfficePayload(),
             // #5 Estimated duration (snapshot of destination sla_minutes)
             'duration_estimated_minutes' => $estimated,
             'sla_minutes_snapshot' => $estimated,
@@ -71,11 +71,13 @@ class TransactionStepRunResource extends JsonResource
     }
 
     /**
-     * Receipt office: end-user stations follow the transaction's office.
+     * Receipt office: end-user and office-less stations follow the
+     * transaction's office.
      */
     private function receivedOfficePayload(): ?array
     {
-        if ($this->transaction && $this->toStep && $this->transaction->stepIsEndUser($this->toStep)) {
+        if ($this->transaction && $this->toStep
+            && ($this->transaction->stepIsEndUser($this->toStep) || $this->toStep->office_id === null)) {
             return $this->transaction->office?->only(['id', 'code', 'name']);
         }
 
@@ -92,7 +94,7 @@ class TransactionStepRunResource extends JsonResource
 
         $office = null;
         if ($this->transaction) {
-            $office = $this->transaction->effectiveStepOffice($step)?->only(['id', 'code', 'name']);
+            $office = $this->transaction->displayStepOffice($step)?->only(['id', 'code', 'name']);
         } elseif ($step->relationLoaded('office') || $step->office_id) {
             $o = $step->office;
             $office = $o ? ['id' => $o->id, 'code' => $o->code, 'name' => $o->name] : null;

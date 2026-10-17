@@ -20,7 +20,8 @@ use Tests\TestCase;
 /**
  * End-user stations (step roles include end_user) always follow the
  * transaction's office — for access and display — even when the workflow
- * template assigns a different office to the station.
+ * template assigns a different office to the station. Office-less
+ * stations also display the transaction's office.
  */
 class EndUserStepOfficeTest extends TestCase
 {
@@ -28,13 +29,16 @@ class EndUserStepOfficeTest extends TestCase
 
     private Office $csd;
     private Office $gso;
+    private Office $hr;
     private Role $endUserRole;
     private Role $adminRole;
     private TransactionType $type;
     private WorkflowDefinition $workflow;
     private WorkflowStep $endUserStep;
     private WorkflowStep $gsoStep;
+    private WorkflowStep $intakeStep;
     private WorkflowRoute $route;
+    private WorkflowRoute $intakeRoute;
     private User $creator;
 
     protected function setUp(): void
@@ -43,6 +47,7 @@ class EndUserStepOfficeTest extends TestCase
 
         $this->csd = Office::create(['code' => 'CSD', 'name' => 'City Social Development']);
         $this->gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+        $this->hr = Office::create(['code' => 'HR', 'name' => 'Human Resources']);
 
         $this->endUserRole = Role::create(['code' => 'end_user', 'name' => 'End User']);
         $this->adminRole = Role::create(['code' => 'admin', 'name' => 'Admin']);
@@ -70,15 +75,31 @@ class EndUserStepOfficeTest extends TestCase
             'name' => 'GSO Processing',
             'office_id' => $this->gso->id,
         ]);
+        // No workflow office: the station follows the transaction's office.
+        $this->intakeStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'order_number' => 3,
+            'code' => 'intake',
+            'name' => 'Intake',
+            'office_id' => null,
+        ]);
 
         StepRole::create(['workflow_step_id' => $this->endUserStep->id, 'role_id' => $this->endUserRole->id]);
         StepRole::create(['workflow_step_id' => $this->gsoStep->id, 'role_id' => $this->adminRole->id]);
+        StepRole::create(['workflow_step_id' => $this->intakeStep->id, 'role_id' => $this->adminRole->id]);
 
         $this->route = WorkflowRoute::create([
             'workflow_definition_id' => $this->workflow->id,
             'from_step_id' => $this->endUserStep->id,
             'to_step_id' => $this->gsoStep->id,
             'action_code' => 'submit',
+            'is_return_route' => false,
+        ]);
+        $this->intakeRoute = WorkflowRoute::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'from_step_id' => $this->gsoStep->id,
+            'to_step_id' => $this->intakeStep->id,
+            'action_code' => 'forward',
             'is_return_route' => false,
         ]);
 
@@ -223,5 +244,52 @@ class EndUserStepOfficeTest extends TestCase
         $this->getJson('/api/transactions')
             ->assertOk()
             ->assertJsonPath('data.0.current_step.office.id', $this->csd->id);
+    }
+
+    public function test_office_less_station_displays_under_the_transactions_office(): void
+    {
+        $csdEndUser = $this->userWithRole($this->endUserRole, $this->csd);
+        $gsoAdmin = $this->userWithRole($this->adminRole, $this->gso);
+        $hrAdmin = $this->userWithRole($this->adminRole, $this->hr);
+        $tx = $this->makeTransaction($this->csd, $this->endUserStep);
+
+        Sanctum::actingAs($csdEndUser);
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
+            ->assertOk()
+            ->assertJsonPath('data.current_step.id', $this->gsoStep->id)
+            ->assertJsonPath('data.current_step.office.id', $this->gso->id);
+
+        Sanctum::actingAs($gsoAdmin);
+        $this->postJson("/api/transactions/{$tx->id}/receive")->assertOk();
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->intakeRoute->id])
+            ->assertOk()
+            ->assertJsonPath('data.current_step.id', $this->intakeStep->id)
+            ->assertJsonPath('data.current_step.office_id', $this->csd->id)
+            ->assertJsonPath('data.current_step.office.id', $this->csd->id);
+
+        $runs = collect($this->getJson("/api/transactions/{$tx->id}")->assertOk()->json('data.runs'));
+        $intakeRun = $runs->firstWhere('to_step.id', $this->intakeStep->id);
+        $this->assertNotNull($intakeRun);
+        $this->assertSame($this->csd->id, $intakeRun['to_step']['office']['id']);
+        $this->assertSame($this->csd->id, $intakeRun['received_office']['id']);
+
+        $steps = collect($this->getJson("/api/transactions/{$tx->id}")->json('data.workflow_steps'))
+            ->keyBy('id');
+        $this->assertSame($this->csd->id, $steps[$this->intakeStep->id]['office_id']);
+        $this->assertSame($this->csd->id, $steps[$this->intakeStep->id]['office']['id']);
+
+        $superadminRole = Role::create(['code' => 'superadmin', 'name' => 'Superadmin']);
+        Sanctum::actingAs($this->userWithRole($superadminRole));
+        $this->getJson('/api/admin/transactions')
+            ->assertOk()
+            ->assertJsonPath('data.0.current_step.id', $this->intakeStep->id)
+            ->assertJsonPath('data.0.current_step.office_id', $this->csd->id)
+            ->assertJsonPath('data.0.current_step.office.id', $this->csd->id);
+
+        // Office-less stations stay role-only: staff from any office with
+        // the role may view, receive and act on them.
+        Sanctum::actingAs($hrAdmin);
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
+        $this->postJson("/api/transactions/{$tx->id}/receive")->assertOk();
     }
 }

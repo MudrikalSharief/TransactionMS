@@ -520,7 +520,7 @@ class TransactionResource extends JsonResource
                 'id' => $prevStepId,
                 'name' => $fromStep?->name,
                 'order_number' => $fromStep?->order_number,
-                'office' => ($fromStep ? $this->effectiveStepOffice($fromStep) : null)?->only(['id', 'code', 'name']),
+                'office' => ($fromStep ? $this->displayStepOffice($fromStep) : null)?->only(['id', 'code', 'name']),
             ],
             'run' => [
                 'remarks' => $lastRun->remarks,
@@ -563,12 +563,13 @@ class TransactionResource extends JsonResource
     }
 
     /**
-     * office_id + office for a step, with end-user stations following the
-     * transaction's office instead of the workflow template's step office.
+     * office_id + office for a step, with end-user and office-less
+     * stations following the transaction's office instead of the
+     * workflow template's step office.
      */
     private function stepOfficePayload($step): array
     {
-        $office = $this->effectiveStepOffice($step);
+        $office = $this->displayStepOffice($step);
 
         return [
             'office_id' => $office?->id,

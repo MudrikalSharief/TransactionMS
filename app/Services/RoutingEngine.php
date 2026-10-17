@@ -48,7 +48,7 @@ class RoutingEngine
         foreach ($routes as $route) {
             if ($this->routeConditionPasses($route, $context)) {
                 $toStep = $tx->workflow->steps->firstWhere('id', $route->to_step_id);
-                $toOffice = $toStep ? $tx->effectiveStepOffice($toStep) : null;
+                $toOffice = $toStep ? $tx->displayStepOffice($toStep) : null;
 
                 $available[] = [
                     'route_id' => $route->id,

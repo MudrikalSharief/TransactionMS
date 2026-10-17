@@ -139,4 +139,17 @@ class Transaction extends Model
     {
         return $this->effectiveStepOffice($step)?->id;
     }
+
+    /**
+     * Office shown for a step in the UI: end-user stations and stations
+     * without a workflow office follow this transaction's office.
+     */
+    public function displayStepOffice(WorkflowStep $step): ?Office
+    {
+        if ($step->office_id === null || $this->stepIsEndUser($step)) {
+            return $this->office;
+        }
+
+        return $step->office;
+    }
 }
