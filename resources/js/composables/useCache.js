@@ -6,7 +6,19 @@
 
 const memory = new Map()
 const TTL_MS = 10 * 60 * 1000
-const PREFIX = 'lgu-tx:cache:v1:'
+const PREFIX = 'lgu-tx:cache:v4:'
+
+// One-time purge of stale cache generations (e.g. v1): any cached entry not
+// under the current PREFIX is dropped on boot, so lists cold-load fresh and
+// new loading UI is actually seen. Non-cache keys (e.g. theme) are untouched.
+try {
+    const drop = []
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && k.startsWith('lgu-tx:cache:') && !k.startsWith(PREFIX)) drop.push(k)
+    }
+    drop.forEach((k) => localStorage.removeItem(k))
+} catch { /* private mode: nothing cached to purge */ }
 
 function safeParse(raw) {
     try {
@@ -16,6 +28,8 @@ function safeParse(raw) {
     }
 }
 
+// Generalized to any JSON value (arrays, objects, numbers): miss returns
+// null, so callers must check `!= null` (a cached 0/false is valid data).
 export function readCache(key) {
     if (memory.has(key)) return memory.get(key)
 
@@ -23,7 +37,7 @@ export function readCache(key) {
         const raw = localStorage.getItem(PREFIX + key)
         if (!raw) return null
         const parsed = safeParse(raw)
-        if (!parsed || !Array.isArray(parsed.d)) return null
+        if (!parsed || typeof parsed !== 'object' || !('d' in parsed)) return null
         if (Date.now() - parsed.t > TTL_MS) {
             try {
                 localStorage.removeItem(PREFIX + key)
@@ -38,7 +52,7 @@ export function readCache(key) {
 }
 
 export function writeCache(key, data) {
-    if (!Array.isArray(data)) return
+    if (data === undefined) return
     memory.set(key, data)
     try {
         localStorage.setItem(PREFIX + key, JSON.stringify({ t: Date.now(), d: data }))
@@ -56,10 +70,72 @@ export function invalidateCache(key) {
     } catch { /* ignore */ }
 }
 
+// Drop every cached entry under a base key (e.g. all `workflows:<id>`
+// variants after an admin mutation), in memory and in localStorage.
+export function invalidatePrefix(base) {
+    const full = PREFIX + base
+    try {
+        for (const k of [...memory.keys()]) {
+            if (k === base || k.startsWith(base + ':')) memory.delete(k)
+        }
+    } catch { /* ignore */ }
+    try {
+        const drop = []
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i)
+            if (k && (k === full || k.startsWith(full + ':'))) drop.push(k)
+        }
+        drop.forEach((k) => localStorage.removeItem(k))
+    } catch { /* quota / private mode: memory already cleared */ }
+}
+
+// Per-user namespace for caches whose rows depend on who is logged in
+// (transaction lists, badge counts). Prevents one browser profile leaking
+// another user's painted rows between logins on a shared device.
+export function scopedKey(base, userId) {
+    return userId ? `${base}:${userId}` : base
+}
+
+// Last-known user id, read straight from persistence (not the memory map,
+// which is empty on a fresh page load). Lets list/badge lookups build the
+// correctly-scoped key even when they run before auth.init() has restored
+// the session — previously that race produced an unscoped key, a cache
+// miss, and a full loader flash on refresh.
+export function storedUserId() {
+    try {
+        const raw = localStorage.getItem(PREFIX + CacheKeys.authUser)
+        if (!raw) return null
+        const parsed = safeParse(raw)
+        if (!parsed || typeof parsed !== 'object' || !('d' in parsed)) return null
+        if (Date.now() - parsed.t > TTL_MS) return null
+        const id = parsed.d?.id
+        return id ?? null
+    } catch {
+        return null
+    }
+}
+
 export const CacheKeys = {
     transactions: 'tx-all',
     myTransactions: 'tx-my',
     transactionTypes: 'tx-types',
+    offices: 'offices',
+    roles: 'roles',
+    users: 'admin-users',
+    // Param-keyed lookups append ':' + id (workflows by type, requirement
+    // defs by workflow, step data by step/workflow). Detail-level rows are
+    // small; the 10-min TTL keeps admin config pages instant.
+    workflows: 'workflows',
+    govRefs: 'gov-refs',
+    fields: 'fields',
+    requirementDefs: 'req-defs',
+    stepFields: 'step-fields',
+    stepRequirements: 'step-reqs',
+    stepChecklist: 'step-checklist',
+    officeSteps: 'office-steps',
+    summary: 'dash-summary',
+    approvalCount: 'approval-count',
+    authUser: 'auth-user',
 }
 
 // Slim projection: list/table/dashboard/search only need these fields.
@@ -74,6 +150,8 @@ export function slimTx(tx) {
         reference_number: tx.reference_number ?? null,
         is_done: tx.is_done ?? false,
         created_at: tx.created_at ?? null,
+        // Dashboard "waiting" column reads entered_at with created_at fallback.
+        entered_at: tx.entered_at ?? null,
         transaction_type_name: tx.transaction_type_name ?? tx.transaction_type?.name ?? null,
         transaction_type: tx.transaction_type
             ? { id: tx.transaction_type.id ?? null, name: tx.transaction_type.name ?? null }
@@ -92,10 +170,19 @@ export function slimTx(tx) {
         current_step: tx.current_step
             ? {
                 id: tx.current_step.id ?? null,
+                order_number: tx.current_step.order_number ?? null,
                 code: tx.current_step.code ?? null,
                 name: tx.current_step.name ?? null,
+                stage: tx.current_step.stage ?? null,
                 is_start: tx.current_step.is_start ?? null,
                 is_end: tx.current_step.is_end ?? null,
+                office: tx.current_step.office
+                    ? {
+                        id: tx.current_step.office.id ?? null,
+                        code: tx.current_step.office.code ?? null,
+                        name: tx.current_step.office.name ?? null,
+                    }
+                    : null,
             }
             : null,
         // Kept slim (id/order/code/name/flags only) so the hover

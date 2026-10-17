@@ -79,6 +79,13 @@
                         </v-chip>
                     </template>
 
+                    <template v-slot:[`item.office`]="{ item }">
+                        <span v-if="item.office?.name" class="text-medium-emphasis">
+                            {{ item.office.name }}
+                        </span>
+                        <span v-else class="text-medium-emphasis">—</span>
+                    </template>
+
                     <template v-slot:[`item.current_step`]="{ item }">
                         <v-menu open-on-hover location="end" open-delay="250">
                             <template #activator="{ props }">
@@ -118,6 +125,9 @@
                         <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
                     </template>
                 </v-data-table>
+                <div v-if="meta.lastPage > 1 && !loading" class="d-flex justify-center py-3">
+                    <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
+                </div>
                 <TableLoader v-if="loading" label="my transactions" icon="mdi-file-document-multiple" style="flex: 1 1 auto" />
                 </div>
             </v-card-text>
@@ -126,15 +136,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
+import { useSmartPoll } from "@/composables/useSmartPoll";
 import TableLoader from '@/components/TableLoader.vue';
 import StepProgress from '@/components/StepProgress.vue';
 import GuideTable from '@/components/GuideTable.vue';
 
 const router = useRouter();
-const { items, loading, fetchAll } = useMyTransactions();
+const { items, loading, meta, fetchAll } = useMyTransactions();
+const page = ref(1);
 
 const error = ref("");
 const search = ref("");
@@ -146,6 +158,7 @@ const guideSections = [
             { term: "REFERENCE", text: "UNIQUE TRACKING CODE — QUOTE IT WHEN FOLLOWING UP" },
             { term: "TITLE", text: "SHORT NAME OF THE REQUEST" },
             { term: "TRANSACTION TYPE", text: "WHAT KIND OF REQUEST IT IS" },
+            { term: "OFFICE", text: "THE OFFICE THE REQUEST BELONGS TO (BLANK IF NONE)" },
             { term: "CURRENT STEP", text: "WHERE IT IS RIGHT NOW (HOVER THE CHIP FOR PROGRESS)" },
             { term: "CREATED AT", text: "WHEN THE REQUEST WAS SUBMITTED" },
         ],
@@ -156,28 +169,36 @@ const headers = [
     { title: "Reference", key: "reference_number" },
     { title: "Title", key: "title" },
     { title: "Transaction Type", key: "type", sortable: false },
+    { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
     { title: "Created At", key: "created_at" },
 ];
 
-const filtered = computed(() => {
-    const q = search.value.trim().toLowerCase();
-    if (!q) return items.value || [];
-    return (items.value || []).filter((tx) =>
-        [
-            tx.reference_number,
-            tx.title,
-            tx.transaction_type?.name,
-            tx.transaction_type_name,
-            tx.current_step?.name,
-            tx.current_step?.code,
-        ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(q)
-    );
+// Server-filtered (?q= + 25-row pages): avoids client filtering of heavy
+// rows on weak CPUs and keeps bad-network payloads small.
+const filtered = computed(() => items.value || []);
+
+let searchTimer = null;
+watch(search, () => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+        page.value = 1;
+        try {
+            await fetchAll({ q: search.value, page: 1 });
+        } catch {
+            /* keep current rows */
+        }
+    }, 400);
 });
+
+async function goToPage(p) {
+    page.value = p;
+    try {
+        await fetchAll({ q: search.value, page: p });
+    } catch {
+        /* keep current rows */
+    }
+}
 
 function stepColor(step) {
     if (!step) return "grey";
@@ -216,7 +237,7 @@ function timeAgo(iso) {
 async function load() {
     error.value = "";
     try {
-        await fetchAll();
+        await fetchAll({ q: search.value, page: page.value });
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load transactions.";
     }
@@ -227,4 +248,15 @@ function open(tx) {
 }
 
 onMounted(load);
+
+// Silent 20s smart-poll: version changed → refresh rows in place.
+// Silent fetch keeps search text, sort, pagination, and scroll untouched;
+// no loader flash, no page reload.
+useSmartPoll(async () => {
+    try {
+        await fetchAll({ silent: true, q: search.value, page: page.value });
+    } catch {
+        /* next tick retries */
+    }
+});
 </script>

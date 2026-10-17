@@ -68,7 +68,8 @@ class WorkflowSeeder extends Seeder
         $routes = [
             ['from' => 'collect_dtr', 'to' => 'validate_dtr', 'action_code' => 'submit', 'is_return_route' => false],
             ['from' => 'validate_dtr', 'to' => 'finalize_payroll', 'action_code' => 'approve', 'is_return_route' => false],
-            ['from' => 'validate_dtr', 'to' => 'collect_dtr', 'action_code' => 'return', 'is_return_route' => true, 'condition_expression' => null],
+            // Return routes are retired: going back is done via jump to a
+            // visited station (recorded as Returned). Old versions keep theirs.
         ];
 
         $this->syncRoutes($definition, $createdSteps, $routes);
@@ -219,7 +220,8 @@ class WorkflowSeeder extends Seeder
             ['from' => 'email_cbo', 'to' => 'cbo_validate', 'action_code' => 'submit', 'is_return_route' => false],
             ['from' => 'cbo_validate', 'to' => 'cbo_earmark', 'action_code' => 'submit', 'is_return_route' => false],
             ['from' => 'cbo_earmark', 'to' => 'submit_bac_paad', 'action_code' => 'submit', 'is_return_route' => false],
-            ['from' => 'gso_return_esig', 'to' => 'create_pr', 'action_code' => 'return', 'is_return_route' => true],
+            // Return routes are retired: going back is done via jump to a
+            // visited station (recorded as Returned). Old versions keep theirs.
         ];
 
         $this->syncRoutes($definition, $createdSteps, $routes);
@@ -310,7 +312,10 @@ class WorkflowSeeder extends Seeder
             $desired[$record->id] = true;
         }
 
+        // Grandfathered return routes are never deleted by re-seeds:
+        // old workflow versions keep theirs.
         $definition->routes()
+            ->where('is_return_route', false)
             ->whereNotIn('id', array_keys($desired))
             ->delete();
     }

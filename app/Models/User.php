@@ -32,7 +32,7 @@ class User extends Authenticatable
 
     public function roles()
     {
-        return $this->belongsToMany(Role::class)->withTimestamps();
+        return $this->belongsToMany(Role::class)->withTimestamps()->ordered();
     }
 
     public function office()
@@ -43,5 +43,13 @@ class User extends Authenticatable
     public function hasRole(string $code): bool
     {
         return $this->roles()->where('code', $code)->exists();
+    }
+
+    public function isOfficeAdmin(): bool
+    {
+        $this->loadMissing('roles');
+
+        return $this->office_id !== null
+            && $this->roles->contains(fn (Role $role) => $role->code === 'admin');
     }
 }

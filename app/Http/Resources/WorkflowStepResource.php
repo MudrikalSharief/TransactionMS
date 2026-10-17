@@ -16,10 +16,21 @@ class WorkflowStepResource extends JsonResource
             'code' => $this->code,
             'name' => $this->name,
             'stage' => $this->stage,
+            'office_id' => $this->office_id,
+            'office' => $this->whenLoaded('office', fn () => $this->office ? [
+                'id' => $this->office->id,
+                'code' => $this->office->code,
+                'name' => $this->office->name,
+            ] : null),
             'sla_minutes' => $this->sla_minutes,
             'is_start' => (bool) $this->is_start,
             'is_end' => (bool) $this->is_end,
             'role_ids' => $this->whenLoaded('roles', fn () => $this->roles->pluck('id')->values()),
+            'roles' => $this->whenLoaded('roles', fn () => $this->roles->map(fn ($r) => [
+                'id' => $r->id,
+                'code' => $r->code,
+                'name' => $r->name,
+            ])->values()),
         ];
     }
 }

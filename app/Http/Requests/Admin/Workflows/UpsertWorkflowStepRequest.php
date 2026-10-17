@@ -16,6 +16,7 @@ class UpsertWorkflowStepRequest extends FormRequest
             'code' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9_]+$/'],
             'name' => ['required', 'string', 'max:200'],
             'stage' => ['nullable', 'string', 'max:120'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
             'sla_minutes' => ['required', 'integer', 'min:0'],
             'is_start' => ['sometimes', 'boolean'],
             'is_end' => ['sometimes', 'boolean'],

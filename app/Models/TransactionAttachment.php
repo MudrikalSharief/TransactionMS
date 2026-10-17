@@ -10,8 +10,10 @@ class TransactionAttachment extends Model
         'transaction_id',
         'workflow_step_id',
         'requirement_definition_id',
+        'source_attachment_id',
         'step_run_id',
         'original_name',
+        'label',
         'stored_path',
         'disk',
         'mime',
@@ -36,6 +38,16 @@ class TransactionAttachment extends Model
     public function requirement()
     {
         return $this->belongsTo(RequirementDefinition::class, 'requirement_definition_id');
+    }
+
+    public function source()
+    {
+        return $this->belongsTo(self::class, 'source_attachment_id');
+    }
+
+    public function links()
+    {
+        return $this->hasMany(self::class, 'source_attachment_id');
     }
 
     public function stepRun()
