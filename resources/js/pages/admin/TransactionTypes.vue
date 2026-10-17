@@ -102,7 +102,16 @@
               {{ o.name }}
             </v-chip>
           </div>
-          <span v-else class="text-medium-emphasis">—</span>
+          <v-chip
+            v-else
+            rounded="0"
+            size="small"
+            variant="tonal"
+            color="grey-darken-3"
+            title="Available to every office"
+          >
+            ALL Offices
+          </v-chip>
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
@@ -228,6 +237,8 @@
           multiple
           chips
           closable-chips
+          hint="ALL Offices means every office may create this type."
+          persistent-hint
         />
         <v-alert v-else type="info" variant="tonal" density="compact" class="mb-2">
           Available to: <b>{{ auth.user.value?.office?.name || 'your office' }}</b>
@@ -269,7 +280,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
@@ -288,9 +299,14 @@ const isSuperadmin = computed(() => (auth.user.value?.roles ?? []).some((r) => r
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
 const canManage = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
-const officeOptions = computed(() =>
-  (offices.value || []).map((o) => ({ id: o.id, label: `${o.name} (${o.code})` })),
-)
+// "ALL Offices" is the always-present first row. Storing no office rows means
+// every office may use the type (see CreateTransactionRequest + the index
+// filter). The sentinel is UI-only: save() strips it back to an empty list.
+const ALL_OFFICES = '__all__'
+const officeOptions = computed(() => [
+  { id: ALL_OFFICES, label: 'ALL Offices' },
+  ...(offices.value || []).map((o) => ({ id: o.id, label: `${o.name} (${o.code})` })),
+])
 
 const headers = [
   { title: 'Code', key: 'code' },
@@ -409,11 +425,32 @@ const filtered = computed(() => {
   )
 })
 
-const form = ref({ id: null, code: '', name: '', description: '', office_ids: [], is_active: true })
+const form = ref({ id: null, code: '', name: '', description: '', office_ids: [ALL_OFFICES], is_active: true })
+
+// ALL Offices and specific offices are mutually exclusive, and ALL is the
+// fallback so the field is never blank: picking ALL wins over a selection,
+// picking a real office while ALL is on drops ALL, and clearing the last
+// chip snaps back to ALL.
+watch(() => form.value.office_ids, (val, old) => {
+  const list = Array.isArray(val) ? val : []
+  if (list.length === 0) {
+    form.value.office_ids = [ALL_OFFICES]
+    return
+  }
+  if (!list.includes(ALL_OFFICES) || list.length <= 1) return
+  const hadAll = (old || []).includes(ALL_OFFICES)
+  form.value.office_ids = hadAll ? list.filter((v) => v !== ALL_OFFICES) : [ALL_OFFICES]
+})
+
+// Stored office ids, or the ALL sentinel when the type has none.
+function officeIdsOf(item) {
+  const ids = (item.office_ids ?? (item.offices || []).map((o) => o.id) ?? []).slice()
+  return ids.length ? ids : [ALL_OFFICES]
+}
 
 function openCreate() {
   error.value = ''
-  form.value = { id: null, code: '', name: '', description: '', office_ids: [], is_active: true }
+  form.value = { id: null, code: '', name: '', description: '', office_ids: [ALL_OFFICES], is_active: true }
   dialog.value = true
 }
 
@@ -424,7 +461,7 @@ function openEdit(item) {
     code: item.code,
     name: item.name,
     description: item.description ?? '',
-    office_ids: (item.office_ids ?? (item.offices || []).map((o) => o.id) ?? []).slice(),
+    office_ids: officeIdsOf(item),
     is_active: !!item.is_active,
   }
   dialog.value = true
@@ -442,7 +479,10 @@ async function save() {
     }
     // Superadmin picks the offices; office admins keep their office's
     // existing assignments (backend enforces their office stays included).
-    if (isSuperadmin.value) payload.office_ids = form.value.office_ids || []
+    // ALL Offices is stored as "no office rows" — the sentinel is UI-only.
+    if (isSuperadmin.value) {
+      payload.office_ids = (form.value.office_ids || []).filter((v) => v !== ALL_OFFICES)
+    }
 
     if (form.value.id) await update(form.value.id, payload)
     else await create(payload)
