@@ -499,131 +499,233 @@
         </v-card>
 
         <!-- Step Dialog -->
-        <v-dialog v-model="stepDialog" max-width="800">
+        <v-dialog v-model="stepDialog" max-width="620" scrollable>
             <v-card rounded="xl" style="overflow: hidden">
-                <v-card-title>{{
-                    stepForm.id ? "Edit Step" : "New Step"
-                }}</v-card-title>
+                <v-card-title class="stp-hd">
+                    <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="stp-badge">
+                        <v-icon>mdi-source-branch</v-icon>
+                    </v-avatar>
+                    <div class="stp-hd-t">
+                        <div class="stp-title">{{ stepForm.id ? "Edit Step" : "New Step" }}</div>
+                        <div class="stp-sub">
+                            {{
+                                stepForm.id
+                                    ? "Update this step's details, SLA and routing."
+                                    : "Add a step to the workflow and set how long it should take."
+                            }}
+                        </div>
+                    </div>
+                    <v-btn icon="mdi-close" variant="text" size="small" color="grey-darken-3" class="stp-x" @click="stepDialog = false" />
+                </v-card-title>
                 <v-divider />
-                <v-card-text>
-                    <v-text-field
-                        v-model="stepForm.order_number"
-                        type="number"
-                        label="Order #"
-                    />
-                    <v-select
-                        v-model="stepForm.parent_id"
-                        :items="parentStepOptions"
-                        item-title="label"
-                        item-value="id"
-                        label="Parent step (empty = top level)"
-                        :hint="!parentStepOptions.length ? 'No steps yet — save this as the first top-level step, then nest others under it.' : ''"
-                        persistent-hint
-                        clearable
-                    />
-                    <v-text-field v-model="stepForm.name" label="Name" />
-                    <v-text-field
-                        v-model="stepForm.stage"
-                        label="Stage"
-                        placeholder="e.g. Planning"
-                    />
-                    <div class="mb-1">
-                        <div class="text-subtitle-2 font-weight-bold">SLA Duration</div>
-                        <div class="text-caption text-medium-emphasis">Tap the clock to pick hours/minutes, set days separately. No manual typing.</div>
-                    </div>
-                    <div class="d-flex align-center flex-wrap ga-2 mb-2">
-                        <v-chip rounded="0" size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
-                            {{ slaHuman }} = {{ slaTotal }} min
-                        </v-chip>
-                        <v-chip-group class="pa-0 ma-0">
-                            <v-chip
-                                v-for="p in slaPresets"
-                                :key="p.label"
-                                rounded="0"
-                                size="small"
-                                variant="outlined"
-                                color="grey-darken-3"
-                                class="font-weight-bold"
-                                @click="applySlaPreset(p)"
-                            >
-                                {{ p.label }}
-                            </v-chip>
-                        </v-chip-group>
-                    </div>
-                    <v-row dense>
-                        <v-col cols="12" sm="4">
-                            <div class="d-flex align-center ga-1">
-                                <v-btn icon="mdi-minus" size="small" variant="outlined" color="grey-darken-3" :disabled="slaDays <= 0" @click="slaDays = Math.max(0, Number(slaDays || 0) - 1)" />
-                                <v-text-field
-                                    :model-value="slaDays"
-                                    label="Days (0-30)"
-                                    type="number"
-                                    readonly
-                                    hide-spin-buttons
-                                    density="compact"
-                                    class="text-center"
-                                    @update:model-value="() => {}"
-                                />
-                                <v-btn icon="mdi-plus" size="small" variant="outlined" color="grey-darken-3" :disabled="slaDays >= SLA_MAX_DAYS" @click="slaDays = Math.min(SLA_MAX_DAYS, Number(slaDays || 0) + 1)" />
-                            </div>
-                            <v-slider v-model="slaDays" :min="0" :max="SLA_MAX_DAYS" :step="1" density="compact" hide-details color="grey-darken-3" />
-                        </v-col>
-                        <v-col cols="12" sm="8">
-                            <v-menu v-model="slaTimeMenu" :close-on-content-click="false" location="bottom">
-                                <template #activator="{ props }">
-                                    <v-text-field
-                                        :model-value="slaTimeDisplay"
-                                        label="Hours : Minutes (tap clock)"
-                                        prepend-inner-icon="mdi-clock-outline"
-                                        readonly
-                                        v-bind="props"
-                                    />
-                                </template>
-                                <v-card rounded="0">
-                                    <v-time-picker v-model="slaTime" format="24hr" />
-                                    <v-divider />
-                                    <v-card-actions class="justify-end">
-                                        <v-btn variant="text" @click="slaTimeMenu = false">Done</v-btn>
-                                    </v-card-actions>
-                                </v-card>
-                            </v-menu>
-                        </v-col>
-                    </v-row>
-                    <v-alert v-if="slaError" type="error" variant="tonal" density="compact" class="mb-2">
-                        {{ slaError }}
+                <v-card-text class="stp-bd">
+                    <v-alert v-if="stepError" type="error" variant="tonal" density="compact" class="mb-4">
+                        {{ stepError }}
                     </v-alert>
-                    <v-switch v-model="stepForm.is_start" label="Is Start" />
-                    <v-switch v-model="stepForm.is_end" label="Is End" />
 
-                    <v-select
-                        v-model="stepForm.office_id"
-                        :items="officeOptions"
-                        item-title="label"
-                        item-value="id"
-                        label="Destination Office"
-                        hint="The office this step will be sent to"
-                        persistent-hint
-                        clearable
-                    />
+                    <div class="stp-sec">
+                        <h3 class="stp-sec-t">Basics</h3>
+                        <div class="stp-g">
+                            <div class="stp-f">
+                                <label class="stp-lb" for="stp-order">Order #</label>
+                                <v-text-field
+                                    id="stp-order"
+                                    v-model="stepForm.order_number"
+                                    type="number"
+                                    min="1"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details="auto"
+                                    :error-messages="stepErrors.order_number"
+                                    class="stp-in"
+                                    @update:model-value="clearStepError('order_number')"
+                                />
+                            </div>
+                            <div class="stp-f">
+                                <label class="stp-lb" for="stp-parent">Parent step</label>
+                                <v-select
+                                    id="stp-parent"
+                                    v-model="stepForm.parent_id"
+                                    :items="parentStepItems"
+                                    item-title="label"
+                                    item-value="id"
+                                    placeholder="None (top level)"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    persistent-placeholder
+                                    clearable
+                                    hide-details="auto"
+                                    class="stp-in"
+                                />
+                                <div v-if="!parentStepOptions.length" class="stp-help">
+                                    No steps yet — save this as the first top-level step, then nest others under it.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stp-g2">
+                            <div class="stp-f">
+                                <label class="stp-lb" for="stp-name">Name <span class="stp-req">*</span></label>
+                                <v-text-field
+                                    id="stp-name"
+                                    v-model="stepForm.name"
+                                    placeholder="e.g. Submit PR to OCT"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details="auto"
+                                    persistent-placeholder
+                                    :error-messages="stepErrors.name"
+                                    class="stp-in"
+                                    @update:model-value="clearStepError('name')"
+                                />
+                            </div>
+                            <div class="stp-f">
+                                <label class="stp-lb" for="stp-stage">Stage</label>
+                                <v-text-field
+                                    id="stp-stage"
+                                    v-model="stepForm.stage"
+                                    placeholder="e.g. Planning"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details="auto"
+                                    persistent-placeholder
+                                    class="stp-in"
+                                />
+                            </div>
+                        </div>
+                    </div>
 
-                    <v-select
-                        v-model="stepForm.role_ids"
-                        :items="roleOptions"
-                        item-title="label"
-                        item-value="id"
-                        label="Roles allowed for this step"
-                        multiple
-                        chips
-                    />
+                    <div class="stp-sec">
+                        <h3 class="stp-sec-t">SLA duration</h3>
+                        <div class="stp-sla">
+                            <div class="stp-pills">
+                                <button
+                                    v-for="p in slaPresets"
+                                    :key="p.label"
+                                    type="button"
+                                    class="stp-pill"
+                                    :class="{ 'is-on': !slaCustom && slaTotal === p.total }"
+                                    @click="applySlaPreset(p)"
+                                >
+                                    {{ p.label }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="stp-pill"
+                                    :class="{ 'is-on': slaCustom }"
+                                    @click="enableSlaCustom"
+                                >
+                                    Custom
+                                </button>
+                            </div>
+
+                            <div v-if="slaCustom" class="stp-cu">
+                                <v-text-field
+                                    ref="slaCustomInput"
+                                    v-model="slaValue"
+                                    type="number"
+                                    :min="0"
+                                    :max="slaUnitDef.max"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details
+                                    aria-label="Duration"
+                                    class="stp-in stp-in-num"
+                                    @update:model-value="onSlaValueInput"
+                                />
+                                <div class="stp-seg" role="group" aria-label="Unit">
+                                    <button
+                                        v-for="u in SLA_UNITS"
+                                        :key="u.value"
+                                        type="button"
+                                        class="stp-seg-b"
+                                        :class="{ 'is-on': slaUnit === u.value }"
+                                        @click="setSlaUnit(u.value)"
+                                    >
+                                        {{ u.label }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="stp-tot">
+                                <v-icon size="18">mdi-clock-outline</v-icon>
+                                <div>{{ slaTotal > 0 ? `Due within ${slaHuman}` : "No time limit" }}</div>
+                                <span>{{ slaTotal }} min</span>
+                            </div>
+                            <v-alert v-if="slaError" type="error" variant="tonal" density="compact" class="mt-3 mb-0">
+                                {{ slaError }}
+                            </v-alert>
+                        </div>
+                    </div>
+
+                    <div class="stp-sec">
+                        <h3 class="stp-sec-t">Flow</h3>
+                        <div class="stp-g2">
+                            <div class="stp-sw">
+                                <div>
+                                    <div class="stp-sw-t">Start step</div>
+                                    <div class="stp-sw-d">First step in the workflow</div>
+                                </div>
+                                <v-spacer />
+                                <v-switch v-model="stepForm.is_start" color="success" density="compact" hide-details inset class="stp-sw-tg" />
+                            </div>
+                            <div class="stp-sw">
+                                <div>
+                                    <div class="stp-sw-t">End step</div>
+                                    <div class="stp-sw-d">Completes the workflow</div>
+                                </div>
+                                <v-spacer />
+                                <v-switch v-model="stepForm.is_end" color="success" density="compact" hide-details inset class="stp-sw-tg" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stp-sec">
+                        <h3 class="stp-sec-t">Routing</h3>
+                        <div class="stp-f">
+                            <label class="stp-lb" for="stp-office">Destination office</label>
+                            <v-select
+                                id="stp-office"
+                                v-model="stepForm.office_id"
+                                :items="officeOptions"
+                                item-title="label"
+                                item-value="id"
+                                placeholder="Select an office"
+                                variant="outlined"
+                                density="comfortable"
+                                persistent-placeholder
+                                clearable
+                                hide-details="auto"
+                                :disabled="!!stepForm.is_end"
+                                class="stp-in"
+                            />
+                            <div class="stp-help">
+                                {{
+                                    stepForm.is_end
+                                        ? "Not needed for an end step."
+                                        : "The office this step will be sent to."
+                                }}
+                            </div>
+                        </div>
+                        <span class="stp-lb">Roles allowed for this step</span>
+                        <div class="stp-roles">
+                            <button
+                                v-for="r in roleOptions"
+                                :key="r.id"
+                                type="button"
+                                class="stp-role"
+                                :class="{ 'is-on': isRoleOn(r.id) }"
+                                :aria-pressed="isRoleOn(r.id) ? 'true' : 'false'"
+                                @click="toggleRole(r.id)"
+                            >
+                                {{ r.label }}
+                            </button>
+                        </div>
+                    </div>
                 </v-card-text>
                 <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="stepDialog = false"
-                        >Cancel</v-btn
-                    >
-                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="saveStep"
-                        >Save</v-btn
-                    >
+                <v-card-actions class="stp-ft">
+                    <v-btn variant="outlined" rounded="lg" class="stp-b" @click="stepDialog = false">Cancel</v-btn>
+                    <v-btn color="primary" rounded="lg" class="stp-b stp-b-pri" :loading="saving" @click="saveStep">Save</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -779,7 +881,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useWorkflows } from "@/composables/useWorkflows";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
@@ -1118,6 +1220,13 @@ const parentStepOptions = computed(() => {
         .map((s) => ({ id: s.id, label: `${s._num}. ${s.name}` }));
 });
 
+// The design's picker offers an explicit top-level row instead of relying on
+// an empty selection (clearing still maps to `null`).
+const parentStepItems = computed(() => [
+    { id: null, label: "None (top level)" },
+    ...parentStepOptions.value,
+]);
+
 const stepHeaders = [
     { title: "#", key: "order_number" },
     { title: "Code", key: "code" },
@@ -1327,14 +1436,13 @@ async function goLive() {
     }
 }
 
-// Add Step: reuse the open draft (one-draft-max, enforced server-side
-// too); create one only if none exists. Then open the step form.
+// Add Step: staged into the working copy only — the draft is created (or
+// reused) server-side by apply-staged when you press Save version.
 async function clickAddStep() {
     error.value = "";
     notice.value = "";
     saving.value = true;
     try {
-        await ensureDraft();
         openStepDialog();
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to prepare step form.";
@@ -1348,7 +1456,6 @@ async function clickAddRoute() {
     notice.value = "";
     saving.value = true;
     try {
-        await ensureDraft();
         openRouteDialog();
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to prepare route form.";
@@ -1372,7 +1479,6 @@ async function editStep(item) {
     saving.value = true;
     try {
         const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
         openStepDialog(stepInDraft(oldSteps, item));
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to prepare step form.";
@@ -1386,7 +1492,6 @@ async function goStepFields(item) {
     notice.value = "";
     try {
         const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
         const fresh = stepInDraft(oldSteps, item);
         const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
         router.push({ path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/fields`, query: q });
@@ -1455,7 +1560,6 @@ async function editRoute(route) {
     saving.value = true;
     try {
         const oldSteps = activeDef.value?.steps || [];
-        await ensureDraft();
         openRouteDialog(routeInDraft(oldSteps, route));
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to prepare route form.";
@@ -1533,23 +1637,121 @@ async function confirmSave() {
 // Steps
 const stepDialog = ref(false);
 const stepForm = ref({});
+// Dialog-scoped feedback: field problems render under their inputs, anything
+// else (staged-save guards) shows at the top of the dialog body instead of
+// the page banner behind it.
+const stepError = ref("");
+const stepErrors = ref({});
 
-// SLA duration picker (picker-only, up to 30 days).
-// Backend still stores total minutes (integer >= 0);
-// the clock dial is reinterpreted as HH:MM duration + Days.
+function clearStepError(key) {
+    if (!stepErrors.value[key]) return;
+    const next = { ...stepErrors.value };
+    delete next[key];
+    stepErrors.value = next;
+}
+
+function isRoleOn(id) {
+    return (stepForm.value.role_ids || []).map(Number).includes(Number(id));
+}
+
+function toggleRole(id) {
+    const cur = (stepForm.value.role_ids || []).map(Number);
+    const n = Number(id);
+    stepForm.value.role_ids = cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n];
+}
+
+// SLA duration (picker-only, up to 30 days).
+// Backend still stores total minutes (integer >= 0); the design's presets and
+// "Custom" value + unit are two views of that same total, held in
+// slaDays + slaTime so saveStep/slaTotal/slaError stay the single source.
 const SLA_MAX_DAYS = 30;
 const SLA_MAX_TOTAL = SLA_MAX_DAYS * 24 * 60; // 43200
 const slaDays = ref(0);
 const slaTime = ref("01:00");
-const slaTimeMenu = ref(false);
-const slaPresets = [
-    { label: "30m", days: 0, time: "00:30" },
-    { label: "2h", days: 0, time: "02:00" },
-    { label: "8h", days: 0, time: "08:00" },
-    { label: "1d", days: 1, time: "00:00" },
-    { label: "3d", days: 3, time: "00:00" },
-    { label: "7d", days: 7, time: "00:00" },
+// Each unit caps at the 30-day limit expressed in that unit, so any stored
+// total can be reopened, re-typed and saved without being clamped.
+const SLA_UNITS = [
+    { value: "m", label: "Minutes", minutes: 1, max: SLA_MAX_TOTAL },
+    { value: "h", label: "Hours", minutes: 60, max: SLA_MAX_TOTAL / 60 },
+    { value: "d", label: "Days", minutes: 1440, max: SLA_MAX_DAYS },
 ];
+const slaPresets = [
+    { label: "30m", days: 0, time: "00:30", total: 30 },
+    { label: "2h", days: 0, time: "02:00", total: 120 },
+    { label: "8h", days: 0, time: "08:00", total: 480 },
+    { label: "1d", days: 1, time: "00:00", total: 1440 },
+    { label: "3d", days: 3, time: "00:00", total: 4320 },
+    { label: "7d", days: 7, time: "00:00", total: 10080 },
+];
+const slaCustom = ref(false);
+const slaUnit = ref("h");
+const slaValue = ref(1);
+const slaCustomInput = ref(null);
+
+const slaUnitDef = computed(
+    () => SLA_UNITS.find((u) => u.value === slaUnit.value) || SLA_UNITS[1],
+);
+
+// Custom entry -> canonical days + HH:MM.
+function syncSlaFromCustom() {
+    const total = Math.min(
+        SLA_MAX_TOTAL,
+        Math.max(0, Number(slaValue.value || 0) * slaUnitDef.value.minutes),
+    );
+    const { days, time } = minutesToSla(total);
+    slaDays.value = days;
+    slaTime.value = time;
+}
+
+// Largest unit that divides the stored total evenly, so reopening a step
+// never re-interprets its minutes (90 -> 90 Minutes, not 1.5 Hours).
+function inferSlaInput(total) {
+    const t = Math.max(0, Number(total || 0));
+    if (t > 0) {
+        const bySize = [...SLA_UNITS].sort((a, b) => b.minutes - a.minutes);
+        for (const u of bySize) {
+            if (t % u.minutes === 0) return { value: t / u.minutes, unit: u.value };
+        }
+    }
+    return { value: 0, unit: "h" };
+}
+
+function setSlaFromTotal(total) {
+    const t = Math.max(0, Number(total || 0));
+    // Totals that match no preset (e.g. the 60-minute default, or legacy
+    // 90-minute steps) open on Custom so the value stays visible and editable.
+    slaCustom.value = !slaPresets.some((p) => p.total === t);
+    const { value, unit } = inferSlaInput(t);
+    slaValue.value = value;
+    slaUnit.value = unit;
+    syncSlaFromCustom();
+}
+
+function applySlaPreset(p) {
+    slaCustom.value = false;
+    slaDays.value = p.days;
+    slaTime.value = p.time;
+}
+
+function enableSlaCustom() {
+    slaCustom.value = true;
+    nextTick(() => slaCustomInput.value?.focus());
+}
+
+function setSlaUnit(value) {
+    slaUnit.value = value;
+    slaValue.value = Math.min(slaUnitDef.value.max, Number(slaValue.value || 0));
+    syncSlaFromCustom();
+}
+
+function onSlaValueInput(raw) {
+    const parsed = parseInt(String(raw ?? "").replace(/[^\d]/g, ""), 10);
+    const n = Number.isFinite(parsed)
+        ? Math.min(slaUnitDef.value.max, Math.max(0, parsed))
+        : 0;
+    if (n !== slaValue.value) slaValue.value = n;
+    syncSlaFromCustom();
+}
 
 function parseSlaTime(t) {
     const m = String(t || "00:00").match(/^(\d{1,2}):(\d{1,2})/);
@@ -1574,11 +1776,6 @@ const slaTotal = computed(() => {
     return Number(slaDays.value || 0) * 1440 + h * 60 + min;
 });
 
-const slaTimeDisplay = computed(() => {
-    const { h, min } = parseSlaTime(slaTime.value);
-    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-});
-
 const slaHuman = computed(() => {
     const d = Number(slaDays.value || 0);
     const { h, min } = parseSlaTime(slaTime.value);
@@ -1597,11 +1794,6 @@ const slaError = computed(() => {
     return "";
 });
 
-function applySlaPreset(p) {
-    slaDays.value = p.days;
-    slaTime.value = p.time;
-}
-
 function formatSlaMinutes(total) {
     const { days, time } = minutesToSla(total);
     const [h, m] = time.split(":").map(Number);
@@ -1614,10 +1806,9 @@ function formatSlaMinutes(total) {
 
 function openStepDialog(step = null) {
     error.value = "";
-    const init = minutesToSla(step?.sla_minutes ?? 60);
-    slaDays.value = Math.min(SLA_MAX_DAYS, init.days);
-    slaTime.value = init.time;
-    slaTimeMenu.value = false;
+    stepError.value = "";
+    stepErrors.value = {};
+    setSlaFromTotal(step?.sla_minutes ?? 60);
     if (step) {
         stepForm.value = {
             id: step.id,
@@ -1656,12 +1847,23 @@ function saveStep() {
     // the working copy (new rows get a tmp id) until Save version.
     error.value = "";
     notice.value = "";
-    if (slaError.value) {
-        error.value = slaError.value;
+    stepError.value = "";
+    stepErrors.value = {};
+    if (!selectedTypeId.value) {
+        stepError.value = "Pick a transaction type first.";
         return;
     }
-    if (!selectedTypeId.value) {
-        error.value = "Pick a transaction type first.";
+    const name = String(stepForm.value.name || "").trim();
+    const order = Number(stepForm.value.order_number);
+    const errs = {};
+    if (!name) errs.name = "Enter a step name.";
+    if (!Number.isFinite(order) || order < 1) errs.order_number = "Order must be 1 or higher.";
+    if (Object.keys(errs).length) {
+        stepErrors.value = errs;
+        return;
+    }
+    if (slaError.value) {
+        stepError.value = slaError.value;
         return;
     }
     staging.upsertStep(selectedTypeId.value, {
@@ -1669,8 +1871,8 @@ function saveStep() {
         client_id: stepForm.value.client_id ?? undefined,
         code: stepForm.value.code ?? null,
         parent_id: stepForm.value.parent_id ?? null,
-        order_number: Number(stepForm.value.order_number),
-        name: stepForm.value.name,
+        order_number: order,
+        name,
         stage: stepForm.value.stage || null,
         office_id: stepForm.value.office_id ?? null,
         sla_minutes: slaTotal.value,
@@ -1820,5 +2022,317 @@ onMounted(async () => {
 }
 html.dark .skel-fill td {
     background: #1e1e2e;
+}
+
+/* ---- New / Edit Step modal (design mockup port) ---- */
+/* Header: tinted badge + title + subtitle + close. */
+.stp-hd {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 22px 24px 16px;
+}
+.stp-badge {
+    flex: none;
+}
+.stp-hd-t {
+    min-width: 0;
+}
+.stp-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+.stp-sub {
+    margin-top: 3px;
+    font-size: 14px;
+    color: rgb(var(--v-theme-secondary));
+}
+.stp-x {
+    margin-left: auto;
+    flex: none;
+}
+
+/* Body: titled sections, label / field / help rhythm. */
+.stp-bd {
+    padding: 18px 24px 8px;
+}
+.stp-sec {
+    margin-bottom: 22px;
+}
+.stp-sec-t {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--v-theme-secondary));
+}
+.stp-sec-t::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+.stp-g {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 110px 1fr;
+}
+.stp-g2 {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr 1fr;
+}
+.stp-g + .stp-g2 {
+    margin-top: 14px;
+}
+.stp-f {
+    min-width: 0;
+    margin-bottom: 14px;
+}
+.stp-g .stp-f,
+.stp-g2 .stp-f {
+    margin-bottom: 0;
+}
+.stp-lb {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.stp-req {
+    color: rgb(var(--v-theme-error));
+}
+.stp-help {
+    margin: 6px 2px 0;
+    font-size: 12.5px;
+    color: rgb(var(--v-theme-secondary));
+}
+
+/* Fields: 48px tall, radius 12, tinted fill, soft focus ring. */
+.stp-in :deep(.v-field) {
+    min-height: 48px;
+    border-radius: 12px;
+    background: #f4f6fb;
+}
+.stp-in :deep(.v-field__outline) {
+    --v-field-border-width: 1.5px;
+}
+.stp-in :deep(.v-field--focused) {
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.18);
+}
+.stp-in-num :deep(input) {
+    text-align: center;
+    font-weight: 700;
+}
+
+/* SLA: bordered box, preset pills, custom value + unit, total line. */
+.stp-sla {
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 16px;
+    padding: 16px;
+}
+.stp-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.stp-pill {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 99px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.stp-pill:hover {
+    background: rgba(var(--v-theme-primary), 0.06);
+}
+.stp-pill.is-on {
+    background: rgb(var(--v-theme-primary));
+    border-color: rgb(var(--v-theme-primary));
+    color: #fff;
+}
+.stp-cu {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.stp-cu .stp-in {
+    width: 112px;
+    flex: none;
+}
+.stp-seg {
+    display: flex;
+    flex: 1;
+    gap: 3px;
+    padding: 3px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 12px;
+}
+.stp-seg-b {
+    flex: 1;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.stp-seg-b:hover {
+    background: rgba(var(--v-theme-primary), 0.06);
+}
+.stp-seg-b.is-on {
+    background: rgb(var(--v-theme-primary));
+    color: #fff;
+}
+.stp-tot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-size: 14px;
+    font-weight: 700;
+}
+.stp-tot span {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+/* Flow: switch rows side by side. */
+.stp-sw {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 14px;
+    padding: 12px 14px;
+}
+.stp-sw-t {
+    font-size: 14.5px;
+    font-weight: 700;
+}
+.stp-sw-d {
+    font-size: 12.5px;
+    color: rgb(var(--v-theme-secondary));
+}
+.stp-sw-tg {
+    flex: none;
+}
+
+/* Routing: role pills wrap instead of scrolling off-screen. */
+.stp-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.stp-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px 0 12px;
+    border-radius: 99px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.stp-role::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border-radius: 50%;
+    border: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    transition: border-color 0.15s, background-color 0.15s;
+}
+.stp-role:hover {
+    background: rgba(var(--v-theme-primary), 0.06);
+}
+.stp-role.is-on {
+    background: rgba(var(--v-theme-primary), 0.12);
+    border-color: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-primary));
+}
+.stp-role.is-on::before {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgb(var(--v-theme-primary))
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8.5 2.8 2.8L12 5.5' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+        center/100%;
+}
+
+/* Footer: ghost Cancel + primary Save, stacked on phones. */
+.stp-ft {
+    gap: 10px;
+    padding: 16px 24px 20px;
+}
+.stp-b {
+    height: 46px;
+    padding: 0 22px;
+    font-weight: 700;
+    text-transform: none;
+}
+.stp-b-pri {
+    min-width: 120px;
+}
+@media (max-width: 560px) {
+    .stp-g,
+    .stp-g2 {
+        grid-template-columns: 1fr;
+    }
+    .stp-ft {
+        flex-direction: column-reverse;
+    }
+    .stp-b {
+        width: 100%;
+    }
+}
+
+/* Dark theme (html.dark is toggled by AppShell for pixivDark). */
+html.dark .stp-in :deep(.v-field) {
+    background: #232b45;
+}
+html.dark .stp-in :deep(.v-field--focused) {
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.22);
+}
+html.dark .stp-sec-t::after,
+html.dark .stp-sla,
+html.dark .stp-pill,
+html.dark .stp-seg,
+html.dark .stp-sw,
+html.dark .stp-role {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+html.dark .stp-pill.is-on,
+html.dark .stp-seg-b.is-on {
+    color: #0e1424;
+}
+html.dark .stp-role.is-on::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8.5 2.8 2.8L12 5.5' fill='none' stroke='%230e1424' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 </style>
