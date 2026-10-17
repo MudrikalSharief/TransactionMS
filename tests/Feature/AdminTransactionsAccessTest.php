@@ -20,7 +20,8 @@ use Tests\TestCase;
  * users see their own office's transactions plus rows whose current station
  * lists one of their roles at their office; office admins see rows parked at
  * their office; superadmin sees all. Any user with an office can create
- * (non-superadmin creations are forced to their own office).
+ * (non-superadmin creations are forced to their own office and respect the
+ * type-office restriction; superadmins bypass it).
  */
 class AdminTransactionsAccessTest extends TestCase
 {
@@ -208,5 +209,30 @@ class AdminTransactionsAccessTest extends TestCase
             'transaction_type_id' => $this->type->id,
             'title' => 'No office',
         ])->assertStatus(422);
+    }
+
+    public function test_regular_user_creation_is_blocked_when_type_restricts_other_offices(): void
+    {
+        $this->type->offices()->sync([$this->cbo->id]);
+
+        Sanctum::actingAs($this->userWithRole('clerk', $this->gso));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'title' => 'Not allowed',
+        ])->assertStatus(422)->assertJsonValidationErrors('transaction_type_id');
+    }
+
+    public function test_superadmin_creation_bypasses_the_type_office_restriction(): void
+    {
+        $this->type->offices()->sync([$this->cbo->id]);
+
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'office_id' => $this->gso->id,
+            'title' => 'Bypassed restriction',
+        ])->assertCreated()->assertJsonPath('data.office.id', $this->gso->id);
     }
 }
