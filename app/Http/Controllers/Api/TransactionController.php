@@ -33,6 +33,7 @@ class TransactionController extends Controller
                 'type:id,code,name',
                 'office:id,code,name',
                 'workflow.steps.office:id,code,name',
+                'workflow.stepRoles.role',
                 'state.currentStep.office:id,code,name',
                 'creator:id,name,email',
             ])
@@ -44,13 +45,22 @@ class TransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($user->isOfficeAdmin()) {
-                // Office admins see every transaction parked at their office.
-                $query->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.office_id', $user->office_id));
+                // Office admins see every transaction parked at their office;
+                // end-user stations follow the transaction's office.
+                $query->where(function ($w) use ($user) {
+                    $w->where(function ($x) use ($user) {
+                        $x->where('transactions.office_id', $user->office_id)
+                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    })->orWhereHas('state.currentStep', fn ($s) => $s
+                        ->where('workflow_steps.office_id', $user->office_id)
+                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                });
             } else {
                 // Regular users: their own office's transactions, plus any
                 // row whose current station lists one of their roles and is
                 // at their office (office-agnostic steps keep the role-only
-                // behavior).
+                // behavior; end-user stations follow the transaction's
+                // office, already covered by the own-office union).
                 $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
                 if ($user->office_id === null) {
@@ -62,6 +72,7 @@ class TransactionController extends Controller
                         $w->where('transactions.office_id', $user->office_id)
                             ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
                                 $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                    ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'))
                                     ->where(function ($x) use ($user) {
                                         $x->whereNull('workflow_steps.office_id')
                                             ->orWhere('workflow_steps.office_id', $user->office_id);
