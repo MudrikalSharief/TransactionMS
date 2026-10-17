@@ -25,6 +25,10 @@ class CreateTransactionRequest extends FormRequest
             function (Validator $validator) {
                 if ($validator->errors()->has('transaction_type_id')) return;
 
+                // Superadmins originate transactions on behalf of any office,
+                // so the type-office restriction does not apply to them.
+                if ($this->user()?->hasRole('superadmin')) return;
+
                 $typeId = $this->input('transaction_type_id');
                 if (!$typeId) return;
 
