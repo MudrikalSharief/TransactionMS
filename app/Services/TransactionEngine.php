@@ -178,12 +178,11 @@ class TransactionEngine
 
             // Link proceed-modal uploads (keep-forever evidence) to this run.
             // Forward: only pending files of this tx + from-step qualify.
-            // Return: previous-station files may come from other steps, so
-            // scope to the transaction (not the step). Already-linked files
-            // are left on their original run; only pending files move.
-            // Return fallback: if the client sends no ids (e.g. stale UI
-            // without return autofill), auto-attach all pending files of
-            // the transaction so returning never orphans evidence.
+            // Return: a listed file may sit on another step, so scope to the
+            // transaction (not the step). Already-linked files stay on their
+            // original run; only pending files move. Nothing is auto-attached
+            // here — the from-step stamp below still carries every file
+            // uploaded while on the returning step.
             $isReturn = (bool) ($route->is_return_route ?? false);
             if (!empty($attachmentIds)) {
                 $linkQuery = \App\Models\TransactionAttachment::query()
@@ -194,11 +193,6 @@ class TransactionEngine
                     $linkQuery->where('workflow_step_id', $currentStepId);
                 }
                 $linkQuery->update(['step_run_id' => $run->id]);
-            } elseif ($isReturn) {
-                \App\Models\TransactionAttachment::query()
-                    ->where('transaction_id', $tx->id)
-                    ->whereNull('step_run_id')
-                    ->update(['step_run_id' => $run->id]);
             }
 
             // Requirement uploads (wizard page 1: AR, DTR, …) stay unlinked
