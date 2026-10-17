@@ -181,12 +181,6 @@
             label="Office (optional)"
             clearable
           />
-          <v-text-field
-            v-else
-            :model-value="auth.user.value?.office?.name"
-            label="Office"
-            readonly
-          />
           <v-text-field v-model="form.title" label="Title (optional)" />
           <v-alert type="info" variant="tonal" class="mt-3">
             Transaction will follow the <b>current steps</b> for the chosen type.
@@ -262,6 +256,8 @@ const typeOptions = computed(() => {
   const myOfficeId = auth.user.value?.office?.id ?? null
   return (types.value || [])
     .filter((t) => {
+      // Superadmins can originate any type for any office.
+      if (isSuperadmin.value) return true
       const ids = t.office_ids ?? (t.offices || []).map((o) => o.id)
       if (!ids.length) return true
       return myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId))
@@ -394,11 +390,14 @@ async function createTx() {
   saving.value = true
   error.value = ''
   try {
-    const tx = await create({
+    const payload = {
       transaction_type_id: form.value.transaction_type_id,
-      office_id: form.value.office_id ?? null,
       title: form.value.title || null,
-    })
+    }
+    // Office is only a choice for superadmins; admins/employees are
+    // created under their own office automatically.
+    if (isSuperadmin.value) payload.office_id = form.value.office_id ?? null
+    const tx = await create(payload)
     dialog.value = false
     await fetchAll({ q: search.value, page: page.value })
     go(tx.id)
