@@ -54,12 +54,13 @@ class TransactionListResource extends JsonResource
     }
 
     /**
-     * office_id + office for a step, with end-user stations following the
-     * transaction's office instead of the workflow template's step office.
+     * office_id + office for a step, with end-user and office-less
+     * stations following the transaction's office instead of the
+     * workflow template's step office.
      */
     private function stepOfficePayload($step): array
     {
-        $office = $this->effectiveStepOffice($step);
+        $office = $this->displayStepOffice($step);
 
         return [
             'office_id' => $office?->id,
