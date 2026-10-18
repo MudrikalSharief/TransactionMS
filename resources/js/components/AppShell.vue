@@ -15,8 +15,8 @@
             <div
                 class="d-flex align-center flex-shrink-0 mr-4 ml-3 brand-click"
                 style="flex: 0 0 auto; min-width: max-content"
-                v-tooltip="'Go to Dashboard'"
-                @click="router.push({ name: 'dashboard' })"
+                v-tooltip="kind === 'admin' ? 'Go to Dashboard' : 'Go to Home'"
+                @click="router.push(homePathFor(auth.user.value))"
             >
                 <v-img
                     src="/zamboanga-seal.png"
@@ -131,11 +131,27 @@
             @mouseleave="collapseOnLeave"
         >
             <v-list nav color="primary">
-                <v-list-item to="/" prepend-icon="mdi-view-dashboard" rounded="lg">
+                <v-list-item v-if="kind === 'admin'" to="/" prepend-icon="mdi-view-dashboard" rounded="lg">
                     <v-list-item-title>DASHBOARD</v-list-item-title>
                 </v-list-item>
+                <template v-if="kind === 'staff'">
+                    <v-list-item to="/portal" prepend-icon="mdi-home-city-outline" rounded="lg" exact>
+                        <v-list-item-title>HOME</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item to="/portal/transactions" prepend-icon="mdi-file-document-multiple" rounded="lg">
+                        <v-list-item-title>TRANSACTIONS</v-list-item-title>
+                    </v-list-item>
+                </template>
                 <v-list-item
-                    v-if="!isSuperadmin"
+                    v-if="kind === 'viewer'"
+                    to="/track"
+                    prepend-icon="mdi-map-marker-path"
+                    rounded="lg"
+                >
+                    <v-list-item-title>TRACK TRANSACTIONS</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                    v-if="kind === 'admin' && !isSuperadmin"
                     to="/my/transactions"
                     prepend-icon="mdi-file-document-multiple"
                     rounded="lg"
@@ -174,6 +190,7 @@
                 </v-list-item>
 
                 <v-list-item
+                    v-if="kind === 'admin'"
                     to="/transactions"
                     prepend-icon="mdi-swap-horizontal"
                     rounded="lg"
@@ -297,7 +314,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth, canUseApprovals, isOfficeAdminUser } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
@@ -347,6 +364,9 @@ const isSuperadmin = computed(() => {
 });
 
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
+
+// admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
+const kind = computed(() => userKind(auth.user.value));
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
 
@@ -400,6 +420,19 @@ const myTx = useMyTransactions();
 const allTx = useTransactions();
 
 const searchPages = computed(() => {
+    if (kind.value === "viewer") {
+        return [
+            { title: "Track Transactions", subtitle: "Page", icon: "mdi-map-marker-path", to: "/track" },
+            { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
+        ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
+    }
+    if (kind.value === "staff") {
+        return [
+            { title: "Home", subtitle: "Page", icon: "mdi-home-city-outline", to: "/portal" },
+            { title: "Transactions", subtitle: "Page", icon: "mdi-file-document-multiple", to: "/portal/transactions" },
+            { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
+        ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
+    }
     const pages = [
         { title: "Dashboard", subtitle: "Page", icon: "mdi-view-dashboard", to: "/" },
         { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
@@ -446,6 +479,8 @@ const searchPages = computed(() => {
 });
 
 async function ensureSearchData() {
+    // Viewers search pages only: the transaction lists are closed to them.
+    if (kind.value === "viewer") return;
     if (searchLoaded || searchLoading.value) return;
     searchLoading.value = true;
     try {
@@ -474,7 +509,7 @@ watch(searchText, (q) => {
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
         const query = String(q || "").trim();
-        if (!query) return;
+        if (!query || kind.value === "viewer") return;
         searchLoading.value = true;
         try {
             if (isSuperadmin.value) {

@@ -6,12 +6,33 @@ import { clearAllStaging } from "@/composables/useWorkflowStaging";
 const user = ref(null);
 const initialized = ref(false);
 
+// Which experience a user gets:
+//   admin  - superadmin or admin role: the full admin pages
+//   viewer - viewer role only: read-only tracking of their own transactions
+//            (no files, no actions)
+//   staff  - every other role: the office/role user portal
+// Mirrors User::isViewerOnly() on the backend.
+export function userKind(u) {
+    const codes = (u?.roles ?? []).map((r) => r.code);
+    if (codes.includes("superadmin") || codes.includes("admin")) return "admin";
+    if (codes.length && codes.every((c) => c === "viewer")) return "viewer";
+    return "staff";
+}
+
+export function homePathFor(u) {
+    const kind = userKind(u);
+    if (kind === "viewer") return "/track";
+    if (kind === "staff") return "/portal";
+    return "/";
+}
+
 // Approvals is hidden from users with no assigned role, and from end users
 // (they submit, never approve). Superadmin keeps access even when also
-// holding end_user. Mirrors ApprovalController::index.
+// holding end_user. Viewers never reach it. Mirrors ApprovalController::index.
 export function canUseApprovals(u) {
     const codes = (u?.roles ?? []).map((r) => r.code);
     if (!codes.length) return false;
+    if (userKind(u) === "viewer") return false;
     return codes.includes("superadmin") || !codes.includes("end_user");
 }
 

@@ -3,7 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Middleware\BlockViewer;
 use App\Http\Middleware\EnsureOfficeAdmin;
+use App\Http\Middleware\EnsureViewer;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureTransactionOffice;
 
@@ -36,6 +38,8 @@ use App\Http\Controllers\Api\TransactionFinalizeController;
 use App\Http\Controllers\Api\TransactionReceiveController;
 use App\Http\Controllers\Api\UserTransactionController;
 use App\Http\Controllers\Api\ApprovalController;
+use App\Http\Controllers\Api\PortalController;
+use App\Http\Controllers\Api\ViewerTrackingController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -82,13 +86,26 @@ Route::get('/weather', function () {
         ->header('Cache-Control', 'public, max-age=600');
 });
 
-Route::middleware(['auth:sanctum'])->group(function () {
+// Viewer accounts: read-only tracking of the transactions they created.
+// No files, no workflow actions (every other transaction route blocks them).
+Route::middleware(['auth:sanctum', EnsureViewer::class])
+    ->prefix('viewer')
+    ->group(function () {
+        Route::get('/transactions', [ViewerTrackingController::class, 'index']);
+        Route::get('/transactions/{transaction}', [ViewerTrackingController::class, 'show']);
+    });
+
+// Static path must precede {transaction} or "version" binds as a model id.
+// Aggregate stamps only (no rows), so viewers may poll it too.
+Route::middleware(['auth:sanctum'])->get('/transactions/version', [UserTransactionController::class, 'version']);
+
+Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
+    Route::get('/portal/summary', [PortalController::class, 'summary']);
+
     Route::get('/approvals', [ApprovalController::class, 'index']);
     Route::get('/approvals/count', [ApprovalController::class, 'count']);
 
     Route::get('/transactions', [UserTransactionController::class, 'index']);
-    // Static path must precede {transaction} or "version" binds as a model id.
-    Route::get('/transactions/version', [UserTransactionController::class, 'version']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
     Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
@@ -110,7 +127,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 });
 
-Route::middleware(['auth:sanctum'])
+Route::middleware(['auth:sanctum', BlockViewer::class])
     ->prefix('admin')
     ->group(function () {
         // Master data: superadmin only.

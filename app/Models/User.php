@@ -45,6 +45,19 @@ class User extends Authenticatable
         return $this->roles()->where('code', $code)->exists();
     }
 
+    /**
+     * Viewer-only accounts track their own transactions read-only: no files,
+     * no workflow actions. Anyone holding another role (superadmin, admin,
+     * staff roles) is not viewer-only.
+     */
+    public function isViewerOnly(): bool
+    {
+        $this->loadMissing('roles');
+
+        return $this->roles->isNotEmpty()
+            && $this->roles->every(fn (Role $role) => $role->code === 'viewer');
+    }
+
     public function isOfficeAdmin(): bool
     {
         $this->loadMissing('roles');
