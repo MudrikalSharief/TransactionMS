@@ -87,8 +87,8 @@ export function useMyTransactions() {
         };
     }
 
-    async function finalize(id) {
-        const res = await api.post(`/api/transactions/${id}/finalize`);
+    async function finalize(id, payload = {}) {
+        const res = await api.post(`/api/transactions/${id}/finalize`, payload);
         return {
             tx: res.data.data ?? res.data,
             meta: res.data.meta ?? {},

@@ -20,7 +20,7 @@
           class="mr-2"
           style="max-width: 260px"
         />
-        <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">New Transaction</v-btn>
+        <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">New Transaction</v-btn>
       </v-card-title>
       <v-divider />
 
@@ -173,6 +173,7 @@
             label="Transaction Type"
           />
           <v-select
+            v-if="isSuperadmin"
             v-model="form.office_id"
             :items="officeOptions"
             item-title="label"
@@ -233,6 +234,8 @@ const isSuperadmin = computed(() =>
   (auth.user.value?.roles || []).some((r) => r.code === 'superadmin')
 )
 
+const canManage = computed(() => isSuperadmin.value || auth.user.value?.office != null)
+
 const dialog = ref(false)
 const confirmDialog = ref(false)
 const removeTarget = ref(null)
@@ -249,9 +252,18 @@ const form = ref({
   title: '',
 })
 
-const typeOptions = computed(() =>
-  (types.value || []).map(t => ({ id: t.id, label: `${t.name} (${t.code})` }))
-)
+const typeOptions = computed(() => {
+  const myOfficeId = auth.user.value?.office?.id ?? null
+  return (types.value || [])
+    .filter((t) => {
+      // Superadmins can originate any type for any office.
+      if (isSuperadmin.value) return true
+      const ids = t.office_ids ?? (t.offices || []).map((o) => o.id)
+      if (!ids.length) return true
+      return myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId))
+    })
+    .map((t) => ({ id: t.id, label: `${t.name} (${t.code})` }))
+})
 
 const officeOptions = computed(() =>
   (offices.value || [])
@@ -378,11 +390,14 @@ async function createTx() {
   saving.value = true
   error.value = ''
   try {
-    const tx = await create({
+    const payload = {
       transaction_type_id: form.value.transaction_type_id,
-      office_id: form.value.office_id ?? null,
       title: form.value.title || null,
-    })
+    }
+    // Office is only a choice for superadmins; admins/employees are
+    // created under their own office automatically.
+    if (isSuperadmin.value) payload.office_id = form.value.office_id ?? null
+    const tx = await create(payload)
     dialog.value = false
     await fetchAll({ q: search.value, page: page.value })
     go(tx.id)

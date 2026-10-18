@@ -256,7 +256,13 @@ class TransactionAttachmentController extends Controller
             abort(404);
         }
         if (!$model->source_attachment_id) {
-            abort(403, 'This is an original file — only superadmin can delete it.');
+            abort(403, 'This is an original file — delete it instead of removing the reference.');
+        }
+
+        // Travelled links stay locked: only a reference that has not moved
+        // forward with a run can be detached (covers returns to the station).
+        if ($model->step_run_id) {
+            abort(422, 'File already moved forward and is locked.');
         }
 
         $transaction->loadMissing(['state.currentStep']);
@@ -270,18 +276,11 @@ class TransactionAttachmentController extends Controller
         return response()->json(['message' => 'Reference removed. The original file is kept.']);
     }
 
-    public function destroy(Request $request, Transaction $transaction, int $attachment)
+    public function destroy(Request $request, Transaction $transaction, int $attachment, RoutingEngine $routing)
     {
         $model = TransactionAttachment::whereKey($attachment)->first();
         if (!$model) {
             abort(404, 'File not found or already deleted.');
-        }
-
-        $user = $request->user();
-        $user->loadMissing('roles');
-
-        if (!($user->roles?->contains(fn ($r) => $r->code === 'superadmin'))) {
-            abort(403, 'Only superadmin can delete attachments.');
         }
 
         if ((int) $model->transaction_id !== (int) $transaction->id) {
@@ -290,6 +289,23 @@ class TransactionAttachmentController extends Controller
 
         if ($model->source_attachment_id) {
             abort(403, 'This is a linked reference — remove it from the step instead of deleting.');
+        }
+
+        // Step-locked evidence: any current-step worker may remove a file
+        // uploaded on the current step before it moves forward (wrong-file
+        // replace). Once the step is sent on, the file is locked for
+        // everyone — including superadmin.
+        $routing->assertUserCanExecute($transaction, $request->user());
+
+        $transaction->loadMissing(['state.currentStep']);
+        $currentStepId = (int) $transaction->state?->current_step_id;
+        if (!$currentStepId) abort(422, 'Transaction has no current step.');
+
+        if ($model->step_run_id) {
+            abort(422, 'File already moved forward and is locked.');
+        }
+        if ((int) $model->workflow_step_id !== $currentStepId) {
+            abort(422, 'Only files uploaded on the current step can be removed.');
         }
 
         $attachment = $model;

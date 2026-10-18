@@ -48,6 +48,7 @@ class RoutingEngine
         foreach ($routes as $route) {
             if ($this->routeConditionPasses($route, $context)) {
                 $toStep = $tx->workflow->steps->firstWhere('id', $route->to_step_id);
+                $toOffice = $toStep ? $tx->displayStepOffice($toStep) : null;
 
                 $available[] = [
                     'route_id' => $route->id,
@@ -55,7 +56,7 @@ class RoutingEngine
                     'is_return_route' => (bool) $route->is_return_route,
                     'to_step' => $toStep ? array_merge(
                         $toStep->only(['id', 'code', 'name', 'order_number', 'stage', 'is_end', 'office_id']),
-                        ['office' => $toStep->office?->only(['id', 'code', 'name'])]
+                        ['office_id' => $toOffice?->id, 'office' => $toOffice?->only(['id', 'code', 'name'])]
                     ) : null,
                     'route_group' => $route->route_group,
                     'required_approvals_count' => $route->required_approvals_count,
@@ -309,6 +310,14 @@ class RoutingEngine
         $user->loadMissing('roles');
         if ($user->roles->contains(fn ($r) => $r->code === 'superadmin')) return true;
 
+        $tx->loadMissing(['workflow.steps', 'workflow.stepRoles.role', 'office']);
+
+        $step = $tx->workflow?->steps?->firstWhere('id', $stepId);
+        $effectiveOfficeId = $step ? $tx->effectiveStepOfficeId($step) : null;
+
+        // Office admins act on any station parked at their office, role aside.
+        if ($this->isOfficeAdminFor($effectiveOfficeId, $user)) return true;
+
         $allowedRoleIds = $tx->workflow->stepRoles
             ->where('workflow_step_id', $stepId)
             ->pluck('role_id')
@@ -319,7 +328,25 @@ class RoutingEngine
 
         $userRoleIds = $user->roles->pluck('id')->values();
 
-        return $allowedRoleIds->intersect($userRoleIds)->isNotEmpty();
+        if ($allowedRoleIds->intersect($userRoleIds)->isEmpty()) return false;
+
+        return $this->stepOfficeMatchesUser($effectiveOfficeId, $user);
+    }
+
+    private function isOfficeAdminFor(?int $officeId, User $user): bool
+    {
+        return $user->office_id !== null
+            && $officeId !== null
+            && (int) $officeId === (int) $user->office_id
+            && $user->isOfficeAdmin();
+    }
+
+    private function stepOfficeMatchesUser(?int $officeId, User $user): bool
+    {
+        if ($user->office_id === null) return true;
+        if ($officeId === null) return true;
+
+        return (int) $officeId === (int) $user->office_id;
     }
 
     private function routeConditionPasses(WorkflowRoute $route, array $context): bool

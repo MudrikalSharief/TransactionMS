@@ -72,7 +72,11 @@ class TransactionGotoController extends Controller
             $toStepId,
             $request->validated()['remarks'] ?? null,
             (int) $request->user()->id,
+<<<<<<< HEAD
             $actionCode
+=======
+            $request->validated()['flagged_items'] ?? []
+>>>>>>> Adustment-Temporary
         );
 
         $tx->load([

@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -15,8 +14,7 @@ return new class extends Migration {
             });
         }
 
-        $indexes = collect(DB::select('SHOW INDEX FROM office_steps'))->pluck('Key_name');
-        if (!$indexes->contains('office_steps_office_id_parent_id_order_number_index')) {
+        if (!Schema::hasIndex('office_steps', 'office_steps_office_id_parent_id_order_number_index')) {
             Schema::table('office_steps', function (Blueprint $table) {
                 $table->index(['office_id', 'parent_id', 'order_number']);
             });

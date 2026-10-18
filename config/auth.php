@@ -112,4 +112,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Guest Login
+    |--------------------------------------------------------------------------
+    |
+    | The "Log in as Guest" button on the login page signs in this account
+    | without a password. It must be a viewer-only account (read-only
+    | tracking); any other account is refused.
+    |
+    */
+
+    'guest_email' => env('GUEST_EMAIL', 'viewer@lgu.test'),
+
 ];

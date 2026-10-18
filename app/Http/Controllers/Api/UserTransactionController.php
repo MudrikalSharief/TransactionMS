@@ -79,6 +79,7 @@ class UserTransactionController extends Controller
 
         $user->loadMissing('roles');
         $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+        $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
         $query = Transaction::query()
@@ -100,15 +101,46 @@ class UserTransactionController extends Controller
         }
 
         if (!$isSuperadmin) {
-            if (empty($roleIds)) {
+            if ($isOfficeAdmin) {
+                // Office admins: rows parked at their office; end-user
+                // stations follow the transaction's office.
+                $query->where(function ($w) use ($user) {
+                    $w->where(function ($x) use ($user) {
+                        $x->where('transactions.office_id', $user->office_id)
+                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    })->orWhereHas('state.currentStep', fn ($s) => $s
+                        ->where('workflow_steps.office_id', $user->office_id)
+                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                });
+            } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
+            } else {
+                // Push the role + office gate to SQL (no schema change). Only
+                // rows whose current station lists one of the user's roles and
+                // matches their office: regular stations by stored office
+                // (office-less keep role-only), end-user stations by the
+                // transaction's office. Keeps the exact
+                // userCanWorkOnCurrentStep() semantics for the paged rows below.
+                $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                        ->where(function ($x) use ($user) {
+                            $x->where(function ($y) use ($user) {
+                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                if ($user->office_id !== null) {
+                                    $y->where('transactions.office_id', $user->office_id);
+                                }
+                            })->orWhere(function ($y) use ($user) {
+                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                if ($user->office_id !== null) {
+                                    $y->where(function ($z) use ($user) {
+                                        $z->whereNull('workflow_steps.office_id')
+                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                    });
+                                }
+                            });
+                        });
+                });
             }
-            // Push the role gate to SQL (no schema change): only rows whose
-            // current station lists one of the user's roles. Keeps the exact
-            // userCanWorkOnCurrentStep() semantics for the paged rows below.
-            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
-                $r->whereIn('roles.id', $roleIds);
-            });
         }
 
         $page = $query->paginate($perPage);
@@ -215,7 +247,8 @@ class UserTransactionController extends Controller
             $request->user()->id,
             is_array($fields) ? $fields : [],
             $request->validated()['attachment_ids'] ?? [],
-            $request->validated()['step_data'] ?? []
+            $request->validated()['step_data'] ?? [],
+            $request->validated()['flagged_items'] ?? []
         );
 
         $actions = $routing->availableActions($tx, $request->user());

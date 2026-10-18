@@ -31,7 +31,15 @@ const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
 const Help = () => import("@/pages/Help.vue");
 
-import { useAuth, canUseApprovals } from "@/composables/useAuth";
+// User portal (every role except superadmin/admin) and the read-only viewer
+// tracking pages.
+const PortalHome = () => import("@/pages/portal/PortalHome.vue");
+const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
+const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
+const TrackList = () => import("@/pages/track/TrackList.vue");
+const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
+
+import { useAuth, canUseApprovals, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 
@@ -49,71 +57,103 @@ export function createRouter() {
             },
 
             {
+                path: "/portal",
+                name: "portal",
+                component: PortalHome,
+                meta: { requiresAuth: true, title: "Home", kind: "staff" },
+            },
+            {
+                path: "/portal/transactions",
+                name: "portal.transactions",
+                component: PortalTransactions,
+                meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
+            },
+            {
+                // Short opening animation for viewers; `bare` hides the app chrome.
+                path: "/track/welcome",
+                name: "track.welcome",
+                component: TrackWelcome,
+                meta: { requiresAuth: true, title: "Welcome", kind: "viewer", bare: true },
+            },
+            {
+                path: "/track",
+                name: "track",
+                component: TrackList,
+                meta: { requiresAuth: true, title: "Track Transactions", kind: "viewer" },
+            },
+            {
+                path: "/track/:id",
+                name: "track.detail",
+                component: TrackDetail,
+                meta: { requiresAuth: true, title: "Track Transaction", kind: "viewer" },
+            },
+
+            {
                 path: "/admin/users",
                 component: AdminUsers,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/roles",
                 component: AdminRoles,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/offices",
                 component: AdminOffices,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/offices/:officeId/steps",
                 name: "admin.office-steps",
                 component: AdminOfficeSteps,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/transaction-types",
                 component: AdminTransactionTypes,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, officeAdmin: true },
             },
             {
                 path: "/admin/government-references",
                 component: AdminGovernmentReferences,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/workflows",
                 component: AdminWorkflows,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/fields",
                 component: AdminFields,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
 
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/fields",
                 name: "admin.step-fields",
                 component: AdminStepFields,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
 
             {
                 path: "/admin/workflows/:workflowId/requirements",
                 name: "admin.requirements",
                 component: AdminRequirements,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/requirements",
                 name: "admin.step-requirements",
                 component: AdminStepRequirements,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/step-data",
                 name: "admin.step-data",
                 component: AdminStepData,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
 
             {
@@ -130,7 +170,7 @@ export function createRouter() {
                 path: "/admin/requirements",
                 name: "admin.requirements",
                 component: AdminRequirementsIndex,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/my/transactions",
@@ -164,13 +204,32 @@ export function createRouter() {
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
         if (to.name === "login" && auth.user.value)
-            return { name: "dashboard" };
+            return homePathFor(auth.user.value);
+
+        // Each kind of account lives in its own set of pages.
+        if (auth.user.value) {
+            const kind = userKind(auth.user.value);
+            if (kind === "viewer") {
+                // Right after sign-in (login pushes "dashboard") they get the
+                // welcome animation. Otherwise read-only: tracking pages and
+                // Help only.
+                if (to.name === "dashboard") return "/track/welcome";
+                if (to.meta.kind !== "viewer" && to.name !== "help") return "/track";
+            } else if (to.meta.kind && to.meta.kind !== kind) {
+                return homePathFor(auth.user.value);
+            } else if (kind === "staff" && to.name === "dashboard") {
+                return "/portal";
+            }
+        }
         if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
         // My Transactions is redundant for superadmin (bypass returns all rows,
         // same as Transactions) — send them to the admin list instead.
         const roles = auth.user.value?.roles ?? [];
         const isSuperadmin = roles.some((r) => r.code === "superadmin");
+        if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };
+        if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
+            return { name: "dashboard" };
         if (isSuperadmin && to.path.startsWith("/my/transactions")) {
             const rest = to.path.slice("/my/transactions".length);
             return rest ? `/transactions${rest}` : "/transactions";

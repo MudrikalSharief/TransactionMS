@@ -47,6 +47,7 @@
                             v-model:attachment-name="attachmentName"
                             v-model:step-data-form="stepDataForm"
                             :tx-id="tx.id"
+                            :current-step-id="tx?.current_step?.id"
                             :requirements="tx.current_step_requirements || []"
                             :checklist="tx.current_step_checklist || []"
                             :fields="tx.current_step_fields"

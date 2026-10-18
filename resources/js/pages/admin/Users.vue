@@ -19,7 +19,7 @@
         class="mr-2"
         style="max-width: 260px"
       />
-      <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
+      <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
         Add User
       </v-btn>
     </v-card-title>
@@ -85,7 +85,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end row-actions">
+          <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit user'"
@@ -166,6 +166,8 @@ const auth = useAuth()
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = useAdminUsers()
 const { roles, fetchRoles } = useRoles()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
+
+const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const headers = [
   { title: 'Name', key: 'name' },

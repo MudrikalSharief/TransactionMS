@@ -33,10 +33,55 @@ class TransactionController extends Controller
                 'type:id,code,name',
                 'office:id,code,name',
                 'workflow.steps.office:id,code,name',
+                'workflow.stepRoles.role',
                 'state.currentStep.office:id,code,name',
                 'creator:id,name,email',
             ])
             ->latest();
+
+        $user = $request->user();
+        $user->loadMissing('roles');
+        $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+
+        if (!$isSuperadmin) {
+            if ($user->isOfficeAdmin()) {
+                // Office admins see every transaction parked at their office;
+                // end-user stations follow the transaction's office.
+                $query->where(function ($w) use ($user) {
+                    $w->where(function ($x) use ($user) {
+                        $x->where('transactions.office_id', $user->office_id)
+                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    })->orWhereHas('state.currentStep', fn ($s) => $s
+                        ->where('workflow_steps.office_id', $user->office_id)
+                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                });
+            } else {
+                // Regular users: their own office's transactions, plus any
+                // row whose current station lists one of their roles and is
+                // at their office (office-agnostic steps keep the role-only
+                // behavior; end-user stations follow the transaction's
+                // office, already covered by the own-office union).
+                $roleIds = $user->roles->pluck('id')->filter()->values()->all();
+
+                if ($user->office_id === null) {
+                    $query->whereRaw('1 = 0');
+                } elseif (empty($roleIds)) {
+                    $query->where('transactions.office_id', $user->office_id);
+                } else {
+                    $query->where(function ($w) use ($roleIds, $user) {
+                        $w->where('transactions.office_id', $user->office_id)
+                            ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                                $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                    ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'))
+                                    ->where(function ($x) use ($user) {
+                                        $x->whereNull('workflow_steps.office_id')
+                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                    });
+                            });
+                    });
+                }
+            }
+        }
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -50,11 +95,21 @@ class TransactionController extends Controller
 
     public function store(CreateTransactionRequest $request, TransactionEngine $engine)
     {
+        $user = $request->user();
+
+        if ($user->hasRole('superadmin')) {
+            $officeId = $request->validated()['office_id'] ?? null;
+        } else {
+            $officeId = $user->office_id;
+
+            abort_if($officeId === null, 422, 'Your account has no office assigned.');
+        }
+
         $tx = $engine->create(
             (int) $request->validated()['transaction_type_id'],
             $request->validated()['title'] ?? null,
-            $request->user()->id,
-            $request->validated()['office_id'] ?? null
+            $user->id,
+            $officeId
         );
 
         return (new TransactionResource($tx))->response()->setStatusCode(201);
@@ -216,7 +271,8 @@ class TransactionController extends Controller
             $request->user()->id,
             is_array($fields) ? $fields : [],
             $request->validated()['attachment_ids'] ?? [],
-            $request->validated()['step_data'] ?? []
+            $request->validated()['step_data'] ?? [],
+            $request->validated()['flagged_items'] ?? []
         );
 
         $actions = $routing->availableActions($tx, $request->user());

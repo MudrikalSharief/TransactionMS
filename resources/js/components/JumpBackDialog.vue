@@ -10,6 +10,23 @@
                 </div>
             </v-card-title>
             <v-card-text class="px-6 pt-2 pb-4">
+                <div v-if="!isForward && (checklist || []).length" class="mb-4">
+                    <div class="text-subtitle-1 font-weight-bold mb-1">Documentary requirements for return</div>
+                    <div class="text-caption text-medium-emphasis mb-2">Tap items to flag them for the next station — tap again to remove.</div>
+                    <div class="d-flex flex-wrap ga-1">
+                        <v-chip
+                            v-for="c in (checklist || [])"
+                            :key="flagKey(c)"
+                            size="small"
+                            :variant="isFlagged(c) ? 'flat' : 'outlined'"
+                            :color="isFlagged(c) ? 'warning' : 'grey-darken-1'"
+                            rounded="lg"
+                            class="flag-pill"
+                            :title="isFlagged(c) ? `${c.name} — tap to unflag` : `${c.name} — tap to flag`"
+                            @click="toggleFlag(c)"
+                        ><v-icon start size="x-small">{{ isFlagged(c) ? 'mdi-check' : 'mdi-plus' }}</v-icon>{{ c.name }}</v-chip>
+                    </div>
+                </div>
                 <div class="d-flex align-center ga-2 mb-2 mt-1">
                     <span class="text-subtitle-1 font-weight-bold">Reason for {{ isForward ? 'resending' : 'returning' }}</span>
                     <v-chip size="x-small" variant="tonal" color="error" rounded="lg">Required</v-chip>
@@ -33,12 +50,11 @@
             </v-card-text>
             <v-divider />
             <v-card-actions class="justify-end ga-2 px-6 py-4">
-                <span v-if="!remarks.trim()" class="text-caption text-medium-emphasis mr-auto">Add a reason to enable {{ isForward ? 'resend' : 'return' }}.</span>
                 <v-btn variant="outlined" rounded="lg" :disabled="saving" @click="emit('update:open', false)">Cancel</v-btn>
                 <v-btn
                     variant="outlined"
                     rounded="lg"
-                    :color="isForward ? undefined : 'warning'"
+                    :color="isForward ? 'purple-darken-2' : 'warning'"
                     :loading="saving"
                     :disabled="!remarks.trim() || saving"
                     @click="confirm"
@@ -60,6 +76,9 @@ const props = defineProps({
     confirmLabel: { type: String, default: 'Return' },
     saving: { type: Boolean, default: false },
     isForward: { type: Boolean, default: false },
+    // Received checklist (current_step_checklist): drives the return
+    // flag-cards above the reason box. Empty outside return mode.
+    checklist: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update:open', 'confirm'])
@@ -95,14 +114,64 @@ watch(() => props.open, (v) => {
     if (v) {
         remarks.value = ''
         remarksError.value = ''
+        flagged.value = []
     }
 })
+
+// Return flag pills: each checklist item toggles a structured entry in
+// local `flagged` state (matched by requirement code, name fallback).
+// Entries travel as flagged_items on confirm — never in the reason text,
+// so they cannot be erased by editing.
+const flagged = ref([])
+
+function flagKey(c) {
+    const code = String(c?.code || '').trim().toLowerCase()
+    if (code) return `code:${code}`
+    const reqId = c?.requirement_definition_id
+    if (reqId !== null && reqId !== undefined && reqId !== '') return `req:${reqId}`
+    return `name:${String(c?.name || '').trim().toLowerCase()}`
+}
+
+function flagEntry(c) {
+    return {
+        requirement_definition_id: c?.requirement_definition_id ?? null,
+        code: String(c?.code || '').trim(),
+        name: String(c?.name || '').trim(),
+    }
+}
+
+function isFlagged(c) {
+    const key = flagKey(c)
+    return (flagged.value || []).some((f) => flagKey(f) === key)
+}
+
+function toggleFlag(c) {
+    const key = flagKey(c)
+    const list = [...(flagged.value || [])]
+    const idx = list.findIndex((f) => flagKey(f) === key)
+    if (idx >= 0) list.splice(idx, 1)
+    else list.push(flagEntry(c))
+    flagged.value = list
+}
 
 function confirm() {
     if (!remarks.value.trim()) {
         remarksError.value = props.isForward ? 'Remarks are required to resend.' : 'Remarks are required to return.'
         return
     }
-    emit('confirm', remarks.value.trim())
+    emit('confirm', { remarks: remarks.value.trim(), flagged: [...(flagged.value || [])] })
 }
 </script>
+
+<style scoped>
+/* Flag pills invite tapping: pointer cursor plus a hover lift/shadow so
+   they read as pressable buttons, not static labels. */
+.flag-pill {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.flag-pill:hover {
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+}
+</style>

@@ -38,7 +38,7 @@ class TransactionListResource extends JsonResource
 
             'current_step' => $currentStep ? array_merge(
                 $currentStep->only(['id', 'order_number', 'code', 'name', 'stage', 'sla_minutes', 'is_start', 'is_end', 'office_id']),
-                ['office' => $currentStep->office?->only(['id', 'code', 'name'])]
+                $this->stepOfficePayload($currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
 
@@ -47,9 +47,24 @@ class TransactionListResource extends JsonResource
                 'workflow',
                 fn () => $this->workflow?->steps?->map(fn ($s) => array_merge(
                     $s->only(['id', 'order_number', 'parent_id', 'code', 'name', 'stage', 'is_start', 'is_end', 'office_id']),
-                    ['office' => $s->office?->only(['id', 'code', 'name'])]
+                    $this->stepOfficePayload($s)
                 ))?->values()
             ),
+        ];
+    }
+
+    /**
+     * office_id + office for a step, with end-user and office-less
+     * stations following the transaction's office instead of the
+     * workflow template's step office.
+     */
+    private function stepOfficePayload($step): array
+    {
+        $office = $this->displayStepOffice($step);
+
+        return [
+            'office_id' => $office?->id,
+            'office' => $office?->only(['id', 'code', 'name']),
         ];
     }
 }

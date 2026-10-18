@@ -15,7 +15,7 @@ class RoleController extends Controller
     public function index()
     {
         return RoleResource::collection(
-            Role::query()->orderBy('code')->get()
+            Role::query()->ordered()->get()
         );
     }
 

@@ -73,6 +73,7 @@ class ApprovalController extends Controller
         $user->loadMissing('roles');
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();
         $isSuperadmin = $user->roles->pluck('code')->contains('superadmin');
+        $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
 
         $query = Transaction::query()
             ->where('is_done', false)
@@ -80,10 +81,39 @@ class ApprovalController extends Controller
             ->latest();
 
         if (!$isSuperadmin) {
-            if (empty($roleIds)) return collect();
-            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
-                $r->whereIn('roles.id', $roleIds);
-            });
+            if ($isOfficeAdmin) {
+                // End-user stations follow the transaction's office.
+                $query->where(function ($w) use ($user) {
+                    $w->where(function ($x) use ($user) {
+                        $x->where('transactions.office_id', $user->office_id)
+                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    })->orWhereHas('state.currentStep', fn ($s) => $s
+                        ->where('workflow_steps.office_id', $user->office_id)
+                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                });
+            } elseif (empty($roleIds)) {
+                return collect();
+            } else {
+                $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                        ->where(function ($x) use ($user) {
+                            $x->where(function ($y) use ($user) {
+                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                if ($user->office_id !== null) {
+                                    $y->where('transactions.office_id', $user->office_id);
+                                }
+                            })->orWhere(function ($y) use ($user) {
+                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                if ($user->office_id !== null) {
+                                    $y->where(function ($z) use ($user) {
+                                        $z->whereNull('workflow_steps.office_id')
+                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                    });
+                                }
+                            });
+                        });
+                });
+            }
         }
 
         return $query->get()
@@ -139,6 +169,7 @@ class ApprovalController extends Controller
         }
 
         $isSuperadmin = $roleCodes->contains('superadmin');
+        $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();
         $perPage = (int) ($filters['per_page'] ?? 25);
         $perPage = max(1, min(100, $perPage));
@@ -173,9 +204,37 @@ class ApprovalController extends Controller
         }
 
         if (!$isSuperadmin) {
-            $query->whereHas('state.currentStep.roles', function ($r) use ($roleIds) {
-                $r->whereIn('roles.id', $roleIds);
-            });
+            if ($isOfficeAdmin) {
+                // End-user stations follow the transaction's office.
+                $query->where(function ($w) use ($user) {
+                    $w->where(function ($x) use ($user) {
+                        $x->where('transactions.office_id', $user->office_id)
+                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    })->orWhereHas('state.currentStep', fn ($s) => $s
+                        ->where('workflow_steps.office_id', $user->office_id)
+                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                });
+            } else {
+                $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                        ->where(function ($x) use ($user) {
+                            $x->where(function ($y) use ($user) {
+                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                if ($user->office_id !== null) {
+                                    $y->where('transactions.office_id', $user->office_id);
+                                }
+                            })->orWhere(function ($y) use ($user) {
+                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                if ($user->office_id !== null) {
+                                    $y->where(function ($z) use ($user) {
+                                        $z->whereNull('workflow_steps.office_id')
+                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                    });
+                                }
+                            });
+                        });
+                });
+            }
         }
 
         $page = $query->paginate($perPage);

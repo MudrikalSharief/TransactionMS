@@ -19,7 +19,7 @@
         class="mr-2"
         style="max-width: 260px"
       />
-      <v-btn variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
+      <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
         Add Transaction Type
       </v-btn>
     </v-card-title>
@@ -67,13 +67,14 @@
             variant="tonal"
             color="primary"
             class="font-weight-bold"
+            :clickable="isSuperadmin"
             @click="goSteps(item)"
           >
             <v-icon start size="small">mdi-format-list-numbered</v-icon>
             {{ stepsOf(item).count }} steps
           </v-chip>
           <v-btn
-            v-else
+            v-else-if="isSuperadmin"
             rounded="0"
             size="small"
             variant="outlined"
@@ -84,6 +85,7 @@
           >
             Add Step
           </v-btn>
+          <span v-else class="text-medium-emphasis">—</span>
         </template>
 
         <template v-slot:[`item.offices`]="{ item }">
@@ -100,7 +102,16 @@
               {{ o.name }}
             </v-chip>
           </div>
-          <span v-else class="text-medium-emphasis">—</span>
+          <v-chip
+            v-else
+            rounded="0"
+            size="small"
+            variant="tonal"
+            color="grey-darken-3"
+            title="Available to every office"
+          >
+            ALL Offices
+          </v-chip>
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
@@ -184,7 +195,7 @@
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div class="d-flex ga-3 justify-end row-actions">
+          <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
             <v-btn
               icon="mdi-pencil"
               v-tooltip="'Edit transaction type'"
@@ -208,31 +219,138 @@
     </v-card-text>
   </v-card>
 
-  <v-dialog v-model="dialog" max-width="700">
+  <v-dialog v-model="dialog" max-width="560" scrollable>
     <v-card rounded="xl" style="overflow: hidden">
-      <v-card-title>{{ form.id ? 'Edit Transaction Type' : 'New Transaction Type' }}</v-card-title>
+      <v-card-title class="ntt-hd">
+        <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="ntt-badge">
+          <v-icon color="primary">mdi-file-document-plus-outline</v-icon>
+        </v-avatar>
+        <div class="ntt-hd-t">
+          <div class="ntt-title">{{ form.id ? 'Edit Transaction Type' : 'New Transaction Type' }}</div>
+          <div class="ntt-sub">
+            {{ form.id
+              ? 'Update the details and which offices can use it.'
+              : 'Define a transaction and choose which offices can use it.' }}
+          </div>
+        </div>
+        <v-btn icon="mdi-close" variant="text" size="small" color="grey-darken-3" class="ntt-x" @click="dialog = false" />
+      </v-card-title>
       <v-divider />
-      <v-card-text>
-        <v-text-field v-model="form.code" label="Code (snake_case)" />
-        <v-text-field v-model="form.name" label="Name" />
-        <v-textarea v-model="form.description" label="Description" rows="3" />
-        <v-select
-          v-model="form.office_ids"
-          :items="officeOptions"
-          item-title="label"
-          item-value="id"
-          label="Office(s)"
-          multiple
-          chips
-          closable-chips
-        />
-        <v-switch v-model="form.is_active" label="Active" />
+      <v-card-text class="ntt-bd">
+        <v-alert v-if="dialogError" type="error" variant="tonal" density="compact" class="mb-4">{{ dialogError }}</v-alert>
+
+        <div class="ntt-f">
+          <label class="ntt-lb" for="ntt-name">Name <span class="ntt-req">*</span></label>
+          <v-text-field
+            id="ntt-name"
+            v-model="form.name"
+            placeholder="e.g. Purchase Request"
+            variant="outlined"
+            density="comfortable"
+            hide-details="auto"
+            persistent-placeholder
+            :error-messages="fieldErrors.name"
+            class="ntt-in"
+            @update:model-value="clearFieldError('name')"
+          />
+        </div>
+
+        <div class="ntt-f">
+          <label class="ntt-lb" for="ntt-code">Code <span class="ntt-req">*</span></label>
+          <v-text-field
+            id="ntt-code"
+            v-model="form.code"
+            placeholder="purchase_request"
+            variant="outlined"
+            density="comfortable"
+            hide-details="auto"
+            persistent-placeholder
+            spellcheck="false"
+            :error-messages="fieldErrors.code"
+            class="ntt-in ntt-mono"
+            @update:model-value="clearFieldError('code')"
+          />
+          <div v-if="!fieldErrors.code" class="ntt-help">Lowercase letters, numbers and underscores only.</div>
+        </div>
+
+        <div class="ntt-f">
+          <label class="ntt-lb" for="ntt-desc">Description</label>
+          <v-textarea
+            id="ntt-desc"
+            v-model="form.description"
+            placeholder="What is this transaction used for?"
+            rows="3"
+            maxlength="200"
+            variant="outlined"
+            density="comfortable"
+            hide-details="auto"
+            persistent-placeholder
+            :error-messages="fieldErrors.description"
+            class="ntt-in"
+            @update:model-value="clearFieldError('description')"
+          />
+          <div v-if="!fieldErrors.description" class="ntt-help">{{ (form.description || '').length }}/200 characters</div>
+        </div>
+
+        <div class="ntt-f">
+          <label class="ntt-lb" for="ntt-offices">Offices</label>
+          <v-select
+            v-if="isSuperadmin"
+            id="ntt-offices"
+            v-model="form.office_ids"
+            :items="officeOptions"
+            item-title="title"
+            item-value="id"
+            :item-props="officeItemProps"
+            placeholder="Select offices"
+            variant="outlined"
+            density="comfortable"
+            hide-details="auto"
+            persistent-placeholder
+            multiple
+            chips
+            closable-chips
+            :error-messages="fieldErrors.office_ids"
+            class="ntt-in ntt-offices"
+          >
+            <template #chip="{ item, props: chipProps }">
+              <v-chip v-bind="chipProps" color="primary" variant="tonal" rounded="lg">{{ item.title }}</v-chip>
+            </template>
+          </v-select>
+          <v-alert v-else type="info" variant="tonal" density="compact" class="mb-0">
+            Available to: <b>{{ auth.user.value?.office?.name || 'your office' }}</b>
+            <div class="text-caption">
+              Office admins manage their own office's types; clearing the list keeps your office assigned.
+            </div>
+          </v-alert>
+          <div v-if="isSuperadmin && !fieldErrors.office_ids" class="ntt-help">
+            ALL Offices means every office may create this type.
+          </div>
+        </div>
+
+        <div class="ntt-sw">
+          <div>
+            <div class="ntt-sw-t">Active</div>
+            <div class="ntt-sw-d">
+              {{ form.is_active ? 'Available for new requests' : 'Hidden from new requests' }}
+            </div>
+          </div>
+          <v-spacer />
+          <v-switch
+            v-model="form.is_active"
+            color="success"
+            density="compact"
+            hide-details
+            inset
+            class="ntt-sw-tg"
+          />
+        </div>
       </v-card-text>
       <v-divider />
-    <v-card-actions class="justify-end">
-      <v-btn variant="text" @click="dialog = false">Cancel</v-btn>
-      <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="save">Save</v-btn>
-    </v-card-actions>
+      <v-card-actions class="ntt-ft">
+        <v-btn variant="outlined" rounded="lg" class="ntt-b" @click="dialog = false">Cancel</v-btn>
+        <v-btn color="primary" rounded="lg" class="ntt-b ntt-b-pri" :loading="saving" @click="save">Save</v-btn>
+      </v-card-actions>
   </v-card>
   </v-dialog>
 
@@ -260,8 +378,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useWorkflows } from '@/composables/useWorkflows'
 import { useOffices } from '@/composables/useOffices'
@@ -269,13 +388,31 @@ import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStat
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const router = useRouter()
+const auth = useAuth()
 const { items, loading, fetchAll, create, update, remove } = useTransactionTypes()
 const { defs, loading: defsLoading, fetchDefinitions, makeLive } = useWorkflows()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 
-const officeOptions = computed(() =>
-  (offices.value || []).map((o) => ({ id: o.id, label: `${o.name} (${o.code})` })),
-)
+const isSuperadmin = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+const canManage = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+
+// "ALL Offices" is the always-present first row. Storing no office rows means
+// every office may use the type (see CreateTransactionRequest + the index
+// filter). The sentinel is UI-only: save() strips it back to an empty list.
+// Rows are two-line (code over full name): the chip shows `title` (the office
+// code, or "ALL Offices"), the dropdown row adds `subtitle` (full name).
+const ALL_OFFICES = '__all__'
+const officeOptions = computed(() => [
+  { id: ALL_OFFICES, title: 'ALL Offices', subtitle: 'Available to every office' },
+  ...(offices.value || []).map((o) => ({
+    id: o.id,
+    title: o.code || o.name,
+    subtitle: o.name,
+  })),
+])
+// Only `subtitle` is injected — Vuetify keeps item-title as the row title.
+const officeItemProps = (item) => ({ subtitle: item.subtitle })
 
 const headers = [
   { title: 'Code', key: 'code' },
@@ -372,6 +509,7 @@ async function confirmMakeLive() {
 const stepsLoading = computed(() => defsLoading.value)
 
 function goSteps(item) {
+  if (!isSuperadmin.value) return
   router.push(`/admin/workflows?type=${item.id}`)
 }
 
@@ -393,22 +531,58 @@ const filtered = computed(() => {
   )
 })
 
-const form = ref({ id: null, code: '', name: '', description: '', office_ids: [], is_active: true })
+const form = ref({ id: null, code: '', name: '', description: '', office_ids: [ALL_OFFICES], is_active: true })
+// 422 field errors render under their inputs; `dialogError` holds anything
+// that isn't field-specific (the page-level alert sits behind the dialog).
+const fieldErrors = ref({})
+const dialogError = ref('')
+
+function clearFieldError(key) {
+  if (!fieldErrors.value[key]) return
+  const next = { ...fieldErrors.value }
+  delete next[key]
+  fieldErrors.value = next
+}
+
+// ALL Offices and specific offices are mutually exclusive, and ALL is the
+// fallback so the field is never blank: picking ALL wins over a selection,
+// picking a real office while ALL is on drops ALL, and clearing the last
+// chip snaps back to ALL.
+watch(() => form.value.office_ids, (val, old) => {
+  const list = Array.isArray(val) ? val : []
+  if (list.length === 0) {
+    form.value.office_ids = [ALL_OFFICES]
+    return
+  }
+  if (!list.includes(ALL_OFFICES) || list.length <= 1) return
+  const hadAll = (old || []).includes(ALL_OFFICES)
+  form.value.office_ids = hadAll ? list.filter((v) => v !== ALL_OFFICES) : [ALL_OFFICES]
+})
+
+// Stored office ids, or the ALL sentinel when the type has none.
+function officeIdsOf(item) {
+  const ids = (item.office_ids ?? (item.offices || []).map((o) => o.id) ?? []).slice()
+  return ids.length ? ids : [ALL_OFFICES]
+}
 
 function openCreate() {
   error.value = ''
-  form.value = { id: null, code: '', name: '', description: '', office_ids: [], is_active: true }
+  fieldErrors.value = {}
+  dialogError.value = ''
+  form.value = { id: null, code: '', name: '', description: '', office_ids: [ALL_OFFICES], is_active: true }
   dialog.value = true
 }
 
 function openEdit(item) {
   error.value = ''
+  fieldErrors.value = {}
+  dialogError.value = ''
   form.value = {
     id: item.id,
     code: item.code,
     name: item.name,
     description: item.description ?? '',
-    office_ids: (item.office_ids ?? (item.offices || []).map((o) => o.id) ?? []).slice(),
+    office_ids: officeIdsOf(item),
     is_active: !!item.is_active,
   }
   dialog.value = true
@@ -417,13 +591,20 @@ function openEdit(item) {
 async function save() {
   saving.value = true
   error.value = ''
+  fieldErrors.value = {}
+  dialogError.value = ''
   try {
     const payload = {
       code: form.value.code,
       name: form.value.name,
       description: form.value.description,
-      office_ids: form.value.office_ids || [],
       is_active: form.value.is_active,
+    }
+    // Superadmin picks the offices; office admins keep their office's
+    // existing assignments (backend enforces their office stays included).
+    // ALL Offices is stored as "no office rows" — the sentinel is UI-only.
+    if (isSuperadmin.value) {
+      payload.office_ids = (form.value.office_ids || []).filter((v) => v !== ALL_OFFICES)
     }
 
     if (form.value.id) await update(form.value.id, payload)
@@ -432,7 +613,17 @@ async function save() {
     dialog.value = false
     await fetchAll()
   } catch (e) {
-    error.value = e?.response?.data?.message || 'Save failed.'
+    // Server-side validation lands under the offending field; anything else
+    // (network, 403, 500) shows at the top of the dialog body.
+    const errs = e?.response?.data?.errors
+    if (errs && typeof errs === 'object') {
+      const first = (v) => (Array.isArray(v) ? v[0] : String(v ?? ''))
+      fieldErrors.value = Object.fromEntries(
+        Object.entries(errs).map(([key, value]) => [key, first(value)]),
+      )
+    } else {
+      dialogError.value = e?.response?.data?.message || 'Save failed.'
+    }
   } finally {
     saving.value = false
   }
@@ -589,5 +780,143 @@ html.nav-open .row-actions {
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
 .lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
   color: #ffffff !important;
+}
+</style>
+
+<style scoped>
+/* ---- New / Edit Transaction Type modal (design mockup port) ---- */
+/* Header: tinted badge + title + subtitle + close. */
+.ntt-hd {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 24px 16px;
+}
+.ntt-badge {
+  flex: none;
+}
+.ntt-hd-t {
+  min-width: 0;
+}
+.ntt-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.ntt-sub {
+  margin-top: 3px;
+  font-size: 14px;
+  color: rgb(var(--v-theme-secondary));
+}
+.ntt-x {
+  margin-left: auto;
+  flex: none;
+}
+
+/* Body: label / field / help rhythm, scrolling inside the dialog. */
+.ntt-bd {
+  padding: 18px 24px 8px;
+}
+.ntt-f {
+  margin-bottom: 18px;
+}
+.ntt-lb {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ntt-req {
+  color: rgb(var(--v-theme-error));
+}
+.ntt-help {
+  margin: 6px 2px 0;
+  font-size: 12.5px;
+  color: rgb(var(--v-theme-secondary));
+}
+
+/* Fields: 48px tall, radius 12, tinted fill, soft focus ring. */
+.ntt-in :deep(.v-field) {
+  min-height: 48px;
+  border-radius: 12px;
+  background: #f4f6fb;
+}
+.ntt-in :deep(.v-field__outline) {
+  --v-field-border-width: 1.5px;
+}
+.ntt-in :deep(.v-field--focused) {
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.18);
+}
+.ntt-mono :deep(input) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14.5px;
+}
+
+/* Offices: two-line option rows (code over full name). */
+.ntt-offices :deep(.v-list-item-title) {
+  font-weight: 700;
+}
+.ntt-offices :deep(.v-list-item-subtitle) {
+  font-size: 12.5px;
+  white-space: normal;
+}
+
+/* Active: bordered row, subtitle tracks the switch. */
+.ntt-sw {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 14px;
+}
+.ntt-sw-t {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.ntt-sw-d {
+  font-size: 12.5px;
+  color: rgb(var(--v-theme-secondary));
+}
+.ntt-sw-tg {
+  flex: none;
+}
+
+/* Footer: ghost Cancel + primary Save, stacked on phones. */
+.ntt-ft {
+  gap: 10px;
+  padding: 16px 24px 20px;
+}
+.ntt-b {
+  height: 46px;
+  padding: 0 22px;
+  font-weight: 700;
+  text-transform: none;
+}
+.ntt-b-pri {
+  min-width: 120px;
+}
+@media (max-width: 520px) {
+  .ntt-ft {
+    flex-direction: column-reverse;
+  }
+  .ntt-b {
+    width: 100%;
+  }
+}
+
+/* Dark theme (html.dark is toggled by AppShell for pixivDark). */
+html.dark .ntt-in :deep(.v-field) {
+  background: #232b45;
+}
+html.dark .ntt-in :deep(.v-field--focused) {
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.22);
+}
+html.dark .ntt-sw {
+  border-color: rgba(255, 255, 255, 0.16);
 }
 </style>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +36,34 @@ class AuthController extends Controller
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
                 'email' => $request->user()->email,
+            ],
+        ]);
+    }
+
+    /**
+     * "Log in as Guest": passwordless sign-in to the configured guest
+     * account, which must be a viewer-only (read-only) account.
+     */
+    public function guest(Request $request): JsonResponse
+    {
+        $guest = User::where('email', config('auth.guest_email'))->first();
+
+        if (!$guest || !$guest->is_active || !$guest->isViewerOnly()) {
+            return response()->json([
+                'message' => 'Guest access is not available right now.',
+            ], 503);
+        }
+
+        Auth::guard('web')->login($guest);
+
+        $request->session()->regenerate();
+
+        return response()->json([
+            'message' => 'Logged in as guest.',
+            'user' => [
+                'id' => $guest->id,
+                'name' => $guest->name,
+                'email' => $guest->email,
             ],
         ]);
     }

@@ -2,10 +2,21 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Transaction;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TransactionStepRunResource extends JsonResource
 {
+    /** Parent transaction when the run is serialized inside one. */
+    public ?Transaction $transaction = null;
+
+    public function forTransaction(Transaction $transaction): static
+    {
+        $this->transaction = $transaction;
+
+        return $this;
+    }
+
     public function toArray($request): array
     {
         $estimated = (int) ($this->sla_minutes_snapshot ?? $this->toStep?->sla_minutes ?? 0);
@@ -20,6 +31,7 @@ class TransactionStepRunResource extends JsonResource
             'to_step' => $this->stepPayload($this->toStep),
             'action_code' => $this->action_code,
             'remarks' => $this->remarks,
+            'flagged_items' => $this->flagged_items ?? [],
             // #3 From user / #1 From (releasing) timestamp
             'performed_by' => $this->userPayload($this->performer),
             'performed_at' => $this->performed_at?->toISOString(),
@@ -27,7 +39,7 @@ class TransactionStepRunResource extends JsonResource
             // #4 To user / #2 To (receiving) timestamp
             'received_by' => $this->receiver ? $this->userPayload($this->receiver) : null,
             'received_at' => $this->received_at?->toISOString(),
-            'received_office' => $this->whenLoaded('receivedOffice', fn () => $this->receivedOffice?->only(['id','code','name'])),
+            'received_office' => $this->receivedOfficePayload(),
             // #5 Estimated duration (snapshot of destination sla_minutes)
             'duration_estimated_minutes' => $estimated,
             'sla_minutes_snapshot' => $estimated,
@@ -59,6 +71,20 @@ class TransactionStepRunResource extends JsonResource
     }
 
     /**
+     * Receipt office: end-user and office-less stations follow the
+     * transaction's office.
+     */
+    private function receivedOfficePayload(): ?array
+    {
+        if ($this->transaction && $this->toStep
+            && ($this->transaction->stepIsEndUser($this->toStep) || $this->toStep->office_id === null)) {
+            return $this->transaction->office?->only(['id', 'code', 'name']);
+        }
+
+        return $this->receivedOffice?->only(['id', 'code', 'name']);
+    }
+
+    /**
      * History display payload: (Step N) Office, Roles.
      * Keeps code/name for tooltips but the frontend renders number + office + roles only.
      */
@@ -67,7 +93,9 @@ class TransactionStepRunResource extends JsonResource
         if (!$step) return null;
 
         $office = null;
-        if ($step->relationLoaded('office') || $step->office_id) {
+        if ($this->transaction) {
+            $office = $this->transaction->displayStepOffice($step)?->only(['id', 'code', 'name']);
+        } elseif ($step->relationLoaded('office') || $step->office_id) {
             $o = $step->office;
             $office = $o ? ['id' => $o->id, 'code' => $o->code, 'name' => $o->name] : null;
         }
