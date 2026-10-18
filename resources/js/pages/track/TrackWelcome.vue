@@ -11,7 +11,7 @@
                 <img
                     class="pic"
                     :src="PIC"
-                    alt=""
+                    alt="Mabuhay! Welcome to the portal. We are delighted to have you here."
                     draggable="false"
                     decoding="async"
                     fetchpriority="high"
@@ -33,13 +33,8 @@
                 <span class="star s2" aria-hidden="true"></span>
                 <span class="star s3" aria-hidden="true"></span>
 
-                <!-- The greeting rises into place and gets a passing shine -->
-                <img
-                    class="greeting"
-                    :src="PIC"
-                    alt="Mabuhay! Welcome to the portal. We are delighted to have you here."
-                    draggable="false"
-                />
+                <!-- Warm glow and a passing shine on the greeting (the text
+                     itself is part of the picture and never moves on its own) -->
                 <div class="greet-glow" aria-hidden="true"></div>
                 <div class="greet-shine" aria-hidden="true"></div>
 
@@ -219,8 +214,7 @@ onUnmounted(() => {
         drift 14s ease-in-out 1.4s forwards;
 }
 
-.pic,
-.greeting {
+.pic {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -314,18 +308,14 @@ onUnmounted(() => {
 }
 
 /* ---- Greeting (center of the picture) ---- */
-.greeting {
-    -webkit-mask-image: radial-gradient(ellipse 30% 24% at 50% 50%, #000 72%, transparent 100%);
-    mask-image: radial-gradient(ellipse 30% 24% at 50% 50%, #000 72%, transparent 100%);
-    animation: rise-in 1s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s both;
-}
+/* Placed with left/top/size only (no transform), so the breathing scale
+   below grows it in place instead of shifting it. */
 .greet-glow {
     position: absolute;
-    left: 50%;
-    top: 50%;
+    left: 20%;
+    top: 25%;
     width: 60%;
     height: 50%;
-    transform: translate(-50%, -50%);
     background: radial-gradient(ellipse, rgba(255, 196, 120, 0.3) 0%, transparent 62%);
     mix-blend-mode: screen;
     pointer-events: none;
@@ -577,16 +567,6 @@ onUnmounted(() => {
         opacity: 0;
     }
 }
-@keyframes rise-in {
-    from {
-        opacity: 0;
-        transform: translateY(1.5%) scale(1.03);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
-}
 @keyframes shine {
     0% {
         background-position: 160% 0;
@@ -655,7 +635,6 @@ onUnmounted(() => {
     .sun-rays,
     .sun-glow,
     .star,
-    .greeting,
     .greet-glow,
     .greet-shine,
     .mote,

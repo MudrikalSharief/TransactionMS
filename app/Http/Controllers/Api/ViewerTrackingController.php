@@ -9,9 +9,12 @@ use App\Services\RoutingEngine;
 use Illuminate\Http\Request;
 
 /**
- * Read-only tracking for viewer accounts: only transactions the viewer
- * created, progress and movement only. Deliberately returns no
- * attachments, field values, remarks or staff names.
+ * Read-only tracking for viewer accounts, progress and movement only.
+ * Deliberately returns no attachments, field values, remarks or staff names.
+ *
+ * What a viewer can see: any transaction matching a keyword they type
+ * (reference number, title, transaction type or office), tracking only.
+ * Who created it is never shown unless it is the viewer's own.
  */
 class ViewerTrackingController extends Controller
 {
@@ -24,9 +27,11 @@ class ViewerTrackingController extends Controller
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
         $q = trim($data['q'] ?? '');
+        $userId = $request->user()->id;
 
         $query = Transaction::query()
-            ->where('transactions.created_by', $request->user()->id)
+            // No keyword: only the viewer's own. A keyword searches everything.
+            ->when($q === '', fn ($w) => $w->where('transactions.created_by', $userId))
             ->with([
                 'type:id,code,name',
                 'office:id,code,name',
@@ -37,19 +42,36 @@ class ViewerTrackingController extends Controller
             ->latest();
 
         if ($q !== '') {
-            $query->where(function ($w) use ($q) {
-                $w->where('reference_number', 'like', "%{$q}%")
-                    ->orWhere('title', 'like', "%{$q}%");
+            // Treat % and _ as plain characters, not wildcards.
+            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $query->where(function ($w) use ($like) {
+                $w->where('transactions.reference_number', 'like', $like)
+                    ->orWhere('transactions.title', 'like', $like)
+                    ->orWhereHas('type', fn ($t) => $t->where('name', 'like', $like))
+                    ->orWhereHas('office', fn ($o) => $o->where('name', 'like', $like)->orWhere('code', 'like', $like));
             });
         }
 
-        return TransactionListResource::collection($query->paginate($perPage));
+        $payload = TransactionListResource::collection($query->paginate($perPage))
+            ->response()
+            ->getData(true);
+
+        // Never reveal who created someone else's transaction.
+        $payload['data'] = array_map(
+            fn ($row) => (int) ($row['created_by']['id'] ?? 0) === (int) $userId
+                ? $row
+                : array_merge($row, ['created_by' => null]),
+            $payload['data'] ?? []
+        );
+
+        return response()->json($payload);
     }
 
     public function show(Request $request, Transaction $transaction, RoutingEngine $routing)
     {
-        // 404 (not 403) so other people's transactions are not discoverable.
-        abort_unless((int) $transaction->created_by === (int) $request->user()->id, 404);
+        // Any transaction can be tracked (it is reachable by keyword anyway);
+        // the payload below carries tracking only.
+        $isOwner = (int) $transaction->created_by === (int) $request->user()->id;
 
         $transaction->load([
             'type:id,code,name',
@@ -87,6 +109,7 @@ class ViewerTrackingController extends Controller
 
         return response()->json([
             'data' => array_merge($summary, [
+                'created_by' => $isOwner ? ($summary['created_by'] ?? null) : null,
                 'status' => $transaction->is_done ? 'completed' : 'in_process',
                 'updated_at' => $transaction->updated_at?->toISOString(),
                 'history' => $history,

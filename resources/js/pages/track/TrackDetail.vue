@@ -1,5 +1,6 @@
 <template>
-    <div>
+    <TrackBackdrop quiet />
+    <div class="track-detail">
         <v-btn variant="text" color="grey-darken-3" prepend-icon="mdi-arrow-left" class="mb-3" @click="router.push('/track')">
             Back to my transactions
         </v-btn>
@@ -93,6 +94,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import StepProgress from "@/components/StepProgress.vue";
+import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -105,13 +107,14 @@ const error = ref("");
 async function load({ silent = false } = {}) {
     if (!silent) loading.value = true;
     try {
-        const res = await api.get(`/api/viewer/transactions/${route.params.id}`);
+        const ref = route.query.ref ? { ref: String(route.query.ref) } : {};
+        const res = await api.get(`/api/viewer/transactions/${route.params.id}`, { params: ref });
         tx.value = res.data?.data ?? null;
         error.value = "";
     } catch (e) {
         error.value =
             e?.response?.status === 404
-                ? "This transaction was not found, or it is not one of yours."
+                ? "This transaction was not found. Search for it again with its full reference number."
                 : e?.response?.data?.message || "Failed to load the transaction.";
         if (!silent) tx.value = null;
     } finally {
@@ -167,6 +170,10 @@ useSmartPoll(() => load({ silent: true }));
 </script>
 
 <style scoped>
+.track-detail {
+    position: relative;
+    z-index: 1;
+}
 .track-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
