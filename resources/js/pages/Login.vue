@@ -86,6 +86,21 @@
                     </button>
                 </form>
 
+                <div class="or" aria-hidden="true"><span>or</span></div>
+
+                <button
+                    class="btn btn-guest"
+                    :class="{ loading: guestLoading }"
+                    type="button"
+                    :disabled="loading || guestLoading"
+                    @click="guestLogin"
+                >
+                    <span v-if="guestLoading" class="spin spin-dark" aria-hidden="true"></span>
+                    <v-icon v-else aria-hidden="true">mdi-account-eye-outline</v-icon>
+                    <span>{{ guestLoading ? "Opening guest view…" : "Log in as Guest" }}</span>
+                </button>
+                <p class="guest-note">Guests get read-only tracking. No sign-in needed.</p>
+
                 <p class="help">
                     Need an account? Contact your department's system administrator.
                 </p>
@@ -148,7 +163,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 
 const router = useRouter();
 const auth = useAuth();
@@ -159,6 +174,7 @@ const showPassword = ref(false);
 const remember = ref(false);
 
 const loading = ref(false);
+const guestLoading = ref(false);
 const error = ref("");
 const errorKey = ref(0);
 
@@ -172,6 +188,13 @@ function syncHeroVideo(e) {
 }
 
 onMounted(() => {
+    // Warm the viewer welcome picture so "Log in as Guest" opens instantly.
+    try {
+        new Image().src = "/viewer-welcome.jpg";
+    } catch {
+        /* not critical */
+    }
+
     heroMq = window.matchMedia("(min-width: 861px)");
     showHeroVideo.value = heroMq.matches;
     heroMq.addEventListener("change", syncHeroVideo);
@@ -182,7 +205,7 @@ onUnmounted(() => {
 });
 
 const canSubmit = computed(
-    () => !loading.value && email.value.trim().length > 0 && password.value.length > 0,
+    () => !loading.value && !guestLoading.value && email.value.trim().length > 0 && password.value.length > 0,
 );
 
 async function submit() {
@@ -209,6 +232,26 @@ async function submit() {
         errorKey.value += 1;
     } finally {
         loading.value = false;
+    }
+}
+
+// Guest = the read-only viewer account: signs in without a password and
+// goes straight to the viewer (tracking) page.
+async function guestLogin() {
+    if (loading.value || guestLoading.value) return;
+    guestLoading.value = true;
+    error.value = "";
+
+    try {
+        const u = await auth.loginAsGuest();
+        // Guests are viewers: open with the welcome animation.
+        await router.push(userKind(u) === "viewer" ? "/track/welcome" : homePathFor(u));
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message || "Guest access is not available right now.";
+        errorKey.value += 1;
+    } finally {
+        guestLoading.value = false;
     }
 }
 </script>
@@ -455,6 +498,46 @@ async function submit() {
 .btn:focus-visible {
     outline: 3px solid rgba(30, 64, 175, 0.28);
     outline-offset: 2px;
+}
+
+.or {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 16px;
+    color: #7b869e;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.or::before,
+.or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #d5dbe8;
+}
+.btn-guest {
+    background: #ffffff;
+    color: #1E40AF;
+    border: 1.5px solid #1E40AF;
+}
+.btn-guest:hover:not(:disabled) {
+    background: #eef2ff;
+}
+.btn-guest .v-icon {
+    font-size: 22px;
+}
+.guest-note {
+    margin: 10px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: #5b6780;
+}
+.spin-dark {
+    border-color: rgba(30, 64, 175, 0.25);
+    border-top-color: #1E40AF;
 }
 
 .spin {

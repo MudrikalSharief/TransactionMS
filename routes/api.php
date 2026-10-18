@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\ViewerTrackingController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
+    Route::post('/guest', [AuthController::class, 'guest'])->middleware(['guest', 'throttle:20,1']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 });

@@ -355,7 +355,7 @@ const collapseOnLeave = () => {
 };
 
 const showAuthUi = computed(() => {
-    return !!auth.user.value && route.name !== "login";
+    return !!auth.user.value && route.name !== "login" && !route.meta?.bare;
 });
 
 const isSuperadmin = computed(() => {

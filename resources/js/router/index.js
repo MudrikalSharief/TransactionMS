@@ -35,6 +35,7 @@ const Help = () => import("@/pages/Help.vue");
 // tracking pages.
 const PortalHome = () => import("@/pages/portal/PortalHome.vue");
 const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
+const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
 const TrackList = () => import("@/pages/track/TrackList.vue");
 const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
 
@@ -66,6 +67,13 @@ export function createRouter() {
                 name: "portal.transactions",
                 component: PortalTransactions,
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
+            },
+            {
+                // Short opening animation for viewers; `bare` hides the app chrome.
+                path: "/track/welcome",
+                name: "track.welcome",
+                component: TrackWelcome,
+                meta: { requiresAuth: true, title: "Welcome", kind: "viewer", bare: true },
             },
             {
                 path: "/track",
@@ -202,7 +210,10 @@ export function createRouter() {
         if (auth.user.value) {
             const kind = userKind(auth.user.value);
             if (kind === "viewer") {
-                // Read-only: tracking pages and Help only.
+                // Right after sign-in (login pushes "dashboard") they get the
+                // welcome animation. Otherwise read-only: tracking pages and
+                // Help only.
+                if (to.name === "dashboard") return "/track/welcome";
                 if (to.meta.kind !== "viewer" && to.name !== "help") return "/track";
             } else if (to.meta.kind && to.meta.kind !== kind) {
                 return homePathFor(auth.user.value);

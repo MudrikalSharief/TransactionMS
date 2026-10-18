@@ -101,6 +101,17 @@ export function useAuth() {
         return user.value;
     }
 
+    // Passwordless sign-in to the read-only guest (viewer) account.
+    async function loginAsGuest() {
+        invalidateCache(CacheKeys.authUser);
+        await csrf();
+        await api.post("/api/auth/guest");
+
+        await init();
+
+        return user.value;
+    }
+
     async function logout() {
         try {
             await api.post("/api/auth/logout");
@@ -119,5 +130,5 @@ export function useAuth() {
         }
     }
 
-    return { user, initialized, init, login, logout };
+    return { user, initialized, init, login, loginAsGuest, logout };
 }
