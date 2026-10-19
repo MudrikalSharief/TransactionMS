@@ -50,7 +50,7 @@ html.dark .help-title-orange { color: #FFAB91; }
    hide/lock utilities (login, dashboard, users tab) are untouched. */
 * {
     scrollbar-width: thin;
-    scrollbar-color: #1e3a8a transparent;
+    scrollbar-color: #0e1f52 transparent;
 }
 
 *::-webkit-scrollbar {
@@ -63,14 +63,14 @@ html.dark .help-title-orange { color: #FFAB91; }
 }
 
 *::-webkit-scrollbar-thumb {
-    background-color: #1e3a8a;
+    background-color: #0e1f52;
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background-color: #1e40af;
+    background-color: #16307c;
     border: 2px solid transparent;
     background-clip: padding-box;
 }
@@ -123,7 +123,7 @@ html.dark *::-webkit-scrollbar-thumb:hover {
     border-radius: 24px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #1E40AF transparent;
+    scrollbar-color: #16307C transparent;
     font-family: 'Roboto', sans-serif;
 }
 
@@ -136,7 +136,7 @@ html.dark *::-webkit-scrollbar-thumb:hover {
 }
 
 .search-menu .v-list::-webkit-scrollbar-thumb {
-    background-color: #1E40AF;
+    background-color: #16307C;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -437,7 +437,7 @@ html.nav-open .row-actions {
 .lgu-table :deep(.v-table__wrapper),
 .lgu-table .v-table__wrapper {
     scrollbar-width: thin;
-    scrollbar-color: #1E40AF transparent;
+    scrollbar-color: #16307C transparent;
     transition: none;
 }
 
@@ -458,7 +458,7 @@ html.nav-open .row-actions {
 
 .lgu-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb),
 .lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
-    background-color: #1E40AF;
+    background-color: #16307C;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -550,7 +550,7 @@ html.dark .v-btn--variant-outlined.text-grey-darken-3 {
 
 /* Icon backlights (header avatars) turn blue in dark mode */
 html.dark .v-avatar.bg-grey-darken-3 {
-    background-color: #1E40AF !important;
+    background-color: #16307C !important;
 }
 
 /* Scrollbar tracks */

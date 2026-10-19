@@ -2,14 +2,13 @@
     <v-app>
         <v-app-bar
             v-if="showAuthUi"
-            color="white"
             elevation="0"
-            style="border-bottom: 2px solid #1E40AF"
+            class="app-bar"
         >
             <v-app-bar-nav-icon
                 icon="mdi-menu"
                 v-tooltip="'Menu'"
-                color="primary"
+                color="white"
                 @click="toggleNav"
             />
             <div
@@ -31,13 +30,13 @@
                     style="white-space: nowrap; line-height: 1"
                 >
                     <div
-                        class="font-weight-bold text-primary"
+                        class="font-weight-bold brand-title"
                         style="font-size: 1.1rem; line-height: 1"
                     >
                         TransactionMF
                     </div>
                     <div
-                        class="font-weight-bold text-medium-emphasis"
+                        class="font-weight-bold brand-sub"
                         style="font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; margin-top: 3px"
                     >
                         Management Framework
@@ -85,38 +84,36 @@
             <div class="d-flex align-center" style="flex: 0 0 auto">
                 <v-chip
                     variant="flat"
-                    class="mr-2 font-weight-medium"
-                    style="background: #f1f5f9; color: #334155"
+                    class="mr-2 font-weight-medium nav-chip"
                     v-tooltip="'Zamboanga local time'"
                 >
-                    <v-icon start color="primary">mdi-clock-outline</v-icon>
+                    <v-icon start color="#c7d7ff">mdi-clock-outline</v-icon>
                     {{ clock }}
                 </v-chip>
 
                 <v-chip
                     variant="flat"
-                    class="mr-2 font-weight-medium"
-                    style="background: #f1f5f9; color: #334155"
+                    class="mr-2 font-weight-medium nav-chip"
                     v-tooltip="'Weather in Zamboanga City: ' + weatherLabel"
                 >
-                    <v-icon start color="primary">{{ weatherIcon }}</v-icon>
+                    <v-icon start color="#c7d7ff">{{ weatherIcon }}</v-icon>
                     {{ temperature }} · Zamboanga
                 </v-chip>
 
                 <v-chip
                     v-if="auth.user.value"
                     variant="flat"
-                    class="mr-2 font-weight-medium d-none d-md-flex"
-                    style="background: #f1f5f9; color: #334155"
+                    class="mr-2 font-weight-medium nav-chip d-none d-md-flex"
                     v-tooltip="userTooltip"
                 >
-                    <v-icon color="primary">mdi-account-circle</v-icon>
+                    <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
                 </v-chip>
 
                 <v-btn
                     icon="mdi-logout"
                     v-tooltip="'Log out'"
-                    color="primary"
+                    color="white"
+                    class="nav-logout"
                     @click="confirmLogout = true"
                 />
             </div>
@@ -126,7 +123,7 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
-            style="border-right: 2px solid #1E40AF"
+            style="border-right: 2px solid #16307C"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
@@ -263,7 +260,7 @@
             <v-card rounded="0">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#1E40AF">mdi-logout</v-icon>
+                        <v-icon color="#16307C">mdi-logout</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold">LOG OUT?</span>
                     <v-spacer />
@@ -732,6 +729,35 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Top bar: deep institutional navy (matches the sidebar active fill and
+   dashboard foot bar) so the clock/weather/user/logout controls stop
+   blending into a white header. Thin gold rule nods to the city seal. */
+.app-bar {
+    background: linear-gradient(90deg, #0e1f52 0%, #16307c 100%) !important;
+    border-bottom: 2px solid #d9ab3c;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+}
+.brand-title {
+    color: #ffffff;
+}
+.brand-sub {
+    color: rgba(255, 255, 255, 0.62);
+}
+.nav-chip {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #e8eefc !important;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    transition: background-color 0.15s ease;
+}
+.nav-chip:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+.nav-logout {
+    color: #e8eefc !important;
+}
+.nav-logout:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
 .brand-click {
     cursor: pointer;
     user-select: none;
@@ -757,7 +783,7 @@ onUnmounted(() => {
 }
 /* Active nav item: solid dark fill instead of the faint primary tint. */
 :deep(.v-navigation-drawer .v-list-item--active) {
-    background-color: #1E3A8A !important;
+    background-color: #0E1F52 !important;
     color: #ffffff !important;
 }
 :deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
@@ -799,10 +825,10 @@ onUnmounted(() => {
     padding-bottom: 4px;
 }
 .search-pixiv :deep(.v-field--focused) {
-    box-shadow: 0 0 0 2px #1E40AF;
+    box-shadow: 0 0 0 2px #16307C;
 }
 .search-pixiv :deep(.v-field__prepend-inner .v-icon) {
-    color: #1E40AF;
+    color: #16307C;
     opacity: 1;
 }
 .search-pixiv :deep(input),
@@ -824,7 +850,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1E3A8A;
+    background: #0E1F52;
     padding: 16px 24px;
     margin-top: 24px;
 }

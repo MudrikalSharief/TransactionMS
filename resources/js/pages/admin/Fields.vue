@@ -3,7 +3,7 @@
   <v-card rounded="0" elevation="1" class="lgu-card">
     <v-card-title class="d-flex align-center pa-5 lgu-head">
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-        <v-icon color="#1E40AF">mdi-form-textbox</v-icon>
+        <v-icon color="#16307C">mdi-form-textbox</v-icon>
       </v-avatar>
       <span class="text-h6 font-weight-bold">Field Definitions</span>
       <v-spacer />
@@ -463,19 +463,19 @@ html.nav-open .row-actions {
 /* Boxed table header: dark-blue fill, white text, outer border only —
    no dividers between header cells (matches Transactions tab). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #1E3A8A !important;
+  background-color: #0E1F52 !important;
   color: #ffffff !important;
-  border-top: 2px solid #1E3A8A !important;
-  border-bottom: 3px solid #1E3A8A !important;
+  border-top: 2px solid #0E1F52 !important;
+  border-bottom: 3px solid #0E1F52 !important;
   border-left: none !important;
   border-right: none !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #1E3A8A !important;
+  border-left: 2px solid #0E1F52 !important;
   padding-left: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #1E3A8A !important;
+  border-right: 2px solid #0E1F52 !important;
   padding-right: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),

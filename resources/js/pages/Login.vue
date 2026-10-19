@@ -243,8 +243,8 @@ async function submit() {
     content: "";
     position: absolute;
     inset: 0;
-    border: 3px solid rgba(30, 64, 175, 0.25);
-    border-top-color: #1E40AF;
+    border: 3px solid rgba(22, 48, 124, 0.25);
+    border-top-color: #16307C;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
 }
@@ -274,7 +274,7 @@ async function submit() {
     font-size: 26px;
     line-height: 1.1;
     font-weight: 800;
-    color: #1E40AF;
+    color: #16307C;
     letter-spacing: -0.01em;
 }
 .brand p {
@@ -363,9 +363,9 @@ async function submit() {
 }
 .control input:focus {
     outline: none;
-    border-color: #1E40AF;
+    border-color: #16307C;
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.22);
+    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.22);
 }
 .control input:disabled {
     opacity: 0.72;
@@ -409,7 +409,7 @@ async function submit() {
     background: #e6ebf5;
 }
 .toggle:focus-visible {
-    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline: 3px solid rgba(22, 48, 124, 0.28);
 }
 .toggle .v-icon {
     font-size: 20px;
@@ -436,7 +436,7 @@ async function submit() {
     height: 18px;
     padding: 0;
     margin: 0;
-    accent-color: #1E40AF;
+    accent-color: #16307C;
     cursor: inherit;
 }
 .check input:disabled {
@@ -449,7 +449,7 @@ async function submit() {
     height: 54px;
     border: 0;
     border-radius: 12px;
-    background: #1E40AF;
+    background: #16307C;
     color: #ffffff;
     font: inherit;
     font-size: 16px;
@@ -477,7 +477,7 @@ async function submit() {
     cursor: progress;
 }
 .btn:focus-visible {
-    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline: 3px solid rgba(22, 48, 124, 0.28);
     outline-offset: 2px;
 }
 
@@ -497,7 +497,7 @@ async function submit() {
 
 footer {
     font-size: 12.5px;
-    color: #1E40AF;
+    color: #16307C;
     display: flex;
     justify-content: center;
     gap: 12px;
@@ -558,7 +558,7 @@ footer {
     align-items: center;
     gap: 10px;
     background: rgba(255, 255, 255, 0.94);
-    color: #1E40AF;
+    color: #16307C;
     border-radius: 14px;
     padding: 12px 14px;
     font-weight: 700;
@@ -569,7 +569,7 @@ footer {
 }
 .mod .v-icon {
     font-size: 22px;
-    color: #1E40AF;
+    color: #16307C;
     flex: none;
 }
 

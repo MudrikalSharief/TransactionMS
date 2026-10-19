@@ -1009,7 +1009,7 @@ defineExpose({ clearReqFiles, getReqFiles, removeReqFile })
 .wizard-stepper.is-step-1 :deep(.req-step .v-stepper-item__avatar) {
     background-color: #BFDBFE !important;
     border-color: #BFDBFE !important;
-    color: #1E40AF !important;
+    color: #16307C !important;
 }
 .wizard-stepper.is-step-2 :deep(.review-step .v-avatar),
 .wizard-stepper.is-step-2 :deep(.review-step .v-stepper-item__avatar) {

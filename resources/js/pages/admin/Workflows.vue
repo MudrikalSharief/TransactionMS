@@ -4,7 +4,7 @@
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                    <v-icon color="#1E40AF">mdi-source-branch</v-icon>
+                    <v-icon color="#16307C">mdi-source-branch</v-icon>
                 </v-avatar>
                 <div>
                     <span class="text-h6 font-weight-bold">TRANSACTION TYPE STEPS AND ROUTES</span>
@@ -30,7 +30,7 @@
                         <v-card rounded="0">
                             <v-card-title class="d-flex align-center pa-5 lgu-head">
                                 <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                    <v-icon color="#1E40AF">mdi-source-branch</v-icon>
+                                    <v-icon color="#16307C">mdi-source-branch</v-icon>
                                 </v-avatar>
                                 <div>
                                     <div class="text-h6 font-weight-bold lh-1">Workflow versions</div>
@@ -835,7 +835,7 @@
             <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#1E40AF">mdi-swap-horizontal</v-icon>
+                        <v-icon color="#16307C">mdi-swap-horizontal</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold">SWITCH LIVE VERSION?</span>
                     <v-spacer />
@@ -868,9 +868,9 @@
         </v-dialog>
 
         <!-- End-of-workflow footer: same deep-blue bar as the dashboard foot. -->
-        <v-sheet v-if="selectedTypeId" color="#1E3A8A" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
+        <v-sheet v-if="selectedTypeId" color="#0E1F52" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
             <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
-                <v-icon color="#1E40AF" size="32">mdi-flag-checkered</v-icon>
+                <v-icon color="#16307C" size="32">mdi-flag-checkered</v-icon>
             </v-avatar>
             <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
             <div class="text-left">
@@ -2125,7 +2125,7 @@ html.dark .skel-fill td {
 }
 .stp-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.18);
+    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
 }
 .stp-in-num :deep(input) {
     text-align: center;

@@ -44,11 +44,11 @@ export function createVuetifyInstance() {
         pixivLight: {
           dark: false,
           colors: {
-            primary: '#1E40AF',
+            primary: '#16307C',
             secondary: '#5B6770',
             accent: '#93C5FD',
             error: '#FF5252',
-            info: '#1E40AF',
+            info: '#16307C',
             success: '#4CAF50',
             warning: '#FFB300',
             background: '#F2F5F9',
