@@ -86,8 +86,6 @@
                     </button>
                 </form>
 
-                <div class="or" aria-hidden="true"><span>or</span></div>
-
                 <button
                     class="btn btn-guest"
                     :class="{ loading: guestLoading }"
@@ -96,10 +94,10 @@
                     @click="guestLogin"
                 >
                     <span v-if="guestLoading" class="spin spin-dark" aria-hidden="true"></span>
-                    <v-icon v-else aria-hidden="true">mdi-account-eye-outline</v-icon>
-                    <span>{{ guestLoading ? "Opening guest view…" : "Log in as Guest" }}</span>
+                    <v-icon v-else aria-hidden="true">mdi-file-search-outline</v-icon>
+                    <span>{{ guestLoading ? "Opening tracker…" : "Track your Document Process" }}</span>
                 </button>
-                <p class="guest-note">Guests get read-only tracking. No sign-in needed.</p>
+                <p class="guest-note">View-only. No account or sign-in needed.</p>
 
                 <p class="help">
                     Need an account? Contact your department's system administrator.
@@ -188,7 +186,7 @@ function syncHeroVideo(e) {
 }
 
 onMounted(() => {
-    // Warm the viewer welcome picture so "Log in as Guest" opens instantly.
+    // Warm the viewer welcome picture so "Track your Document Process" opens instantly.
     try {
         new Image().src = "/viewer-welcome.jpg";
     } catch {
@@ -248,7 +246,7 @@ async function guestLogin() {
         await router.push(userKind(u) === "viewer" ? "/track/welcome" : homePathFor(u));
     } catch (e) {
         error.value =
-            e?.response?.data?.message || "Guest access is not available right now.";
+            e?.response?.data?.message || "Document tracking is not available right now.";
         errorKey.value += 1;
     } finally {
         guestLoading.value = false;
@@ -500,25 +498,8 @@ async function guestLogin() {
     outline-offset: 2px;
 }
 
-.or {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 20px 0 16px;
-    color: #7b869e;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-.or::before,
-.or::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: #d5dbe8;
-}
 .btn-guest {
+    margin-top: 22px;
     background: #ffffff;
     color: #1E40AF;
     border: 1.5px solid #1E40AF;
