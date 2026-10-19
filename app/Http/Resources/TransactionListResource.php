@@ -42,6 +42,12 @@ class TransactionListResource extends JsonResource
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
 
+            // True when the paper is currently waiting on the requesting
+            // user (same gate the write endpoints enforce). Lets the
+            // dashboard split "waiting on me" from "in transit with other
+            // offices" without re-deriving role/office rules client-side.
+            'needs_action' => $this->needsAction($request),
+
             // Minimal steps for the hover StepProgress popout (works from cache too).
             'workflow_steps' => $this->whenLoaded(
                 'workflow',
@@ -66,5 +72,23 @@ class TransactionListResource extends JsonResource
             'office_id' => $office?->id,
             'office' => $office?->only(['id', 'code', 'name']),
         ];
+    }
+
+    /**
+     * Waiting on the requesting user? Finalized rows are never actionable.
+     * Relations are already eager-loaded by the list endpoints, so this is
+     * pure PHP per row (no extra queries).
+     */
+    private function needsAction($request): bool
+    {
+        $user = $request?->user();
+        $tx = $this->resource;
+
+        if (!$user || (bool) $tx->is_done) return false;
+
+        $tx->loadMissing(['workflow.stepRoles.role', 'state.currentStep', 'office']);
+        if (!$tx->state?->currentStep) return false;
+
+        return app(\App\Services\RoutingEngine::class)->userCanWorkOnCurrentStep($tx, $user);
     }
 }

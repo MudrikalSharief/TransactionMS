@@ -83,6 +83,12 @@ class ApprovalInboxTest extends TestCase
 
     private function makeTransactionAt(WorkflowStep $step, User $creator, bool $isDone = false): Transaction
     {
+        // Published workflows carry their checklist rows: staging syncs every
+        // step from its predecessors' requirements (WorkflowStagingService).
+        // Tests build workflows by hand, so mirror that sync here — GET paths
+        // intentionally never write (itemsFor, no sync).
+        app(\App\Services\ChecklistService::class)->syncFromRequirements($step);
+
         $tx = Transaction::create([
             'transaction_type_id' => $this->type->id,
             'workflow_definition_id' => $this->workflow->id,
@@ -134,8 +140,8 @@ class ApprovalInboxTest extends TestCase
             ->assertJsonPath('data.0.current_step_checklist.0.name', 'DTR collected')
             ->assertJsonPath('data.0.current_step_checklist.0.is_required', true)
             ->assertJsonPath('data.0.current_step_checklist.0.checked', false)
-            ->assertJsonPath('data.0.current_step_checklist.0.source_step.id', $this->collect->id)
-            ->assertJsonPath('data.0.current_step_checklist.0.source_step.name', 'Collect DTR')
+            ->assertJsonPath('data.0.current_step_checklist.0.prev_step.id', $this->collect->id)
+            ->assertJsonPath('data.0.current_step_checklist.0.prev_step.name', 'Collect DTR')
             ->assertJsonPath('data.0.current_step_checklist.0.attachment_count', 1)
             ->assertJsonPath('data.0.current_step_checklist.0.attachments.0.original_name', 'dtr.pdf');
     }
@@ -238,6 +244,10 @@ class ApprovalInboxTest extends TestCase
             ->ensureItems($this->validate)
             ->firstWhere('requirement_definition_id', $this->dtr->id);
         $this->postJson("/api/transactions/{$first->id}/checklist/{$dtrItem->id}/check")->assertOk();
+
+        // The badge endpoint intentionally caches for 60s; drop the cache to
+        // observe the tick propagate like a later poll would.
+        \Illuminate\Support\Facades\Cache::forget("approvals:count:u{$approver->id}");
 
         $this->getJson('/api/approvals/count')
             ->assertOk()

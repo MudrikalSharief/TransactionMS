@@ -45,6 +45,8 @@ class ApprovalController extends Controller
      */
     public function count(Request $request)
     {
+        $this->ensureApprovalsAllowed($request->user());
+
         // Badge totals need the whole inbox, not one page — but the badge now
         // polls every 1-5min (AppShell) so a 60s server cache is safe and
         // keeps weak devices / bad networks from rescanning on every poll.
@@ -65,6 +67,24 @@ class ApprovalController extends Controller
         );
 
         return response()->json($cached);
+    }
+
+    /**
+     * Approvals needs an assigned role, and end users submit rather than
+     * approve. Superadmin always keeps access. Mirrors canUseApprovals()
+     * in resources/js/composables/useAuth.js. Shared by index() and count()
+     * so the badge endpoint can't bypass the inbox gate.
+     */
+    private function ensureApprovalsAllowed(User $user): void
+    {
+        $user->loadMissing('roles');
+        $roleCodes = $user->roles->pluck('code');
+        if ($roleCodes->isEmpty()) {
+            abort(403, 'The Approvals section requires an assigned role.');
+        }
+        if ($roleCodes->contains('end_user') && !$roleCodes->contains('superadmin')) {
+            abort(403, 'The Approvals section is not available to end users.');
+        }
     }
 
     /** Full inbox collection for the badge (minimal columns, no pagination). */
@@ -155,19 +175,9 @@ class ApprovalController extends Controller
 
     private function inbox(User $user, array $filters = [])
     {
-        $user->loadMissing('roles');
+        $this->ensureApprovalsAllowed($user);
 
-        // Approvals needs an assigned role, and end users submit rather than
-        // approve. Superadmin always keeps access. Mirrors canUseApprovals()
-        // in resources/js/composables/useAuth.js.
         $roleCodes = $user->roles->pluck('code');
-        if ($roleCodes->isEmpty()) {
-            abort(403, 'The Approvals section requires an assigned role.');
-        }
-        if ($roleCodes->contains('end_user') && !$roleCodes->contains('superadmin')) {
-            abort(403, 'The Approvals section is not available to end users.');
-        }
-
         $isSuperadmin = $roleCodes->contains('superadmin');
         $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();

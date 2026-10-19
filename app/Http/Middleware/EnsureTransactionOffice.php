@@ -24,21 +24,19 @@ class EnsureTransactionOffice
             $allowed = $isSuperadmin;
 
             if (!$allowed) {
-                if ($user->isOfficeAdmin()) {
-                    // Office admins go by where the paper currently sits.
-                    $allowed = $this->routing->userCanWorkOnCurrentStep($transaction, $user);
-                } else {
-                    // Staff: their own office's rows (union), or rows whose
-                    // current station lists one of their roles at their
-                    // office. Write routes keep their own deeper gates
-                    // (assertUserCanExecute).
-                    $ownsTransaction = $user->office_id !== null
-                        && $transaction->office_id !== null
-                        && (int) $transaction->office_id === (int) $user->office_id;
+                // Their own office's paper, wherever it currently sits —
+                // staff and office admins alike: the dashboard summary
+                // lists these rows, so the detail must open from there.
+                // Otherwise a station they can work: their roles at their
+                // office, or (office admins) any station parked at their
+                // office. Write routes keep their own deeper gates
+                // (assertUserCanExecute).
+                $ownsTransaction = $user->office_id !== null
+                    && $transaction->office_id !== null
+                    && (int) $transaction->office_id === (int) $user->office_id;
 
-                    $allowed = $ownsTransaction
-                        || $this->routing->userCanWorkOnCurrentStep($transaction, $user);
-                }
+                $allowed = $ownsTransaction
+                    || $this->routing->userCanWorkOnCurrentStep($transaction, $user);
             }
 
             if (!$allowed) {

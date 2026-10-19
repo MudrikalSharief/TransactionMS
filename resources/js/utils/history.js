@@ -113,8 +113,11 @@ export function movementOf(run) {
 }
 
 export function stepLabelOf(run, fallbackIndex) {
-    const n = stepNo(run?.to_step);
-    return n ?? fallbackIndex;
+    // Badge = the station that performed the run (its history), not the
+    // destination. Creates happen before the first station, so they show
+    // 0 instead of claiming step 1.
+    if (String(run?.action_code || '').toLowerCase() === 'create') return 0;
+    return stepNo(run?.from_step) ?? stepNo(run?.to_step) ?? fallbackIndex;
 }
 
 export function detailStepText(step) {

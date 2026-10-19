@@ -18,10 +18,11 @@ use Tests\TestCase;
 /**
  * Admin transaction routes: viewing is open to every signed-in user. Regular
  * users see their own office's transactions plus rows whose current station
- * lists one of their roles at their office; office admins see rows parked at
- * their office; superadmin sees all. Any user with an office can create
- * (non-superadmin creations are forced to their own office and respect the
- * type-office restriction; superadmins bypass it).
+ * lists one of their roles at their office; office admins see their own
+ * office's papers wherever they sit plus rows parked at their office;
+ * superadmin sees all. Any user with an office can create (non-superadmin
+ * creations are forced to their own office and respect the type-office
+ * restriction; superadmins bypass it).
  */
 class AdminTransactionsAccessTest extends TestCase
 {
@@ -137,14 +138,14 @@ class AdminTransactionsAccessTest extends TestCase
         $this->getJson("/api/admin/transactions/{$cboTx->id}")->assertForbidden();
     }
 
-    public function test_office_admin_sees_transactions_parked_at_their_office_regardless_of_role(): void
+    public function test_office_admin_sees_own_office_papers_and_rows_parked_at_their_office(): void
     {
         $admin = $this->userWithRole('admin', $this->gso);
         $gsoTx = $this->makeTransaction($this->gso, $this->gsoStep);
         $reviewTx = $this->makeTransaction($this->gso, $this->gsoReviewStep);
         $incomingTx = $this->makeTransaction($this->cbo, $this->gsoStep);
         $outgoingTx = $this->makeTransaction($this->gso, $this->cboStep);
-        $this->makeTransaction($this->cbo, $this->cboStep);
+        $cboTx = $this->makeTransaction($this->cbo, $this->cboStep);
 
         Sanctum::actingAs($admin);
 
@@ -152,11 +153,17 @@ class AdminTransactionsAccessTest extends TestCase
             ->pluck('id')
             ->all();
 
-        $this->assertEqualsCanonicalizing([$gsoTx->id, $reviewTx->id, $incomingTx->id], $ids);
+        $this->assertEqualsCanonicalizing(
+            [$gsoTx->id, $reviewTx->id, $incomingTx->id, $outgoingTx->id],
+            $ids
+        );
 
         $this->getJson("/api/admin/transactions/{$gsoTx->id}")->assertOk();
         $this->getJson("/api/admin/transactions/{$incomingTx->id}")->assertOk();
-        $this->getJson("/api/admin/transactions/{$outgoingTx->id}")->assertForbidden();
+        // Own-office papers open wherever they now sit (the dashboard
+        // summary links here); other offices' rows stay forbidden.
+        $this->getJson("/api/admin/transactions/{$outgoingTx->id}")->assertOk();
+        $this->getJson("/api/admin/transactions/{$cboTx->id}")->assertForbidden();
     }
 
     public function test_office_less_user_sees_an_empty_list(): void

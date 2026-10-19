@@ -1,5 +1,8 @@
 <template>
-    <div class="login-shell">
+    <div
+        class="login-shell"
+        :class="{ 'hide-cursor': loading && pointer.seen }"
+    >
         <section class="side">
             <header class="brand">
                 <img
@@ -85,40 +88,18 @@
                         <span>{{ loading ? "Signing in…" : "Sign in" }}</span>
                     </button>
                 </form>
-
-                <p class="help">
-                    Need an account? Contact your department's system administrator.
-                </p>
             </main>
 
             <footer>
-                <span>© City Government of Zamboanga</span>
-                <span>Authorized users only</span>
+                <span>City Government of Zamboanga</span>
             </footer>
         </section>
 
         <aside class="hero" aria-label="Available modules">
-            <video
-                v-if="showHeroVideo"
-                class="hero-video"
-                :src="'/loginpage.mp4'"
-                autoplay
-                muted
-                loop
-                playsinline
-                preload="metadata"
-                aria-hidden="true"
-                tabindex="-1"
-            ></video>
-
             <div class="hero-content">
                 <h3>One place for city transactions</h3>
                 <p>Process requests, approvals and records across departments.</p>
                 <ul class="mods">
-                    <li class="mod">
-                        <v-icon aria-hidden="true">mdi-file-document-edit-outline</v-icon>
-                        PR
-                    </li>
                     <li class="mod">
                         <v-icon aria-hidden="true">mdi-cart-outline</v-icon>
                         Procurement
@@ -132,21 +113,32 @@
                         Disbursement
                     </li>
                     <li class="mod">
-                        <v-icon aria-hidden="true">mdi-calendar-check-outline</v-icon>
-                        Leave
+                        <v-icon aria-hidden="true">mdi-chart-pie</v-icon>
+                        Budget
                     </li>
                     <li class="mod">
-                        <v-icon aria-hidden="true">mdi-airplane</v-icon>
-                        Travel Order
+                        <v-icon aria-hidden="true">mdi-file-certificate-outline</v-icon>
+                        Permits
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-file-document-multiple-outline</v-icon>
+                        Records
                     </li>
                 </ul>
             </div>
         </aside>
+
+        <div
+            v-if="loading && pointer.seen"
+            class="spin-cursor"
+            :style="{ transform: `translate3d(${pointer.x}px, ${pointer.y}px, 0)` }"
+            aria-hidden="true"
+        ></div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 
@@ -162,23 +154,22 @@ const loading = ref(false);
 const error = ref("");
 const errorKey = ref(0);
 
-// Looping background clip for the photo panel. Rendered only at >=861px
-// (mirroring the CSS breakpoint that hides the hero on phones), so small
-// screens never download the multi-MB video for a panel they can't see.
-const showHeroVideo = ref(false);
-let heroMq = null;
-function syncHeroVideo(e) {
-    showHeroVideo.value = e.matches;
+// Spinning cursor while signing in: CSS cursor images can't animate, so the
+// native pointer is hidden and a spinner div follows it. Position is tracked
+// off-render (plain vars) and only mirrored into reactive state while busy.
+const pointer = ref({ x: 0, y: 0, seen: false });
+let lastPointer = { x: 0, y: 0, seen: false };
+
+function trackPointer(e) {
+    lastPointer = { x: e.clientX, y: e.clientY, seen: true };
+    if (loading.value) pointer.value = lastPointer;
 }
 
-onMounted(() => {
-    heroMq = window.matchMedia("(min-width: 861px)");
-    showHeroVideo.value = heroMq.matches;
-    heroMq.addEventListener("change", syncHeroVideo);
-});
+onMounted(() => window.addEventListener("mousemove", trackPointer, { passive: true }));
+onUnmounted(() => window.removeEventListener("mousemove", trackPointer));
 
-onUnmounted(() => {
-    heroMq?.removeEventListener("change", syncHeroVideo);
+watch(loading, (busy) => {
+    if (busy) pointer.value = lastPointer;
 });
 
 const canSubmit = computed(
@@ -231,6 +222,33 @@ async function submit() {
     width: 0;
 }
 
+/* Spinning cursor while signing in: the native pointer is hidden and this
+   ring follows it (CSS cursor images can't animate, so a real element it is). */
+.login-shell.hide-cursor,
+.login-shell.hide-cursor * {
+    cursor: none;
+}
+.spin-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    pointer-events: none;
+    z-index: 9999;
+    will-change: transform;
+}
+.spin-cursor::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 3px solid rgba(30, 64, 175, 0.25);
+    border-top-color: #1E40AF;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
 /* ---- Left: form panel ---- */
 .side {
     background: #ffffff;
@@ -264,11 +282,13 @@ async function submit() {
     font-size: 13px;
     font-weight: 600;
     color: #5b6780;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .panel {
     margin: auto 0;
-    padding: 48px 0 24px;
+    padding: 40px 0;
     width: 100%;
 }
 .panel h2 {
@@ -305,9 +325,11 @@ async function submit() {
 }
 .field label {
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 .control {
     position: relative;
@@ -397,7 +419,7 @@ async function submit() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: -4px 0 24px;
+    margin: 16px 0 44px;
     font-size: 14px;
 }
 .check {
@@ -438,6 +460,8 @@ async function submit() {
     gap: 10px;
     cursor: pointer;
     transition: background 0.15s ease, transform 0.05s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 .btn:hover:not(:disabled) {
     background: #142d82;
@@ -471,23 +495,18 @@ async function submit() {
     }
 }
 
-.help {
-    margin: 20px 0 0;
-    text-align: center;
-    font-size: 14px;
-    color: #5b6780;
-}
-
 footer {
     font-size: 12.5px;
-    color: #5b6780;
+    color: #1E40AF;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     gap: 12px;
     flex-wrap: wrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-/* ---- Right: photo/video hero ---- */
+/* ---- Right: photo hero ---- */
 .hero {
     position: relative;
     overflow: hidden;
@@ -496,19 +515,9 @@ footer {
     justify-content: flex-end;
     padding: 56px;
     color: #ffffff;
-    /* Photo fallback: paints before the clip buffers, when autoplay is
-       blocked, and for reduced-motion users (video hidden there). */
     background: url('/loginpage.jpg') center / cover no-repeat;
 }
-.hero-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 0;
-}
-/* Legibility scrim: above the video, below the text/pills. */
+/* Legibility scrim: above the photo, below the text/pills. */
 .hero::after {
     content: "";
     position: absolute;
@@ -553,8 +562,10 @@ footer {
     border-radius: 14px;
     padding: 12px 14px;
     font-weight: 700;
-    font-size: 14.5px;
+    font-size: 13.5px;
     box-shadow: 0 6px 18px rgba(8, 20, 60, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 .mod .v-icon {
     font-size: 22px;
@@ -585,11 +596,6 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    /* An autoplaying loop is exactly what these users opted out of:
-       keep the static photo instead. */
-    .hero-video {
-        display: none;
-    }
     .control input,
     .toggle,
     .btn {

@@ -79,8 +79,9 @@
                         class="mb-3"
                     >
                         <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
-                        <div class="text-caption">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
-                        <v-btn color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
+                        <div class="text-caption" v-if="canReceivePending">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <div class="text-caption" v-else>Waiting at {{ pendingReceiptStation }} — only its staff can receive it.</div>
+                        <v-btn v-if="canReceivePending" color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
                             <v-icon start>mdi-inbox-arrow-down</v-icon>
                             Receive Step
                         </v-btn>
@@ -1157,6 +1158,49 @@ const currentStepRoles = computed(() => {
         (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
     );
     return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
+});
+
+// Destination station of the pending receipt (current step, effective
+// office already resolved by the API) for the "waiting at ..." caption.
+const pendingReceiptStation = computed(() => {
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    const office = entry?.step?.office?.name;
+    const who = currentStepRoles.value.join(' / ');
+    const base = office || 'the receiving office';
+    return who ? `${base} (${who})` : base;
+});
+
+// Mirrors the server's receive gate (RoutingEngine::userCanWorkOnStep):
+// superadmin, the destination office's office admin, or a role holder at
+// the destination office. Everyone else gets a 403, so don't offer it.
+const canReceivePending = computed(() => {
+    if (!pendingReceipt.value || !tx.value) return false;
+    const u = auth.user.value;
+    if (!u) return false;
+    if (isSuperadmin()) return true;
+
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    const step = entry?.step;
+    if (!step) return false;
+
+    const destOfficeId = step.office_id ?? null;
+    const userOfficeId = u.office?.id ?? u.office_id ?? null;
+    const isOfficeAdmin =
+        userOfficeId != null && (u.roles || []).some((r) => r.code === 'admin');
+
+    if (isOfficeAdmin && destOfficeId != null && Number(destOfficeId) === Number(userOfficeId)) {
+        return true;
+    }
+
+    const stepRoleCodes = new Set((step.roles || []).map((r) => r.code));
+    const hasRole = [...myRoleCodes.value].some((c) => stepRoleCodes.has(c));
+    if (!hasRole) return false;
+    if (userOfficeId == null || destOfficeId == null) return true;
+    return Number(destOfficeId) === Number(userOfficeId);
 });
 
 async function receiveStep() {

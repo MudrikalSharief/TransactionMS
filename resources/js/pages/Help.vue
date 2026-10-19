@@ -326,11 +326,11 @@ const userSteps = computed(() => [
             to: '/transactions',
         }
         : {
-            icon: 'mdi-file-document-multiple',
-            title: 'My Transactions',
-            hint: 'Your personal queue by role',
-            text: 'This is your personal queue — only requests waiting on your role appear here.',
-            to: '/my/transactions',
+            icon: 'mdi-swap-horizontal',
+            title: 'Transactions',
+            hint: 'Your queue by office and role',
+            text: 'Requests for your office and items waiting on your role appear here.',
+            to: '/transactions',
         },
     {
         icon: 'mdi-mouse-left-click-outline',

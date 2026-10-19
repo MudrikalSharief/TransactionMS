@@ -45,15 +45,14 @@ class TransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($user->isOfficeAdmin()) {
-                // Office admins see every transaction parked at their office;
-                // end-user stations follow the transaction's office.
+                // Office admins track their own office's papers city-wide
+                // (the dashboard summary counts them and their detail opens
+                // from there), plus anything parked at their office.
                 $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                    $w->where('transactions.office_id', $user->office_id)
+                        ->orWhereHas('state.currentStep', fn ($s) => $s
+                            ->where('workflow_steps.office_id', $user->office_id)
+                            ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
                 });
             } else {
                 // Regular users: their own office's transactions, plus any

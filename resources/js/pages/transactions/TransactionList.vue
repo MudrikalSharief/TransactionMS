@@ -127,7 +127,7 @@
                   v-bind="props"
                 >
                   <v-icon start size="small">{{ stepIcon(item.current_step) }}</v-icon>
-                  {{ item.current_step?.name || item.current_step?.code || 'Unassigned' }}
+                  <span class="tx-chip-text">{{ item.current_step?.name || item.current_step?.code || 'Unassigned' }}</span>
                 </v-chip>
                 <v-chip
                   v-if="item.is_done"
@@ -276,7 +276,7 @@ const baseHeaders = [
   { title: 'Title', key: 'title' },
   { title: 'Transaction Type', key: 'type', sortable: false },
   { title: 'Office', key: 'office', sortable: false },
-  { title: 'Current Step', key: 'current_step', sortable: false },
+  { title: 'Current Step', key: 'current_step', sortable: false, width: 200 },
   { title: 'Created', key: 'created_at' },
 ]
 
@@ -503,15 +503,18 @@ useSmartPoll(async () => {
 }
 /* Long titles / offices / chip names truncate to one line (full text on
    hover) so rows always hold the 60px rhythm and the card matches the
-   other tabs. Full values remain visible on the detail page. */
+   other tabs. Full values remain visible on the detail page. The step
+   chip's icon must not eat the text budget, so the text gets its own
+   cap slightly inside the chip's overall cap. */
 .tx-chip :deep(.v-chip__content) {
-  max-width: 150px;
+  max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .tx-chip-text {
   min-width: 0;
+  max-width: 170px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

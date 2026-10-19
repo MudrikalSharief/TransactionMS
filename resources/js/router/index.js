@@ -24,9 +24,6 @@ const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue
 const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
 const TransactionDetail = () => import("@/pages/transactions/TransactionDetail.vue");
 
-const MyTransactionsList = () => import("@/pages/my/MyTransactionList.vue");
-const MyTransactionDetail = () => import("@/pages/my/MyTransactionDetail.vue");
-
 const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
 const Help = () => import("@/pages/Help.vue");
@@ -133,16 +130,14 @@ export function createRouter() {
                 meta: { requiresAuth: true, superadmin: true },
             },
             {
+                // My Transactions was retired in favour of the shared
+                // Transactions list; keep old bookmarks working.
                 path: "/my/transactions",
-                name: "my.transactions",
-                component: MyTransactionsList,
-                meta: { requiresAuth: true },
+                redirect: "/transactions",
             },
             {
                 path: "/my/transactions/:id",
-                name: "my.transaction.detail",
-                component: MyTransactionDetail,
-                meta: { requiresAuth: true },
+                redirect: (to) => `/transactions/${to.params.id}`,
             },
             {
                 path: "/approvals",
@@ -167,17 +162,11 @@ export function createRouter() {
             return { name: "dashboard" };
         if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
-        // My Transactions is redundant for superadmin (bypass returns all rows,
-        // same as Transactions) — send them to the admin list instead.
         const roles = auth.user.value?.roles ?? [];
         const isSuperadmin = roles.some((r) => r.code === "superadmin");
         if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };
         if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
             return { name: "dashboard" };
-        if (isSuperadmin && to.path.startsWith("/my/transactions")) {
-            const rest = to.path.slice("/my/transactions".length);
-            return rest ? `/transactions${rest}` : "/transactions";
-        }
         // Staged workflow edits live only in memory until Save version:
         // stop accidental loss on navigation (Save and Discard live on the
         // workflow pages; a reload also drops staged edits).

@@ -135,14 +135,6 @@
                     <v-list-item-title>DASHBOARD</v-list-item-title>
                 </v-list-item>
                 <v-list-item
-                    v-if="!isSuperadmin"
-                    to="/my/transactions"
-                    prepend-icon="mdi-file-document-multiple"
-                    rounded="lg"
-                >
-                    <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
-                </v-list-item>
-                <v-list-item
                     v-if="false && showApprovals"
                     to="/approvals"
                     rounded="lg"
@@ -255,13 +247,15 @@
             </template>
         </v-navigation-drawer>
 
-        <v-main>
+        <v-main class="app-main">
+            <OfflineBar />
             <v-container v-if="showAuthUi" fluid class="pa-6">
                 <router-view />
             </v-container>
             <template v-else>
                 <router-view />
             </template>
+            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-spacer" aria-hidden="true"></div>
             <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
         </v-main>
 
@@ -290,6 +284,7 @@
         </v-dialog>
 
         <ConfirmDialog />
+        <AppToaster />
     </v-app>
 </template>
 
@@ -298,10 +293,11 @@ import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isOfficeAdminUser } from "@/composables/useAuth";
-import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import AppToaster from "@/components/AppToaster.vue";
+import OfflineBar from "@/components/OfflineBar.vue";
 import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
 const router = useRouter();
@@ -396,7 +392,6 @@ const searchSelect = ref(null);
 const searchLoading = ref(false);
 let searchLoaded = false;
 
-const myTx = useMyTransactions();
 const allTx = useTransactions();
 
 const searchPages = computed(() => {
@@ -404,14 +399,6 @@ const searchPages = computed(() => {
         { title: "Dashboard", subtitle: "Page", icon: "mdi-view-dashboard", to: "/" },
         { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
     ];
-    if (!isSuperadmin.value) {
-        pages.splice(1, 0, {
-            title: "My Transactions",
-            subtitle: "Page",
-            icon: "mdi-file-document-multiple",
-            to: "/my/transactions",
-        });
-    }
     if (showApprovals.value) {
         pages.splice(2, 0, {
             title: "Approvals",
@@ -449,15 +436,7 @@ async function ensureSearchData() {
     if (searchLoaded || searchLoading.value) return;
     searchLoading.value = true;
     try {
-        if (isSuperadmin.value) {
-            try {
-                await allTx.fetchAll({ q: searchText.value });
-            } catch {
-                await myTx.fetchAll({ q: searchText.value }).catch(() => {});
-            }
-        } else {
-            await myTx.fetchAll({ q: searchText.value });
-        }
+        await allTx.fetchAll({ q: searchText.value });
     } catch {
         /* search stays page-only */
     } finally {
@@ -477,15 +456,7 @@ watch(searchText, (q) => {
         if (!query) return;
         searchLoading.value = true;
         try {
-            if (isSuperadmin.value) {
-                try {
-                    await allTx.fetchAll({ q: query, silent: true });
-                } catch {
-                    await myTx.fetchAll({ q: query, silent: true }).catch(() => {});
-                }
-            } else {
-                await myTx.fetchAll({ q: query, silent: true });
-            }
+            await allTx.fetchAll({ q: query, silent: true });
         } catch {
             /* keep previous suggestions */
         } finally {
@@ -517,11 +488,7 @@ const searchResults = computed(() => {
         });
     };
 
-    if (isSuperadmin.value) {
-        (allTx.items.value || []).forEach((tx) => pushTx(tx, "/transactions"));
-    } else {
-        (myTx.items.value || []).forEach((tx) => pushTx(tx, "/my/transactions"));
-    }
+    (allTx.items.value || []).forEach((tx) => pushTx(tx, "/transactions"));
 
     return [
         ...txItems.filter((i) => `${i.title} ${i.subtitle}`.toLowerCase().includes(q)).slice(0, 7),
@@ -801,6 +768,19 @@ onUnmounted(() => {
     color: #ffffff !important;
     opacity: 1 !important;
 }
+/* Sidebar scrollbar: never show the thin blue bar in the rail (a short
+   window used to grow one over the edge). Wheel/touch still scrolls; the
+   right padding keeps what would have been the bar's strip as clear space
+   so nothing sits against the border. */
+:deep(.v-navigation-drawer__content) {
+    scrollbar-width: none;
+    padding-right: 6px;
+}
+:deep(.v-navigation-drawer__content)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
 /* Footer theme/help pair */
 .drawer-footer .v-btn {
     min-width: 0;
@@ -829,6 +809,15 @@ onUnmounted(() => {
 .search-pixiv :deep(input::placeholder) {
     font-family: 'Roboto', sans-serif;
     font-weight: 700;
+}
+/* Column shell: on short pages the spacer soaks up the leftover height so
+   the dashboard foot bar settles on the viewport bottom instead of floating. */
+.app-main {
+    display: flex;
+    flex-direction: column;
+}
+.app-foot-spacer {
+    flex: 1 1 auto;
 }
 /* Bottom footer container: plain in-flow bar, no overlay, no z-index games. */
 .app-foot-bar {

@@ -98,8 +98,8 @@
 
 <script setup>
 // Proceed modal for the Approvals page. Mirrors the Proceed flow of
-// pages/my/MyTransactionDetail.vue (same ProceedWizard, same gating), limited
-// to forward moves — returns, jumps and finalize stay on the transaction page.
+// pages/transactions/TransactionDetail.vue (same ProceedWizard, same gating),
+// limited to forward moves — returns, jumps and finalize stay on that page.
 // Keep the gating computeds in sync with that page when its rules change.
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -444,7 +444,7 @@ async function executeSelected() {
 
 function openTransaction() {
     open.value = false;
-    router.push(`/my/transactions/${props.txId}`);
+    router.push(`/transactions/${props.txId}`);
 }
 </script>
 
