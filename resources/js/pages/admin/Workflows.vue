@@ -262,6 +262,7 @@
                     fixed-header
                     :items-per-page="STEP_PAGE_SIZE"
                     :items-per-page-options="[STEP_PAGE_SIZE]"
+                    :hide-default-footer="stepPageCount <= 1"
                     hover
                     class="lgu-table table-pages"
                 >
@@ -356,15 +357,6 @@
                                 @click="goStepData(item)"
                             />
                             <v-btn
-                                icon="mdi-clipboard-check-outline"
-                                v-tooltip="isTmpRow(item) ? 'Save version first — new steps get a checklist after their first save' : 'Checklist'"
-                                size="small"
-                                variant="outlined"
-                                color="info"
-                                :disabled="isTmpRow(item)"
-                                @click="goStepChecklist(item)"
-                            />
-                            <v-btn
                                 icon="mdi-pencil"
                                 v-tooltip="'Edit step'"
                                 size="small"
@@ -425,6 +417,7 @@
                     fixed-header
                     :items-per-page="ROUTE_PAGE_SIZE"
                     :items-per-page-options="[ROUTE_PAGE_SIZE]"
+                    :hide-default-footer="routePageCount <= 1"
                     hover
                     class="lgu-table table-pages"
                 >
@@ -730,65 +723,179 @@
             </v-card>
         </v-dialog>
 
-        <!-- Route Dialog -->
-        <v-dialog v-model="routeDialog" max-width="900">
+        <!-- Route Dialog (design mockup port) -->
+        <v-dialog v-model="routeDialog" max-width="640" scrollable>
             <v-card rounded="xl" style="overflow: hidden">
-                <v-card-title>{{
-                    routeForm.id ? "Edit Route" : "New Route"
-                }}</v-card-title>
+                <v-card-title class="stp-hd">
+                    <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="stp-badge">
+                        <v-icon>mdi-transit-connection-variant</v-icon>
+                    </v-avatar>
+                    <div class="stp-hd-t">
+                        <div class="stp-title">{{ routeForm.id ? "Edit Route" : "New Route" }}</div>
+                        <div class="stp-sub">Connect one step to the next and choose what triggers it.</div>
+                    </div>
+                    <v-btn icon="mdi-close" variant="text" size="small" color="grey-darken-3" class="stp-x" @click="routeDialog = false" />
+                </v-card-title>
                 <v-divider />
-                <v-card-text>
-                    <v-alert v-if="routeError" type="error" variant="tonal" density="compact" class="mb-3">
+                <v-card-text class="stp-bd">
+                    <v-alert v-if="routeError" type="error" variant="tonal" density="compact" class="mb-4">
                         {{ routeError }}
                     </v-alert>
-                    <v-select
-                        v-model="routeForm.from_step_id"
-                        :items="fromStepOptions"
-                        item-title="label"
-                        item-value="id"
-                        label="From Step"
-                        @update:model-value="routeError = ''"
-                    />
-                    <v-select
-                        v-model="routeForm.to_step_id"
-                        :items="toStepOptions"
-                        item-title="label"
-                        item-value="id"
-                        label="To Step"
-                        @update:model-value="routeError = ''"
-                    />
-                    <v-text-field
-                        v-model="routeForm.action_code"
-                        label="Action Code (submit/approve/reject)"
-                        hint="Routes are forward-only. Going back is done via jump to a visited station (recorded as Returned)."
-                        persistent-hint
-                    />
-                    <v-text-field
-                        v-model="routeForm.route_group"
-                        label="Route Group / Lane (optional)"
-                    />
-                    <v-text-field
-                        v-model="routeForm.required_approvals_count"
-                        type="number"
-                        label="Required approvals (optional)"
-                    />
+                    <div class="stp-sec">
+                        <div class="rt-ft2">
+                            <div class="stp-f" :class="{ bad: !!routeFieldErrors.from_step_id }">
+                                <label class="stp-lb" for="rt-from">From step <span class="stp-req">*</span></label>
+                                <v-select
+                                    id="rt-from"
+                                    v-model="routeForm.from_step_id"
+                                    :items="fromStepOptions"
+                                    item-title="label"
+                                    item-value="id"
+                                    placeholder="Select a step"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    persistent-placeholder
+                                    hide-details="auto"
+                                    :error="!!routeFieldErrors.from_step_id"
+                                    class="stp-in"
+                                    @update:model-value="onRouteFieldChange"
+                                />
+                                <div class="rt-em">{{ routeFieldErrors.from_step_id }}</div>
+                            </div>
+                            <div class="rt-arrow" aria-hidden="true">
+                                <v-icon>mdi-arrow-right</v-icon>
+                            </div>
+                            <div class="stp-f" :class="{ bad: !!routeFieldErrors.to_step_id }">
+                                <label class="stp-lb" for="rt-to">To step <span class="stp-req">*</span></label>
+                                <v-select
+                                    id="rt-to"
+                                    v-model="routeForm.to_step_id"
+                                    :items="toStepOptions"
+                                    item-title="label"
+                                    item-value="id"
+                                    placeholder="Select a step"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    persistent-placeholder
+                                    hide-details="auto"
+                                    :error="!!routeFieldErrors.to_step_id"
+                                    class="stp-in"
+                                    @update:model-value="onRouteFieldChange"
+                                />
+                                <div class="rt-em">{{ routeFieldErrors.to_step_id }}</div>
+                            </div>
+                        </div>
+                        <div class="rt-info">
+                            <v-icon size="18">mdi-information-outline</v-icon>
+                            <span>Routes are forward-only. Going back is done by jumping to a visited station, which is recorded as Returned.</span>
+                        </div>
+                    </div>
 
-                    <v-textarea
-                        v-model="routeForm.condition_expression_json"
-                        label="Condition Expression JSON (optional, JSON logic-ish)"
-                        rows="6"
-                        :hint="conditionHint"
-                        persistent-hint
-                    />
+                    <div class="stp-sec">
+                        <span class="stp-lb">Action <span class="stp-req">*</span></span>
+                        <div class="rt-acts" role="group" aria-label="Action">
+                            <button
+                                v-for="a in routeActionPills"
+                                :key="a.key"
+                                type="button"
+                                class="rt-pill"
+                                :class="{ 'is-on': routeAction === a.key, 'is-rej': a.rej }"
+                                :aria-pressed="routeAction === a.key ? 'true' : 'false'"
+                                @click="setRouteAction(a.key)"
+                            >
+                                {{ a.label }}
+                            </button>
+                        </div>
+                        <div v-if="routeAction === '__other'" class="rt-cw">
+                            <v-text-field
+                                id="rt-cc"
+                                ref="routeCustomInput"
+                                v-model="routeCustomCode"
+                                placeholder="custom_action_code"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details="auto"
+                                autocomplete="off"
+                                spellcheck="false"
+                                aria-label="Custom action code"
+                                :error="!!routeFieldErrors.action_code"
+                                class="stp-in rt-in-mono"
+                                @update:model-value="onRouteFieldChange"
+                            />
+                            <div v-if="routeFieldErrors.action_code" class="rt-em" style="display: block">
+                                {{ routeFieldErrors.action_code }}
+                            </div>
+                        </div>
+                        <div class="stp-help">{{ routeActionHelp[routeAction] }}</div>
+                    </div>
+
+                    <div class="stp-sec">
+                        <button
+                            class="rt-adv"
+                            type="button"
+                            :aria-expanded="routeAdvanced ? 'true' : 'false'"
+                            @click="routeAdvanced = !routeAdvanced"
+                        >
+                            Advanced options <small>Lane, approvals, condition</small>
+                            <v-icon class="rt-adv-i" :class="{ 'is-open': routeAdvanced }">mdi-chevron-down</v-icon>
+                        </button>
+                        <div v-show="routeAdvanced" class="rt-advp">
+                            <div class="stp-g2" style="margin-bottom: 14px">
+                                <div class="stp-f">
+                                    <label class="stp-lb" for="rt-lane">Route group / lane <span class="stp-opt">(optional)</span></label>
+                                    <v-text-field
+                                        id="rt-lane"
+                                        v-model="routeForm.route_group"
+                                        placeholder="e.g. main"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        persistent-placeholder
+                                        hide-details="auto"
+                                        class="stp-in"
+                                    />
+                                </div>
+                                <div class="stp-f">
+                                    <label class="stp-lb" for="rt-apv">Required approvals <span class="stp-opt">(optional)</span></label>
+                                    <v-text-field
+                                        id="rt-apv"
+                                        v-model="routeForm.required_approvals_count"
+                                        type="number"
+                                        min="1"
+                                        inputmode="numeric"
+                                        placeholder="e.g. 2"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        persistent-placeholder
+                                        hide-details="auto"
+                                        class="stp-in"
+                                    />
+                                </div>
+                            </div>
+                            <div class="stp-f" style="margin: 0">
+                                <div class="rt-jh">
+                                    <label class="stp-lb" for="rt-json">Condition expression <span class="stp-opt">(optional JSON)</span></label>
+                                    <button class="rt-link" type="button" @click="insertConditionExample">Insert example</button>
+                                </div>
+                                <v-textarea
+                                    id="rt-json"
+                                    v-model="routeForm.condition_expression_json"
+                                    rows="5"
+                                    spellcheck="false"
+                                    placeholder='{">=":[{"var":"fields.amount"},50000]}'
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details="auto"
+                                    class="stp-in rt-in-mono"
+                                />
+                                <div class="rt-jv" :class="routeJsonState.cls">{{ routeJsonState.text }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </v-card-text>
                 <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="routeDialog = false"
-                        >Cancel</v-btn
-                    >
-                    <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="saveRoute"
-                        >Save</v-btn
-                    >
+                <v-card-actions class="stp-ft">
+                    <v-btn variant="outlined" rounded="lg" class="stp-b" @click="routeDialog = false">Cancel</v-btn>
+                    <v-btn color="primary" rounded="lg" class="stp-b stp-b-pri" :loading="saving" @click="saveRoute">Save route</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -877,6 +984,9 @@
                 <div class="text-h6 font-weight-bold text-white lh-1">END OF WORKFLOW</div>
             </div>
         </v-sheet>
+
+        <!-- Route save feedback (design mockup toast). -->
+        <AppToast ref="routeToast" />
     </div>
 </template>
 
@@ -890,6 +1000,7 @@ import { useOffices } from "@/composables/useOffices";
 import TableLoader from '@/components/TableLoader.vue';
 import mascotEmptyUrl from '@/assets/mascots/mascot-empty.jpg';
 import LoadingVeil from '@/components/LoadingVeil.vue';
+import AppToast from '@/components/AppToast.vue';
 import { wfStatusColor, wfStatusIcon, wfStatusLabel } from '@/utils/workflowStatus';
 
 const {
@@ -991,8 +1102,6 @@ const guideSections = [
         ],
     },
 ];
-const conditionHint =
-    'Store as JSON (not PHP). Example: {">=":[{"var":"fields.amount"},50000]}';
 
 const roleOptions = computed(
     () => (roles.value || []).map((r) => ({ id: r.id, label: `${r.name}` })), // use ${r.code} to show Role Code
@@ -1068,10 +1177,13 @@ const fromStepOptions = computed(() =>
 );
 const toStepOptions = computed(() => {
     const fromKey = String(routeForm.value.from_step_id ?? '');
+    const toKey = String(routeForm.value.to_step_id ?? '');
     const fromOrder = fromKey !== '' ? stepOrderOf(routeForm.value.from_step_id) : NaN;
     return stepOptions.value.filter((o) => {
         if (String(o.id) === fromKey) return false;
-        if (String(o.id) === String(routeForm.value.to_step_id)) return false;
+        // Keep the current pick in the list so v-select can resolve its
+        // label; without it the selected value renders as a raw id number.
+        if (String(o.id) === toKey) return true;
         if (!Number.isNaN(fromOrder)) {
             const order = stepOrderOf(o.id);
             if (!Number.isNaN(order) && order < fromOrder) return false;
@@ -1194,6 +1306,16 @@ const routeFillerCount = computed(() => {
     const rest = total - (routePage.value - 1) * ROUTE_PAGE_SIZE;
     return ROUTE_PAGE_SIZE - Math.min(Math.max(rest, 0), ROUTE_PAGE_SIZE);
 });
+
+// Real page count from the row totals (always >= 1). Drives the table
+// footer: a single page hides the "1–n of n" strip entirely, while two or
+// more pages keep Vuetify's accurate range/pager.
+const stepPageCount = computed(() =>
+    Math.max(1, Math.ceil(flatStepRows.value.length / STEP_PAGE_SIZE)),
+);
+const routePageCount = computed(() =>
+    Math.max(1, Math.ceil(sortedRoutes.value.length / ROUTE_PAGE_SIZE)),
+);
 
 // Keep the current page valid when rows are added/removed.
 watch([flatStepRows, sortedRoutes], () => {
@@ -1354,32 +1476,6 @@ function selectEffective() {
 // Staged editing: dialogs mutate the working copy only. Nothing reaches
 // the network until Save version (bulk apply). No draft is created, no
 // publish attempted — the viewed/working rows ARE the edit target.
-function workingRowFor(item) {
-    // Viewing a history version while staging: map by code onto the working
-    // copy so edits land on staged rows, never on the viewed snapshot.
-    if (!item) return item;
-    const code = item.code;
-    const hit = (tableSteps.value || []).find((s) => code && s.code === code);
-    return hit || item;
-}
-
-function stepRouteTarget(item) {
-    // Sub-pages address rows by id; the working copy is the single scope,
-    // so map history-viewed rows onto it by code first.
-    const row = workingRowFor(item);
-    if (!row?.id || isTmpRow(row) || !stagingSourceDefId.value) return null;
-    return { defId: stagingSourceDefId.value, stepId: row.id };
-}
-
-function goStepChecklist(item) {
-    error.value = "";
-    notice.value = "";
-    const target = stepRouteTarget(item);
-    if (!target) return;
-    const q = selectedTypeId.value ? { type: Number(selectedTypeId.value) } : {};
-    router.push({ path: `/admin/workflows/${target.defId}/steps/${target.stepId}/checklist`, query: q });
-}
-
 function workingRouteFor(route) {
     if (!route) return route;
     const rows = tableRoutes.value || [];
@@ -1901,9 +1997,69 @@ const routeForm = ref({});
 // not on the page above the steps table.
 const routeError = ref("");
 
+// Route action (design mockup): preset pills plus a validated "Other" code.
+// Editing a route whose stored code is not a preset opens on Other with the
+// code prefilled, so nothing is silently rewritten on save.
+const ROUTE_ACTION_KEYS = ["submit", "approve", "reject"];
+const routeActionPills = [
+    { key: "submit", label: "Submit" },
+    { key: "approve", label: "Approve" },
+    { key: "reject", label: "Reject", rej: true },
+    { key: "__other", label: "Other" },
+];
+const routeActionHelp = {
+    submit: "Sent when the user submits this step.",
+    approve: "Sent when an approver approves this step.",
+    reject: "Sent when an approver rejects this step.",
+    __other: "Use a lowercase code, such as escalate.",
+};
+const CUSTOM_ACTION_RE = /^[a-z][a-z0-9_]*$/;
+const CONDITION_EXAMPLE = '{">=":[{"var":"fields.amount"},50000]}';
+const routeAction = ref("submit");
+const routeCustomCode = ref("");
+const routeAdvanced = ref(false);
+// Field-level messages render under their inputs (mockup style); cross-field
+// guard failures land in `routeError` under the From → To row.
+const routeFieldErrors = ref({});
+const routeCustomInput = ref(null);
+const routeToast = ref(null);
+
+const routeJsonState = computed(() => {
+    const v = String(routeForm.value.condition_expression_json || "").trim();
+    if (!v) {
+        return { cls: "n", text: "Stored as JSON. Leave empty if the route always applies." };
+    }
+    try {
+        JSON.parse(v);
+        return { cls: "ok", text: "Valid JSON" };
+    } catch (e) {
+        return {
+            cls: "no",
+            text: "Invalid JSON: " + String(e?.message || "").replace(/^JSON\.parse: /, ""),
+        };
+    }
+});
+
+function onRouteFieldChange() {
+    routeError.value = "";
+    routeFieldErrors.value = { from_step_id: "", to_step_id: "", action_code: "" };
+}
+
+function setRouteAction(key) {
+    routeAction.value = key;
+    routeFieldErrors.value = { ...routeFieldErrors.value, action_code: "" };
+    if (key === "__other") nextTick(() => routeCustomInput.value?.focus?.());
+}
+
+function insertConditionExample() {
+    routeForm.value.condition_expression_json = CONDITION_EXAMPLE;
+}
+
 function openRouteDialog(route = null) {
     error.value = "";
     routeError.value = "";
+    routeFieldErrors.value = { from_step_id: "", to_step_id: "", action_code: "" };
+    routeAdvanced.value = false;
     if (route) {
         routeForm.value = {
             id: route.id,
@@ -1917,6 +2073,21 @@ function openRouteDialog(route = null) {
                 ? JSON.stringify(route.condition_expression, null, 2)
                 : "",
         };
+        // Preset codes select their pill; anything else opens on Other with
+        // the stored code prefilled (never silently rewritten).
+        if (ROUTE_ACTION_KEYS.includes(route.action_code)) {
+            routeAction.value = route.action_code;
+            routeCustomCode.value = "";
+        } else {
+            routeAction.value = "__other";
+            routeCustomCode.value = route.action_code || "";
+        }
+        // Surface advanced content on open when the route already has any.
+        routeAdvanced.value = !!(
+            route.route_group ||
+            route.required_approvals_count ||
+            route.condition_expression
+        );
     } else {
         routeForm.value = {
             id: null,
@@ -1927,6 +2098,8 @@ function openRouteDialog(route = null) {
             required_approvals_count: "",
             condition_expression_json: "",
         };
+        routeAction.value = "submit";
+        routeCustomCode.value = "";
     }
     routeDialog.value = true;
 }
@@ -1936,25 +2109,46 @@ function saveRoute() {
     error.value = "";
     routeError.value = "";
     notice.value = "";
+    routeFieldErrors.value = { from_step_id: "", to_step_id: "", action_code: "" };
     if (!selectedTypeId.value) {
         error.value = "Pick a transaction type first.";
         return;
     }
-    // Instant client guard (backend + staging service re-validate):
+
+    // Resolve the action code from the pills (custom "Other" validates).
+    const code = routeAction.value === "__other" ? routeCustomCode.value.trim() : routeAction.value;
+
+    // Field-level guards first (design shows them under the inputs).
+    const errs = {};
+    if (routeForm.value.from_step_id == null || routeForm.value.from_step_id === "")
+        errs.from_step_id = "Choose a starting step.";
+    if (routeForm.value.to_step_id == null || routeForm.value.to_step_id === "")
+        errs.to_step_id = "Choose a destination step.";
+    if (!code) errs.action_code = "Enter a custom action code.";
+    else if (routeAction.value === "__other" && !CUSTOM_ACTION_RE.test(code))
+        errs.action_code = "Use a lowercase code, such as escalate.";
+    if (Object.keys(errs).length) {
+        routeFieldErrors.value = errs;
+        return;
+    }
+
+    // Cross-field guard (backend + staging service re-validate):
     // forward-only, no self-loops, no duplicate From → To.
     const guard = routeClientError();
     if (guard) {
         routeError.value = guard;
         return;
     }
+
     let cond = null;
-    try {
-        if (routeForm.value.condition_expression_json?.trim()) {
+    if (routeForm.value.condition_expression_json?.trim()) {
+        try {
             cond = JSON.parse(routeForm.value.condition_expression_json);
+        } catch {
+            routeAdvanced.value = true;
+            routeError.value = "Condition must be valid JSON.";
+            return;
         }
-    } catch {
-        routeError.value = "Condition must be valid JSON.";
-        return;
     }
 
     staging.upsertRoute(selectedTypeId.value, {
@@ -1962,7 +2156,7 @@ function saveRoute() {
         client_id: routeForm.value.client_id ?? undefined,
         from_step_id: routeForm.value.from_step_id,
         to_step_id: routeForm.value.to_step_id,
-        action_code: routeForm.value.action_code,
+        action_code: code,
         // Return routes are retired: routes are forward-only.
         is_return_route: false,
         route_group: routeForm.value.route_group || null,
@@ -1972,7 +2166,9 @@ function saveRoute() {
         condition_expression: cond,
     });
     routeDialog.value = false;
-    notice.value = "Route staged — press Save version to persist it.";
+    const msg = "Route staged — press Save version to persist it.";
+    notice.value = msg;
+    routeToast.value?.show(msg);
 }
 
 function deleteRoute(route) {
@@ -2312,6 +2508,175 @@ html.dark .skel-fill td {
     }
 }
 
+/* ---- New / Edit Route modal (design mockup port) ---- */
+/* From → To side by side with an arrow between; stacks on phones. */
+.rt-ft2 {
+    display: grid;
+    grid-template-columns: 1fr 44px 1fr;
+    gap: 10px;
+    align-items: start;
+}
+.rt-ft2 .stp-f {
+    margin-bottom: 0;
+}
+.rt-arrow {
+    width: 44px;
+    height: 44px;
+    margin-top: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+}
+.rt-em {
+    display: none;
+    margin: 6px 2px 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--v-theme-error));
+}
+.rt-ft2 .stp-f.bad .rt-em {
+    display: block;
+}
+.rt-info {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(var(--v-theme-primary), 0.08);
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgb(var(--v-theme-secondary));
+}
+.rt-info :deep(.v-icon) {
+    color: rgb(var(--v-theme-primary));
+    margin-top: 1px;
+}
+
+/* Action: preset pills + custom code. */
+.rt-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.rt-pill {
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 99px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.rt-pill:hover {
+    background: rgba(var(--v-theme-primary), 0.06);
+}
+.rt-pill.is-on {
+    background: rgb(var(--v-theme-primary));
+    border-color: rgb(var(--v-theme-primary));
+    color: #fff;
+}
+.rt-pill.is-rej.is-on {
+    background: rgb(var(--v-theme-error));
+    border-color: rgb(var(--v-theme-error));
+}
+.rt-cw {
+    margin-top: 10px;
+}
+.rt-in-mono :deep(input),
+.rt-in-mono :deep(textarea) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14px;
+}
+
+/* Advanced: collapsible box (Lane, approvals, condition JSON). */
+.rt-adv {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: none;
+    color: inherit;
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: left;
+    font: inherit;
+    font-weight: 700;
+    font-size: 14.5px;
+    cursor: pointer;
+}
+.rt-adv:hover {
+    background: rgba(var(--v-theme-primary), 0.04);
+}
+.rt-adv small {
+    margin-left: 2px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgb(var(--v-theme-secondary));
+}
+.rt-adv-i {
+    margin-left: auto;
+    color: rgb(var(--v-theme-secondary));
+    transition: transform 0.2s;
+}
+.rt-adv-i.is-open {
+    transform: rotate(180deg);
+}
+.rt-advp {
+    padding: 16px 2px 0;
+}
+.rt-jh {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7px;
+}
+.rt-jh .stp-lb {
+    margin: 0;
+}
+.rt-link {
+    border: 0;
+    background: none;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 6px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.rt-link:hover {
+    background: rgba(var(--v-theme-primary), 0.1);
+}
+.rt-jv {
+    margin: 6px 2px 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    min-height: 18px;
+}
+.rt-jv.ok {
+    color: rgb(var(--v-theme-success));
+}
+.rt-jv.no {
+    color: rgb(var(--v-theme-error));
+}
+.rt-jv.n {
+    color: rgb(var(--v-theme-secondary));
+    font-weight: 500;
+}
+.stp-opt {
+    color: rgb(var(--v-theme-secondary));
+    font-weight: 500;
+}
+
 /* Dark theme (html.dark is toggled by AppShell for pixivDark). */
 html.dark .stp-in :deep(.v-field) {
     background: #232b45;
@@ -2334,5 +2699,25 @@ html.dark .stp-seg-b.is-on {
 }
 html.dark .stp-role.is-on::before {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8.5 2.8 2.8L12 5.5' fill='none' stroke='%230e1424' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Route modal: dark borders + pill text on dark. */
+html.dark .rt-adv,
+html.dark .rt-pill {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+html.dark .rt-pill.is-on {
+    color: #0e1424;
+}
+
+/* Route modal: stack From → To on phones and turn the arrow downward. */
+@media (max-width: 560px) {
+    .rt-ft2 {
+        grid-template-columns: 1fr;
+    }
+    .rt-arrow {
+        margin: 0 auto;
+        transform: rotate(90deg);
+    }
 }
 </style>
