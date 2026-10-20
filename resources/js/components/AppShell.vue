@@ -116,7 +116,23 @@
                     <span class="welcome__role d-none d-sm-inline">{{ primaryRole }}</span>
                 </div>
 
+                <!-- Viewers never signed in themselves (Track your Document
+                     Process), so leaving is a plain "back", no confirmation. -->
                 <v-btn
+                    v-if="kind === 'viewer'"
+                    variant="outlined"
+                    color="primary"
+                    rounded="pill"
+                    class="track-exit font-weight-bold"
+                    :loading="loggingOut"
+                    v-tooltip="'Leave tracking and return to the login page'"
+                    @click="onLogout"
+                >
+                    <v-icon start>mdi-arrow-left</v-icon>
+                    <span class="d-none d-sm-inline">Back to login</span>
+                </v-btn>
+                <v-btn
+                    v-else
                     icon="mdi-logout"
                     v-tooltip="'Log out'"
                     color="primary"
@@ -844,6 +860,27 @@ onUnmounted(() => {
 .brand-click {
     cursor: pointer;
     user-select: none;
+}
+/* Viewer "Back to login": navy pill, fills on hover; icon only on phones. */
+.track-exit {
+    border-width: 1.5px;
+    text-transform: none;
+    letter-spacing: 0.01em;
+}
+.track-exit:hover {
+    background: #1E40AF;
+    color: #ffffff !important;
+}
+.track-exit :deep(.v-icon) {
+    transition: transform 0.15s ease;
+}
+.track-exit:hover :deep(.v-icon) {
+    transform: translateX(-2px);
+}
+@media (max-width: 599px) {
+    .track-exit :deep(.v-icon--start) {
+        margin-inline-end: 0;
+    }
 }
 /* Compact sidebar: tighter rows so all items fit without scrolling */
 .nav-compact :deep(.v-list-item) {
