@@ -76,8 +76,10 @@ class WorkflowDefinitionController extends Controller
      * checklists/field-assignments) onto the open draft in ONE atomic
      * transaction — nothing persists until this is called.
      *
-     * Modes: overwrite (stay draft) vs create-new (name required, publishes;
-     * a start/end validation failure still keeps the staged content as draft).
+     * Modes: overwrite (goes live automatically when the source is the live
+     * version; stays draft when overwriting an open draft) vs create-new
+     * (name required, publishes; a start/end validation failure still keeps
+     * the staged content as draft).
      */
     public function applyStaged(
         ApplyStagedWorkflowRequest $request,
