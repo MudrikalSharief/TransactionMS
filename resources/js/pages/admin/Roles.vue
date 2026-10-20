@@ -51,7 +51,7 @@
         </template>
 
         <template v-slot:[`item.description`]="{ item }">
-          <span class="cell-truncate text-medium-emphasis" :title="item.description || ''">{{ item.description || '—' }}</span>
+          <span class="desc-wrap text-medium-emphasis">{{ item.description || '—' }}</span>
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
@@ -106,8 +106,9 @@ import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } = useRoles()
 
-// Fixed widths (table-fixed-cols): a long description is cut off with "…"
-// (full text on hover) instead of pushing the edit/delete buttons off screen.
+// Fixed widths (table-fixed-cols): a long description wraps onto more
+// lines inside its column instead of pushing the edit/delete buttons off
+// screen.
 const headers = [
   { title: 'Code', key: 'code', width: 180 },
   { title: 'Name', key: 'name', width: 200 },
@@ -218,6 +219,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full description, wrapped within its column; the row grows to fit. */
+.desc-wrap {
+  display: block;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  padding: 10px 0;
+}
 /* Hide the table's internal scrollbar; drawer expand can never create a
    visible horizontal bar — overflow is clipped, not scrolled. */
 .lgu-table {
