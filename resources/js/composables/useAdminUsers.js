@@ -48,5 +48,17 @@ export function useAdminUsers({ office = false } = {}) {
     invalidateCache(cacheKey)
   }
 
-  return { users, loading, fetchUsers, createUser, updateUser, deactivateUser }
+  // Accounts created on the login page wait for one of these.
+  async function approveUser(id) {
+    const res = await api.post(`${base}/${id}/approve`)
+    invalidateCache(cacheKey)
+    return res.data.data ?? res.data
+  }
+
+  async function rejectUser(id) {
+    await api.delete(`${base}/${id}/reject`)
+    invalidateCache(cacheKey)
+  }
+
+  return { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser }
 }

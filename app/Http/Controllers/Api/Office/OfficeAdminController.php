@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\TransactionType;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,7 +22,9 @@ use Illuminate\Validation\Rule;
  */
 class OfficeAdminController extends Controller
 {
-    private const PROTECTED_ROLES = ['superadmin', 'admin'];
+    private const PROTECTED_ROLES = UserApproval::PROTECTED_ROLES;
+
+    private const CONTACT_RULE = ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'];
 
     public function users(Request $request)
     {
@@ -40,6 +43,7 @@ class OfficeAdminController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
+            'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', $this->assignableRoleRule()],
@@ -47,12 +51,16 @@ class OfficeAdminController extends Controller
         $officeId = (int) $request->user()->office_id;
 
         return DB::transaction(function () use ($request, $data, $officeId, $audit) {
+            // Created by the office admin, so approved from the start.
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'office_id' => $officeId,
+                'Contact_number' => $data['contact_number'] ?? null,
                 'password' => Hash::make($data['password']),
                 'is_active' => $data['is_active'] ?? true,
+                'approved_at' => now(),
+                'approved_by' => $request->user()->id,
             ]);
             $user->roles()->sync($data['role_ids'] ?? []);
             $user->load(['roles', 'office']);
@@ -79,6 +87,7 @@ class OfficeAdminController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:8'],
+            'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', $this->assignableRoleRule()],
@@ -95,6 +104,9 @@ class OfficeAdminController extends Controller
             $user->name = $data['name'];
             $user->email = $data['email'];
             $user->is_active = $data['is_active'] ?? $user->is_active;
+            if (array_key_exists('contact_number', $data)) {
+                $user->Contact_number = $data['contact_number'];
+            }
             if (!empty($data['password'])) {
                 $user->password = Hash::make($data['password']);
             }
@@ -131,6 +143,26 @@ class OfficeAdminController extends Controller
         ]);
 
         return response()->json(['message' => 'User deactivated.']);
+    }
+
+    /** Lets someone who signed up for this office sign in. */
+    public function approveUser(Request $request, User $user, UserApproval $approval, AuditService $audit)
+    {
+        $this->assertManageable($request, $user);
+        $approval->approve($user, $request->user());
+        $audit->log($request, 'office.users.approve', $user);
+
+        return new UserResource($user->load(['roles', 'office']));
+    }
+
+    /** Turns down someone who signed up for this office (removes the request). */
+    public function rejectUser(Request $request, User $user, UserApproval $approval, AuditService $audit)
+    {
+        $this->assertManageable($request, $user);
+        $audit->log($request, 'office.users.reject', $user, ['payload' => ['email' => $user->email, 'name' => $user->name]]);
+        $approval->reject($user);
+
+        return response()->json(['message' => 'Request rejected.']);
     }
 
     /** Roles an office admin may give out: everything except admin/superadmin. */

@@ -16,8 +16,11 @@ class User extends Authenticatable
         'name',
         'email',
         'office_id',
+        'Contact_number',
         'password',
         'is_active',
+        'approved_at',
+        'approved_by',
     ];
 
     protected $hidden = [
@@ -28,7 +31,14 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'is_active' => 'boolean',
+        'approved_at' => 'datetime',
     ];
+
+    /** Signed up on the login page and not yet approved by an admin. */
+    public function isPendingApproval(): bool
+    {
+        return $this->approved_at === null;
+    }
 
     public function roles()
     {

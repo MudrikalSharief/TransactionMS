@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Middleware\BlockViewer;
 use App\Http\Middleware\EnsureOfficeAdmin;
 use App\Http\Middleware\EnsureViewer;
@@ -45,6 +46,9 @@ use App\Http\Controllers\Api\ViewerTrackingController;
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
     Route::post('/guest', [AuthController::class, 'guest'])->middleware(['guest', 'throttle:20,1']);
+    // "Create an account": the account waits for an admin's approval.
+    Route::get('/register/options', [RegistrationController::class, 'options'])->middleware('guest');
+    Route::post('/register', [RegistrationController::class, 'register'])->middleware(['guest', 'throttle:6,1']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 });
@@ -139,6 +143,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class]
         Route::post('/users', [OfficeAdminController::class, 'storeUser']);
         Route::put('/users/{user}', [OfficeAdminController::class, 'updateUser']);
         Route::delete('/users/{user}', [OfficeAdminController::class, 'deactivateUser']);
+        Route::post('/users/{user}/approve', [OfficeAdminController::class, 'approveUser']);
+        Route::delete('/users/{user}/reject', [OfficeAdminController::class, 'rejectUser']);
         Route::get('/roles', [OfficeAdminController::class, 'roles']);
         Route::get('/transaction-types', [OfficeAdminController::class, 'transactionTypes']);
 
@@ -154,6 +160,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // Master data: superadmin only.
         Route::middleware(EnsureRole::class.':superadmin')->group(function () {
             Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+            Route::post('users/{user}/approve', [UserController::class, 'approve']);
+            Route::delete('users/{user}/reject', [UserController::class, 'reject']);
 
             Route::apiResource('roles', RoleController::class)->only(['index', 'store', 'update', 'destroy']);
 

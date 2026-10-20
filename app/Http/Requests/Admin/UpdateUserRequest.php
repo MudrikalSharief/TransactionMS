@@ -19,6 +19,7 @@ class UpdateUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $userId],
             'password' => ['nullable', 'string', 'min:8'],
+            'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'],
             'is_active' => ['sometimes', 'boolean'],
             'office_id' => ['nullable', 'integer', 'exists:offices,id'],
             'role_ids' => ['sometimes', 'array'],

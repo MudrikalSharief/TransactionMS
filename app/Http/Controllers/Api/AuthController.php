@@ -25,11 +25,21 @@ class AuthController extends Controller
 
         $remember = (bool) ($data['remember'] ?? false);
 
-        if (!Auth::guard('web')->attempt($credentials, $remember)) {
+        if (!Auth::guard('web')->validate($credentials)) {
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 422);
         }
+
+        // Only a correct password reveals that the account is still waiting.
+        $user = User::where('email', $credentials['email'])->first();
+        if ($user?->isPendingApproval()) {
+            return response()->json([
+                'message' => 'Your account is waiting for approval. You can sign in once an administrator approves it.',
+            ], 403);
+        }
+
+        Auth::guard('web')->login($user, $remember);
 
         $request->session()->regenerate();
 
@@ -88,6 +98,7 @@ class AuthController extends Controller
                 'name' => 'Guest Viewer',
                 'password' => Hash::make(Str::random(40)),
                 'is_active' => true,
+                'approved_at' => now(),
             ]
         );
 
