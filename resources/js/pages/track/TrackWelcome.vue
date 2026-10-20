@@ -19,6 +19,25 @@
                     @error="onReady"
                 />
 
+                <!-- The flag waving: a copy of the picture in thin strips that
+                     bob in turn, still at the hoist and freest at the fly end.
+                     Masked off the greeting so the text stays sharp. -->
+                <div class="flag" aria-hidden="true">
+                    <span
+                        v-for="s in strips"
+                        :key="s.i"
+                        class="strip"
+                        :style="{
+                            left: s.left + '%',
+                            width: `calc(100% / ${STRIPS} + 1px)`,
+                            backgroundPosition: s.bgx,
+                            '--amp': s.amp + '%',
+                            '--shade': s.shade,
+                            '--d': s.delay + 's',
+                        }"
+                    ></span>
+                </div>
+
                 <!-- Light moving across the satin, like wind in the cloth -->
                 <div class="sheen" aria-hidden="true"></div>
 
@@ -113,6 +132,23 @@ const motes = Array.from({ length: 18 }, (_, id) => ({
     delay: -rand() * 10,
     sway: Math.round((rand() - 0.5) * 60),
 }));
+
+// Flag wave: one crest travels from the hoist (left) to the fly end (right)
+// every 2 x WAVE_S seconds. Negative delays put each strip mid-cycle at once.
+const STRIPS = 48;
+const WAVE_S = 1.8;
+const strips = Array.from({ length: STRIPS }, (_, i) => {
+    const t = i / (STRIPS - 1);
+    return {
+        i,
+        left: (i * 100) / STRIPS,
+        // Each strip shows its own slice of the full-width picture.
+        bgx: `calc(${-i} * 100cqw / ${STRIPS}) 0`,
+        amp: (0.12 + 0.55 * t).toFixed(3),
+        shade: (0.06 + 0.2 * t).toFixed(3),
+        delay: (-((STRIPS - 1 - i) / STRIPS) * 2 * WAVE_S).toFixed(3),
+    };
+});
 
 // Every animation is paused until the picture has loaded, so nothing plays
 // over an empty screen.
@@ -220,6 +256,37 @@ onUnmounted(() => {
     width: 100%;
     height: 100%;
     user-select: none;
+}
+
+/* ---- Flag wave: strips of the picture bobbing in turn ---- */
+.flag {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Clear over the greeting (the still picture shows through there),
+       feathered out to the cloth around it. */
+    -webkit-mask-image: radial-gradient(ellipse 36% 30% at 51% 50%, transparent 82%, #000 100%);
+    mask-image: radial-gradient(ellipse 36% 30% at 51% 50%, transparent 82%, #000 100%);
+    animation: fade-in 1.2s ease-out 0.3s both;
+}
+.strip {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-image: url('/viewer-welcome.jpg');
+    background-size: 100cqw 100%;
+    background-repeat: no-repeat;
+    will-change: transform;
+    animation: wave 1.8s ease-in-out var(--d) infinite alternate;
+}
+/* Folds darken a quarter-turn behind the lift, like light on moving cloth. */
+.strip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 10, 24, var(--shade));
+    opacity: 0;
+    animation: fold 1.8s ease-in-out calc(var(--d) - 0.9s) infinite alternate;
 }
 
 /* Bands of light rolling across the satin. */
@@ -527,6 +594,19 @@ onUnmounted(() => {
         transform: scale(1.08) translate(0.6%, -1%);
     }
 }
+@keyframes wave {
+    from {
+        transform: translateY(calc(var(--amp) * -1));
+    }
+    to {
+        transform: translateY(var(--amp));
+    }
+}
+@keyframes fold {
+    to {
+        opacity: 1;
+    }
+}
 @keyframes sheen {
     from {
         transform: translateX(-12%);
@@ -648,7 +728,8 @@ onUnmounted(() => {
     .mote,
     .star,
     .greet-shine,
-    .veil {
+    .veil,
+    .flag {
         display: none;
     }
     .ch {
