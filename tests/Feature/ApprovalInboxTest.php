@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\ChecklistOverride;
 use App\Models\RequirementDefinition;
 use App\Models\Role;
 use App\Models\StepRole;
 use App\Models\Transaction;
 use App\Models\TransactionAttachment;
+use App\Models\TransactionRequirementCheck;
 use App\Models\TransactionState;
 use App\Models\TransactionType;
 use App\Models\User;
@@ -114,10 +116,26 @@ class ApprovalInboxTest extends TestCase
         return $user;
     }
 
+    private function tickRequirementAt(
+        Transaction $tx,
+        WorkflowStep $step,
+        RequirementDefinition $requirement,
+        User $user
+    ): void {
+        TransactionRequirementCheck::create([
+            'transaction_id' => $tx->id,
+            'workflow_step_id' => $step->id,
+            'requirement_definition_id' => $requirement->id,
+            'checked_by' => $user->id,
+            'checked_at' => now(),
+        ]);
+    }
+
     public function test_station_two_sees_station_one_requirements_with_files(): void
     {
         $approver = $this->userWithRole($this->approver);
         $tx = $this->makeTransactionAt($this->validate, $approver);
+        $this->tickRequirementAt($tx, $this->collect, $this->dtr, $approver);
 
         TransactionAttachment::create([
             'transaction_id' => $tx->id,
@@ -144,6 +162,45 @@ class ApprovalInboxTest extends TestCase
             ->assertJsonPath('data.0.current_step_checklist.0.prev_step.name', 'Collect DTR')
             ->assertJsonPath('data.0.current_step_checklist.0.attachment_count', 1)
             ->assertJsonPath('data.0.current_step_checklist.0.attachments.0.original_name', 'dtr.pdf');
+    }
+
+    public function test_checklist_only_lists_previous_requirements_the_sender_ticked(): void
+    {
+        $approver = $this->userWithRole($this->approver);
+
+        $ticked = RequirementDefinition::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'code' => 'optional_ticked',
+            'name' => 'Optional Ticked',
+        ]);
+        $unticked = RequirementDefinition::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'code' => 'optional_unticked',
+            'name' => 'Optional Unticked',
+        ]);
+        $this->collect->requirementDefinitions()->attach($ticked->id, ['display_order' => 2, 'is_required' => false]);
+        $this->collect->requirementDefinitions()->attach($unticked->id, ['display_order' => 3, 'is_required' => false]);
+
+        $tx = $this->makeTransactionAt($this->validate, $approver);
+        $this->tickRequirementAt($tx, $this->collect, $this->dtr, $approver);
+        $this->tickRequirementAt($tx, $this->collect, $ticked, $approver);
+        // $unticked is deliberately left without a transaction_requirement_checks row.
+
+        ChecklistOverride::create([
+            'workflow_step_id' => $this->validate->id,
+            'requirement_definition_id' => null,
+            'name' => 'Custom item',
+            'is_required' => false,
+            'display_order' => 4,
+        ]);
+
+        Sanctum::actingAs($approver);
+
+        $this->getJson('/api/approvals')
+            ->assertOk()
+            ->assertJsonCount(2, 'data.0.current_step_checklist')
+            ->assertJsonPath('data.0.current_step_checklist.0.name', 'DTR collected')
+            ->assertJsonPath('data.0.current_step_checklist.1.name', 'Optional Ticked');
     }
 
     public function test_start_station_transactions_are_listed_with_their_uploads_pending(): void
@@ -229,7 +286,13 @@ class ApprovalInboxTest extends TestCase
         $this->collect->requirementDefinitions()->attach($ar->id, ['display_order' => 2, 'is_required' => true]);
 
         $first = $this->makeTransactionAt($this->validate, $approver);
-        $this->makeTransactionAt($this->validate, $approver);
+        $this->tickRequirementAt($first, $this->collect, $this->dtr, $approver);
+        $this->tickRequirementAt($first, $this->collect, $ar, $approver);
+
+        $second = $this->makeTransactionAt($this->validate, $approver);
+        $this->tickRequirementAt($second, $this->collect, $this->dtr, $approver);
+        $this->tickRequirementAt($second, $this->collect, $ar, $approver);
+
         $this->makeTransactionAt($this->collect, $approver); // start station: never counted
 
         Sanctum::actingAs($approver);

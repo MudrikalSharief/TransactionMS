@@ -128,33 +128,14 @@
                     No checklist items for this station.
                 </div>
                 <div v-else>
-                    <div v-if="hasPrevColumnChecklist && !modern" class="text-caption text-medium-emphasis mb-2">
-                        <b>Prev</b> shows what the previous station ticked (read-only).
-                        <b>Verify</b> is your tick — mark it only when you've seen the hard copy. Required items must be verified before you can Proceed.
-                    </div>
-                    <div v-else-if="!modern" class="text-caption text-medium-emphasis mb-2">
+                    <div v-if="!modern" class="text-caption text-medium-emphasis mb-2">
                         Tick each item as done. Required items must be ticked before you can Proceed.
-                    </div>
-                    <div v-if="hasPrevColumnChecklist" class="d-flex align-center ga-2">
-                        <span style="width: 44px" class="text-caption text-medium-emphasis text-center">Prev</span>
-                        <span class="text-caption text-medium-emphasis">Verify</span>
                     </div>
                     <div
                         v-for="c in (checklist || [])"
                         :key="c.id"
                         class="d-flex align-center ga-2 py-1"
                     >
-                        <div v-if="hasPrevColumnChecklist" style="width: 44px" class="d-flex justify-center">
-                        <v-checkbox
-                            :model-value="!!c.prev_checked"
-                            :class="{ 'prev-tick-done': c.prev_checked }"
-                            disabled
-                            density="compact"
-                            hide-details="auto"
-                            style="flex: 0 0 auto; margin: 0"
-                            :title="prevCheckTitle(c)"
-                        />
-                        </div>
                         <v-checkbox
                             :model-value="!!c.checked"
                             :label="c.name"
@@ -703,17 +684,6 @@ function prevTickTitle(r) {
     const who = r.prev_checked_by?.name ? ` by ${r.prev_checked_by.name}` : ''
     const where = r.prev_step?.name ? ` at ${r.prev_step.name}` : ''
     return r.prev_checked ? `Checked${where}${who}` : `Not checked${where}`
-}
-
-// Same mirror for the Review checklist: first column shows only when
-// some item carries its predecessor requirement's tick.
-const hasPrevColumnChecklist = computed(() => (props.checklist || []).some((c) => !!c.prev_step))
-
-function prevCheckTitle(c) {
-    if (!c.prev_step) return 'No previous station'
-    const who = c.prev_checked_by?.name ? ` by ${c.prev_checked_by.name}` : ''
-    const where = c.prev_step?.name ? ` at ${c.prev_step.name}` : ''
-    return c.prev_checked ? `Checked${where}${who}` : `Not checked${where}`
 }
 
 // Group card order: true upload inputs first, then tick-only sections.

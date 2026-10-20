@@ -97,7 +97,7 @@ class ApprovalController extends Controller
 
         $query = Transaction::query()
             ->where('is_done', false)
-            ->with(['state.currentStep', 'attachments', 'checklistChecks'])
+            ->with(['state.currentStep', 'attachments', 'checklistChecks', 'requirementChecks'])
             ->latest();
 
         if (!$isSuperadmin) {
@@ -155,9 +155,15 @@ class ApprovalController extends Controller
             // Read-only (itemsFor, no sync): checklist rows are synced on write
             // paths (requirements/routes/checklist admins + transitions), so
             // GETs never WRITE — faster lists + safe on bad networks/retries.
+            // Visible rows are transaction-specific (only requirements ticked
+            // at the predecessor), so cache the step config + owner map and
+            // filter per transaction below.
             'checklist' => (int) $step->order_number === 1
                 ? collect()
-                : $this->checklists->itemsFor($step)->filter(fn ($i) => $i->is_required)->pluck('id')->map(fn ($id) => (int) $id),
+                : $this->checklists->itemsFor($step)->filter(fn ($i) => (bool) $i->is_required)->values(),
+            'checklist_owners' => (int) $step->order_number === 1
+                ? []
+                : $this->checklists->ownerStepIdsByReq($step),
         ];
 
         $uploaded = $tx->attachments
@@ -168,9 +174,26 @@ class ApprovalController extends Controller
             ->where('workflow_step_id', $step->id)
             ->pluck('checklist_override_id')
             ->map(fn ($id) => (int) $id);
+        $tickedReqKeys = collect($tx->requirementChecks ?? [])
+            ->map(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id))
+            ->flip();
+
+        $visibleRequiredIds = $cache[$step->id]['checklist']
+            ->filter(function ($item) use ($cache, $step, $tickedReqKeys) {
+                $reqId = (int) ($item->requirement_definition_id ?? 0);
+                if (!$reqId) return false;
+
+                foreach ($cache[$step->id]['checklist_owners'][$reqId] ?? [] as $stepId) {
+                    if ($tickedReqKeys->has($stepId . ':' . $reqId)) return true;
+                }
+
+                return false;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
 
         return $cache[$step->id]['uploads']->reject(fn ($id) => $uploaded->contains($id))->count()
-            + $cache[$step->id]['checklist']->reject(fn ($id) => $ticked->contains($id))->count();
+            + $visibleRequiredIds->reject(fn ($id) => $ticked->contains($id))->count();
     }
 
     private function inbox(User $user, array $filters = [])

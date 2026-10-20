@@ -118,7 +118,7 @@ export function storedUserId() {
 export const CacheKeys = {
     transactions: 'tx-all',
     myTransactions: 'tx-my',
-    transactionTypes: 'tx-types',
+    transactionTypes: 'tx-types:v2',
     offices: 'offices',
     roles: 'roles',
     users: 'admin-users',

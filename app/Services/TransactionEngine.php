@@ -484,7 +484,8 @@ class TransactionEngine
         }
 
         // Required checklist ticks must still be present.
-        $checklistItems = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $checklists = \app(\App\Services\ChecklistService::class);
+        $checklistItems = $checklists->visibleItemsFor($tx, $step, $checklists->ensureItems($step));
         $requiredItems = $checklistItems->filter(fn ($i) => (bool) $i->is_required)->values();
         if ($requiredItems->isNotEmpty()) {
             $checkedIds = collect($tx->checklistChecks ?? [])

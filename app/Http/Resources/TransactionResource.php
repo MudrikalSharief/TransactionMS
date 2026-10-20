@@ -213,9 +213,11 @@ class TransactionResource extends JsonResource
             // station and the files it uploaded, so the reviewer can see
             // what they are validating (Approvals page).
             $sourceStepByReq = [];
+            $ownerStepIdsByReq = [];
             foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
                 foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
                     $sourceStepByReq[(int) $reqId] ??= $pred;
+                    $ownerStepIdsByReq[(int) $reqId][] = (int) $pred->id;
                 }
             }
             $attsByStepReq = collect($this->attachments ?? [])
@@ -226,6 +228,16 @@ class TransactionResource extends JsonResource
             // requirement so the wizard can offer a View button per file.
             $attsByReqTx = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])
                 ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
+
+            // Only surface rows mirrored from a requirement the previous
+            // station actually ticked for this transaction (custom rows are
+            // hidden too). The rows themselves stay in the workflow config.
+            $checklistItems = $checklistService->visibleItemsFor(
+                $this->resource,
+                $currentStep,
+                $checklistItems,
+                $ownerStepIdsByReq
+            );
 
             foreach ($checklistItems as $item) {
                 $cCheck = $checklistChecks->get($item->id);

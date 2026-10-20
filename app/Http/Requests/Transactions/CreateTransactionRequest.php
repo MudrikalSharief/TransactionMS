@@ -5,6 +5,7 @@ namespace App\Http\Requests\Transactions;
 use App\Models\TransactionType;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateTransactionRequest extends FormRequest
 {
@@ -14,7 +15,15 @@ class CreateTransactionRequest extends FormRequest
     {
         return [
             'transaction_type_id' => ['required', 'integer', 'exists:transaction_types,id'],
-            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            // Superadmins originate on behalf of an office, so they must say
+            // which one. Regular users are forced to their own office in the
+            // controller (a null office is already rejected there).
+            'office_id' => [
+                Rule::requiredIf(fn () => $this->user()?->hasRole('superadmin')),
+                'nullable',
+                'integer',
+                'exists:offices,id',
+            ],
             'title' => ['nullable', 'string', 'max:200'],
         ];
     }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ChecklistOverride;
+use App\Models\Transaction;
 use App\Models\WorkflowStep;
 use Illuminate\Support\Collection;
 
@@ -32,6 +33,61 @@ class ChecklistService
             ->orderBy('display_order')
             ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * Predecessor step IDs that own each requirement definition, keyed by
+     * requirement_definition_id. Used to resolve which station a mirrored
+     * checklist row came from.
+     *
+     * @return array<int, int[]>
+     */
+    public function ownerStepIdsByReq(WorkflowStep $step): array
+    {
+        $map = [];
+        foreach ($this->predecessorsFor($step) as $pred) {
+            foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
+                $map[(int) $reqId][] = (int) $pred->id;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Checklist rows a transaction should actually see at this step:
+     * only rows mirrored from a predecessor requirement the transaction
+     * already ticked. Custom rows (no requirement_definition_id) and rows
+     * whose source requirement was left unticked are hidden.
+     *
+     * @param  Collection<int, ChecklistOverride>|null  $items
+     * @param  array<int, int[]>|null  $ownerStepIdsByReq
+     */
+    public function visibleItemsFor(
+        Transaction $tx,
+        WorkflowStep $step,
+        ?Collection $items = null,
+        ?array $ownerStepIdsByReq = null
+    ): Collection {
+        $items ??= $this->itemsFor($step);
+        $ownerStepIdsByReq ??= $this->ownerStepIdsByReq($step);
+
+        $tx->loadMissing('requirementChecks');
+        $checks = collect($tx->requirementChecks ?? [])
+            ->keyBy(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id));
+
+        return $items
+            ->filter(function ($item) use ($ownerStepIdsByReq, $checks) {
+                $reqId = (int) ($item->requirement_definition_id ?? 0);
+                if (!$reqId) return false;
+
+                foreach ($ownerStepIdsByReq[$reqId] ?? [] as $stepId) {
+                    if ($checks->has($stepId . ':' . $reqId)) return true;
+                }
+
+                return false;
+            })
+            ->values();
     }
 
     /**

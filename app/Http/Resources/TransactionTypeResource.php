@@ -21,6 +21,29 @@ class TransactionTypeResource extends JsonResource
                 'code' => $o->code,
                 'name' => $o->name,
             ])->values()),
+            // Ordered steps of the published workflow this type follows, for
+            // the New Transaction dialog's flow preview. Only present when the
+            // caller eager-loaded the relation (the lookup index does).
+            'workflow_steps' => $this->when(
+                $this->relationLoaded('liveWorkflow'),
+                fn () => collect($this->liveWorkflow?->steps ?? [])
+                    ->sortBy(fn ($s) => [(int) ($s->order_number ?? 0), (int) $s->id])
+                    ->values()
+                    ->map(fn ($s) => [
+                        'id' => $s->id,
+                        'order_number' => (int) $s->order_number,
+                        'name' => $s->name,
+                        'code' => $s->code,
+                        'is_start' => (bool) $s->is_start,
+                        'is_end' => (bool) $s->is_end,
+                        'office' => $s->relationLoaded('office') && $s->office ? [
+                            'id' => $s->office->id,
+                            'code' => $s->office->code,
+                            'name' => $s->office->name,
+                        ] : null,
+                    ])
+                    ->all()
+            ),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

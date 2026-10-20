@@ -6,6 +6,8 @@ use App\Models\Office;
 use App\Models\Role;
 use App\Models\TransactionType;
 use App\Models\User;
+use App\Models\WorkflowDefinition;
+use App\Models\WorkflowStep;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -148,5 +150,65 @@ class TransactionTypeOfficeAccessTest extends TestCase
         ])->assertForbidden();
 
         $this->deleteJson("/api/admin/transaction-types/{$this->gsoType->id}")->assertForbidden();
+    }
+
+    public function test_index_includes_ordered_steps_of_the_live_workflow(): void
+    {
+        // Older published version must lose to the live-flagged one.
+        $older = WorkflowDefinition::create([
+            'transaction_type_id' => $this->gsoType->id,
+            'version' => 1,
+            'status' => 'published',
+            'is_live' => false,
+            'name' => 'Old published',
+        ]);
+        WorkflowStep::create([
+            'workflow_definition_id' => $older->id,
+            'order_number' => 1,
+            'code' => 'old_step',
+            'name' => 'Old step',
+        ]);
+
+        $live = WorkflowDefinition::create([
+            'transaction_type_id' => $this->gsoType->id,
+            'version' => 2,
+            'status' => 'published',
+            'is_live' => true,
+            'name' => 'Live',
+        ]);
+        WorkflowStep::create([
+            'workflow_definition_id' => $live->id,
+            'order_number' => 2,
+            'code' => 'second',
+            'name' => 'Second step',
+        ]);
+        WorkflowStep::create([
+            'workflow_definition_id' => $live->id,
+            'order_number' => 1,
+            'code' => 'first',
+            'name' => 'First step',
+            'office_id' => $this->gso->id,
+            'is_start' => true,
+        ]);
+
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        // The lookup is cached for 10 min; make this test see the rows it
+        // just created instead of a previous test's cached collection.
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v2');
+
+        $rows = collect($this->getJson('/api/admin/transaction-types')->assertOk()->json('data'));
+        $row = $rows->firstWhere('id', $this->gsoType->id);
+
+        $this->assertSame(
+            ['First step', 'Second step'],
+            collect($row['workflow_steps'])->pluck('name')->all()
+        );
+        $this->assertSame($this->gso->code, $row['workflow_steps'][0]['office']['code']);
+        $this->assertTrue($row['workflow_steps'][0]['is_start']);
+
+        // A type with no published workflow still returns a list (empty).
+        $any = $rows->firstWhere('code', 'any');
+        $this->assertSame([], $any['workflow_steps']);
     }
 }

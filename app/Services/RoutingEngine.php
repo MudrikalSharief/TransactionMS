@@ -269,7 +269,8 @@ class RoutingEngine
         $step = $tx->state?->currentStep;
         if (!$step) return;
 
-        $items = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $checklists = \app(\App\Services\ChecklistService::class);
+        $items = $checklists->visibleItemsFor($tx, $step, $checklists->ensureItems($step));
         $required = $items->filter(fn ($i) => (bool) $i->is_required)->values();
         if ($required->isEmpty()) return;
 

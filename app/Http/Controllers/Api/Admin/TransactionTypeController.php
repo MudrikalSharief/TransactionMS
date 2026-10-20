@@ -19,9 +19,16 @@ class TransactionTypeController extends Controller
         // cache holds the full catalog; per-user office filtering happens here
         // so the cache stays single-key and never leaks other offices' types.
         $items = \Illuminate\Support\Facades\Cache::remember(
-            'lookup:transaction-types',
+            'lookup:transaction-types:v2',
             600,
-            fn () => TransactionType::query()->with('offices')->orderBy('name')->get()
+            fn () => TransactionType::query()
+                ->with([
+                    'offices',
+                    'liveWorkflow.steps' => fn ($q) => $q->orderBy('order_number')->orderBy('id'),
+                    'liveWorkflow.steps.office',
+                ])
+                ->orderBy('name')
+                ->get()
         );
 
         $user = $request->user();
@@ -60,7 +67,7 @@ class TransactionTypeController extends Controller
             'payload' => $request->validated(),
         ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v2');
 
         return (new TransactionTypeResource($type->load('offices')))->response()->setStatusCode(201);
     }
@@ -101,7 +108,7 @@ class TransactionTypeController extends Controller
             ]),
         ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v2');
 
         return new TransactionTypeResource($transactionType->load('offices'));
     }
@@ -119,7 +126,7 @@ class TransactionTypeController extends Controller
             'note' => 'Soft deleted transaction type',
         ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v2');
 
         return response()->json(['message' => 'Deleted.']);
     }

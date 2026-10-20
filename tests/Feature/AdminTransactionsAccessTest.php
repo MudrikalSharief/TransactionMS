@@ -242,4 +242,30 @@ class AdminTransactionsAccessTest extends TestCase
             'title' => 'Bypassed restriction',
         ])->assertCreated()->assertJsonPath('data.office.id', $this->gso->id);
     }
+
+    public function test_superadmin_creation_requires_an_office(): void
+    {
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'title' => 'No office chosen',
+        ])->assertStatus(422)->assertJsonValidationErrors('office_id');
+    }
+
+    public function test_reassigning_an_office_cannot_clear_it(): void
+    {
+        $tx = $this->makeTransaction($this->gso, $this->gsoStep);
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->putJson("/api/admin/transactions/{$tx->id}/office", [
+            'office_id' => null,
+        ])->assertStatus(422)->assertJsonValidationErrors('office_id');
+
+        $this->putJson("/api/admin/transactions/{$tx->id}/office", [
+            'office_id' => $this->cbo->id,
+        ])->assertOk();
+
+        $this->assertSame($this->cbo->id, $tx->fresh()->office_id);
+    }
 }

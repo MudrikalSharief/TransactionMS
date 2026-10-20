@@ -97,7 +97,8 @@ class TransactionController extends Controller
         $user = $request->user();
 
         if ($user->hasRole('superadmin')) {
-            $officeId = $request->validated()['office_id'] ?? null;
+            // Required by CreateTransactionRequest; never null here.
+            $officeId = $request->validated()['office_id'];
         } else {
             $officeId = $user->office_id;
 
@@ -117,11 +118,13 @@ class TransactionController extends Controller
     public function updateOffice(Request $request, Transaction $transaction, RoutingEngine $routing, AuditService $audit)
     {
         $data = $request->validate([
-            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            // A transaction always belongs to an office; reassignment can
+            // move it but never clear it.
+            'office_id' => ['required', 'integer', 'exists:offices,id'],
         ]);
 
         $before = ['office_id' => $transaction->office_id];
-        $transaction->office_id = $data['office_id'] ?? null;
+        $transaction->office_id = $data['office_id'];
         $transaction->save();
 
         $audit->log($request, 'transactions.reassign_office', $transaction, [
