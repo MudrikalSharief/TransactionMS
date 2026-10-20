@@ -23,6 +23,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 
+    {{-- Viewer welcome face: Alegreya (greeting + Chavacano line). Same
+         non-blocking pattern; files load only when that screen paints. --}}
+    <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,700;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,700;1,400&display=swap" rel="stylesheet"></noscript>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
