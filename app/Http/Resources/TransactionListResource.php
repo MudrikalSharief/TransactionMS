@@ -60,9 +60,9 @@ class TransactionListResource extends JsonResource
     }
 
     /**
-     * office_id + office for a step, with end-user and office-less
-     * stations following the transaction's office instead of the
-     * workflow template's step office.
+     * office_id + office for a step. End-user stations and blank assignments
+     * follow the transaction's Originating Office. Legacy transactions with
+     * no originating office resolve to null (role-only fallback).
      */
     private function stepOfficePayload($step): array
     {

@@ -88,10 +88,15 @@ class OfficeScopedAccessTest extends TestCase
 
     private function makeTransaction(Office $office, WorkflowStep $step): Transaction
     {
+        return $this->makeTransactionWithOffice($office->id, $step);
+    }
+
+    private function makeTransactionWithOffice(?int $officeId, WorkflowStep $step): Transaction
+    {
         $tx = Transaction::create([
             'transaction_type_id' => $this->type->id,
             'workflow_definition_id' => $this->workflow->id,
-            'office_id' => $office->id,
+            'office_id' => $officeId,
             'reference_number' => 'TX-' . uniqid(),
             'title' => 'Test request',
             'is_done' => false,
@@ -187,44 +192,177 @@ class OfficeScopedAccessTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_step_without_office_keeps_role_only_access(): void
+    public function test_blank_step_follows_the_transactions_office(): void
     {
         $freeStep = WorkflowStep::create([
             'workflow_definition_id' => $this->workflow->id,
             'order_number' => 3,
             'code' => 'free_step',
-            'name' => 'Office-agnostic Step',
+            'name' => "User's Office Step",
         ]);
         StepRole::create(['workflow_step_id' => $freeStep->id, 'role_id' => $this->clerkRole->id]);
 
         $gsoClerk = $this->userWithRole($this->clerkRole, $this->gso);
+        $cboClerk = $this->userWithRole($this->clerkRole, $this->cbo);
         $tx = $this->makeTransaction($this->gso, $freeStep);
 
         Sanctum::actingAs($gsoClerk);
+        $this->getJson('/api/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+
+        Sanctum::actingAs($cboClerk);
+        $this->getJson('/api/transactions')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+    }
+
+    public function test_office_admin_can_act_on_a_blank_step_at_their_office(): void
+    {
+        $freeStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'order_number' => 3,
+            'code' => 'free_step',
+            'name' => "User's Office Step",
+        ]);
+        StepRole::create(['workflow_step_id' => $freeStep->id, 'role_id' => $this->clerkRole->id]);
+
+        $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        $cboAdmin = $this->userWithRole($this->adminRole, $this->cbo);
+        $tx = $this->makeTransaction($this->gso, $freeStep);
+
+        Sanctum::actingAs($ramon);
+        $this->getJson('/api/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
+
+        Sanctum::actingAs($cboAdmin);
+        $this->getJson('/api/transactions')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+    }
+
+    public function test_user_without_office_cannot_work_an_assigned_step(): void
+    {
+        $noOfficeClerk = $this->userWithRole($this->clerkRole);
+        $tx = $this->makeTransaction($this->gso, $this->gsoStep);
+
+        Sanctum::actingAs($noOfficeClerk);
+
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
+            ->assertForbidden();
+    }
+
+    public function test_user_without_office_cannot_work_a_user_office_step(): void
+    {
+        $freeStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'order_number' => 3,
+            'code' => 'free_step',
+            'name' => "User's Office Step",
+        ]);
+        StepRole::create(['workflow_step_id' => $freeStep->id, 'role_id' => $this->clerkRole->id]);
+        $freeRoute = WorkflowRoute::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'from_step_id' => $freeStep->id,
+            'to_step_id' => $this->cboStep->id,
+            'action_code' => 'submit',
+            'is_return_route' => false,
+        ]);
+
+        $noOfficeClerk = $this->userWithRole($this->clerkRole);
+        $tx = $this->makeTransaction($this->gso, $freeStep);
+
+        Sanctum::actingAs($noOfficeClerk);
+
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $freeRoute->id])
+            ->assertForbidden();
+    }
+
+    public function test_user_without_office_keeps_role_only_fallback_on_a_legacy_no_origin_transaction(): void
+    {
+        $freeStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'order_number' => 3,
+            'code' => 'free_step',
+            'name' => "User's Office Step",
+        ]);
+        StepRole::create(['workflow_step_id' => $freeStep->id, 'role_id' => $this->clerkRole->id]);
+        $freeRoute = WorkflowRoute::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'from_step_id' => $freeStep->id,
+            'to_step_id' => $this->cboStep->id,
+            'action_code' => 'submit',
+            'is_return_route' => false,
+        ]);
+
+        $noOfficeClerk = $this->userWithRole($this->clerkRole);
+        $tx = $this->makeTransactionWithOffice(null, $freeStep);
+
+        Sanctum::actingAs($noOfficeClerk);
 
         $this->getJson('/api/transactions')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $tx->id);
+
+        $this->getJson("/api/transactions/{$tx->id}")
+            ->assertOk()
+            ->assertJsonPath('meta.available_actions.0.route_id', $freeRoute->id);
+
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $freeRoute->id])
+            ->assertOk()
+            ->assertJsonPath('data.current_step.id', $this->cboStep->id);
     }
 
-    public function test_office_admin_needs_a_role_match_on_office_less_steps(): void
+    public function test_office_user_keeps_role_only_fallback_on_a_legacy_no_origin_transaction(): void
     {
         $freeStep = WorkflowStep::create([
             'workflow_definition_id' => $this->workflow->id,
             'order_number' => 3,
             'code' => 'free_step',
-            'name' => 'Office-agnostic Step',
+            'name' => "User's Office Step",
         ]);
         StepRole::create(['workflow_step_id' => $freeStep->id, 'role_id' => $this->clerkRole->id]);
+        $freeRoute = WorkflowRoute::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'from_step_id' => $freeStep->id,
+            'to_step_id' => $this->cboStep->id,
+            'action_code' => 'submit',
+            'is_return_route' => false,
+        ]);
 
-        $ramon = $this->userWithRole($this->adminRole, $this->gso);
-        $tx = $this->makeTransaction($this->gso, $freeStep);
+        $cboClerk = $this->userWithRole($this->clerkRole, $this->cbo);
+        $tx = $this->makeTransactionWithOffice(null, $freeStep);
 
-        Sanctum::actingAs($ramon);
+        Sanctum::actingAs($cboClerk);
 
-        $this->getJson('/api/transactions')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        $this->getJson('/api/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+
+        $this->getJson('/api/admin/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+
+        $this->getJson('/api/approvals')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+
+        $this->getJson('/api/approvals/count')
+            ->assertOk()
+            ->assertJsonPath('transactions', 1);
+
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $freeRoute->id])
+            ->assertOk()
+            ->assertJsonPath('data.current_step.id', $this->cboStep->id);
     }
 
     public function test_approval_inbox_follows_the_same_office_scoping(): void

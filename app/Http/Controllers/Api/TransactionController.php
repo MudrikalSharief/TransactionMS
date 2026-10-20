@@ -42,26 +42,29 @@ class TransactionController extends Controller
         $user = $request->user();
         $user->loadMissing('roles');
         $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
         if (!$isSuperadmin) {
             if ($user->isOfficeAdmin()) {
                 // Office admins track their own office's papers city-wide
                 // (the dashboard summary counts them and their detail opens
-                // from there), plus anything parked at their office.
-                $query->where(function ($w) use ($user) {
+                // from there), plus anything parked at their office. Legacy
+                // no-origin stations stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
                     $w->where('transactions.office_id', $user->office_id)
                         ->orWhereHas('state.currentStep', fn ($s) => $s
-                            ->where('workflow_steps.office_id', $user->office_id)
-                            ->where('workflow_steps.is_end_user', false));
+                            ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
                 });
             } else {
                 // Regular users: their own office's transactions, plus any
-                // row whose current station lists one of their roles and is
-                // at their office (office-agnostic steps keep the role-only
-                // behavior; end-user stations follow the transaction's
-                // office, already covered by the own-office union).
-                $roleIds = $user->roles->pluck('id')->filter()->values()->all();
-
+                // row whose current station lists one of their roles and has
+                // their office as its effective office. Blank stations follow
+                // the transaction's Originating Office; end-user stations do
+                // too. Legacy no-origin stations stay role-only.
                 if ($user->office_id === null) {
                     $query->whereRaw('1 = 0');
                 } elseif (empty($roleIds)) {
@@ -71,10 +74,9 @@ class TransactionController extends Controller
                         $w->where('transactions.office_id', $user->office_id)
                             ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
                                 $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                                    ->where('workflow_steps.is_end_user', false)
                                     ->where(function ($x) use ($user) {
-                                        $x->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                        $x->whereEffectiveOffice($user->office_id)
+                                            ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                                     });
                             });
                     });

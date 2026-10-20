@@ -102,43 +102,37 @@ class UserTransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // Office admins: rows parked at their office; end-user
-                // stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.is_end_user', true));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->where('workflow_steps.is_end_user', false));
+                // Office admins: rows whose current station's effective office
+                // is their office. Blank and end-user stations follow the
+                // transaction's Originating Office. Legacy no-origin stations
+                // stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
+                    $w->whereHas('state.currentStep', fn ($s) => $s
+                        ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
                 });
             } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
             } else {
                 // Push the role + office gate to SQL (no schema change). Only
                 // rows whose current station lists one of the user's roles and
-                // matches their office: regular stations by stored office
-                // (office-less keep role-only), end-user stations by the
-                // transaction's office. Keeps the exact
-                // userCanWorkOnCurrentStep() semantics for the paged rows below.
+                // has their office as its effective office. Legacy transactions
+                // with no Originating Office keep role-only access to blank and
+                // end-user stations.
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                        ->where(function ($x) use ($user) {
-                            $x->where(function ($y) use ($user) {
-                                $y->where('workflow_steps.is_end_user', true);
-                                if ($user->office_id !== null) {
-                                    $y->where('transactions.office_id', $user->office_id);
-                                }
-                            })->orWhere(function ($y) use ($user) {
-                                $y->where('workflow_steps.is_end_user', false);
-                                if ($user->office_id !== null) {
-                                    $y->where(function ($z) use ($user) {
-                                        $z->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
-                                    });
-                                }
-                            });
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+
+                    if ($user->office_id === null) {
+                        $s->whereLegacyNoOriginFallback();
+                    } else {
+                        $s->where(function ($x) use ($user) {
+                            $x->whereEffectiveOffice($user->office_id)
+                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
+                    }
                 });
             }
         }

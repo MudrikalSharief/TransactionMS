@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Office;
 use App\Models\Role;
 use App\Models\TransactionType;
 use App\Models\User;
@@ -22,12 +23,14 @@ class WorkflowSaveAsTest extends TestCase
 
     private TransactionType $type;
     private WorkflowDefinition $live;
+    private Office $office;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->type = TransactionType::create(['code' => 'permit', 'name' => 'Permit']);
+        $this->office = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
         $this->live = WorkflowDefinition::create([
             'transaction_type_id' => $this->type->id,
             'version' => 1,
@@ -47,6 +50,7 @@ class WorkflowSaveAsTest extends TestCase
             'code' => 'end',
             'name' => 'End',
             'is_end' => true,
+            'office_id' => $this->office->id,
         ]);
         WorkflowRoute::create([
             'workflow_definition_id' => $this->live->id,
@@ -100,6 +104,7 @@ class WorkflowSaveAsTest extends TestCase
         WorkflowStep::create([
             'workflow_definition_id' => $draft->id,
             'order_number' => 2, 'code' => 'end', 'name' => 'End', 'is_end' => true,
+            'office_id' => $this->office->id,
         ]);
 
         Sanctum::actingAs($this->superadmin());

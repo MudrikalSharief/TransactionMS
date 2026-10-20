@@ -74,7 +74,7 @@ class TransactionEngine
                 // Creation is not a forward — no pending receipt.
                 'received_at' => now(),
                 'received_by' => $userId,
-                'received_office_id' => $startStep->is_end_user ? $officeId : $startStep->office_id,
+                'received_office_id' => $tx->effectiveStepOfficeId($startStep),
                 'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
             ]);
 

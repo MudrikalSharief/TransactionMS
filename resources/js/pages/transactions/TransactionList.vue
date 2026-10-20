@@ -229,9 +229,11 @@ const typeOptions = computed(() => {
     .filter((t) => {
       // Superadmins can originate any type for any office.
       if (isSuperadmin.value) return true
+      // The type-level allowlist decides who can create; the first station
+      // no longer restricts the Originating Office.
       const ids = t.office_ids ?? (t.offices || []).map((o) => o.id)
-      if (!ids.length) return true
-      return myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId))
+      return !ids.length
+        || (myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId)))
     })
     .map((t) => ({
       id: t.id,
@@ -379,7 +381,10 @@ async function createTx(payload) {
     await fetchAll({ q: search.value, page: page.value })
     go(tx.id)
   } catch (e) {
-    error.value = e?.response?.data?.message || 'Create failed.'
+    const errs = e?.response?.data?.errors
+    const first = errs && Object.values(errs).find(Boolean)
+    const msg = Array.isArray(first) ? first[0] : first
+    error.value = msg || e?.response?.data?.message || 'Create failed.'
   } finally {
     saving.value = false
   }
