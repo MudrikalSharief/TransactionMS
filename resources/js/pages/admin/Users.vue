@@ -5,7 +5,8 @@
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
         <v-icon color="#1E40AF">mdi-account-group</v-icon>
       </v-avatar>
-      <span class="text-h6 font-weight-bold">Users</span>
+      <span class="text-h6 font-weight-bold">{{ officeMode ? 'Office Users' : 'Users' }}</span>
+      <ScopeChip v-if="officeMode" class="ml-3" />
       <v-spacer />
       <v-text-field
         v-model="search"
@@ -86,23 +87,28 @@
 
         <template v-slot:[`item.actions`]="{ item }">
           <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
-            <v-btn
-              icon="mdi-pencil"
-              v-tooltip="'Edit user'"
-              size="small"
-              variant="outlined"
-              color="grey-darken-3"
-              @click="openEdit(item)"
-            />
-            <v-btn
-              icon="mdi-account-off"
-              v-tooltip="'Deactivate user'"
-              size="small"
-              variant="outlined"
-              color="error"
-              :disabled="item.id === auth.user?.id"
-              @click="deactivate(item)"
-            />
+            <span v-if="lockReason(item)" v-tooltip="lockReason(item)" class="d-flex align-center text-medium-emphasis">
+              <v-icon size="small">mdi-lock-outline</v-icon>
+            </span>
+            <template v-else>
+              <v-btn
+                icon="mdi-pencil"
+                v-tooltip="'Edit user'"
+                size="small"
+                variant="outlined"
+                color="grey-darken-3"
+                @click="openEdit(item)"
+              />
+              <v-btn
+                icon="mdi-account-off"
+                v-tooltip="'Deactivate user'"
+                size="small"
+                variant="outlined"
+                color="error"
+                :disabled="item.id === meId"
+                @click="deactivate(item)"
+              />
+            </template>
           </div>
         </template>
       </v-data-table>
@@ -137,6 +143,7 @@
         />
 
         <v-select
+          v-if="!officeMode"
           v-model="form.office_id"
           :items="officeOptions"
           item-title="label"
@@ -144,6 +151,10 @@
           label="Office"
           clearable
         />
+        <v-alert v-else type="info" variant="tonal" density="compact" rounded="0">
+          {{ form.id ? 'Stays in' : 'Joins' }} <b>{{ myOffice?.name || 'your office' }}</b>.
+          Admin and superadmin roles are given by a superadmin.
+        </v-alert>
       </v-card-text>
       <v-divider />
       <v-card-actions class="justify-end">
@@ -156,24 +167,52 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
 import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
+import { useApi } from '@/composables/useApi'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import ScopeChip from '@/components/ScopeChip.vue'
 
 const auth = useAuth()
-const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = useAdminUsers()
-const { roles, fetchRoles } = useRoles()
+const { api } = useApi()
+// /office/users: an office admin managing their own office's members.
+const officeMode = !!useRoute().meta.officeScope
+const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = useAdminUsers({ office: officeMode })
+const { roles: allRoles, fetchRoles: fetchAllRoles } = useRoles()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 
-const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
+// Superadmins manage everyone; office admins manage their own office (/office/users).
+const canManage = computed(() => officeMode || (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
+const meId = computed(() => auth.user.value?.id)
+const myOffice = computed(() => auth.user.value?.office ?? null)
+
+// Office admins may only give out roles below admin (server list).
+const officeRoles = ref([])
+const roles = computed(() => (officeMode ? officeRoles.value : allRoles.value))
+async function fetchRoles() {
+  if (!officeMode) return fetchAllRoles()
+  const res = await api.get('/api/office/roles')
+  officeRoles.value = res.data.data ?? res.data
+}
+
+// Admins, superadmins and your own account stay with a superadmin.
+function lockReason(item) {
+  if (!officeMode) return ''
+  if (item.id === meId.value) return 'Your own account is managed by a superadmin'
+  if ((item.roles || []).some((r) => ['admin', 'superadmin'].includes(r.code))) {
+    return 'Admins are managed by a superadmin'
+  }
+  return ''
+}
 
 const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Email', key: 'email' },
   { title: 'Roles', key: 'roles', sortable: false },
-  { title: 'Office', key: 'office', sortable: false },
+  ...(officeMode ? [] : [{ title: 'Office', key: 'office', sortable: false }]),
   { title: 'Status', key: 'is_active' },
   { title: '', key: 'actions', sortable: false },
 ]
@@ -254,8 +293,9 @@ async function save() {
       email: form.value.email,
       is_active: form.value.is_active,
       role_ids: form.value.role_ids,
-      office_id: form.value.office_id ?? null,
     }
+    // Office mode: the server always uses the admin's own office.
+    if (!officeMode) payload.office_id = form.value.office_id ?? null
     if (form.value.password) payload.password = form.value.password
 
     if (form.value.id) {
@@ -290,7 +330,7 @@ onMounted(() => {
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
-  fetchOffices().catch(() => {})
+  if (!officeMode) fetchOffices().catch(() => {})
   fetchUsers().catch(() => {})
   // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
   // the table is narrower, so flag html.nav-open to duck the row actions

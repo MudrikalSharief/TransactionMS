@@ -36,10 +36,16 @@ export function canUseApprovals(u) {
     return codes.includes("superadmin") || !codes.includes("end_user");
 }
 
-// Office admin: holds the admin role AND an assigned office. Mirrors
-// User::isOfficeAdmin() on the backend (superadmin excluded on purpose).
+export function isSuperadminUser(u) {
+    return (u?.roles ?? []).some((r) => r.code === "superadmin");
+}
+
+// Office admin: holds the admin role AND an assigned office; manages that
+// office only. Mirrors User::isOfficeAdmin() on the backend (superadmin
+// excluded on purpose).
 export function isOfficeAdminUser(u) {
-    if (!u || (u.office_id == null && u.office == null)) return false;
+    if (!u || isSuperadminUser(u)) return false;
+    if (u.office_id == null && !u.office?.id) return false;
     return (u.roles ?? []).some((r) => r.code === "admin");
 }
 

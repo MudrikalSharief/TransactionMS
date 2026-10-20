@@ -5,8 +5,20 @@
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
                     <v-icon color="white">mdi-file-document-multiple</v-icon>
                 </v-avatar>
-                <span class="text-h6 font-weight-bold">My Transactions</span>
+                <span class="text-h6 font-weight-bold">{{ officeAdmin ? 'Office Transactions' : 'My Transactions' }}</span>
+                <ScopeChip v-if="officeAdmin" class="ml-3" />
                 <v-spacer />
+                <v-btn
+                    v-if="officeAdmin"
+                    variant="outlined"
+                    color="primary"
+                    rounded="0"
+                    prepend-icon="mdi-plus"
+                    class="mr-2"
+                    @click="openCreate"
+                >
+                    New Transaction
+                </v-btn>
                 <v-tooltip location="bottom" max-width="480">
                     <template #activator="{ props }">
                         <v-btn
@@ -30,7 +42,9 @@
                 </v-alert>
 
                 <v-alert v-if="!items.length && !loading" type="info" variant="tonal" class="mb-3">
-                    No transactions assigned to your role on the current step.
+                    {{ officeAdmin
+                        ? 'No transactions filed by or passing through your office yet.'
+                        : 'No transactions assigned to your role on the current step.' }}
                 </v-alert>
 
                 <v-text-field
@@ -132,6 +146,52 @@
                 </div>
             </v-card-text>
         </v-card>
+
+        <!-- Office admins start transactions for processes their office files. -->
+        <v-dialog v-model="createDialog" max-width="640">
+            <v-card rounded="0">
+                <v-card-title class="d-flex align-center pa-5 lgu-head">
+                    <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                        <v-icon color="#1E40AF">mdi-file-document-plus-outline</v-icon>
+                    </v-avatar>
+                    <span class="text-h6 font-weight-bold">New Transaction</span>
+                    <v-spacer />
+                    <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="createDialog = false" />
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pa-5">
+                    <v-alert v-if="createError" type="error" variant="tonal" density="compact" rounded="0" class="mb-3">
+                        {{ createError }}
+                    </v-alert>
+                    <v-select
+                        v-model="createForm.transaction_type_id"
+                        :items="officeTypes"
+                        item-title="name"
+                        item-value="id"
+                        label="Process"
+                        :loading="typesLoading"
+                        :no-data-text="typesLoading ? 'Loading…' : 'Your office has no processes to file yet. Ask a superadmin to link one.'"
+                    />
+                    <v-text-field v-model="createForm.title" label="Title (optional)" />
+                    <div class="text-caption text-medium-emphasis">
+                        Filed under <b>{{ auth.user.value?.office?.name }}</b>. It follows the live steps of the chosen process.
+                    </div>
+                </v-card-text>
+                <v-divider />
+                <v-card-actions class="justify-end pa-4">
+                    <v-btn variant="text" @click="createDialog = false">Cancel</v-btn>
+                    <v-btn
+                        color="grey-darken-3"
+                        rounded="0"
+                        :loading="creating"
+                        :disabled="!createForm.transaction_type_id"
+                        @click="createTx"
+                    >
+                        Create
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
@@ -140,13 +200,62 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useSmartPoll } from "@/composables/useSmartPoll";
+import { useAuth, isOfficeAdminUser } from "@/composables/useAuth";
+import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
 import StepProgress from '@/components/StepProgress.vue';
 import GuideTable from '@/components/GuideTable.vue';
+import ScopeChip from '@/components/ScopeChip.vue';
 
 const router = useRouter();
+const auth = useAuth();
+const { api } = useApi();
 const { items, loading, meta, fetchAll } = useMyTransactions();
 const page = ref(1);
+
+// Office admins see their office's whole scope here and can file new ones.
+const officeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
+
+const createDialog = ref(false);
+const createForm = ref({ transaction_type_id: null, title: "" });
+const createError = ref("");
+const creating = ref(false);
+const officeTypes = ref([]);
+const typesLoading = ref(false);
+
+async function openCreate() {
+    createError.value = "";
+    createForm.value = { transaction_type_id: null, title: "" };
+    createDialog.value = true;
+    if (officeTypes.value.length) return;
+    typesLoading.value = true;
+    try {
+        const res = await api.get("/api/office/transaction-types");
+        officeTypes.value = res.data.data ?? res.data;
+    } catch (e) {
+        createError.value = e?.response?.data?.message || "Failed to load your office's processes.";
+    } finally {
+        typesLoading.value = false;
+    }
+}
+
+async function createTx() {
+    creating.value = true;
+    createError.value = "";
+    try {
+        const res = await api.post("/api/transactions", {
+            transaction_type_id: createForm.value.transaction_type_id,
+            title: createForm.value.title || null,
+        });
+        const tx = res.data.data ?? res.data;
+        createDialog.value = false;
+        router.push(`/my/transactions/${tx.id}`);
+    } catch (e) {
+        createError.value = e?.response?.data?.message || "Create failed.";
+    } finally {
+        creating.value = false;
+    }
+}
 
 const error = ref("");
 const search = ref("");

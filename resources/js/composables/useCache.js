@@ -122,6 +122,8 @@ export const CacheKeys = {
     offices: 'offices',
     roles: 'roles',
     users: 'admin-users',
+    // Office admin's own office members (scoped per user: office differs).
+    officeUsers: 'office-users',
     // Param-keyed lookups append ':' + id (workflows by type, requirement
     // defs by workflow, step data by step/workflow). Detail-level rows are
     // small; the 10-min TTL keeps admin config pages instant.

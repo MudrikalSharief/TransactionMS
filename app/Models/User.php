@@ -58,11 +58,23 @@ class User extends Authenticatable
             && $this->roles->every(fn (Role $role) => $role->code === 'viewer');
     }
 
+    public function isSuperadmin(): bool
+    {
+        $this->loadMissing('roles');
+
+        return $this->roles->contains(fn ($r) => $r->code === 'superadmin');
+    }
+
+    /**
+     * Office admin: holds the admin role and belongs to an office. Oversees
+     * that office's transactions and users; superadmin outranks it.
+     */
     public function isOfficeAdmin(): bool
     {
         $this->loadMissing('roles');
 
-        return $this->office_id !== null
-            && $this->roles->contains(fn (Role $role) => $role->code === 'admin');
+        return !$this->isSuperadmin()
+            && (int) $this->office_id > 0
+            && $this->roles->contains(fn ($r) => $r->code === 'admin');
     }
 }

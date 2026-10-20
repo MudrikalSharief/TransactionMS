@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureOfficeAdmin;
 use App\Http\Middleware\EnsureViewer;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureTransactionOffice;
+use App\Http\Controllers\Api\Office\OfficeAdminController;
 
 use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
@@ -107,6 +108,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     Route::get('/approvals/count', [ApprovalController::class, 'count']);
 
     Route::get('/transactions', [UserTransactionController::class, 'index']);
+    // Office admins start transactions for their own office (checked in the controller).
+    Route::post('/transactions', [UserTransactionController::class, 'store']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
     Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
@@ -127,6 +130,23 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 });
+
+// Office admin area: an admin manages their own office only.
+Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class])
+    ->prefix('office')
+    ->group(function () {
+        Route::get('/users', [OfficeAdminController::class, 'users']);
+        Route::post('/users', [OfficeAdminController::class, 'storeUser']);
+        Route::put('/users/{user}', [OfficeAdminController::class, 'updateUser']);
+        Route::delete('/users/{user}', [OfficeAdminController::class, 'deactivateUser']);
+        Route::get('/roles', [OfficeAdminController::class, 'roles']);
+        Route::get('/transaction-types', [OfficeAdminController::class, 'transactionTypes']);
+
+        // Same Transaction Summary card, forced to the admin's office scope.
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
+        Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
+            ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process']);
+    });
 
 Route::middleware(['auth:sanctum', BlockViewer::class])
     ->prefix('admin')

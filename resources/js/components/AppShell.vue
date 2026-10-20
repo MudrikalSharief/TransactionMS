@@ -83,6 +83,7 @@
             </div>
 
             <div class="d-flex align-center" style="flex: 0 0 auto">
+                <ScopeChip class="mr-2 d-none d-lg-inline-flex" />
                 <v-chip
                     variant="flat"
                     class="mr-2 font-weight-medium"
@@ -95,7 +96,7 @@
 
                 <v-chip
                     variant="flat"
-                    class="mr-2 font-weight-medium"
+                    class="mr-2 font-weight-medium d-none d-md-flex"
                     style="background: #f1f5f9; color: #334155"
                     v-tooltip="'Weather in Zamboanga City: ' + weatherLabel"
                 >
@@ -103,15 +104,17 @@
                     {{ temperature }} · Zamboanga
                 </v-chip>
 
-                <v-chip
+                <!-- Always shown; compacts on narrow screens (e.g. VS Code's
+                     Simple Browser): "Welcome," drops first, then the role tag. -->
+                <div
                     v-if="auth.user.value"
-                    variant="flat"
-                    class="mr-2 font-weight-medium d-none d-md-flex"
-                    style="background: #f1f5f9; color: #334155"
+                    class="welcome mr-3 d-flex"
                     v-tooltip="userTooltip"
                 >
-                    <v-icon color="primary">mdi-account-circle</v-icon>
-                </v-chip>
+                    <span class="welcome__hello d-none d-md-inline">Welcome,</span>
+                    <span class="welcome__name">{{ firstName }}</span>
+                    <span class="welcome__role d-none d-sm-inline">{{ primaryRole }}</span>
+                </div>
 
                 <v-btn
                     icon="mdi-logout"
@@ -130,34 +133,24 @@
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
-            <v-list nav color="primary">
-                <v-list-item v-if="kind === 'admin'" to="/" prepend-icon="mdi-view-dashboard" rounded="lg">
-                    <v-list-item-title>DASHBOARD</v-list-item-title>
-                </v-list-item>
-                <template v-if="kind === 'staff'">
-                    <v-list-item to="/portal" prepend-icon="mdi-home-city-outline" rounded="lg" exact>
-                        <v-list-item-title>HOME</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item to="/portal/transactions" prepend-icon="mdi-file-document-multiple" rounded="lg">
-                        <v-list-item-title>TRANSACTIONS</v-list-item-title>
+            <v-list nav color="primary" class="nav-groups">
+                <!-- Role-aware groups: superadmin sees everything, office admins
+                     their office's work and people, everyone else their own work. -->
+                <template v-for="group in navGroups" :key="group.title">
+                    <div v-if="!rail" class="nav-group-label">{{ group.title }}</div>
+                    <v-divider v-else class="nav-group-rule" />
+                    <v-list-item
+                        v-for="item in group.items"
+                        :key="item.to"
+                        :to="item.to"
+                        :exact="!!item.exact"
+                        :prepend-icon="item.icon"
+                        rounded="lg"
+                        v-tooltip:end="rail ? item.title : undefined"
+                    >
+                        <v-list-item-title>{{ item.title.toUpperCase() }}</v-list-item-title>
                     </v-list-item>
                 </template>
-                <v-list-item
-                    v-if="kind === 'viewer'"
-                    to="/track"
-                    prepend-icon="mdi-map-marker-path"
-                    rounded="lg"
-                >
-                    <v-list-item-title>TRACK TRANSACTIONS</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="kind === 'admin' && !isSuperadmin"
-                    to="/my/transactions"
-                    prepend-icon="mdi-file-document-multiple"
-                    rounded="lg"
-                >
-                    <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
-                </v-list-item>
                 <v-list-item
                     v-if="false && showApprovals"
                     to="/approvals"
@@ -189,54 +182,25 @@
                     </template>
                 </v-list-item>
 
-                <v-list-item
-                    v-if="kind === 'admin'"
-                    to="/transactions"
-                    prepend-icon="mdi-swap-horizontal"
-                    rounded="lg"
-                >
-                    <v-list-item-title>TRANSACTIONS</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isSuperadmin" to="/admin/users" prepend-icon="mdi-account-group" rounded="lg">
-                    <v-list-item-title>USERS</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isSuperadmin" to="/admin/roles" prepend-icon="mdi-shield-account" rounded="lg">
-                    <v-list-item-title>ROLES</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin"
-                    to="/admin/offices"
-                    prepend-icon="mdi-office-building-outline"
-                    rounded="lg"
-                >
-                    <v-list-item-title>OFFICES</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin || isOfficeAdmin"
-                    to="/admin/transaction-types"
-                    prepend-icon="mdi-format-list-bulleted-type"
-                    rounded="lg"
-                >
-                    <v-list-item-title>TRANSACTION TYPES</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin"
-                    to="/admin/fields"
-                    prepend-icon="mdi-form-textbox"
-                    rounded="lg"
-                >
-                    <v-list-item-title>FIELDS</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin"
-                    to="/admin/government-references"
-                    prepend-icon="mdi-bank"
-                    rounded="lg"
-                >
-                    <v-list-item-title>GOV REFERENCES</v-list-item-title>
-                </v-list-item>
             </v-list>
             <template #append>
+                <v-divider />
+                <!-- Who is signed in: name, current role, office. Collapsed
+                     rail shows the initials; hover for the details. -->
+                <div
+                    v-if="auth.user.value"
+                    class="nav-profile"
+                    :class="{ 'nav-profile--rail': rail }"
+                    v-tooltip:end="rail ? userTooltip : undefined"
+                >
+                    <div class="nav-profile__avatar">{{ userInitials }}</div>
+                    <div v-if="!rail" class="nav-profile__text">
+                        <div class="nav-profile__name">{{ auth.user.value.name }}</div>
+                        <div class="nav-profile__meta">
+                            {{ primaryRole }}<template v-if="auth.user.value.office"> · {{ auth.user.value.office.code || auth.user.value.office.name }}</template>
+                        </div>
+                    </div>
+                </div>
                 <v-divider />
                 <div
                     class="d-flex pa-2 drawer-footer"
@@ -274,7 +238,11 @@
 
         <v-main>
             <v-container v-if="showAuthUi" fluid class="pa-6">
-                <router-view />
+                <!-- Keyed by route record (not params) so each page eases in
+                     once, while /my/transactions/1 -> /2 stays a plain update. -->
+                <div :key="route.matched[0]?.path || route.path" class="page-enter">
+                    <router-view />
+                </div>
             </v-container>
             <template v-else>
                 <router-view />
@@ -314,7 +282,8 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth, canUseApprovals, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import ScopeChip from "@/components/ScopeChip.vue";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
@@ -358,17 +327,66 @@ const showAuthUi = computed(() => {
     return !!auth.user.value && route.name !== "login" && !route.meta?.bare;
 });
 
-const isSuperadmin = computed(() => {
-    const roles = auth.user.value?.roles ?? [];
-    return roles.some((r) => r.code === "superadmin");
-});
-
+const isSuperadmin = computed(() => isSuperadminUser(auth.user.value));
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
+
+// Sidebar, grouped by what the role does. Office admins get superadmin-style
+// tools limited to their office; setup stays superadmin only. Staff use the
+// user portal, viewers the read-only tracking pages.
+const navGroups = computed(() => {
+    if (kind.value === "viewer") {
+        return [{ title: "Track", items: [{ title: "Track Transactions", icon: "mdi-map-marker-path", to: "/track" }] }];
+    }
+    if (kind.value === "staff") {
+        return [
+            { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
+            { title: "Work", items: [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }] },
+        ];
+    }
+    const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard", to: "/" }] };
+    if (isSuperadmin.value) {
+        return [
+            overview,
+            { title: "Work", items: [{ title: "Transactions", icon: "mdi-swap-horizontal", to: "/transactions" }] },
+            {
+                title: "People",
+                items: [
+                    { title: "Users", icon: "mdi-account-group", to: "/admin/users" },
+                    { title: "Roles", icon: "mdi-shield-account", to: "/admin/roles" },
+                ],
+            },
+            {
+                title: "Setup",
+                items: [
+                    { title: "Offices", icon: "mdi-office-building-outline", to: "/admin/offices" },
+                    { title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" },
+                    { title: "Fields", icon: "mdi-form-textbox", to: "/admin/fields" },
+                    { title: "Gov References", icon: "mdi-bank", to: "/admin/government-references" },
+                ],
+            },
+        ];
+    }
+    if (isOfficeAdmin.value) {
+        return [
+            overview,
+            { title: "Work", items: [{ title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/my/transactions" }] },
+            { title: "People", items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }] },
+            {
+                title: "Setup",
+                items: [{ title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" }],
+            },
+        ];
+    }
+    return [
+        overview,
+        { title: "Work", items: [{ title: "My Transactions", icon: "mdi-file-document-multiple", to: "/my/transactions" }] },
+    ];
+});
 
 // ---- APPROVALS badge: required items not checked yet (uploads + validations) ----
 const approvalBadge = useApprovalBadge();
@@ -393,7 +411,27 @@ const userTooltip = computed(() => {
     const u = auth.user.value;
     if (!u) return "User";
     const roles = (u.roles ?? []).map((r) => r.name || r.code).join(", ");
-    return roles ? `${u.email || u.name} (${roles})` : u.email || u.name || "User";
+    const office = u.office?.name ? ` · ${u.office.name}` : "";
+    return roles ? `${u.email || u.name} (${roles})${office}` : `${u.email || u.name || "User"}${office}`;
+});
+
+// Current role for the welcome line and profile: the most senior one held
+// (superadmin, then admin, then the rest in the order assigned).
+const primaryRole = computed(() => {
+    const roles = auth.user.value?.roles ?? [];
+    const rank = (r) => (r.code === "superadmin" ? 0 : r.code === "admin" ? 1 : 2);
+    const top = [...roles].sort((a, b) => rank(a) - rank(b))[0];
+    if (!top) return "No role";
+    if (top.code === "admin" && isOfficeAdmin.value) return "Office Admin";
+    return top.name || top.code;
+});
+
+const firstName = computed(() => (auth.user.value?.name || "").trim().split(/\s+/)[0] || "there");
+
+const userInitials = computed(() => {
+    const parts = (auth.user.value?.name || "").trim().split(/\s+/).filter(Boolean);
+    const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] || "?").slice(0, 2);
+    return letters.toUpperCase();
 });
 
 const confirmLogout = ref(false);
@@ -439,11 +477,14 @@ const searchPages = computed(() => {
     ];
     if (!isSuperadmin.value) {
         pages.splice(1, 0, {
-            title: "My Transactions",
+            title: isOfficeAdmin.value ? "Office Transactions" : "My Transactions",
             subtitle: "Page",
             icon: "mdi-file-document-multiple",
             to: "/my/transactions",
         });
+    }
+    if (isOfficeAdmin.value) {
+        pages.push({ title: "Office Users", subtitle: "Page · Office admin", icon: "mdi-account-group", to: "/office/users" });
     }
     if (showApprovals.value) {
         pages.splice(2, 0, {
@@ -823,10 +864,55 @@ onUnmounted(() => {
     min-width: 18px;
     height: 18px;
 }
-/* Active nav item: solid dark fill instead of the faint primary tint. */
+/* Sidebar group labels: quiet small caps that organize, never compete. */
+.nav-group-label {
+    padding: 14px 12px 4px;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(var(--v-theme-on-surface), 0.45);
+    white-space: nowrap;
+    animation: nav-label-in 0.25s ease both;
+}
+.nav-groups > .nav-group-label:first-child {
+    padding-top: 4px;
+}
+.nav-group-rule {
+    margin: 8px 10px;
+    opacity: 0.18;
+}
+.nav-groups > .nav-group-rule:first-child {
+    display: none;
+}
+@keyframes nav-label-in {
+    from { opacity: 0; transform: translateX(-4px); }
+}
+.nav-groups :deep(.v-list-item) {
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+.nav-groups :deep(.v-list-item:not(.v-list-item--active):hover .v-icon) {
+    color: #1E40AF;
+}
+/* Page change: a short ease-in so the switch reads as one smooth move. */
+.page-enter {
+    animation: page-in 0.24s cubic-bezier(.2, .9, .25, 1) both;
+}
+@keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-enter,
+    .nav-group-label {
+        animation: none;
+    }
+}
+/* Active nav item: solid dark fill instead of the faint primary tint,
+   with a light inner accent so the current page reads at a glance. */
 :deep(.v-navigation-drawer .v-list-item--active) {
     background-color: #1E3A8A !important;
     color: #ffffff !important;
+    box-shadow: inset 3px 0 0 #93C5FD;
 }
 :deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
     opacity: 0 !important;
@@ -835,6 +921,96 @@ onUnmounted(() => {
 :deep(.v-navigation-drawer .v-list-item--active .v-list-item-title) {
     color: #ffffff !important;
     opacity: 1 !important;
+}
+/* Header welcome: "Welcome, Vince [SUPERADMIN]" */
+.welcome {
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: #334155;
+    animation: welcome-in 0.4s cubic-bezier(.2, .9, .25, 1) both;
+}
+.welcome__hello {
+    color: #64748B;
+    font-weight: 500;
+}
+.welcome__name {
+    font-weight: 800;
+    color: #1E3A8A;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.welcome__role {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    background: #1E3A8A;
+    color: #fff;
+}
+@keyframes welcome-in {
+    from { opacity: 0; transform: translateX(6px); }
+}
+/* Sidebar profile */
+.nav-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    min-width: 0;
+}
+.nav-profile--rail {
+    justify-content: center;
+    padding: 10px 0;
+}
+.nav-profile__avatar {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1E3A8A;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    box-shadow: inset 0 -3px 0 #93C5FD;
+}
+.nav-profile__text {
+    min-width: 0;
+    line-height: 1.2;
+    animation: nav-label-in 0.25s ease both;
+}
+.nav-profile__name {
+    font-size: 0.85rem;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nav-profile__meta {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(var(--v-theme-on-surface), 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+    .welcome,
+    .nav-profile__text {
+        animation: none;
+    }
+}
+:global(html.dark) .welcome {
+    color: #CBD5E1;
+}
+:global(html.dark) .welcome__name {
+    color: #93C5FD;
 }
 /* Footer theme/help pair */
 .drawer-footer .v-btn {

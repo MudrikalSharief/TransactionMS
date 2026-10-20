@@ -72,8 +72,9 @@
                 <template #actions v-if="tx">
                     <v-alert v-if="pendingReceipt" type="warning" variant="tonal" class="mb-3">
                         <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
-                        <div class="text-caption">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
-                        <v-btn color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
+                        <div v-if="canAct" class="text-caption">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <div v-else class="text-caption">Waiting for {{ tx.current_step?.office?.name || 'the next office' }} to receive it.</div>
+                        <v-btn v-if="canAct" color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
                             <v-icon start>mdi-inbox-arrow-down</v-icon>
                             Receive Step
                         </v-btn>
@@ -324,7 +325,7 @@
                                 size="small"
                                 color="grey-darken-3"
                                 rounded="0"
-                                :disabled="savingChecklist || isDone"
+                                :disabled="savingChecklist || viewOnly"
                                 :loading="savingChecklist && savingRequirementId === item.definition.id"
                                 @click="openCheck(item)"
                             >
@@ -355,7 +356,7 @@
                                 size="small"
                                 rounded="0"
                                 color="warning"
-                                :disabled="savingChecklist || !canUncheck(item) || isDone"
+                                :disabled="savingChecklist || !canUncheck(item) || viewOnly"
                                 :loading="savingChecklist && savingRequirementId === item.definition.id"
                                 @click="openUncheck(item)"
                             >
@@ -533,7 +534,7 @@
                         :tx-id="route.params.id"
                         :requirement-id="checkTarget?.definition?.id"
                         v-model="checkAttachments"
-                        :disabled="isDone"
+                        :disabled="viewOnly"
                         file-action="download"
                         @deleted="removeAttachment"
                     />
@@ -602,7 +603,7 @@
 import { onMounted, ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, isSuperadminUser, isOfficeAdminUser } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
 import LoadingVeil from '@/components/LoadingVeil.vue';
@@ -748,6 +749,26 @@ const checkAttachments = ref([]);
 const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
+// Office admins can open anything in their office's scope but only act at
+// their office's steps (or where their roles allow). Mirrors
+// RoutingEngine::userCanWorkOnStep; the server still enforces it.
+const canAct = computed(() => {
+    const u = auth.user.value;
+    const cur = tx.value?.current_step;
+    if (!u || !cur) return false;
+    if (isSuperadminUser(u)) return true;
+    if (isOfficeAdminUser(u)) {
+        const mineOffice = Number(u.office?.id ?? u.office_id);
+        if (Number(cur.office_id) === mineOffice) return true;
+        // Step 1 of a request their office filed, even when step 1 has no office.
+        const isStepOne = !!cur.is_start || Number(cur.order_number) === 1;
+        if (isStepOne && Number(tx.value?.office?.id ?? tx.value?.office_id) === mineOffice) return true;
+    }
+    const entry = (tx.value?.station_checklist || []).find((s) => String(s?.step?.id) === String(cur.id));
+    const mine = new Set((u.roles || []).map((r) => Number(r.id)));
+    return (entry?.step?.roles || []).some((r) => mine.has(Number(r.id)));
+});
+const viewOnly = computed(() => isDone.value || !canAct.value);
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
 const showFinalize = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
 // Complete Step replaces Finalize on the last station: green button that

@@ -39,7 +39,7 @@ const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
 const TrackList = () => import("@/pages/track/TrackList.vue");
 const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
 
-import { useAuth, canUseApprovals, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 
@@ -92,6 +92,13 @@ export function createRouter() {
                 path: "/admin/users",
                 component: AdminUsers,
                 meta: { requiresAuth: true, superadmin: true },
+            },
+            // Office admins: same Users page, limited to their own office.
+            {
+                path: "/office/users",
+                name: "office.users",
+                component: AdminUsers,
+                meta: { requiresAuth: true, officeScope: true },
             },
             {
                 path: "/admin/roles",
@@ -225,11 +232,12 @@ export function createRouter() {
             return { name: "dashboard" };
         // My Transactions is redundant for superadmin (bypass returns all rows,
         // same as Transactions) — send them to the admin list instead.
-        const roles = auth.user.value?.roles ?? [];
-        const isSuperadmin = roles.some((r) => r.code === "superadmin");
+        const isSuperadmin = isSuperadminUser(auth.user.value);
         if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };
         if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
             return { name: "dashboard" };
+        // /office/* is the office admin's own area (the API enforces the same).
+        if (to.meta.officeScope && !isOfficeAdminUser(auth.user.value)) return { name: "dashboard" };
         if (isSuperadmin && to.path.startsWith("/my/transactions")) {
             const rest = to.path.slice("/my/transactions".length);
             return rest ? `/transactions${rest}` : "/transactions";

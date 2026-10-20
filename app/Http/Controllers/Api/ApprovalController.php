@@ -82,15 +82,7 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // End-user stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
-                });
+                $this->scopeToOfficeAdmin($query, $user);
             } elseif (empty($roleIds)) {
                 return collect();
             } else {
@@ -120,6 +112,31 @@ class ApprovalController extends Controller
             ->filter(fn (Transaction $tx) => $tx->state?->currentStep
                 && $this->routing->userCanWorkOnCurrentStep($tx, $user))
             ->values();
+    }
+
+    /**
+     * SQL prefilter for office admins: rows parked at their office (end-user
+     * stations follow the transaction's office), plus step 1 of requests
+     * their office filed (see RoutingEngine::userCanWorkOnStep).
+     * RoutingEngine still has the final say per row.
+     */
+    private function scopeToOfficeAdmin($query, User $user): void
+    {
+        $officeId = (int) $user->office_id;
+
+        $query->where(function ($w) use ($officeId) {
+            $w->where(function ($x) use ($officeId) {
+                $x->where('transactions.office_id', $officeId)
+                    ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+            })->orWhereHas('state.currentStep', fn ($s) => $s
+                ->where('workflow_steps.office_id', $officeId)
+                ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')))
+            ->orWhere(fn ($o) => $o
+                ->where('transactions.office_id', $officeId)
+                ->whereHas('state.currentStep', fn ($s) => $s->where(fn ($q) => $q
+                    ->where('is_start', true)
+                    ->orWhere('order_number', 1))));
+        });
     }
 
     /** Unchecked required items at the transaction's current station. */
@@ -205,15 +222,7 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // End-user stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
-                });
+                $this->scopeToOfficeAdmin($query, $user);
             } else {
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
                     $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
