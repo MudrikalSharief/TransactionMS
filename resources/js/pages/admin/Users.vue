@@ -60,7 +60,7 @@
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
-          <span class="cell-wrap">{{ item.email }}</span>
+          <span class="cell-wrap cell-wrap--any">{{ item.email }}</span>
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
@@ -260,17 +260,29 @@ function lockReason(item) {
   return ''
 }
 
-// Fixed widths (table-fixed-cols): Name takes the remaining space; long
-// names, emails, roles and offices wrap inside their columns, so Status and
-// the actions always stay in view.
-const headers = [
-  { title: 'Name', key: 'name' },
-  { title: 'Email', key: 'email', width: 250 },
-  { title: 'Roles', key: 'roles', sortable: false, width: 170 },
-  ...(officeMode ? [] : [{ title: 'Office', key: 'office', sortable: false, width: 220 }]),
-  { title: 'Status', key: 'is_active', width: 150 },
-  { title: '', key: 'actions', sortable: false, width: 150, align: 'end' },
-]
+// Two icon buttons side by side plus cell padding; a waiting account's
+// three buttons wrap onto two lines.
+const ACTIONS_W = 132
+// Columns share the table's width by percentage (table-fixed-cols), so the
+// table flexes with the window and the sidebar; long names, emails, roles
+// and offices wrap inside their columns, and Status and the actions always
+// stay in view.
+const headers = officeMode
+  ? [
+      { title: 'Name', key: 'name', width: '30%' },
+      { title: 'Email', key: 'email', width: '25%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '18%' },
+      { title: 'Status', key: 'is_active', width: '13%' },
+      { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
+    ]
+  : [
+      { title: 'Name', key: 'name', width: '24%' },
+      { title: 'Email', key: 'email', width: '22%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
+      { title: 'Office', key: 'office', sortable: false, width: '17%' },
+      { title: 'Status', key: 'is_active', width: '12%' },
+      { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
+    ]
 
 const dialog = ref(false)
 const saving = ref(false)
@@ -475,13 +487,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Full text, wrapped within its column; the row grows to fit. */
+/* Full text, wrapped within its column; the row grows to fit. Breaks
+   between words; a single word longer than the column still breaks. */
 .cell-wrap {
   display: block;
   white-space: normal;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: break-word;
   line-height: 1.4;
   padding: 10px 0;
+}
+/* Emails have no spaces: let them break anywhere. */
+.cell-wrap--any {
+  overflow-wrap: anywhere;
+}
+/* Actions: always visible here (the global rule hides them while the
+   sidebar is open); with little room the buttons wrap instead. */
+.row-actions,
+:global(html.nav-open) .row-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: none !important;
+  flex-wrap: wrap;
+  gap: 8px !important;
+  min-width: 0;
+  padding: 6px 0;
 }
 .chip-stack {
   display: flex;
