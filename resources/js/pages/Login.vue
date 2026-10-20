@@ -10,7 +10,7 @@
                     height="64"
                 />
                 <div>
-                    <h1>TransactionMF</h1>
+                    <h1>TransactionMS</h1>
                     <p>City Government of Zamboanga</p>
                 </div>
             </header>
@@ -342,13 +342,6 @@ function syncHeroVideo(e) {
 }
 
 onMounted(() => {
-    // Warm the viewer welcome picture so "Track your Document Process" opens instantly.
-    try {
-        new Image().src = "/viewer-welcome.jpg";
-    } catch {
-        /* not critical */
-    }
-
     heroMq = window.matchMedia("(min-width: 861px)");
     showHeroVideo.value = heroMq.matches;
     heroMq.addEventListener("change", syncHeroVideo);
