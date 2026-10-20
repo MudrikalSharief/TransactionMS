@@ -13,6 +13,7 @@ class WorkflowDefinitionResource extends JsonResource
             'transaction_type_id' => $this->transaction_type_id,
             'version' => $this->version,
             'status' => $this->status,
+            'is_live' => (bool) $this->is_live,
             'name' => $this->name,
             'notes' => $this->notes,
             'published_at' => $this->published_at?->toISOString(),

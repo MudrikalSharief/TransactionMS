@@ -60,11 +60,55 @@ class TransactionResource extends JsonResource
         }
 
         $currentStepRequirements = [];
+        $currentStepChecklist = [];
+        // Linked-file origin: a reused file's source_attachment_id points at
+        // the original row in this same transaction, so its station is
+        // resolved in memory (no extra queries). Exposed as `source_step`
+        // on attachment payloads so hover cards can show
+        // "from Step N · Station name".
+        $attById = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])->keyBy(fn ($a) => (int) $a->id);
+        $stepsById = collect($this->relationLoaded('workflow') && $this->workflow?->relationLoaded('steps') ? ($this->workflow->steps ?? []) : [])->keyBy(fn ($s) => (int) $s->id);
+        $sourceStepOf = function ($a) use ($attById, $stepsById) {
+            $srcId = $a->source_attachment_id ?? null;
+            if (!$srcId) return null;
+            $src = $attById->get((int) $srcId);
+            if (!$src) return null;
+            $st = $stepsById->get((int) ($src->workflow_step_id ?? 0));
+            if (!$st) return null;
+            return ['id' => $st->id, 'order_number' => $st->order_number, 'code' => $st->code, 'name' => $st->name];
+        };
         if ($currentStep) {
-            $this->loadMissing(['requirementChecks.checker', 'attachments.uploader']);
+            $this->loadMissing(['requirementChecks.checker', 'checklistChecks.checker', 'attachments.uploader']);
+            // Structured return flags aimed at this station: latest arrival
+            // at the current step wins (empty flags clear old ones). Matched
+            // by requirement CODE — every station owns its own definition
+            // IDs — with name as fallback.
+            $flaggedCodes = [];
+            $flaggedNames = [];
+            if ($this->relationLoaded('runs')) {
+                $arrival = collect($this->runs ?? [])
+                    ->filter(fn ($r) => (int) ($r->to_step_id ?? 0) === (int) $currentStep->id)
+                    ->sortByDesc(fn ($r) => (int) ($r->id ?? 0))
+                    ->first();
+                $flaggedCodes = collect($arrival?->flagged_items ?? [])
+                    ->map(fn ($f) => strtolower(trim((string) ($f['code'] ?? ''))))
+                    ->filter()->values()->all();
+                $flaggedNames = collect($arrival?->flagged_items ?? [])
+                    ->map(fn ($f) => strtolower(trim((string) ($f['name'] ?? ''))))
+                    ->filter()->values()->all();
+            }
+            $isFlagged = function (?string $code, ?string $name) use ($flaggedCodes, $flaggedNames): bool {
+                $c = strtolower(trim((string) ($code ?? '')));
+                if ($c !== '' && in_array($c, $flaggedCodes, true)) return true;
+                $n = strtolower(trim((string) ($name ?? '')));
+                return $n !== '' && in_array($n, $flaggedNames, true);
+            };
             $checks = collect($this->requirementChecks ?? [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->keyBy('requirement_definition_id');
+            $checklistChecks = collect($this->checklistChecks ?? [])
+                ->where('workflow_step_id', (int) $currentStep->id)
+                ->keyBy('checklist_override_id');
             $attsByReq = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
@@ -74,9 +118,46 @@ class TransactionResource extends JsonResource
                 ->orderBy('requirement_definitions.order_number')
                 ->get();
 
+            // Previous-station ticks for the two-column verify layout: the
+            // first column mirrors what the predecessor station(s) checked.
+            // Matched by requirement CODE, not ID: every station owns its
+            // own definitions (same names/codes, different IDs), so an ID
+            // match across stations never hits. Keyed by step + requirement
+            // so the current step's own checks (above) stay untouched.
+            $checksByStepReq = collect($this->requirementChecks ?? [])
+                ->keyBy(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id));
+            $checklistServiceForPrev = \app(\App\Services\ChecklistService::class);
+            $predSteps = $checklistServiceForPrev->predecessorsFor($currentStep)->values();
+            $predReqIdsByCode = [];
+            foreach ($predSteps as $pred) {
+                foreach ($pred->requirementDefinitions()->get(['requirement_definitions.id', 'requirement_definitions.code']) as $pr) {
+                    $predReqIdsByCode[strtolower(trim((string) $pr->code))][$pred->id] ??= (int) $pr->id;
+                }
+            }
+
             foreach ($reqs as $r) {
                 $check = $checks->get($r->id);
                 $reqAtts = $attsByReq->get((int) $r->id, collect())->values();
+
+                $prevCheck = null;
+                $prevStep = null;
+                $codeKey = strtolower(trim((string) $r->code));
+                foreach ($predSteps as $pred) {
+                    $predReqId = $predReqIdsByCode[$codeKey][(int) $pred->id] ?? null;
+                    if (!$predReqId) continue;
+                    $candidate = $checksByStepReq->get(((int) $pred->id) . ':' . $predReqId);
+                    if ($candidate) {
+                        $prevCheck = $candidate;
+                        $prevStep = $pred;
+                        break;
+                    }
+                }
+                // Predecessor owns a matching requirement but left it
+                // unticked: still show the Prev column (empty box) so the
+                // mirror is honest instead of collapsing to one column.
+                if (!$prevStep && isset($predReqIdsByCode[$codeKey])) {
+                    $prevStep = $predSteps->first(fn ($p) => isset($predReqIdsByCode[$codeKey][(int) $p->id]));
+                }
 
                 $currentStepRequirements[] = [
                     'definition' => [
@@ -89,21 +170,105 @@ class TransactionResource extends JsonResource
                     'pivot' => [
                         'display_order' => (int) ($r->pivot?->display_order ?? 0),
                         'is_required' => (bool) ($r->pivot?->is_required ?? true),
+                        'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                     ],
                     'checked' => (bool) $check,
                     'checked_at' => $check?->checked_at?->toISOString(),
                     'checked_by' => $check?->checker?->only(['id','name','email']),
+                    'prev_checked' => (bool) $prevCheck,
+                    'prev_checked_by' => $prevCheck?->checker?->only(['id','name']),
+                    'prev_step' => $prevStep ? $prevStep->only(['id','name','order_number']) : null,
                     'attachments' => $reqAtts->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
+                        'label' => $a->label,
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'step_run_id' => $a->step_run_id,
+                        'source_attachment_id' => $a->source_attachment_id,
+                        'is_linked' => $a->source_attachment_id !== null,
+                        'requirement_definition_id' => $a->requirement_definition_id,
+                        'requirement' => ['id' => $r->id, 'code' => $r->code, 'name' => $r->name],
                         'uploaded_by' => $a->uploader?->only(['id','name']),
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                        'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                        'source_step' => $sourceStepOf($a),
                     ])->all(),
                     'attachment_count' => $reqAtts->count(),
+                    'flagged_on_return' => $isFlagged($r->code ?? null, $r->name ?? null),
+                ];
+            }
+
+            // Per-step checklist (seeded from requirements, then free-edited).
+            // Required items block Proceed when unticked — same idea as the
+            // old requirement ticks; uploads are a requirements-only concern.
+            // Read-only on GET (itemsFor, no sync): rows are synced on write
+            // paths (requirements/routes/checklist admins + transitions), so
+            // list/detail reads never WRITE — critical for bad-network retries.
+            $checklistService = \app(\App\Services\ChecklistService::class);
+            $checklistItems = $checklistService->itemsFor($currentStep);
+
+            // Items mirrored from a predecessor's requirement carry that
+            // station and the files it uploaded, so the reviewer can see
+            // what they are validating (Approvals page).
+            $sourceStepByReq = [];
+            foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
+                foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
+                    $sourceStepByReq[(int) $reqId] ??= $pred;
+                }
+            }
+            $attsByStepReq = collect($this->attachments ?? [])
+                ->groupBy(fn ($a) => ((int) $a->workflow_step_id) . ':' . ((int) ($a->requirement_definition_id ?? 0)));
+
+            // Checklist items mirror predecessor requirements, so their
+            // files live on earlier steps. Group transaction-wide by
+            // requirement so the wizard can offer a View button per file.
+            $attsByReqTx = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])
+                ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
+
+            foreach ($checklistItems as $item) {
+                $cCheck = $checklistChecks->get($item->id);
+                $sourceStep = $sourceStepByReq[(int) ($item->requirement_definition_id ?? 0)] ?? null;
+                // Previous-station requirement tick for the two-column
+                // verify layout: direct ID match — the override stores its
+                // predecessor requirement's own definition ID.
+                $prevReqCheck = ($sourceStep && $item->requirement_definition_id)
+                    ? $checksByStepReq->get(((int) $sourceStep->id) . ':' . ((int) $item->requirement_definition_id))
+                    : null;
+                $sourceAtts = $sourceStep
+                    ? $attsByStepReq->get(((int) $sourceStep->id) . ':' . ((int) $item->requirement_definition_id), collect())->values()
+                    : collect();
+                $itemAtts = $attsByReqTx->get((int) ($item->requirement_definition_id ?? 0), collect())->values();
+                $currentStepChecklist[] = [
+                    'id' => $item->id,
+                    'requirement_definition_id' => $item->requirement_definition_id,
+                    'name' => $item->name,
+                    'code' => $item->code,
+                    'description' => $item->description,
+                    'is_required' => (bool) $item->is_required,
+                    'display_order' => (int) $item->display_order,
+                    'checked' => (bool) $cCheck,
+                    'checked_at' => $cCheck?->checked_at?->toISOString(),
+                    'checked_by' => $cCheck?->checker?->only(['id', 'name']),
+                    'prev_checked' => (bool) $prevReqCheck,
+                    'prev_checked_by' => $prevReqCheck?->checker?->only(['id', 'name']),
+                    'prev_step' => $sourceStep && $item->requirement_definition_id ? $sourceStep->only(['id', 'name', 'order_number']) : null,
+                    'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
+                        'id' => $a->id,
+                        'original_name' => $a->original_name,
+                        'label' => $a->label,
+                        'mime' => $a->mime,
+                        'size_bytes' => (int) $a->size_bytes,
+                        'requirement_definition_id' => $a->requirement_definition_id,
+                        'uploaded_by' => $a->uploader?->only(['id', 'name']),
+                        'created_at' => $a->created_at?->toISOString(),
+                        'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                        'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                        'source_step' => $sourceStepOf($a),
+                    ])->all(),
+                    'attachment_count' => ($sourceStep ? $sourceAtts : $itemAtts)->count(),
+                    'flagged_on_return' => $isFlagged($item->code ?? null, $item->name ?? null),
                 ];
             }
         }
@@ -174,6 +339,7 @@ class TransactionResource extends JsonResource
                         'pivot' => [
                             'display_order' => (int) ($r->pivot?->display_order ?? 0),
                             'is_required' => (bool) ($r->pivot?->is_required ?? true),
+                            'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                         ],
                         'checked' => (bool) $check,
                         'checked_at' => $check?->checked_at?->toISOString(),
@@ -182,20 +348,26 @@ class TransactionResource extends JsonResource
                         'attachments' => $reqAtts->map(fn ($a) => [
                             'id' => $a->id,
                             'original_name' => $a->original_name,
+                        'label' => $a->label,
                             'mime' => $a->mime,
                             'size_bytes' => (int) $a->size_bytes,
                             'step_run_id' => $a->step_run_id,
+                            'requirement_definition_id' => $a->requirement_definition_id,
+                            'requirement' => ['id' => $r->id, 'code' => $r->code, 'name' => $r->name],
                             'uploaded_by' => $a->uploader?->only(['id','name']),
                             'created_at' => $a->created_at?->toISOString(),
                             'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                            'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                            'source_step' => $sourceStepOf($a),
                         ])->all(),
                     ];
                 }
 
                 $stationChecklist[] = [
                     'step' => array_merge(
-                        $s->only(['id', 'code', 'name', 'order_number', 'is_start', 'is_end']),
-                        ['roles' => $rolesByStep->get((int) $s->id, [])]
+                        $s->only(['id', 'code', 'name', 'order_number', 'is_start', 'is_end', 'office_id']),
+                        ['roles' => $rolesByStep->get((int) $s->id, [])],
+                        $this->stepOfficePayload($s)
                     ),
                     'requirements' => $rows,
                     // Proceed-level files for this station (uploaded in the
@@ -204,6 +376,7 @@ class TransactionResource extends JsonResource
                     'attachments' => $allAtts->get(((int) $s->id) . ':0', collect())->values()->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
+                        'label' => $a->label,
                         'mime' => $a->mime,
                         'size_bytes' => (int) $a->size_bytes,
                         'step_run_id' => $a->step_run_id,
@@ -211,6 +384,8 @@ class TransactionResource extends JsonResource
                         'uploaded_by' => $a->uploader?->only(['id','name']),
                         'created_at' => $a->created_at?->toISOString(),
                         'download_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/download"),
+                        'view_url' => url("/api/transactions/{$this->id}/attachments/{$a->id}/view"),
+                        'source_step' => $sourceStepOf($a),
                     ])->all(),
                     'fields' => collect($s->fieldDefinitions ?? [])
                         ->sortBy(fn ($f) => (int) ($f->order_number ?? 0))
@@ -249,21 +424,156 @@ class TransactionResource extends JsonResource
             'created_by' => $this->creator?->only(['id','name','email']),
             'created_at' => $this->created_at?->toISOString(),
 
-            'current_step' => $state?->currentStep?->only(['id','code','name','stage','sla_minutes','is_start','is_end']),
+            'current_step' => $state?->currentStep ? array_merge(
+                $state->currentStep->only(['id','order_number','code','name','stage','sla_minutes','is_start','is_end','office_id']),
+                $this->stepOfficePayload($state->currentStep)
+            ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
 
-            'workflow_steps' => $this->workflow?->steps?->map(fn($s) => $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end']))?->values(),
+            'workflow_steps' => $this->workflow?->steps?->map(fn($s) => array_merge(
+                $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end','office_id']),
+                $this->stepOfficePayload($s)
+            ))?->values(),
             'workflow_routes' => $this->workflow?->routes?->map(fn($r) => $r->only(['id','from_step_id','to_step_id','action_code','is_return_route','route_group','required_approvals_count','condition_expression']))?->values(),
 
             'current_step_fields' => $currentStepFields,
 
+            'current_step_data' => $this->buildCurrentStepData($currentStep),
+
             'current_step_requirements' => $currentStepRequirements,
+
+            'current_step_checklist' => $currentStepChecklist,
 
             'station_checklist' => $stationChecklist,
 
             'attachments' => TransactionAttachmentResource::collection($this->whenLoaded('attachments')),
 
-            'runs' => TransactionStepRunResource::collection($this->whenLoaded('runs')),
+            'runs' => $this->whenLoaded('runs', fn () => $this->runs->map(
+                fn ($run) => (new TransactionStepRunResource($run))->forTransaction($this->resource)
+            )->values()),
+
+            'pending_receipt' => $this->when(
+                $this->relationLoaded('runs'),
+                function () {
+                    $pending = collect($this->runs ?? [])->firstWhere(fn ($r) => $r->received_at === null);
+                    if (!$pending) return null;
+                    return (new TransactionStepRunResource($pending))->forTransaction($this->resource)->toArray(request());
+                }
+            ),
+
+            'previous_step_context' => $this->buildPreviousStepContext($stationChecklist ?? []),
+        ];
+    }
+
+    /**
+     * Previous station context for the Proceed Review page (last move only,
+     * read-only): step identity + remarks/who/when + station field values +
+     * station step-data values + station move-level attachments
+     * (Additional files). Null when there is no previous move
+     * (e.g. still at step 1).
+     */
+    private function buildPreviousStepContext(array $stationChecklist): ?array
+    {
+        if (!$this->relationLoaded('runs')) return null;
+        $lastRun = collect($this->runs ?? [])->sortBy(fn ($r) => (int) ($r->id ?? 0))->last();
+        if (!$lastRun) return null;
+        $prevStepId = (int) ($lastRun->from_step_id ?? 0);
+        if (!$prevStepId) return null;
+
+        $fromStep = $lastRun->relationLoaded('fromStep') ? $lastRun->fromStep : null;
+        if (!$fromStep && $this->relationLoaded('workflow')) {
+            $fromStep = collect($this->workflow->steps ?? [])->firstWhere(fn ($s) => (int) $s->id === $prevStepId);
+        }
+
+        $station = collect($stationChecklist)->firstWhere(fn ($s) => (int) ($s['step']['id'] ?? 0) === $prevStepId);
+        $fields = collect($station['fields'] ?? [])
+            ->map(fn ($f) => [
+                'code' => $f['definition']['code'] ?? null,
+                'name' => $f['definition']['name'] ?? null,
+                'value' => $f['value'] ?? null,
+            ])
+            ->filter(fn ($f) => $f['value'] !== null && $f['value'] !== '' && $f['value'] !== [])
+            ->values()
+            ->all();
+
+        $this->loadMissing(['stepData.enterer']);
+        $defs = \App\Models\WorkflowStepData::where('workflow_step_id', $prevStepId)
+            ->orderBy('display_order')
+            ->get();
+        $latestByDef = collect($this->stepData ?? [])
+            ->where('workflow_step_id', $prevStepId)
+            ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
+            ->keyBy('workflow_step_data_id');
+        $stepData = $defs->map(fn ($d) => [
+            'code' => $d->code,
+            'name' => $d->display_name,
+            'value' => $latestByDef->get($d->id)?->data_value,
+        ])
+            ->filter(fn ($row) => $row['value'] !== null && $row['value'] !== '')
+            ->values()
+            ->all();
+
+        $performer = $lastRun->relationLoaded('performer') ? $lastRun->performer : null;
+
+        return [
+            'step' => [
+                'id' => $prevStepId,
+                'name' => $fromStep?->name,
+                'order_number' => $fromStep?->order_number,
+                'office' => ($fromStep ? $this->displayStepOffice($fromStep) : null)?->only(['id', 'code', 'name']),
+            ],
+            'run' => [
+                'remarks' => $lastRun->remarks,
+                'flagged_items' => $lastRun->flagged_items ?? [],
+                'performed_by' => $performer?->only(['id', 'name']),
+                'performed_at' => $lastRun->performed_at?->toISOString(),
+            ],
+            'fields' => $fields,
+            'step_data' => $stepData,
+            'attachments' => array_values($station['attachments'] ?? []),
+        ];
+    }
+
+    private function buildCurrentStepData($currentStep): array
+    {
+        if (!$currentStep) {
+            return [];
+        }
+        $this->loadMissing(['stepData.definition', 'stepData.enterer']);
+        $defs = $currentStep->stepDataDefinitions()->orderBy('display_order')->get();
+        // Latest value per definition for this transaction (history kept per run).
+        $latestByDef = collect($this->stepData ?? [])
+            ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
+            ->keyBy('workflow_step_data_id');
+
+        return $defs->map(fn ($d) => [
+            'definition' => $d->only(['id', 'code', 'display_name', 'type', 'is_required', 'display_order', 'min_length', 'max_length']),
+            'value' => $latestByDef->get($d->id)?->data_value,
+            'history' => collect($this->stepData ?? [])
+                ->where('workflow_step_data_id', $d->id)
+                ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
+                ->values()
+                ->map(fn ($r) => [
+                    'data_value' => $r->data_value,
+                    'entered_at' => $r->entered_at?->toISOString(),
+                    'entered_by' => $r->enterer?->only(['id', 'name']),
+                    'step_run_id' => $r->transaction_step_run_id,
+                ])->all(),
+        ])->all();
+    }
+
+    /**
+     * office_id + office for a step, with end-user and office-less
+     * stations following the transaction's office instead of the
+     * workflow template's step office.
+     */
+    private function stepOfficePayload($step): array
+    {
+        $office = $this->displayStepOffice($step);
+
+        return [
+            'office_id' => $office?->id,
+            'office' => $office?->only(['id', 'code', 'name']),
         ];
     }
 }

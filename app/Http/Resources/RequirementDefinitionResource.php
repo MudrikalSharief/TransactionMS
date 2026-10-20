@@ -14,6 +14,7 @@ class RequirementDefinitionResource extends JsonResource
             'order_number' => $this->order_number,
             'code' => $this->code,
             'name' => $this->name,
+            'label' => $this->label,
             'description' => $this->description,
             'is_active' => (bool) $this->is_active,
             'steps' => $this->whenLoaded('steps', function () {
@@ -24,6 +25,7 @@ class RequirementDefinitionResource extends JsonResource
                             'pivot_meta' => [
                                 'display_order' => (int) ($s->pivot?->display_order ?? 0),
                                 'is_required' => (bool) ($s->pivot?->is_required ?? true),
+                                'is_upload_required' => (bool) ($s->pivot?->is_upload_required ?? $s->pivot?->is_required ?? true),
                             ],
                         ]
                     );

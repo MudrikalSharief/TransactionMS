@@ -80,9 +80,19 @@ class Transaction extends Model
         return $this->hasMany(TransactionRequirementCheck::class);
     }
 
+    public function checklistChecks(): HasMany
+    {
+        return $this->hasMany(TransactionChecklistCheck::class);
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(TransactionAttachment::class)->orderByDesc('created_at');
+    }
+
+    public function stepData(): HasMany
+    {
+        return $this->hasMany(TransactionStepData::class)->orderByDesc('entered_at');
     }
 
     public function fieldValuesByCode(): array
@@ -96,5 +106,50 @@ class Transaction extends Model
             $out[$code] = $fv->typedValue();
         }
         return $out;
+    }
+
+    /**
+     * End-user stations (step roles include end_user) follow this
+     * transaction's office instead of the workflow template's step office.
+     */
+    public function stepIsEndUser(WorkflowStep $step): bool
+    {
+        if ($step->relationLoaded('roles')) {
+            return $step->roles->contains(fn ($role) => $role->code === 'end_user');
+        }
+
+        $this->loadMissing('workflow.stepRoles.role');
+
+        return (bool) $this->workflow?->stepRoles
+            ?->where('workflow_step_id', (int) $step->id)
+            ->contains(fn ($stepRole) => ($stepRole->role?->code ?? null) === 'end_user');
+    }
+
+    /** Effective office of a step for this transaction (see stepIsEndUser). */
+    public function effectiveStepOffice(WorkflowStep $step): ?Office
+    {
+        if ($this->stepIsEndUser($step)) {
+            return $this->office;
+        }
+
+        return $step->office;
+    }
+
+    public function effectiveStepOfficeId(WorkflowStep $step): ?int
+    {
+        return $this->effectiveStepOffice($step)?->id;
+    }
+
+    /**
+     * Office shown for a step in the UI: end-user stations and stations
+     * without a workflow office follow this transaction's office.
+     */
+    public function displayStepOffice(WorkflowStep $step): ?Office
+    {
+        if ($step->office_id === null || $this->stepIsEndUser($step)) {
+            return $this->office;
+        }
+
+        return $step->office;
     }
 }

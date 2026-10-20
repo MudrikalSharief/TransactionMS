@@ -53,7 +53,7 @@
             </div>
         </v-card-text>
         <template v-if="$slots.actions">
-            <v-divider />
+            <v-divider class="actions-divider" />
             <div class="pa-4">
                 <div class="d-flex align-center mb-3">
                     <v-icon color="grey-darken-3" class="mr-2">mdi-swap-horizontal</v-icon>
@@ -231,12 +231,29 @@ const detailById = computed(() => {
     return map
 });
 
-// Last departure run per station (from_step) for the "moved" line.
+// Latest departure run per station (from_step) for the "moved" line.
+// Runs are sorted chronologically (performed_at, then id) so the newest
+// departure wins regardless of API order. A lone creation self-loop
+// (from == to, e.g. "Transaction created") yields to a real departure.
 const moveByStep = computed(() => {
+    const sorted = [...(props.runs || [])].sort((a, b) => {
+        const ta = Date.parse(a?.performed_at || '') || 0;
+        const tb = Date.parse(b?.performed_at || '') || 0;
+        if (ta !== tb) return ta - tb;
+        return Number(a?.id || 0) - Number(b?.id || 0);
+    });
+    const loopOf = (r) => {
+        const f = r?.from_step?.id ?? r?.from_step_id;
+        const t = r?.to_step?.id ?? r?.to_step_id;
+        return f !== undefined && f !== null && String(f) === String(t);
+    };
     const map = new Map()
-    for (const r of (props.runs || [])) {
+    for (const r of sorted) {
         const id = r?.from_step?.id ?? r?.from_step_id
-        if (id !== undefined && id !== null) map.set(String(id), r)
+        if (id === undefined || id === null) continue
+        const k = String(id)
+        const cur = map.get(k)
+        if (!cur || !loopOf(r) || loopOf(cur)) map.set(k, r)
     }
     return map
 });
@@ -270,6 +287,13 @@ function moveFor(s) {
 }
 .step-link.done {
     background: #4CAF50;
+}
+/* Clearer break between the STEP x OF x tracker and Available Actions:
+   2px primary-tinted rule so the action zone reads as its own section. */
+.actions-divider {
+    border-top-width: 2px;
+    border-top-color: rgb(var(--v-theme-primary));
+    opacity: 0.35;
 }
 .snake-row {
     width: 100%;

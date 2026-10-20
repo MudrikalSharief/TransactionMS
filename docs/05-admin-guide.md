@@ -19,8 +19,8 @@ One list, one Save button. Every edit (add/update/delete step or route) auto-dra
 
 ## Steps + Routes
 - Steps: `order_number, code (snake, unique per workflow), name, stage, sla_minutes, is_start/is_end`
-- Routes: `from -> to, action_code, is_return_route, condition_expression (JsonLogic JSON), route_group, required_approvals_count`
-- Pattern: linear forward `submit` chain + explicit `return` back-edges (e.g. `validate_dtr -> collect_dtr`, `gso_return_esig -> create_pr`)
+- Routes: `from -> to, action_code, condition_expression (JsonLogic JSON), route_group, required_approvals_count` — forward-only (`is_return_route` retired; going back is done via jump to a visited station, recorded as Returned; old versions keep their return rows)
+- Pattern: linear forward `submit` chain (e.g. `validate_dtr -> finalize_payroll` on `approve`)
 
 ## Fields (`Fields.vue` -> `StepFields.vue`)
 Library (`field_definitions`, global when `workflow_definition_id=null`) + per-step attach (`display_order, required_override`). Types: `text|textarea|number|date|boolean|select|multiselect` with min/max/options/validation_rules. PR library: `pr_number, request_title*, office_name*, request_amount*, drive_link*, dts_number*, remarks`.

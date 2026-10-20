@@ -1,124 +1,167 @@
 <template>
-    <div class="login-sky fill-height d-flex align-center">
-        <div class="top-icons" aria-hidden="true">
-            <span class="float-chip"><v-icon>mdi-file-document-outline</v-icon></span>
-            <span class="float-chip"><v-icon>mdi-city</v-icon></span>
-            <span class="float-chip"><v-icon>mdi-check-decagram</v-icon></span>
-            <span class="float-chip"><v-icon>mdi-shield-check</v-icon></span>
-            <span class="float-chip"><v-icon>mdi-medal</v-icon></span>
-            <span class="float-chip"><v-icon>mdi-office-building-outline</v-icon></span>
-        </div>
-
-        <v-card class="login-card" elevation="0">
-            <div class="login-inner">
-            <div class="brand-row">
-                <div class="seal-wrap">
-                    <v-img
-                        src="/zamboanga-seal.png"
-                        alt="Zamboanga Seal"
-                        width="72"
-                        height="72"
-                        class="logo-seal"
-                    />
+    <div class="login-shell">
+        <section class="side">
+            <header class="brand">
+                <img
+                    class="seal"
+                    :src="'/zamboanga-seal.png'"
+                    alt="City Government of Zamboanga seal"
+                    width="64"
+                    height="64"
+                />
+                <div>
+                    <h1>TransactionMF</h1>
+                    <p>City Government of Zamboanga</p>
                 </div>
-                <h1 class="brand-logo brand-left" aria-label="LGU Transaction System">
-                    <span class="brand-main">TransactionMS</span>
-                    <span class="brand-sub">TRANSACTION MANAGEMENT SYSTEM</span>
-                </h1>
-            </div>
-            <div class="brand-rule" aria-hidden="true"></div>
+            </header>
 
-            <v-alert
-                v-if="error"
-                type="error"
-                variant="tonal"
-                rounded="lg"
-                class="mb-4 font-weight-bold"
-            >
-                {{ error }}
-            </v-alert>
+            <main class="panel">
+                <h2>Sign in</h2>
+                <p class="sub">Use your city government account to continue.</p>
 
-            <v-form @submit.prevent="submit">
-                <label class="field-label" for="login-email">Email</label>
-                <v-text-field
-                    id="login-email"
-                    v-model="email"
-                    placeholder="you@example.com"
-                    aria-label="Email"
-                    type="email"
-                    autocomplete="username"
-                    variant="solo"
-                    bg-color="#f1f5f9"
-                    rounded="lg"
-                    flat
-                    hide-details="auto"
-                    prepend-inner-icon="mdi-email-outline"
-                    class="login-field mb-4"
-                    required
-                />
-                <label class="field-label" for="login-password">Password</label>
-                <v-text-field
-                    id="login-password"
-                    v-model="password"
-                    placeholder="Enter your password"
-                    aria-label="Password"
-                    :type="showPassword ? 'text' : 'password'"
-                    autocomplete="current-password"
-                    :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-                    @click:append-inner="showPassword = !showPassword"
-                    variant="solo"
-                    bg-color="#f1f5f9"
-                    rounded="lg"
-                    flat
-                    hide-details="auto"
-                    prepend-inner-icon="mdi-lock-outline"
-                    class="login-field mb-4"
-                    required
-                />
+                <div v-if="error" :key="errorKey" class="error" role="alert" aria-live="assertive">
+                    <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
+                    <span>{{ error }}</span>
+                </div>
 
-                <v-btn
-                    type="submit"
-                    block
-                    rounded="pill"
-                    size="large"
-                    :loading="loading"
-                    class="login-btn font-weight-bold"
+                <form novalidate :aria-busy="loading ? 'true' : 'false'" @submit.prevent="submit">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-email-outline</v-icon>
+                            <input
+                                id="login-email"
+                                v-model.trim="email"
+                                type="email"
+                                name="username"
+                                placeholder="name@zamboanga.gov.ph"
+                                autocomplete="username"
+                                autocapitalize="none"
+                                spellcheck="false"
+                                :disabled="loading"
+                                required
+                                autofocus
+                            />
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-lock-outline</v-icon>
+                            <input
+                                id="login-password"
+                                v-model="password"
+                                :type="showPassword ? 'text' : 'password'"
+                                name="current-password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                :disabled="loading"
+                                required
+                            />
+                            <button
+                                type="button"
+                                class="toggle"
+                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                :aria-pressed="showPassword ? 'true' : 'false'"
+                                @click="showPassword = !showPassword"
+                            >
+                                <v-icon>{{
+                                    showPassword ? "mdi-eye-off-outline" : "mdi-eye-outline"
+                                }}</v-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <label class="check">
+                            <input v-model="remember" type="checkbox" :disabled="loading" />
+                            Keep me signed in
+                        </label>
+                    </div>
+
+                    <button class="btn" :class="{ loading }" type="submit" :disabled="!canSubmit">
+                        <span v-if="loading" class="spin" aria-hidden="true"></span>
+                        <span>{{ loading ? "Signing in…" : "Sign in" }}</span>
+                    </button>
+                </form>
+
+                <button
+                    class="btn btn-guest"
+                    :class="{ loading: guestLoading }"
+                    type="button"
+                    :disabled="loading || guestLoading"
+                    @click="guestLogin"
                 >
-                    <v-icon start>mdi-login</v-icon>
-                    Login
-                </v-btn>
-            </v-form>
+                    <span v-if="guestLoading" class="spin spin-dark" aria-hidden="true"></span>
+                    <v-icon v-else aria-hidden="true">mdi-file-search-outline</v-icon>
+                    <span>{{ guestLoading ? "Opening tracker…" : "Track your Document Process" }}</span>
+                </button>
+                <p class="guest-note">View-only. No account or sign-in needed.</p>
 
-            <v-divider class="my-4" />
+                <p class="help">
+                    Need an account? Contact your department's system administrator.
+                </p>
+            </main>
 
-            <div class="login-extra">
-                <p class="extra-title">Secure LGU portal for Zamboanga City</p>
-                <div class="extra-features">
-                    <div class="extra-item">
-                        <v-icon>mdi-file-search-outline</v-icon>
-                        <span>Track requests end-to-end</span>
-                    </div>
-                    <div class="extra-item">
-                        <v-icon>mdi-shield-check-outline</v-icon>
-                        <span>Verified, role-based workflows</span>
-                    </div>
-                    <div class="extra-item">
-                        <v-icon>mdi-bell-ring-outline</v-icon>
-                        <span>Status updates at every step</span>
-                    </div>
-                </div>
-                <p class="extra-foot">Need help? Visit the City Hall help desk or contact support.</p>
+            <footer>
+                <span>© City Government of Zamboanga</span>
+                <span>Authorized users only</span>
+            </footer>
+        </section>
+
+        <aside class="hero" aria-label="Available modules">
+            <video
+                v-if="showHeroVideo"
+                class="hero-video"
+                :src="'/loginpage.mp4'"
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                aria-hidden="true"
+                tabindex="-1"
+            ></video>
+
+            <div class="hero-content">
+                <h3>One place for city transactions</h3>
+                <p>Process requests, approvals and records across departments.</p>
+                <ul class="mods">
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-file-document-edit-outline</v-icon>
+                        PR
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-cart-outline</v-icon>
+                        Procurement
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-cash-multiple</v-icon>
+                        Payroll
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-receipt-text-outline</v-icon>
+                        Disbursement
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-calendar-check-outline</v-icon>
+                        Leave
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-airplane</v-icon>
+                        Travel Order
+                    </li>
+                </ul>
             </div>
-            <p class="copyright">© City Government of Zamboanga · TransactionMS</p>
-            </div>
-        </v-card>
+        </aside>
     </div>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 
 const router = useRouter();
 const auth = useAuth();
@@ -126,19 +169,53 @@ const auth = useAuth();
 const email = ref("");
 const password = ref("");
 const showPassword = ref(false);
+const remember = ref(false);
 
 const loading = ref(false);
+const guestLoading = ref(false);
 const error = ref("");
+const errorKey = ref(0);
+
+// Looping background clip for the photo panel. Rendered only at >=861px
+// (mirroring the CSS breakpoint that hides the hero on phones), so small
+// screens never download the multi-MB video for a panel they can't see.
+const showHeroVideo = ref(false);
+let heroMq = null;
+function syncHeroVideo(e) {
+    showHeroVideo.value = e.matches;
+}
+
+onMounted(() => {
+    // Warm the viewer welcome picture so "Track your Document Process" opens instantly.
+    try {
+        new Image().src = "/viewer-welcome.jpg";
+    } catch {
+        /* not critical */
+    }
+
+    heroMq = window.matchMedia("(min-width: 861px)");
+    showHeroVideo.value = heroMq.matches;
+    heroMq.addEventListener("change", syncHeroVideo);
+});
+
+onUnmounted(() => {
+    heroMq?.removeEventListener("change", syncHeroVideo);
+});
+
+const canSubmit = computed(
+    () => !loading.value && !guestLoading.value && email.value.trim().length > 0 && password.value.length > 0,
+);
 
 async function submit() {
+    if (!canSubmit.value) return;
     loading.value = true;
     error.value = "";
 
     try {
         await auth.login({
-            email: email.value,
+            email: email.value.trim(),
             password: password.value,
-            remember: false,
+            remember: remember.value,
         });
 
         await auth.init();
@@ -148,383 +225,439 @@ async function submit() {
         const msg =
             e?.response?.data?.message ||
             e?.response?.data?.errors?.email?.[0] ||
-            "Login failed.";
+            "Login failed. Please check your credentials and try again.";
         error.value = msg;
+        errorKey.value += 1;
     } finally {
         loading.value = false;
+    }
+}
+
+// Guest = the read-only viewer account: signs in without a password and
+// goes straight to the viewer (tracking) page.
+async function guestLogin() {
+    if (loading.value || guestLoading.value) return;
+    guestLoading.value = true;
+    error.value = "";
+
+    try {
+        const u = await auth.loginAsGuest();
+        // Guests are viewers: open with the welcome animation.
+        await router.push(userKind(u) === "viewer" ? "/track/welcome" : homePathFor(u));
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message || "Document tracking is not available right now.";
+        errorKey.value += 1;
+    } finally {
+        guestLoading.value = false;
     }
 }
 </script>
 
 <style scoped>
-.login-sky {
-    position: relative;
-    overflow: hidden;
-    min-height: 100vh;
-    background: url('/loginpage.jpg') center / cover no-repeat;
-    font-family: 'M PLUS Rounded 1c', sans-serif;
-    justify-content: flex-start;
-    align-items: center;
-    padding: 16px 16px 16px 4vw;
+.login-shell {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-columns: minmax(360px, 480px) 1fr;
+    overflow: auto;
+    background: #ffffff;
+    color: #14213d;
+    font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
-.login-sky > * {
-    position: relative;
-    z-index: 1;
-}
-
-/* Right-side icon field: scattered organically over the photo area */
-.top-icons {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 40%;
-    right: 0;
-    z-index: 2;
-    pointer-events: none;
+.login-shell::-webkit-scrollbar {
+    display: none;
+    width: 0;
 }
 
-/* Floating icon chips */
-.float-chip {
-    position: absolute;
+/* ---- Left: form panel ---- */
+.side {
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    padding: 40px 48px;
+    border-right: 1px solid #d5dbe8;
+    min-width: 0;
+}
+
+.brand {
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.92);
-    color: #7C3AED;
-    border-radius: 20px;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22);
-    pointer-events: none;
-    animation: floaty 5s ease-in-out infinite;
+    gap: 16px;
 }
-.top-icons .float-chip:nth-child(1) {
-    top: 10%;
-    left: 12%;
-    width: 76px;
-    height: 76px;
-}
-.top-icons .float-chip:nth-child(2) {
-    top: 18%;
-    right: 10%;
-    width: 60px;
-    height: 60px;
-    color: #4caf50;
-    border-radius: 50%;
-    animation-delay: 1.2s;
-}
-.top-icons .float-chip:nth-child(3) {
-    top: 44%;
-    left: 30%;
-    width: 68px;
-    height: 68px;
-    color: #ffb300;
-    animation-delay: 2.1s;
-}
-.top-icons .float-chip:nth-child(4) {
-    top: 58%;
-    right: 18%;
-    width: 80px;
-    height: 80px;
-    color: #8B5CF6;
-    border-radius: 50%;
-    animation-delay: 0.6s;
-}
-.top-icons .float-chip:nth-child(5) {
-    bottom: 10%;
-    left: 10%;
+.seal {
     width: 64px;
     height: 64px;
-    color: #ff7043;
-    animation-delay: 1.7s;
+    flex: none;
 }
-.top-icons .float-chip:nth-child(6) {
-    bottom: 22%;
-    right: 8%;
-    width: 72px;
-    height: 72px;
-    color: #0288d1;
-    border-radius: 50%;
-    animation-delay: 2.6s;
-}
-
-.login-card {
-    position: relative;
-    z-index: 1;
-    width: 40%;
-    max-width: 500px;
-    min-width: 400px;
-    min-height: 0;
-    max-height: calc(100vh - 32px);
+.brand h1 {
     margin: 0;
-    border-radius: 24px !important;
-    background: rgba(255, 255, 255, 0.68);
-    backdrop-filter: blur(18px) saturate(1.2);
-    -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22) !important;
-    border: 1px solid rgba(255, 255, 255, 0.65);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    overflow: hidden;
+    font-size: 26px;
+    line-height: 1.1;
+    font-weight: 800;
+    color: #1E40AF;
+    letter-spacing: -0.01em;
+}
+.brand p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #5b6780;
 }
 
-.login-inner {
+.panel {
+    margin: auto 0;
+    padding: 48px 0 24px;
     width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 20px 26px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    min-height: 0;
 }
-
-.brand-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 2px;
-}
-
-.seal-wrap {
-    width: 92px;
-    height: 92px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 5px;
-    box-shadow: 0 10px 28px rgba(124, 58, 237, 0.28), 0 0 0 6px rgba(124, 58, 237, 0.1);
-}
-
-.logo-seal {
-    border-radius: 50%;
-}
-
-/* Pixiv-style wordmark logo */
-.brand-logo {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1;
-    margin-top: 0;
-}
-.brand-logo.brand-left {
-    align-items: flex-start;
-    text-align: left;
-}
-.brand-logo.brand-left .brand-sub {
-    text-indent: 0;
-}
-.brand-main {
-    font-family: 'M PLUS Rounded 1c', sans-serif;
-    font-weight: 800;
-    font-size: clamp(2rem, 2.6vw, 2.5rem);
-    letter-spacing: 0.02em;
-    color: #7C3AED;
-    text-shadow: 0 3px 0 rgba(124, 58, 237, 0.15);
-    white-space: nowrap;
-}
-.brand-sub {
-    margin-top: 6px;
-    font-family: 'M PLUS Rounded 1c', sans-serif;
-    font-weight: 800;
-    font-size: 0.82rem;
-    letter-spacing: 0.14em;
-    text-indent: 0.14em;
-    color: #7C3AED;
-}
-.brand-rule {
-    display: block;
-    height: 0;
-    margin: 12px 0 18px;
-    border: none;
-    border-top: 2px solid #7C3AED;
-    opacity: 0.6;
-}
-
-.field-label {
-    display: block;
-    font-size: 0.8rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #475569;
-    margin-bottom: 6px;
-}
-
-.login-field :deep(.v-input__control),
-.login-field :deep(.v-field),
-.login-field :deep(.v-field__overlay),
-.login-field :deep(.v-field__underlay),
-.login-field :deep(.v-field__loader) {
-    border-radius: 14px !important;
-}
-.login-field :deep(.v-field) {
-    overflow: hidden;
-    box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.06);
+.panel h2 {
+    margin: 0 0 6px;
+    font-size: 28px;
     font-weight: 700;
-    border: 1.5px solid transparent;
-    outline: none;
-    min-height: 54px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    letter-spacing: -0.015em;
 }
-.login-field :deep(.v-field__input) {
-    min-height: 54px;
-    font-size: 0.98rem;
-}
-.login-field :deep(.v-field:hover) {
-    border-color: #C4B5FD;
-}
-.login-field :deep(.v-field--focused) {
-    border-color: #7C3AED;
-    box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.06), 0 0 0 3px rgba(124, 58, 237, 0.18);
-    transform: translateY(-1px);
-}
-.login-field :deep(.v-field__prepend-inner .v-icon) {
-    color: #7C3AED;
-    opacity: 0.9;
-}
-.login-field :deep(.v-field__append-inner .v-icon) {
-    color: #64748b;
+.sub {
+    margin: 0 0 28px;
+    color: #5b6780;
+    font-size: 15px;
 }
 
-.login-field :deep(input),
-.login-field :deep(input::placeholder) {
-    font-family: 'M PLUS Rounded 1c', sans-serif;
-    font-weight: 700;
-}
-
-.login-extra {
-    background: rgba(248, 250, 252, 0.75);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    border-radius: 14px;
-    padding: 12px 14px;
-    color: #475569;
-}
-.extra-title {
-    font-weight: 800;
-    font-size: 0.88rem;
-    color: #334155;
-    margin-bottom: 10px;
-}
-.extra-features {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    margin-bottom: 10px;
-}
-.extra-item {
+.error {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: #475569;
-    white-space: nowrap;
+    background: #fdecea;
+    color: #b42318;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 18px;
 }
-.extra-item .v-icon {
-    color: #7C3AED;
-}
-.extra-foot {
-    font-size: 0.78rem;
-    color: #94a3b8;
-}
-.copyright {
-    margin-top: 14px;
-    font-size: 0.72rem;
-    color: #94a3b8;
-    text-align: center;
+.error .v-icon {
+    font-size: 20px;
+    flex: none;
 }
 
-.login-btn {
+.field {
+    margin-bottom: 20px;
+}
+.field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px;
+}
+.control {
     position: relative;
-    overflow: hidden;
-    background: linear-gradient(135deg, #7C3AED 0%, #7C3AED 60%, #6D28D9 100%) !important;
-    color: #ffffff !important;
-    letter-spacing: 0.06em;
-    box-shadow: 0 10px 22px rgba(124, 58, 237, 0.45) !important;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.login-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(124, 58, 237, 0.5) !important;
-}
-.login-btn:active {
-    transform: translateY(0) scale(0.98);
-}
-.login-btn::after {
-    content: "";
+.control .ic {
     position: absolute;
-    top: -60%;
-    bottom: -60%;
-    left: -30%;
-    width: 36px;
-    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-    transform: skewX(-20deg);
-    animation: btn-sheen 3.2s ease-in-out infinite;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #5b6780;
     pointer-events: none;
 }
+.control input {
+    width: 100%;
+    height: 52px;
+    border: 1.5px solid #d5dbe8;
+    border-radius: 12px;
+    background: #f3f5fb;
+    color: #14213d;
+    font: inherit;
+    font-size: 16px;
+    padding: 0 48px 0 46px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.control input::placeholder {
+    color: #7b869e;
+}
+.control input:hover:not(:disabled) {
+    border-color: #aab4cc;
+}
+.control input:focus {
+    outline: none;
+    border-color: #1E40AF;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.22);
+}
+.control input:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
 
-@keyframes floaty {
-    0%,
-    100% {
-        transform: translateY(0) rotate(-4deg);
-    }
-    50% {
-        transform: translateY(-14px) rotate(4deg);
+/* Autofill: keep the field's own colors instead of Chrome's yellow/blue wash */
+.control input:-webkit-autofill,
+.control input:-webkit-autofill:hover,
+.control input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 100px #f3f5fb inset !important;
+    -webkit-text-fill-color: #14213d !important;
+    caret-color: #14213d !important;
+    transition: background-color 5000s ease-in-out 0s !important;
+}
+.control input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 100px #ffffff inset !important;
+    -webkit-text-fill-color: #14213d !important;
+}
+.control input:autofill {
+    box-shadow: 0 0 0 100px #f3f5fb inset !important;
+    -webkit-text-fill-color: #14213d !important;
+}
+
+.toggle {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: none;
+    border-radius: 10px;
+    color: #5b6780;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+.toggle:hover {
+    background: #e6ebf5;
+}
+.toggle:focus-visible {
+    outline: 3px solid rgba(30, 64, 175, 0.28);
+}
+.toggle .v-icon {
+    font-size: 20px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: -4px 0 24px;
+    font-size: 14px;
+}
+.check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+}
+.check input {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin: 0;
+    accent-color: #1E40AF;
+    cursor: inherit;
+}
+.check input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn {
+    width: 100%;
+    height: 54px;
+    border: 0;
+    border-radius: 12px;
+    background: #1E40AF;
+    color: #ffffff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+.btn:hover:not(:disabled) {
+    background: #142d82;
+}
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+.btn:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+}
+.btn.loading {
+    cursor: progress;
+}
+.btn:focus-visible {
+    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline-offset: 2px;
+}
+
+.btn-guest {
+    margin-top: 22px;
+    background: #ffffff;
+    color: #1E40AF;
+    border: 1.5px solid #1E40AF;
+}
+.btn-guest:hover:not(:disabled) {
+    background: #eef2ff;
+}
+.btn-guest .v-icon {
+    font-size: 22px;
+}
+.guest-note {
+    margin: 10px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: #5b6780;
+}
+.spin-dark {
+    border-color: rgba(30, 64, 175, 0.25);
+    border-top-color: #1E40AF;
+}
+
+.spin {
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 
-@keyframes btn-sheen {
-    0% {
-        left: -30%;
-        opacity: 0;
+.help {
+    margin: 20px 0 0;
+    text-align: center;
+    font-size: 14px;
+    color: #5b6780;
+}
+
+footer {
+    font-size: 12.5px;
+    color: #5b6780;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ---- Right: photo/video hero ---- */
+.hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 56px;
+    color: #ffffff;
+    /* Photo fallback: paints before the clip buffers, when autoplay is
+       blocked, and for reduced-motion users (video hidden there). */
+    background: url('/loginpage.jpg') center / cover no-repeat;
+}
+.hero-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+}
+/* Legibility scrim: above the video, below the text/pills. */
+.hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(180deg, rgba(10, 25, 70, 0.15) 0%, rgba(10, 25, 70, 0.75) 100%);
+    pointer-events: none;
+}
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+.hero h3 {
+    margin: 0 0 8px;
+    font-size: 34px;
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    max-width: 18ch;
+}
+.hero p {
+    margin: 0 0 28px;
+    font-size: 16px;
+    max-width: 44ch;
+    color: rgba(255, 255, 255, 0.9);
+}
+.mods {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 560px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.mod {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #1E40AF;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-weight: 700;
+    font-size: 14.5px;
+    box-shadow: 0 6px 18px rgba(8, 20, 60, 0.25);
+}
+.mod .v-icon {
+    font-size: 22px;
+    color: #1E40AF;
+    flex: none;
+}
+
+@media (max-width: 1200px) {
+    .hero {
+        padding: 40px;
     }
-    12% {
-        opacity: 1;
-    }
-    45%,
-    100% {
-        left: 130%;
-        opacity: 0;
+    .mods {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@keyframes card-glow {
-    0%,
-    100% {
-        box-shadow: 0 24px 60px rgba(76, 29, 149, 0.16), 0 0 50px rgba(124, 58, 237, 0.16) !important;
+@media (max-width: 860px) {
+    .login-shell {
+        grid-template-columns: 1fr;
     }
-    50% {
-        box-shadow: 0 24px 60px rgba(76, 29, 149, 0.2), 0 0 95px rgba(124, 58, 237, 0.32) !important;
-    }
-}
-
-@media (max-width: 900px) {
-    .login-sky {
-        justify-content: center;
-        padding: 24px 16px;
-    }
-    .top-icons {
+    .hero {
         display: none;
     }
-    .login-card {
-        width: 100%;
-        min-width: 0;
-        max-width: 520px;
-        min-height: 0;
-        margin: auto;
-        border-radius: 28px !important;
-        border-right: none;
-        border: 1px solid #e3ecf5;
+    .side {
+        padding: 28px 22px;
+        border-right: 0;
     }
-    .login-inner {
-        min-height: 0;
-        padding: 32px 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* An autoplaying loop is exactly what these users opted out of:
+       keep the static photo instead. */
+    .hero-video {
+        display: none;
     }
-    .seal-wrap {
-        width: 88px;
-        height: 88px;
+    .control input,
+    .toggle,
+    .btn {
+        transition: none !important;
     }
 }
 </style>
