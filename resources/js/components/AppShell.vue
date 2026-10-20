@@ -969,6 +969,33 @@ onUnmounted(() => {
     width: 0;
     height: 0;
 }
+/* Collapsed rail: the clear strip above would push every item 6px off
+   centre, and each icon keeps a fixed slot plus spacer on its left. Centre
+   items and icons on the rail so they line up with the avatar and the
+   footer buttons below. (Expanded drawer is unaffected.) */
+:deep(.v-navigation-drawer--rail .v-navigation-drawer__content) {
+    padding-right: 0;
+}
+:deep(.v-navigation-drawer--rail .v-list-item) {
+    padding-inline: 0 !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "prepend" !important;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__prepend) {
+    margin-inline: 0;
+    justify-self: center;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__prepend > .v-icon),
+:deep(.v-navigation-drawer--rail .v-list-item__prepend > .v-badge) {
+    margin-inline: 0 !important;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__spacer),
+:deep(.v-navigation-drawer--rail .v-list-item__content) {
+    display: none;
+}
+:deep(.v-navigation-drawer--rail .nav-group-rule) {
+    margin-inline: 12px;
+}
 /* Sidebar profile */
 .nav-profile {
     display: flex;
