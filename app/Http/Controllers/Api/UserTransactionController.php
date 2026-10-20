@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Transactions\CreateTransactionRequest;
 use App\Http\Requests\Transactions\ExecuteActionRequest;
 use App\Http\Resources\TransactionListResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
+use App\Models\TransactionType;
+use App\Services\OfficeScope;
 use App\Services\RoutingEngine;
 use App\Services\TransactionEngine;
 use Illuminate\Http\Request;
@@ -66,7 +69,7 @@ class UserTransactionController extends Controller
         ]);
     }
 
-    public function index(Request $request, RoutingEngine $routing)
+    public function index(Request $request, RoutingEngine $routing, OfficeScope $officeScope)
     {
         $user = $request->user();
         $data = $request->validate([
@@ -102,15 +105,17 @@ class UserTransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // Office admins: rows parked at their office; end-user
-                // stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
+                // Office admins: rows parked at their office (end-user
+                // stations follow the transaction's office), plus every
+                // transaction their office filed or that routes through it.
+                $query->where(function ($w) use ($user, $officeScope) {
                     $w->where(function ($x) use ($user) {
                         $x->where('transactions.office_id', $user->office_id)
                             ->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.is_end_user', true));
                     })->orWhereHas('state.currentStep', fn ($s) => $s
                         ->where('workflow_steps.office_id', $user->office_id)
-                        ->where('workflow_steps.is_end_user', false));
+                        ->where('workflow_steps.is_end_user', false))
+                    ->orWhere(fn ($o) => $officeScope->apply($o, (int) $user->office_id));
                 });
             } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
@@ -150,16 +155,42 @@ class UserTransactionController extends Controller
         // cheap, unlike filtering the whole table.
         $page->setCollection(
             $page->getCollection()->filter(
-                fn (Transaction $tx) => $isSuperadmin || $routing->userCanWorkOnCurrentStep($tx, $user)
+                fn (Transaction $tx) => $isSuperadmin
+                    || $officeScope->covers($tx, $user)
+                    || $routing->userCanWorkOnCurrentStep($tx, $user)
             )->values()
         );
 
         return TransactionListResource::collection($page);
     }
 
+    /**
+     * Office admins start transactions for processes their office may file
+     * (linked to their office, or linked to no office); the transaction
+     * belongs to their office. Superadmins use the admin API.
+     */
+    public function store(CreateTransactionRequest $request, TransactionEngine $engine)
+    {
+        $user = $request->user();
+        abort_unless($user->isOfficeAdmin(), 403, 'Only office admins can start transactions here.');
+
+        $typeId = (int) $request->validated()['transaction_type_id'];
+        $allowed = TransactionType::query()->fileableBy((int) $user->office_id)->whereKey($typeId)->exists();
+        abort_unless($allowed, 403, 'Your office is not set up to file this process.');
+
+        $tx = $engine->create(
+            $typeId,
+            $request->validated()['title'] ?? null,
+            $user->id,
+            (int) $user->office_id
+        );
+
+        return (new TransactionResource($tx))->response()->setStatusCode(201);
+    }
+
     public function show(Transaction $transaction, Request $request, RoutingEngine $routing)
     {
-        $routing->assertUserCanExecute($transaction, $request->user());
+        $routing->assertUserCanView($transaction, $request->user());
 
         $transaction->load([
             'type',

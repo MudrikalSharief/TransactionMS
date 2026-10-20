@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -29,12 +30,16 @@ class UserController extends Controller
         $data = $request->validated();
 
         return DB::transaction(function () use ($request, $data, $audit) {
+            // Created by a superadmin, so approved from the start.
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'office_id' => $data['office_id'] ?? null,
+                'Contact_number' => $data['contact_number'] ?? null,
                 'password' => Hash::make($data['password']),
                 'is_active' => $data['is_active'] ?? true,
+                'approved_at' => now(),
+                'approved_by' => $request->user()->id,
             ]);
 
             if (!empty($data['role_ids'])) {
@@ -78,6 +83,10 @@ class UserController extends Controller
                 $user->office_id = $data['office_id'];
             }
 
+            if (array_key_exists('contact_number', $data)) {
+                $user->Contact_number = $data['contact_number'];
+            }
+
             if (!empty($data['password'])) {
                 $user->password = Hash::make($data['password']);
             }
@@ -105,6 +114,24 @@ class UserController extends Controller
 
             return new UserResource($user);
         });
+    }
+
+    /** Lets an account created on the login page sign in. */
+    public function approve(Request $request, User $user, UserApproval $approval, AuditService $audit)
+    {
+        $approval->approve($user, $request->user());
+        $audit->log($request, 'users.approve', $user);
+
+        return new UserResource($user->load(['roles', 'office']));
+    }
+
+    /** Turns down an account created on the login page (removes it). */
+    public function reject(Request $request, User $user, UserApproval $approval, AuditService $audit)
+    {
+        $audit->log($request, 'users.reject', $user, ['payload' => ['email' => $user->email, 'name' => $user->name]]);
+        $approval->reject($user);
+
+        return response()->json(['message' => 'Request rejected.']);
     }
 
     public function destroy(Request $request, User $user, AuditService $audit)

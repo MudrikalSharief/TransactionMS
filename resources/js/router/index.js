@@ -28,7 +28,15 @@ const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
 const Help = () => import("@/pages/Help.vue");
 
-import { useAuth, canUseApprovals, isOfficeAdminUser } from "@/composables/useAuth";
+// User portal (every role except superadmin/admin) and the read-only viewer
+// tracking pages.
+const PortalHome = () => import("@/pages/portal/PortalHome.vue");
+const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
+const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
+const TrackList = () => import("@/pages/track/TrackList.vue");
+const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
+
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 
@@ -46,9 +54,48 @@ export function createRouter() {
             },
 
             {
+                path: "/portal",
+                name: "portal",
+                component: PortalHome,
+                meta: { requiresAuth: true, title: "Home", kind: "staff" },
+            },
+            {
+                path: "/portal/transactions",
+                name: "portal.transactions",
+                component: PortalTransactions,
+                meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
+            },
+            {
+                // Short opening animation for viewers; `bare` hides the app chrome.
+                path: "/track/welcome",
+                name: "track.welcome",
+                component: TrackWelcome,
+                meta: { requiresAuth: true, title: "Welcome", kind: "viewer", bare: true },
+            },
+            {
+                path: "/track",
+                name: "track",
+                component: TrackList,
+                meta: { requiresAuth: true, title: "Track Transactions", kind: "viewer" },
+            },
+            {
+                path: "/track/:id",
+                name: "track.detail",
+                component: TrackDetail,
+                meta: { requiresAuth: true, title: "Track Transaction", kind: "viewer" },
+            },
+
+            {
                 path: "/admin/users",
                 component: AdminUsers,
                 meta: { requiresAuth: true, superadmin: true },
+            },
+            // Office admins: same Users page, limited to their own office.
+            {
+                path: "/office/users",
+                name: "office.users",
+                component: AdminUsers,
+                meta: { requiresAuth: true, officeScope: true },
             },
             {
                 path: "/admin/roles",
@@ -159,14 +206,31 @@ export function createRouter() {
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
         if (to.name === "login" && auth.user.value)
-            return { name: "dashboard" };
+            return homePathFor(auth.user.value);
+
+        // Each kind of account lives in its own set of pages.
+        if (auth.user.value) {
+            const kind = userKind(auth.user.value);
+            if (kind === "viewer") {
+                // Right after sign-in (login pushes "dashboard") they get the
+                // welcome animation. Otherwise read-only: tracking pages and
+                // Help only.
+                if (to.name === "dashboard") return "/track/welcome";
+                if (to.meta.kind !== "viewer" && to.name !== "help") return "/track";
+            } else if (to.meta.kind && to.meta.kind !== kind) {
+                return homePathFor(auth.user.value);
+            } else if (kind === "staff" && to.name === "dashboard") {
+                return "/portal";
+            }
+        }
         if (to.name === "approvals" && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
-        const roles = auth.user.value?.roles ?? [];
-        const isSuperadmin = roles.some((r) => r.code === "superadmin");
+        const isSuperadmin = isSuperadminUser(auth.user.value);
         if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };
         if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
             return { name: "dashboard" };
+        // /office/* is the office admin's own area (the API enforces the same).
+        if (to.meta.officeScope && !isOfficeAdminUser(auth.user.value)) return { name: "dashboard" };
         // Staged workflow edits live only in memory until Save version:
         // stop accidental loss on navigation (Save and Discard live on the
         // workflow pages; a reload also drops staged edits).
@@ -183,7 +247,7 @@ export function createRouter() {
     });
 
     router.afterEach((to) => {
-        const base = "TransactionMF";
+        const base = "TransactionMS";
         document.title = to.meta?.title ? `${base} | ${to.meta.title}` : base;
     });
 

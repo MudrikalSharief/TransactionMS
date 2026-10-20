@@ -6,19 +6,46 @@ import { clearAllStaging } from "@/composables/useWorkflowStaging";
 const user = ref(null);
 const initialized = ref(false);
 
+// Which experience a user gets:
+//   admin  - superadmin or admin role: the full admin pages
+//   viewer - viewer role only: read-only tracking of their own transactions
+//            (no files, no actions)
+//   staff  - every other role: the office/role user portal
+// Mirrors User::isViewerOnly() on the backend.
+export function userKind(u) {
+    const codes = (u?.roles ?? []).map((r) => r.code);
+    if (codes.includes("superadmin") || codes.includes("admin")) return "admin";
+    if (codes.length && codes.every((c) => c === "viewer")) return "viewer";
+    return "staff";
+}
+
+export function homePathFor(u) {
+    const kind = userKind(u);
+    if (kind === "viewer") return "/track";
+    if (kind === "staff") return "/portal";
+    return "/";
+}
+
 // Approvals is hidden from users with no assigned role, and from end users
 // (they submit, never approve). Superadmin keeps access even when also
-// holding end_user. Mirrors ApprovalController::index.
+// holding end_user. Viewers never reach it. Mirrors ApprovalController::index.
 export function canUseApprovals(u) {
     const codes = (u?.roles ?? []).map((r) => r.code);
     if (!codes.length) return false;
+    if (userKind(u) === "viewer") return false;
     return codes.includes("superadmin") || !codes.includes("end_user");
 }
 
-// Office admin: holds the admin role AND an assigned office. Mirrors
-// User::isOfficeAdmin() on the backend (superadmin excluded on purpose).
+export function isSuperadminUser(u) {
+    return (u?.roles ?? []).some((r) => r.code === "superadmin");
+}
+
+// Office admin: holds the admin role AND an assigned office; manages that
+// office only. Mirrors User::isOfficeAdmin() on the backend (superadmin
+// excluded on purpose).
 export function isOfficeAdminUser(u) {
-    if (!u || (u.office_id == null && u.office == null)) return false;
+    if (!u || isSuperadminUser(u)) return false;
+    if (u.office_id == null && !u.office?.id) return false;
     return (u.roles ?? []).some((r) => r.code === "admin");
 }
 
@@ -80,6 +107,17 @@ export function useAuth() {
         return user.value;
     }
 
+    // Passwordless sign-in to the read-only guest (viewer) account.
+    async function loginAsGuest() {
+        invalidateCache(CacheKeys.authUser);
+        await csrf();
+        await api.post("/api/auth/guest");
+
+        await init();
+
+        return user.value;
+    }
+
     async function logout() {
         try {
             await api.post("/api/auth/logout");
@@ -98,5 +136,5 @@ export function useAuth() {
         }
     }
 
-    return { user, initialized, init, login, logout };
+    return { user, initialized, init, login, loginAsGuest, logout };
 }

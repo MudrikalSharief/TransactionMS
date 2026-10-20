@@ -5,7 +5,8 @@
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
         <v-icon color="#16307C">mdi-account-group</v-icon>
       </v-avatar>
-      <span class="text-h6 font-weight-bold">Users</span>
+      <span class="text-h6 font-weight-bold">{{ officeMode ? 'Office Users' : 'Users' }}</span>
+      <ScopeChip v-if="officeMode" class="ml-3" />
       <v-spacer />
       <v-text-field
         v-model="search"
@@ -27,6 +28,18 @@
     <v-card-text class="pa-4">
       <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
         {{ error }}
+      </v-alert>
+      <v-alert
+        v-if="canManage && pendingCount"
+        type="warning"
+        variant="tonal"
+        density="compact"
+        rounded="0"
+        icon="mdi-account-clock-outline"
+        class="mb-3"
+      >
+        {{ pendingCount === 1 ? '1 account is' : `${pendingCount} accounts are` }} waiting for approval.
+        They're listed first; check the details, then approve or reject.
       </v-alert>
 
       <div class="d-flex flex-column table-stage" style="min-height: 510px">
@@ -78,7 +91,11 @@
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
-          <v-chip :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
+          <v-chip v-if="item.pending_approval" color="warning" rounded="0" size="small" variant="tonal">
+            <v-icon start size="small">mdi-clock-outline</v-icon>
+            Waiting for approval
+          </v-chip>
+          <v-chip v-else :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
             <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
             {{ item.is_active ? 'Active' : 'Inactive' }}
           </v-chip>
@@ -86,23 +103,56 @@
 
         <template v-slot:[`item.actions`]="{ item }">
           <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
-            <v-btn
-              icon="mdi-pencil"
-              v-tooltip="'Edit user'"
-              size="small"
-              variant="outlined"
-              color="grey-darken-3"
-              @click="openEdit(item)"
-            />
-            <v-btn
-              icon="mdi-account-off"
-              v-tooltip="'Deactivate user'"
-              size="small"
-              variant="outlined"
-              color="error"
-              :disabled="item.id === auth.user?.id"
-              @click="deactivate(item)"
-            />
+            <span v-if="lockReason(item)" v-tooltip="lockReason(item)" class="d-flex align-center text-medium-emphasis">
+              <v-icon size="small">mdi-lock-outline</v-icon>
+            </span>
+            <template v-else-if="item.pending_approval">
+              <v-btn
+                icon="mdi-check"
+                v-tooltip="'Approve: let this person sign in'"
+                size="small"
+                variant="outlined"
+                color="success"
+                :loading="busyId === item.id"
+                @click="approve(item)"
+              />
+              <v-btn
+                icon="mdi-pencil"
+                v-tooltip="'Edit before approving'"
+                size="small"
+                variant="outlined"
+                color="grey-darken-3"
+                @click="openEdit(item)"
+              />
+              <v-btn
+                icon="mdi-close"
+                v-tooltip="'Reject: remove this request'"
+                size="small"
+                variant="outlined"
+                color="error"
+                :disabled="busyId === item.id"
+                @click="reject(item)"
+              />
+            </template>
+            <template v-else>
+              <v-btn
+                icon="mdi-pencil"
+                v-tooltip="'Edit user'"
+                size="small"
+                variant="outlined"
+                color="grey-darken-3"
+                @click="openEdit(item)"
+              />
+              <v-btn
+                icon="mdi-account-off"
+                v-tooltip="'Deactivate user'"
+                size="small"
+                variant="outlined"
+                color="error"
+                :disabled="item.id === meId"
+                @click="deactivate(item)"
+              />
+            </template>
           </div>
         </template>
       </v-data-table>
@@ -117,6 +167,7 @@
       <v-card-text>
         <v-text-field v-model="form.name" label="Name" />
         <v-text-field v-model="form.email" label="Email" type="email" />
+        <v-text-field v-model="form.contact_number" label="Contact number" type="tel" placeholder="09171234567" />
 
         <v-text-field
           v-model="form.password"
@@ -124,7 +175,9 @@
           type="password"
         />
 
-        <v-switch v-model="form.is_active" label="Active" />
+        <!-- New users start active; the switch is only for existing ones
+             (e.g. turning a deactivated account back on). -->
+        <v-switch v-if="form.id && !form.pending_approval" v-model="form.is_active" label="Active" />
 
         <v-select
           v-model="form.role_ids"
@@ -137,6 +190,7 @@
         />
 
         <v-select
+          v-if="!officeMode"
           v-model="form.office_id"
           :items="officeOptions"
           item-title="label"
@@ -144,6 +198,10 @@
           label="Office"
           clearable
         />
+        <v-alert v-else type="info" variant="tonal" density="compact" rounded="0">
+          {{ form.id ? 'Stays in' : 'Joins' }} <b>{{ myOffice?.name || 'your office' }}</b>.
+          Admin and superadmin roles are given by a superadmin.
+        </v-alert>
       </v-card-text>
       <v-divider />
       <v-card-actions class="justify-end">
@@ -156,24 +214,54 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
 import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
+import { useApi } from '@/composables/useApi'
+import { confirm } from '@/composables/useConfirm'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import ScopeChip from '@/components/ScopeChip.vue'
 
 const auth = useAuth()
-const { users, loading, fetchUsers, createUser, updateUser, deactivateUser } = useAdminUsers()
-const { roles, fetchRoles } = useRoles()
+const { api } = useApi()
+// /office/users: an office admin managing their own office's members.
+const officeMode = !!useRoute().meta.officeScope
+const { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser } =
+  useAdminUsers({ office: officeMode })
+const { roles: allRoles, fetchRoles: fetchAllRoles } = useRoles()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 
-const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
+// Superadmins manage everyone; office admins manage their own office (/office/users).
+const canManage = computed(() => officeMode || (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
+const meId = computed(() => auth.user.value?.id)
+const myOffice = computed(() => auth.user.value?.office ?? null)
+
+// Office admins may only give out roles below admin (server list).
+const officeRoles = ref([])
+const roles = computed(() => (officeMode ? officeRoles.value : allRoles.value))
+async function fetchRoles() {
+  if (!officeMode) return fetchAllRoles()
+  const res = await api.get('/api/office/roles')
+  officeRoles.value = res.data.data ?? res.data
+}
+
+// Admins, superadmins and your own account stay with a superadmin.
+function lockReason(item) {
+  if (!officeMode) return ''
+  if (item.id === meId.value) return 'Your own account is managed by a superadmin'
+  if ((item.roles || []).some((r) => ['admin', 'superadmin'].includes(r.code))) {
+    return 'Admins are managed by a superadmin'
+  }
+  return ''
+}
 
 const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Email', key: 'email' },
   { title: 'Roles', key: 'roles', sortable: false },
-  { title: 'Office', key: 'office', sortable: false },
+  ...(officeMode ? [] : [{ title: 'Office', key: 'office', sortable: false }]),
   { title: 'Status', key: 'is_active' },
   { title: '', key: 'actions', sortable: false },
 ]
@@ -187,26 +275,68 @@ let navObserver = null
 
 // Client-side search: master data is small, filter loaded rows by
 // name / email / roles / office / status without extra requests.
+// Accounts waiting for approval come first.
 const filtered = computed(() => {
   const q = String(search.value || '').trim().toLowerCase()
-  if (!q) return users.value || []
-  return (users.value || []).filter((u) =>
-    [
-      u.name,
-      u.email,
-      (u.roles || []).map((r) => r.name).join(' '),
-      u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
-      u.is_active ? 'active' : 'inactive',
-    ].some((v) => String(v || '').toLowerCase().includes(q))
-  )
+  const rows = !q
+    ? users.value || []
+    : (users.value || []).filter((u) =>
+        [
+          u.name,
+          u.email,
+          u.contact_number,
+          (u.roles || []).map((r) => r.name).join(' '),
+          u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
+          u.pending_approval ? 'waiting for approval pending' : u.is_active ? 'active' : 'inactive',
+        ].some((v) => String(v || '').toLowerCase().includes(q))
+      )
+  return [...rows].sort((a, b) => Number(!!b.pending_approval) - Number(!!a.pending_approval))
 })
+
+const pendingCount = computed(() => (users.value || []).filter((u) => u.pending_approval).length)
+const busyId = ref(null)
+
+async function approve(item) {
+  error.value = ''
+  busyId.value = item.id
+  try {
+    await approveUser(item.id)
+    await fetchUsers()
+  } catch (e) {
+    error.value = e?.response?.data?.message || 'Approve failed.'
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function reject(item) {
+  const ok = await confirm({
+    title: 'Reject this request?',
+    message: `${item.name} (${item.email}) will not get access, and the request will be removed. They can sign up again.`,
+    confirmLabel: 'Reject',
+    cancelLabel: 'Keep',
+  })
+  if (!ok) return
+  error.value = ''
+  busyId.value = item.id
+  try {
+    await rejectUser(item.id)
+    await fetchUsers()
+  } catch (e) {
+    error.value = e?.response?.data?.message || 'Reject failed.'
+  } finally {
+    busyId.value = null
+  }
+}
 
 const form = ref({
   id: null,
   name: '',
   email: '',
+  contact_number: '',
   password: '',
   is_active: true,
+  pending_approval: false,
   role_ids: [],
   office_id: null,
 })
@@ -227,7 +357,17 @@ const officeNameById = computed(() => {
 
 function openCreate() {
   error.value = ''
-  form.value = { id: null, name: '', email: '', password: '', is_active: true, role_ids: [], office_id: null }
+  form.value = {
+    id: null,
+    name: '',
+    email: '',
+    contact_number: '',
+    password: '',
+    is_active: true,
+    pending_approval: false,
+    role_ids: [],
+    office_id: null,
+  }
   dialog.value = true
 }
 
@@ -237,8 +377,10 @@ function openEdit(item) {
     id: item.id,
     name: item.name,
     email: item.email,
+    contact_number: item.contact_number || '',
     password: '',
     is_active: !!item.is_active,
+    pending_approval: !!item.pending_approval,
     role_ids: (item.roles || []).map(r => r.id),
     office_id: item.office_id ?? item.office?.id ?? null,
   }
@@ -252,10 +394,13 @@ async function save() {
     const payload = {
       name: form.value.name,
       email: form.value.email,
-      is_active: form.value.is_active,
+      contact_number: form.value.contact_number || null,
       role_ids: form.value.role_ids,
-      office_id: form.value.office_id ?? null,
     }
+    // Pending accounts stay inactive until approved.
+    if (!form.value.pending_approval) payload.is_active = form.value.is_active
+    // Office mode: the server always uses the admin's own office.
+    if (!officeMode) payload.office_id = form.value.office_id ?? null
     if (form.value.password) payload.password = form.value.password
 
     if (form.value.id) {
@@ -290,7 +435,7 @@ onMounted(() => {
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
-  fetchOffices().catch(() => {})
+  if (!officeMode) fetchOffices().catch(() => {})
   fetchUsers().catch(() => {})
   // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
   // the table is narrower, so flag html.nav-open to duck the row actions

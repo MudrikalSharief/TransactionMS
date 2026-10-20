@@ -349,7 +349,8 @@ class TransactionAttachmentController extends Controller
         if ((int) $transaction->created_by === (int) $user->id) return;
 
         try {
-            $routing->assertUserCanExecute($transaction, $user);
+            // Step workers via role gate; office admins for anything in their office's scope.
+            $routing->assertUserCanView($transaction, $user);
             return;
         } catch (\Throwable $e) {
             // Fall through to 403 below so office-mates without current-step

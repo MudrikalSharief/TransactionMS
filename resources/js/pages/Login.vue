@@ -13,14 +13,19 @@
                     height="64"
                 />
                 <div>
-                    <h1>TransactionMF</h1>
+                    <h1>TransactionMS</h1>
                     <p>City Government of Zamboanga</p>
                 </div>
             </header>
 
-            <main class="panel">
+            <main v-if="mode === 'signin'" class="panel">
                 <h2>Sign in</h2>
                 <p class="sub">Use your city government account to continue.</p>
+
+                <div v-if="notice" class="notice" role="status" aria-live="polite">
+                    <v-icon aria-hidden="true">mdi-check-circle-outline</v-icon>
+                    <span>{{ notice }}</span>
+                </div>
 
                 <div v-if="error" :key="errorKey" class="error" role="alert" aria-live="assertive">
                     <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
@@ -88,6 +93,168 @@
                         <span>{{ loading ? "Signing in…" : "Sign in" }}</span>
                     </button>
                 </form>
+
+                <button
+                    class="btn btn-guest"
+                    :class="{ loading: guestLoading }"
+                    type="button"
+                    :disabled="loading || guestLoading"
+                    @click="guestLogin"
+                >
+                    <span v-if="guestLoading" class="spin spin-dark" aria-hidden="true"></span>
+                    <v-icon v-else aria-hidden="true">mdi-file-search-outline</v-icon>
+                    <span>{{ guestLoading ? "Opening tracker…" : "Track your Document Process" }}</span>
+                </button>
+                <p class="guest-note">View-only. No account or sign-in needed.</p>
+
+                <p class="help">
+                    Need an account?
+                    <button type="button" class="link" @click="openRegister">Create an account</button>
+                </p>
+            </main>
+
+            <!-- Create an account: the same details a superadmin enters for a
+                 new user, plus a contact number. It waits for approval. -->
+            <main v-else class="panel">
+                <h2>Create an account</h2>
+                <p class="sub">An administrator reviews new accounts. You can sign in once yours is approved.</p>
+
+                <div v-if="regError" :key="errorKey" class="error" role="alert" aria-live="assertive">
+                    <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
+                    <span>{{ regError }}</span>
+                </div>
+
+                <form novalidate :aria-busy="registering ? 'true' : 'false'" @submit.prevent="register">
+                    <div class="field">
+                        <label for="reg-name">Full name</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-account-outline</v-icon>
+                            <input
+                                id="reg-name"
+                                v-model.trim="reg.name"
+                                type="text"
+                                autocomplete="name"
+                                placeholder="Juan Dela Cruz"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.name ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-email">Email</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-email-outline</v-icon>
+                            <input
+                                id="reg-email"
+                                v-model.trim="reg.email"
+                                type="email"
+                                autocomplete="email"
+                                autocapitalize="none"
+                                spellcheck="false"
+                                placeholder="name@zamboanga.gov.ph"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.email ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-contact">Contact number</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-phone-outline</v-icon>
+                            <input
+                                id="reg-contact"
+                                v-model.trim="reg.contact_number"
+                                type="tel"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                placeholder="09171234567"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.contact_number ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.contact_number" class="field-error">{{ fieldErrors.contact_number }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-password">Password</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-lock-outline</v-icon>
+                            <input
+                                id="reg-password"
+                                v-model="reg.password"
+                                :type="showPassword ? 'text' : 'password'"
+                                autocomplete="new-password"
+                                placeholder="At least 8 characters"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.password ? 'true' : 'false'"
+                                required
+                            />
+                            <button
+                                type="button"
+                                class="toggle"
+                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                :aria-pressed="showPassword ? 'true' : 'false'"
+                                @click="showPassword = !showPassword"
+                            >
+                                <v-icon>{{ showPassword ? "mdi-eye-off-outline" : "mdi-eye-outline" }}</v-icon>
+                            </button>
+                        </div>
+                        <p v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-office">Office</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-office-building-outline</v-icon>
+                            <select
+                                id="reg-office"
+                                v-model="reg.office_id"
+                                :disabled="registering || !options.offices.length"
+                                :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
+                                required
+                            >
+                                <option :value="null" disabled>Choose your office</option>
+                                <option v-for="o in options.offices" :key="o.id" :value="o.id">{{ o.name }}</option>
+                            </select>
+                        </div>
+                        <p v-if="fieldErrors.office_id" class="field-error">{{ fieldErrors.office_id }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-role">Role</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-badge-account-horizontal-outline</v-icon>
+                            <select
+                                id="reg-role"
+                                v-model="reg.role_id"
+                                :disabled="registering || !options.roles.length"
+                                :aria-invalid="fieldErrors.role_ids ? 'true' : 'false'"
+                                required
+                            >
+                                <option :value="null" disabled>Choose your role</option>
+                                <option v-for="r in options.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                            </select>
+                        </div>
+                        <p v-if="fieldErrors.role_ids" class="field-error">{{ fieldErrors.role_ids }}</p>
+                    </div>
+
+                    <button class="btn" :class="{ loading: registering }" type="submit" :disabled="!canRegister">
+                        <span v-if="registering" class="spin" aria-hidden="true"></span>
+                        <span>{{ registering ? "Creating account…" : "Create account" }}</span>
+                    </button>
+                </form>
+
+                <p class="help">
+                    Already have an account?
+                    <button type="button" class="link" @click="openSignIn">Sign in</button>
+                </p>
             </main>
 
             <footer>
@@ -140,10 +307,16 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
+import { useApi } from "@/composables/useApi";
 
 const router = useRouter();
 const auth = useAuth();
+const { api, csrf } = useApi();
+
+// "signin" or "register" (Create an account), in the same panel.
+const mode = ref("signin");
+const notice = ref("");
 
 const email = ref("");
 const password = ref("");
@@ -151,6 +324,7 @@ const showPassword = ref(false);
 const remember = ref(false);
 
 const loading = ref(false);
+const guestLoading = ref(false);
 const error = ref("");
 const errorKey = ref(0);
 
@@ -173,13 +347,14 @@ watch(loading, (busy) => {
 });
 
 const canSubmit = computed(
-    () => !loading.value && email.value.trim().length > 0 && password.value.length > 0,
+    () => !loading.value && !guestLoading.value && email.value.trim().length > 0 && password.value.length > 0,
 );
 
 async function submit() {
     if (!canSubmit.value) return;
     loading.value = true;
     error.value = "";
+    notice.value = "";
 
     try {
         await auth.login({
@@ -200,6 +375,103 @@ async function submit() {
         errorKey.value += 1;
     } finally {
         loading.value = false;
+    }
+}
+
+// ---- Create an account ----------------------------------------------------
+
+const emptyReg = () => ({ name: "", email: "", contact_number: "", password: "", office_id: null, role_id: null });
+const reg = ref(emptyReg());
+const options = ref({ offices: [], roles: [] });
+const registering = ref(false);
+const regError = ref("");
+const fieldErrors = ref({});
+
+const canRegister = computed(
+    () =>
+        !registering.value &&
+        reg.value.name &&
+        reg.value.email &&
+        reg.value.contact_number &&
+        reg.value.password.length >= 8 &&
+        reg.value.office_id != null &&
+        reg.value.role_id != null,
+);
+
+async function openRegister() {
+    mode.value = "register";
+    error.value = "";
+    notice.value = "";
+    regError.value = "";
+    fieldErrors.value = {};
+    if (options.value.offices.length) return;
+    try {
+        const res = await api.get("/api/auth/register/options");
+        options.value = { offices: res.data.offices ?? [], roles: res.data.roles ?? [] };
+    } catch {
+        regError.value = "Could not load offices and roles. Check your connection and try again.";
+        errorKey.value += 1;
+    }
+}
+
+function openSignIn() {
+    mode.value = "signin";
+    regError.value = "";
+}
+
+async function register() {
+    if (!canRegister.value) return;
+    registering.value = true;
+    regError.value = "";
+    fieldErrors.value = {};
+
+    try {
+        await csrf();
+        const res = await api.post("/api/auth/register", {
+            name: reg.value.name,
+            email: reg.value.email,
+            contact_number: reg.value.contact_number,
+            password: reg.value.password,
+            office_id: reg.value.office_id,
+            role_ids: [reg.value.role_id],
+        });
+        // Back to sign in, email filled in, with what happens next.
+        email.value = reg.value.email;
+        password.value = "";
+        reg.value = emptyReg();
+        notice.value = res.data?.message || "Account created. You can sign in once an administrator approves it.";
+        mode.value = "signin";
+    } catch (e) {
+        const errs = e?.response?.data?.errors || {};
+        fieldErrors.value = Object.fromEntries(
+            Object.entries(errs).map(([k, v]) => [k.replace(/\.\d+$/, ""), Array.isArray(v) ? v[0] : v]),
+        );
+        regError.value = Object.keys(errs).length
+            ? "Check the highlighted fields."
+            : e?.response?.data?.message || "Could not create the account. Please try again.";
+        errorKey.value += 1;
+    } finally {
+        registering.value = false;
+    }
+}
+
+// Guest = the read-only viewer account: signs in without a password and
+// goes straight to the viewer (tracking) page.
+async function guestLogin() {
+    if (loading.value || guestLoading.value) return;
+    guestLoading.value = true;
+    error.value = "";
+
+    try {
+        const u = await auth.loginAsGuest();
+        // Guests are viewers: open with the welcome animation.
+        await router.push(userKind(u) === "viewer" ? "/track/welcome" : homePathFor(u));
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message || "Document tracking is not available right now.";
+        errorKey.value += 1;
+    } finally {
+        guestLoading.value = false;
     }
 }
 </script>
@@ -481,6 +753,29 @@ async function submit() {
     outline-offset: 2px;
 }
 
+.btn-guest {
+    margin-top: 22px;
+    background: #ffffff;
+    color: #1E40AF;
+    border: 1.5px solid #1E40AF;
+}
+.btn-guest:hover:not(:disabled) {
+    background: #eef2ff;
+}
+.btn-guest .v-icon {
+    font-size: 22px;
+}
+.guest-note {
+    margin: 10px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: #5b6780;
+}
+.spin-dark {
+    border-color: rgba(30, 64, 175, 0.25);
+    border-top-color: #1E40AF;
+}
+
 .spin {
     width: 18px;
     height: 18px;
@@ -493,6 +788,88 @@ async function submit() {
     to {
         transform: rotate(360deg);
     }
+}
+
+.help {
+    margin: 20px 0 0;
+    text-align: center;
+    font-size: 14px;
+    color: #5b6780;
+}
+
+/* ---- Create an account ---- */
+.link {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: #1E40AF;
+    cursor: pointer;
+}
+.link:hover {
+    text-decoration: underline;
+}
+.link:focus-visible {
+    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e7f5ec;
+    color: #1d6b3c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 18px;
+}
+.notice .v-icon {
+    font-size: 20px;
+    flex: none;
+}
+/* Selects match the text inputs, with their own chevron. */
+.control select {
+    width: 100%;
+    height: 52px;
+    border: 1.5px solid #d5dbe8;
+    border-radius: 12px;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6780' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+            no-repeat right 18px center,
+        #f3f5fb;
+    color: #14213d;
+    font: inherit;
+    font-size: 16px;
+    padding: 0 44px 0 46px;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.control select:hover:not(:disabled) {
+    border-color: #aab4cc;
+}
+.control select:focus {
+    outline: none;
+    border-color: #1E40AF;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.22);
+}
+.control select:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+.control input[aria-invalid="true"],
+.control select[aria-invalid="true"] {
+    border-color: #b42318;
+}
+.field-error {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #b42318;
 }
 
 footer {
