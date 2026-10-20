@@ -37,6 +37,7 @@ class ApplyStagedWorkflowRequest extends FormRequest
             'steps_upsert.*.sla_minutes' => ['required', 'integer', 'min:0'],
             'steps_upsert.*.is_start' => ['sometimes', 'boolean'],
             'steps_upsert.*.is_end' => ['sometimes', 'boolean'],
+            'steps_upsert.*.is_end_user' => ['sometimes', 'boolean'],
             'steps_upsert.*.role_ids' => ['sometimes', 'array'],
             'steps_upsert.*.role_ids.*' => ['integer', 'exists:roles,id'],
 

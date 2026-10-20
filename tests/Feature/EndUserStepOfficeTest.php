@@ -18,9 +18,9 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * End-user stations (step roles include end_user) always follow the
- * transaction's office — for access and display — even when the workflow
- * template assigns a different office to the station. Office-less
+ * End-user stations (marked with the step's end-user toggle) always follow
+ * the transaction's office — for access and display — even when the
+ * workflow template assigns a different office to the station. Office-less
  * stations also display the transaction's office.
  */
 class EndUserStepOfficeTest extends TestCase
@@ -66,6 +66,7 @@ class EndUserStepOfficeTest extends TestCase
             'code' => 'create_pr',
             'name' => 'Create Purchase Request',
             'is_start' => true,
+            'is_end_user' => true,
             'office_id' => $this->gso->id,
         ]);
         $this->gsoStep = WorkflowStep::create([
@@ -142,7 +143,7 @@ class EndUserStepOfficeTest extends TestCase
             'performed_at' => now(),
             'received_at' => now(),
             'received_by' => $this->creator->id,
-            'received_office_id' => $step->office_id,
+            'received_office_id' => $step->is_end_user ? $office->id : $step->office_id,
             'sla_minutes_snapshot' => 0,
         ]);
 
@@ -291,5 +292,96 @@ class EndUserStepOfficeTest extends TestCase
         Sanctum::actingAs($hrAdmin);
         $this->getJson("/api/transactions/{$tx->id}")->assertOk();
         $this->postJson("/api/transactions/{$tx->id}/receive")->assertOk();
+    }
+
+    public function test_end_user_toggle_overrides_office_without_the_end_user_role(): void
+    {
+        $toggleStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'order_number' => 4,
+            'code' => 'toggle_station',
+            'name' => 'Toggle Station',
+            'is_end_user' => true,
+            'office_id' => $this->gso->id,
+        ]);
+        StepRole::create(['workflow_step_id' => $toggleStep->id, 'role_id' => $this->adminRole->id]);
+
+        $csdAdmin = $this->userWithRole($this->adminRole, $this->csd);
+        $gsoAdmin = $this->userWithRole($this->adminRole, $this->gso);
+        $tx = $this->makeTransaction($this->csd, $toggleStep);
+
+        Sanctum::actingAs($csdAdmin);
+        $this->getJson("/api/transactions/{$tx->id}")
+            ->assertOk()
+            ->assertJsonPath('data.current_step.office.id', $this->csd->id)
+            ->assertJsonPath('data.runs.0.to_step.office.id', $this->csd->id);
+
+        // The template office no longer grants access for a toggled step.
+        Sanctum::actingAs($gsoAdmin);
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+    }
+
+    public function test_superadmin_creation_uses_the_selected_office_for_an_end_user_start_step(): void
+    {
+        $superadminRole = Role::create(['code' => 'superadmin', 'name' => 'Superadmin']);
+        $superadmin = $this->userWithRole($superadminRole);
+
+        Sanctum::actingAs($superadmin);
+
+        $created = $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'office_id' => $this->csd->id,
+            'title' => 'Selected office request',
+        ])->assertCreated();
+
+        $id = $created->json('data.id');
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $id,
+            'office_id' => $this->csd->id,
+        ]);
+        $this->assertDatabaseHas('transaction_step_runs', [
+            'transaction_id' => $id,
+            'action_code' => 'create',
+            'received_office_id' => $this->csd->id,
+        ]);
+
+        $created
+            ->assertJsonPath('data.office.id', $this->csd->id)
+            ->assertJsonPath('data.current_step.office_id', $this->csd->id)
+            ->assertJsonPath('data.current_step.office.id', $this->csd->id)
+            ->assertJsonPath('data.runs.0.received_office.id', $this->csd->id)
+            ->assertJsonPath('data.runs.0.to_step.office.id', $this->csd->id);
+
+        // The history feed reads the same pinned workflow: the end-user
+        // start step must display the selected office, not the template's.
+        $this->getJson("/api/admin/transactions/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.runs.0.to_step.office.id', $this->csd->id);
+    }
+
+    public function test_end_user_role_without_the_toggle_keeps_the_template_office(): void
+    {
+        $roleOnlyStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->workflow->id,
+            'order_number' => 5,
+            'code' => 'role_only_station',
+            'name' => 'Role-only Station',
+            'is_end_user' => false,
+            'office_id' => $this->gso->id,
+        ]);
+        StepRole::create(['workflow_step_id' => $roleOnlyStep->id, 'role_id' => $this->endUserRole->id]);
+
+        $csdEndUser = $this->userWithRole($this->endUserRole, $this->csd);
+        $gsoEndUser = $this->userWithRole($this->endUserRole, $this->gso);
+        $tx = $this->makeTransaction($this->csd, $roleOnlyStep);
+
+        Sanctum::actingAs($csdEndUser);
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+
+        Sanctum::actingAs($gsoEndUser);
+        $this->getJson("/api/transactions/{$tx->id}")
+            ->assertOk()
+            ->assertJsonPath('data.current_step.office.id', $this->gso->id);
     }
 }

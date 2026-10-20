@@ -52,7 +52,7 @@ class TransactionController extends Controller
                     $w->where('transactions.office_id', $user->office_id)
                         ->orWhereHas('state.currentStep', fn ($s) => $s
                             ->where('workflow_steps.office_id', $user->office_id)
-                            ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                            ->where('workflow_steps.is_end_user', false));
                 });
             } else {
                 // Regular users: their own office's transactions, plus any
@@ -71,7 +71,7 @@ class TransactionController extends Controller
                         $w->where('transactions.office_id', $user->office_id)
                             ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
                                 $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                                    ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'))
+                                    ->where('workflow_steps.is_end_user', false)
                                     ->where(function ($x) use ($user) {
                                         $x->whereNull('workflow_steps.office_id')
                                             ->orWhere('workflow_steps.office_id', $user->office_id);
