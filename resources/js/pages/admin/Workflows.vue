@@ -840,7 +840,12 @@
                         was written yet.
                     </div>
                     <v-radio-group v-model="saveMode" label="How to save?" density="compact">
-                        <v-radio label="Overwrite current draft (stays draft, same version)" value="overwrite" />
+                        <v-radio
+                            :label="isLiveDef(activeDef)
+                                ? 'Overwrite live version (publishes automatically)'
+                                : 'Overwrite current draft (stays draft, same version)'"
+                            value="overwrite"
+                        />
                         <v-radio label="Create new version (published live, old kept)" value="create-new" />
                     </v-radio-group>
                     <v-text-field
@@ -1653,8 +1658,9 @@ async function editRoute(route) {
 const saveDialog = ref(false);
 const saveName = ref("");
 const saveNotes = ref("");
-// Overwrite = persist staged edits onto the open draft (stays draft, same
-// version). Create new = persist + publish as a new live version.
+// Overwrite = persist staged edits onto the open draft. Editing the live
+// version publishes automatically (new version, old kept); editing a draft
+// keeps it a draft. Create new = persist + publish as a new live version.
 const saveMode = ref("overwrite");
 
 function openSaveDialog() {

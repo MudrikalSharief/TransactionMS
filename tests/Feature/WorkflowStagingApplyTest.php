@@ -7,13 +7,15 @@ use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
+use App\Services\WorkflowVersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
  * Staged save (apply-staged): the client-side diff lands on the open draft
- * in one call; overwrite mode also renames/updates notes on the draft.
+ * in one call. Overwriting while editing the live version publishes
+ * automatically; overwriting an open draft stays a draft.
  */
 class WorkflowStagingApplyTest extends TestCase
 {
@@ -61,51 +63,84 @@ class WorkflowStagingApplyTest extends TestCase
         return $user;
     }
 
-    public function test_staged_save_persists_end_user_toggle_and_renames_draft(): void
+    public function test_overwriting_live_version_publishes_automatically(): void
     {
         Sanctum::actingAs($this->superadmin());
 
         $this->postJson("/api/admin/workflow-definitions/{$this->live->id}/apply-staged", [
             'mode' => 'overwrite',
-            'name' => 'Renamed draft',
-            'steps_upsert' => [
-                [
-                    'key' => $this->start->id,
-                    'code' => 'start',
-                    'order_number' => 1,
-                    'name' => 'Start',
-                    'stage' => null,
-                    'office_id' => null,
-                    'sla_minutes' => 60,
-                    'is_start' => true,
-                    'is_end' => false,
-                    'is_end_user' => true,
-                    'role_ids' => [$this->endUserRole->id],
-                ],
-                [
-                    'key' => $this->end->id,
-                    'code' => 'end',
-                    'order_number' => 2,
-                    'name' => 'End',
-                    'stage' => null,
-                    'office_id' => null,
-                    'sla_minutes' => 0,
-                    'is_start' => false,
-                    'is_end' => true,
-                    'is_end_user' => false,
-                    'role_ids' => [],
-                ],
-            ],
-        ])->assertOk()->assertJsonPath('meta.published', false);
+            'name' => 'Renamed live',
+            'steps_upsert' => $this->stepPayload(),
+        ])->assertCreated()->assertJsonPath('meta.published', true);
 
-        $draft = WorkflowDefinition::where('transaction_type_id', $this->type->id)
-            ->where('status', 'draft')
+        $this->live->refresh();
+        $this->assertFalse((bool) $this->live->is_live);
+        $this->assertSame('published', $this->live->status);
+
+        $live = WorkflowDefinition::where('transaction_type_id', $this->type->id)
+            ->where('is_live', true)
             ->firstOrFail();
 
-        $this->assertSame('Renamed draft', $draft->name);
+        $this->assertSame(2, $live->version);
+        $this->assertSame('Renamed live', $live->name);
+        $this->assertSame('published', $live->status);
 
-        $step = $draft->steps()->where('code', 'start')->firstOrFail();
+        $step = $live->steps()->where('code', 'start')->firstOrFail();
         $this->assertTrue((bool) $step->is_end_user);
         $this->assertTrue($step->roles()->where('roles.id', $this->endUserRole->id)->exists());
+    }
+
+    public function test_overwriting_open_draft_stays_draft(): void
+    {
+        $user = $this->superadmin();
+        Sanctum::actingAs($user);
+
+        $draft = app(WorkflowVersioningService::class)
+            ->createDraft(['transaction_type_id' => $this->type->id], $user->id);
+
+        $this->postJson("/api/admin/workflow-definitions/{$draft->id}/apply-staged", [
+            'mode' => 'overwrite',
+            'name' => 'Still draft',
+            'steps_upsert' => $this->stepPayload(),
+        ])->assertOk()->assertJsonPath('meta.published', false);
+
+        $draft->refresh();
+        $this->assertSame('draft', $draft->status);
+        $this->assertFalse((bool) $draft->is_live);
+        $this->assertSame('Still draft', $draft->name);
+
+        $this->assertTrue((bool) $this->live->fresh()->is_live);
+    }
+
+    private function stepPayload(): array
+    {
+        return [
+            [
+                'key' => $this->start->id,
+                'code' => 'start',
+                'order_number' => 1,
+                'name' => 'Start',
+                'stage' => null,
+                'office_id' => null,
+                'sla_minutes' => 60,
+                'is_start' => true,
+                'is_end' => false,
+                'is_end_user' => true,
+                'role_ids' => [$this->endUserRole->id],
+            ],
+            [
+                'key' => $this->end->id,
+                'code' => 'end',
+                'order_number' => 2,
+                'name' => 'End',
+                'stage' => null,
+                'office_id' => null,
+                'sla_minutes' => 0,
+                'is_start' => false,
+                'is_end' => true,
+                'is_end_user' => false,
+                'role_ids' => [],
+            ],
+        ];
     }
 }
