@@ -53,27 +53,30 @@
         :items-per-page="7"
         :items-per-page-options="[7]"
         hover
-        class="lgu-table table-pages"
+        class="lgu-table table-pages table-fixed-cols"
       >
         <template v-slot:[`item.name`]="{ item }">
-          <span class="cell-truncate font-weight-bold" :title="item.name">{{ item.name }}</span>
+          <span class="cell-wrap font-weight-bold">{{ item.name }}</span>
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
-          <span class="cell-truncate" :title="item.email">{{ item.email }}</span>
+          <span class="cell-wrap">{{ item.email }}</span>
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
-          <v-chip
-            v-for="r in item.roles || []"
-            :key="r.id"
-            rounded="0"
-            size="small"
-            variant="tonal"
-            class="mr-1"
-          >
-            {{ r.name }}
-          </v-chip>
+          <div v-if="(item.roles || []).length" class="chip-stack">
+            <v-chip
+              v-for="r in item.roles"
+              :key="r.id"
+              rounded="0"
+              size="small"
+              variant="tonal"
+              class="chip-wrap"
+            >
+              {{ r.name }}
+            </v-chip>
+          </div>
+          <span v-else class="text-medium-emphasis" title="No active role">—</span>
         </template>
 
         <template v-slot:[`item.office`]="{ item }">
@@ -83,7 +86,7 @@
             size="small"
             variant="tonal"
             color="primary"
-            class="font-weight-bold"
+            class="font-weight-bold chip-wrap"
           >
             {{ item.office?.name || officeNameById.get(Number(item.office_id)) }}
           </v-chip>
@@ -91,7 +94,7 @@
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
-          <v-chip v-if="item.pending_approval" color="warning" rounded="0" size="small" variant="tonal">
+          <v-chip v-if="item.pending_approval" color="warning" rounded="0" size="small" variant="tonal" class="chip-wrap">
             <v-icon start size="small">mdi-clock-outline</v-icon>
             Waiting for approval
           </v-chip>
@@ -257,13 +260,16 @@ function lockReason(item) {
   return ''
 }
 
+// Fixed widths (table-fixed-cols): Name takes the remaining space; long
+// names, emails, roles and offices wrap inside their columns, so Status and
+// the actions always stay in view.
 const headers = [
   { title: 'Name', key: 'name' },
-  { title: 'Email', key: 'email' },
-  { title: 'Roles', key: 'roles', sortable: false },
-  ...(officeMode ? [] : [{ title: 'Office', key: 'office', sortable: false }]),
-  { title: 'Status', key: 'is_active' },
-  { title: '', key: 'actions', sortable: false },
+  { title: 'Email', key: 'email', width: 250 },
+  { title: 'Roles', key: 'roles', sortable: false, width: 170 },
+  ...(officeMode ? [] : [{ title: 'Office', key: 'office', sortable: false, width: 220 }]),
+  { title: 'Status', key: 'is_active', width: 150 },
+  { title: '', key: 'actions', sortable: false, width: 150, align: 'end' },
 ]
 
 const dialog = ref(false)
@@ -469,6 +475,32 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full text, wrapped within its column; the row grows to fit. */
+.cell-wrap {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  padding: 10px 0;
+}
+.chip-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 0;
+}
+/* Chips that wrap long text instead of being cut at the column edge. */
+.chip-wrap {
+  height: auto !important;
+  min-height: 24px;
+  max-width: 100%;
+  padding-block: 3px;
+  white-space: normal;
+}
+.chip-wrap :deep(.v-chip__content) {
+  white-space: normal;
+  line-height: 1.3;
+}
 /* Hide the table's internal scrollbar; drawer expand can never create a
    visible horizontal bar — overflow is clipped, not scrolled. */
 .lgu-table {
