@@ -40,7 +40,7 @@
         :items-per-page="7"
         :items-per-page-options="[7]"
         hover
-        class="lgu-table table-pages"
+        class="lgu-table table-pages table-fixed-cols"
       >
         <template v-slot:[`item.code`]="{ item }">
           <span class="cell-truncate" :title="item.code">{{ item.code }}</span>
@@ -106,11 +106,13 @@ import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } = useRoles()
 
+// Fixed widths (table-fixed-cols): a long description is cut off with "…"
+// (full text on hover) instead of pushing the edit/delete buttons off screen.
 const headers = [
-  { title: 'Code', key: 'code' },
-  { title: 'Name', key: 'name' },
+  { title: 'Code', key: 'code', width: 180 },
+  { title: 'Name', key: 'name', width: 200 },
   { title: 'Description', key: 'description' },
-  { title: '', key: 'actions', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: 120, align: 'end' },
 ]
 
 const dialog = ref(false)
