@@ -22,7 +22,7 @@
                 <!-- The flag waving: a copy of the picture in thin strips that
                      bob in turn, still at the hoist and freest at the fly end.
                      Masked off the greeting so the text stays sharp. -->
-                <div class="flag" aria-hidden="true">
+                <div class="flag" aria-hidden="true" :style="{ '--ta': WAVE_A + 's', '--tb': WAVE_B + 's' }">
                     <span
                         v-for="s in strips"
                         :key="s.i"
@@ -30,12 +30,18 @@
                         :style="{
                             left: s.left + '%',
                             width: `calc(100% / ${STRIPS} + 1px)`,
-                            backgroundPosition: s.bgx,
-                            '--amp': s.amp + '%',
-                            '--shade': s.shade,
-                            '--d': s.delay + 's',
+                            '--amp': s.ampA + '%',
+                            '--d': s.delayA + 's',
                         }"
-                    ></span>
+                    >
+                        <span
+                            class="cloth"
+                            :style="{ backgroundPosition: s.bgx, '--amp': s.ampB + '%', '--d': s.delayB + 's' }"
+                        ></span>
+                    </span>
+                    <!-- One continuous band of shadow and light gliding with the
+                         swell (per-strip tints would step at every seam). -->
+                    <div class="folds"><div class="folds-band"></div></div>
                 </div>
 
                 <!-- Light moving across the satin, like wind in the cloth -->
@@ -133,20 +139,25 @@ const motes = Array.from({ length: 18 }, (_, id) => ({
     sway: Math.round((rand() - 0.5) * 60),
 }));
 
-// Flag wave: one crest travels from the hoist (left) to the fly end (right)
-// every 2 x WAVE_S seconds. Negative delays put each strip mid-cycle at once.
-const STRIPS = 48;
-const WAVE_S = 1.8;
+// Flag wave, two layers travelling from the hoist (left) to the fly end
+// (right): a long swell (one crest across, every 2 x WAVE_A seconds) and a
+// quicker ripple on top (two crests across, every 2 x WAVE_B seconds), so the
+// cloth never moves in step. Negative delays put each strip mid-cycle at once.
+const STRIPS = 64;
+const WAVE_A = 1.5;
+const WAVE_B = 0.9;
 const strips = Array.from({ length: STRIPS }, (_, i) => {
     const t = i / (STRIPS - 1);
+    const back = (STRIPS - 1 - i) / STRIPS;
     return {
         i,
         left: (i * 100) / STRIPS,
         // Each strip shows its own slice of the full-width picture.
         bgx: `calc(${-i} * 100cqw / ${STRIPS}) 0`,
-        amp: (0.12 + 0.55 * t).toFixed(3),
-        shade: (0.06 + 0.2 * t).toFixed(3),
-        delay: (-((STRIPS - 1 - i) / STRIPS) * 2 * WAVE_S).toFixed(3),
+        ampA: (0.3 + 1.1 * t).toFixed(3),
+        ampB: (0.1 + 0.4 * t).toFixed(3),
+        delayA: (-back * 2 * WAVE_A).toFixed(3),
+        delayB: (-((back * 2) % 1) * 2 * WAVE_B).toFixed(3),
     };
 });
 
@@ -263,30 +274,63 @@ onUnmounted(() => {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    /* Clear over the greeting (the still picture shows through there),
-       feathered out to the cloth around it. */
-    -webkit-mask-image: radial-gradient(ellipse 36% 30% at 51% 50%, transparent 82%, #000 100%);
-    mask-image: radial-gradient(ellipse 36% 30% at 51% 50%, transparent 82%, #000 100%);
+    /* Clear over the greeting (the still picture shows through there) and
+       along the top and bottom edges; the cloth around them waves. */
+    -webkit-mask-image:
+        radial-gradient(ellipse 36% 30% at 51% 50%, transparent 80%, #000 92%),
+        linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-image:
+        radial-gradient(ellipse 36% 30% at 51% 50%, transparent 80%, #000 92%),
+        linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent);
+    mask-composite: intersect;
     animation: fade-in 1.2s ease-out 0.3s both;
 }
+/* Strip: carries the long swell. */
 .strip {
     position: absolute;
     top: 0;
     height: 100%;
+    will-change: transform;
+    animation: wave var(--ta) ease-in-out var(--d) infinite alternate;
+}
+/* Cloth: the picture slice, carrying the quicker ripple on top. */
+.cloth {
+    position: absolute;
+    inset: 0;
     background-image: url('/viewer-welcome.jpg');
     background-size: 100cqw 100%;
     background-repeat: no-repeat;
     will-change: transform;
-    animation: wave 1.8s ease-in-out var(--d) infinite alternate;
+    animation: wave var(--tb) ease-in-out var(--d) infinite alternate;
 }
-/* Folds darken a quarter-turn behind the lift, like light on moving cloth. */
-.strip::after {
-    content: "";
+/* Shadow in the folds, light on the crests: one wavelength per picture
+   width, travelling right as fast as the swell. Fainter at the hoist. */
+.folds {
     position: absolute;
     inset: 0;
-    background: rgba(5, 10, 24, var(--shade));
-    opacity: 0;
-    animation: fold 1.8s ease-in-out calc(var(--d) - 0.9s) infinite alternate;
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 70%);
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 70%);
+}
+.folds-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -100%;
+    width: 200%;
+    background: linear-gradient(
+            90deg,
+            rgba(5, 10, 24, 0) 0%,
+            rgba(5, 10, 24, 0.34) 25%,
+            rgba(5, 10, 24, 0) 50%,
+            rgba(255, 238, 210, 0.13) 75%,
+            rgba(255, 238, 210, 0) 100%
+        )
+        0 0 / 50% 100% repeat-x;
+    will-change: transform;
+    animation: glide calc(var(--ta) * 2) linear infinite;
 }
 
 /* Bands of light rolling across the satin. */
@@ -296,14 +340,14 @@ onUnmounted(() => {
     background: repeating-linear-gradient(
         112deg,
         rgba(255, 255, 255, 0) 0%,
-        rgba(255, 236, 200, 0.16) 7%,
+        rgba(255, 236, 200, 0.22) 7%,
         rgba(255, 255, 255, 0) 14%,
         rgba(0, 0, 0, 0.12) 21%,
         rgba(255, 255, 255, 0) 28%
     );
     mix-blend-mode: soft-light;
     will-change: transform;
-    animation: sheen 9s linear infinite;
+    animation: sheen 6s linear infinite;
     pointer-events: none;
 }
 
@@ -602,9 +646,9 @@ onUnmounted(() => {
         transform: translateY(var(--amp));
     }
 }
-@keyframes fold {
+@keyframes glide {
     to {
-        opacity: 1;
+        transform: translateX(50%);
     }
 }
 @keyframes sheen {
