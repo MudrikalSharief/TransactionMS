@@ -125,10 +125,17 @@ class Transaction extends Model
             ->contains(fn ($stepRole) => ($stepRole->role?->code ?? null) === 'end_user');
     }
 
-    /** Effective office of a step for this transaction (see stepIsEndUser). */
+    /**
+     * Effective office of a step for this transaction.
+     *
+     * End-user stations and blank assignments both follow the transaction's
+     * Originating Office (the office that created it). A fixed office keeps
+     * that office. Legacy transactions without an originating office resolve
+     * to null, which keeps their blank stations role-only at runtime.
+     */
     public function effectiveStepOffice(WorkflowStep $step): ?Office
     {
-        if ($this->stepIsEndUser($step)) {
+        if ($this->stepIsEndUser($step) || $step->office_id === null) {
             return $this->office;
         }
 
@@ -141,15 +148,14 @@ class Transaction extends Model
     }
 
     /**
-     * Office shown for a step in the UI: end-user stations and stations
-     * without a workflow office follow this transaction's office.
+     * Assigned office of a step: the office that works the station.
+     *
+     * End-user stations and blank assignments are dynamic and follow the
+     * transaction's Originating Office. Every other station uses the office
+     * assigned to it in the workflow.
      */
     public function displayStepOffice(WorkflowStep $step): ?Office
     {
-        if ($step->office_id === null || $this->stepIsEndUser($step)) {
-            return $this->office;
-        }
-
-        return $step->office;
+        return $this->effectiveStepOffice($step);
     }
 }

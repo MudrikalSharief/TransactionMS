@@ -74,7 +74,7 @@ class TransactionEngine
                 // Creation is not a forward — no pending receipt.
                 'received_at' => now(),
                 'received_by' => $userId,
-                'received_office_id' => $startStep->office_id,
+                'received_office_id' => $tx->effectiveStepOfficeId($startStep),
                 'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
             ]);
 
@@ -172,7 +172,7 @@ class TransactionEngine
                 // Pending receipt: next office must click Receive.
                 'received_at' => null,
                 'received_by' => null,
-                'received_office_id' => $toStep?->office_id,
+                'received_office_id' => $toStep ? $tx->effectiveStepOfficeId($toStep) : null,
                 'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
@@ -331,7 +331,7 @@ class TransactionEngine
                 'performed_at' => now(),
                 'received_at' => null,
                 'received_by' => null,
-                'received_office_id' => $toStep?->office_id,
+                'received_office_id' => $toStep ? $tx->effectiveStepOfficeId($toStep) : null,
                 'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 

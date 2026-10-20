@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Office;
 use App\Models\Role;
 use App\Models\TransactionType;
 use App\Models\User;
@@ -50,6 +51,15 @@ class WorkflowMakeLiveTest extends TestCase
         $user->roles()->attach(Role::create(['code' => 'superadmin', 'name' => 'Super Admin'])->id);
 
         return $user;
+    }
+
+    private function draft(): WorkflowDefinition
+    {
+        return WorkflowDefinition::create([
+            'transaction_type_id' => $this->type->id,
+            'version' => 3,
+            'status' => 'draft',
+        ]);
     }
 
     public function test_make_live_switches_flag_and_keeps_old_versions(): void
@@ -150,5 +160,79 @@ class WorkflowMakeLiveTest extends TestCase
         $tx2 = $engine->create($this->type->id, 'Second', $creator->id);
         $this->assertEquals($this->v1->id, $tx2->workflow_definition_id);
         $this->assertEquals($this->v2->id, $tx->fresh()->workflow_definition_id);
+    }
+
+    public function test_staged_save_allows_an_end_step_with_user_office(): void
+    {
+        $draft = $this->draft();
+        Sanctum::actingAs($this->superadmin());
+
+        $this->postJson("/api/admin/workflow-definitions/{$draft->id}/apply-staged", [
+            'mode' => 'overwrite',
+            'steps_upsert' => [[
+                'key' => 'tmp_end',
+                'order_number' => 1,
+                'name' => 'End step',
+                'sla_minutes' => 60,
+                'is_start' => true,
+                'is_end' => true,
+            ]],
+        ])->assertSuccessful();
+
+        $this->assertDatabaseHas('workflow_steps', [
+            'workflow_definition_id' => $draft->id,
+            'name' => 'End step',
+            'office_id' => null,
+            'is_end' => true,
+        ]);
+    }
+
+    public function test_staged_save_accepts_an_end_step_with_an_assigned_office(): void
+    {
+        $office = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+        $draft = $this->draft();
+        Sanctum::actingAs($this->superadmin());
+
+        $this->postJson("/api/admin/workflow-definitions/{$draft->id}/apply-staged", [
+            'mode' => 'overwrite',
+            'steps_upsert' => [[
+                'key' => 'tmp_end',
+                'order_number' => 1,
+                'name' => 'End step',
+                'sla_minutes' => 60,
+                'is_start' => true,
+                'is_end' => true,
+                'office_id' => $office->id,
+            ]],
+        ])->assertSuccessful();
+    }
+
+    public function test_publish_allows_an_end_step_with_user_office(): void
+    {
+        $draft = $this->draft();
+        WorkflowStep::create([
+            'workflow_definition_id' => $draft->id,
+            'order_number' => 1,
+            'code' => 'start',
+            'name' => 'Start step',
+            'sla_minutes' => 60,
+            'is_start' => true,
+        ]);
+        WorkflowStep::create([
+            'workflow_definition_id' => $draft->id,
+            'order_number' => 2,
+            'code' => 'end',
+            'name' => 'End step',
+            'sla_minutes' => 60,
+            'is_end' => true,
+        ]);
+        Sanctum::actingAs($this->superadmin());
+
+        $this->postJson("/api/admin/workflow-definitions/{$draft->id}/publish")->assertOk();
+
+        $this->assertDatabaseHas('workflow_definitions', [
+            'id' => $draft->id,
+            'status' => 'published',
+        ]);
     }
 }

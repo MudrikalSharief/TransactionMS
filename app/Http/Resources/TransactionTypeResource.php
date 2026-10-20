@@ -36,6 +36,9 @@ class TransactionTypeResource extends JsonResource
                         'code' => $s->code,
                         'is_start' => (bool) $s->is_start,
                         'is_end' => (bool) $s->is_end,
+                        'is_end_user' => $s->relationLoaded('roles')
+                            ? $s->roles->contains(fn ($r) => ($r->code ?? null) === 'end_user')
+                            : false,
                         'office' => $s->relationLoaded('office') && $s->office ? [
                             'id' => $s->office->id,
                             'code' => $s->office->code,

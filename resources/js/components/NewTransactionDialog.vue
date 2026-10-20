@@ -145,7 +145,10 @@ const flowSteps = computed(() => {
 })
 
 function officeLabel(step) {
-  return step?.office?.code || step?.office?.name || ''
+  // Blank and end-user stations both follow the transaction's Originating
+  // Office. Show the actual office when the type preview pins one.
+  if (step?.is_end_user) return "User's Office"
+  return step?.office?.code || step?.office?.name || "User's Office"
 }
 
 function reset() {
@@ -225,6 +228,17 @@ watch(
     })
   }
 )
+
+// The type-office allowlist governs who can create; the first station no
+// longer restricts the Originating Office. Superadmins keep the full list.
+watch(typeId, () => {
+  typeBad.value = false
+  if (!props.isSuperadmin) return
+  const valid = (props.officeOptions || []).some(
+    (o) => Number(o.id) === Number(officeId.value)
+  )
+  if (!valid) officeId.value = ''
+})
 
 onMounted(() => document.addEventListener('keydown', onKeydown, true))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))

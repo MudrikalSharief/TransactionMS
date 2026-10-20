@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,48 @@ class WorkflowStep extends Model
         'is_start' => 'boolean',
         'is_end' => 'boolean',
     ];
+
+    /**
+     * SQL prefilter for the current station's effective office.
+     *
+     * A fixed office applies unless the station has the end_user role; blank
+     * assignments and end-user stations follow the transaction's Originating
+     * Office. Used inside whereHas('state.currentStep') queries so the list
+     * pages match RoutingEngine::userCanWorkOnStep without loading everything.
+     */
+    public function scopeWhereEffectiveOffice(Builder $query, ?int $officeId): Builder
+    {
+        if ($officeId === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $x) use ($officeId) {
+            $x->where(function (Builder $y) use ($officeId) {
+                $y->where('workflow_steps.office_id', $officeId)
+                    ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+            })->orWhere(function (Builder $y) use ($officeId) {
+                $y->where('transactions.office_id', $officeId)
+                    ->where(function (Builder $z) {
+                        $z->whereNull('workflow_steps.office_id')
+                            ->orWhereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    });
+            });
+        });
+    }
+
+    /**
+     * Legacy transactions with no Originating Office keep role-only access to
+     * blank and end-user stations. Callers must add the role match separately;
+     * this scope only identifies the eligible stations.
+     */
+    public function scopeWhereLegacyNoOriginFallback(Builder $query): Builder
+    {
+        return $query->whereNull('transactions.office_id')
+            ->where(function (Builder $x) {
+                $x->whereNull('workflow_steps.office_id')
+                    ->orWhereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+            });
+    }
 
     public function workflowDefinition(): BelongsTo
     {

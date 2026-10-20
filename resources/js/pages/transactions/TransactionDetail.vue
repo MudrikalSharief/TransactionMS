@@ -288,6 +288,9 @@
                                 {{ item.station.order_number }}. {{ item.station.name }}
                                 <v-chip v-if="isCurrentRow(item)" rounded="0" size="x-small" class="ml-1" variant="tonal" color="primary">here</v-chip>
                             </div>
+                            <div class="text-caption text-medium-emphasis">
+                                {{ stationOfficeLabel(item.station) }}
+                            </div>
                         </template>
 
                         <template v-slot:[`item.name`]="{ item }">
@@ -1124,6 +1127,13 @@ function isCurrentRow(row) {
     return Number(row.station?.id) === Number(tx.value?.current_step?.id);
 }
 
+function stationOfficeLabel(station) {
+    const office = station?.office;
+    // Blank assignments resolve to the transaction's Originating Office.
+    // The fallback only applies to legacy transactions that have no origin.
+    return office?.name || office?.code || "User's Office";
+}
+
 function waitText(row) {
     const st = row.station || {};
     const who = (st.roles || []).map((r) => r.name || r.code).filter(Boolean).join(" / ");
@@ -1173,8 +1183,10 @@ const pendingReceiptStation = computed(() => {
 });
 
 // Mirrors the server's receive gate (RoutingEngine::userCanWorkOnStep):
-// superadmin, the destination office's office admin, or a role holder at
-// the destination office. Everyone else gets a 403, so don't offer it.
+// superadmin, the effective office's office admin, or a role holder in
+// that office. Blank assignments follow the Originating Office; only a
+// legacy transaction with no origin keeps role-only access. Everyone else
+// gets a 403, so don't offer it.
 const canReceivePending = computed(() => {
     if (!pendingReceipt.value || !tx.value) return false;
     const u = auth.user.value;
@@ -1199,8 +1211,10 @@ const canReceivePending = computed(() => {
     const stepRoleCodes = new Set((step.roles || []).map((r) => r.code));
     const hasRole = [...myRoleCodes.value].some((c) => stepRoleCodes.has(c));
     if (!hasRole) return false;
-    if (userOfficeId == null || destOfficeId == null) return true;
-    return Number(destOfficeId) === Number(userOfficeId);
+    // No resolved office means a legacy transaction with no Originating
+    // Office; keep its blank/end-user stations role-only.
+    if (destOfficeId == null) return true;
+    return userOfficeId != null && Number(destOfficeId) === Number(userOfficeId);
 });
 
 async function receiveStep() {
@@ -1964,10 +1978,9 @@ const actionButtonLabel = computed(() => {
     return "Proceed";
 });
 
-// Proceed modal title: Proceeding to "stepname" (office code). Name comes from
-// the destination step (workflow_routes.to_step_id → workflow_steps); office
-// code comes from the CURRENT step's Destination Office (where the paper is
-// being sent from, e.g. General Service Office when on step 1).
+// Proceed modal title: Proceeding to "stepname" (office code). Both the
+// name and office come from the destination step's effective office
+// (blank assignments resolve to the Originating Office).
 function destStepForTitle() {
     if (isJumpSelected.value) {
         const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(jumpStepId.value));
@@ -1984,26 +1997,14 @@ function destStepForTitle() {
     }
     return direct ?? null;
 }
-function currentOfficeForTitle() {
-    const cur = tx.value?.current_step;
-    if (cur?.office?.code || cur?.office?.name || cur?.stage) return cur;
-    const cid = cur?.id;
-    if (cid != null) {
-        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(cid));
-        if (s) return s;
-    }
-    return cur ?? null;
-}
 function proceedTitle(prefix) {
     const dest = destStepForTitle();
     const n = dest?.order_number ?? selectedStepNumber.value ?? "";
     const name = dest?.name || dest?.code || (n !== "" && n != null ? `Step ${n}` : "");
     if (!name) return "Proceed";
-    const cur = currentOfficeForTitle();
-    const office = String(
-        cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
-        dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
-    ).trim();
+    // Show the destination station's effective office, not the current
+    // station's. Legacy no-origin stations add no suffix.
+    const office = String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
     return office ? `${prefix} "${name}" (${office})` : `${prefix} "${name}"`;
 }
 
