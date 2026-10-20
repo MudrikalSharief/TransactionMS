@@ -34,7 +34,7 @@
                         class="font-weight-bold text-primary"
                         style="font-size: 1.1rem; line-height: 1"
                     >
-                        TransactionMF
+                        TransactionMS
                     </div>
                     <div
                         class="font-weight-bold text-medium-emphasis"
