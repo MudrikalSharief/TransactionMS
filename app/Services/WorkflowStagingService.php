@@ -46,7 +46,7 @@ class WorkflowStagingService
 
         $draft = null;
 
-        DB::transaction(function () use ($source, $userId, $data, $typeId, $checklists, &$draft, &$applied) {
+        DB::transaction(function () use ($source, $userId, $data, $typeId, $mode, $checklists, &$draft, &$applied) {
             // Target is always the open draft (one-draft-max); create the
             // shell (cloned from latest published) when none exists yet.
             $draft = WorkflowDefinition::where('transaction_type_id', $typeId)
@@ -142,6 +142,7 @@ class WorkflowStagingService
                         'sla_minutes' => (int) $row['sla_minutes'],
                         'is_start' => (bool) ($row['is_start'] ?? false),
                         'is_end' => (bool) ($row['is_end'] ?? false),
+                        'is_end_user' => (bool) ($row['is_end_user'] ?? false),
                     ]);
                     if (array_key_exists('role_ids', $row)) {
                         $created->roles()->sync(array_map('intval', (array) $row['role_ids']));
@@ -174,6 +175,7 @@ class WorkflowStagingService
                         'sla_minutes' => (int) $row['sla_minutes'],
                         'is_start' => (bool) ($row['is_start'] ?? false),
                         'is_end' => (bool) ($row['is_end'] ?? false),
+                        'is_end_user' => (bool) ($row['is_end_user'] ?? false),
                     ]);
                     if (array_key_exists('role_ids', $row)) {
                         $step->roles()->sync(array_map('intval', (array) $row['role_ids']));
@@ -368,13 +370,21 @@ class WorkflowStagingService
             $draft = $draft->fresh();
         });
 
-        // Create-new publishes in its own pass so a start/end validation
-        // failure still keeps the staged content as a draft (same courtesy
-        // as today's go-live fallback).
+        // Overwriting the live version goes live automatically: admins
+        // iterating on the running flow should not need a second Publish
+        // click. Overwriting an open draft still parks the work as a
+        // draft. Create-new always publishes.
+        $publishNow = $mode === 'create-new' || ($mode === 'overwrite' && (bool) $source->is_live);
+
+        // Publish in its own pass so a start/end validation failure still
+        // keeps the staged content as a draft (same courtesy as today's
+        // go-live fallback).
         $published = false;
         $message = null;
-        if ($mode === 'create-new') {
-            $draft->update(['name' => $data['name'], 'notes' => $data['notes'] ?? $draft->notes]);
+        if ($publishNow) {
+            if ($mode === 'create-new') {
+                $draft->update(['name' => $data['name'], 'notes' => $data['notes'] ?? $draft->notes]);
+            }
             $draft = $draft->fresh();
             try {
                 $draft = $this->versions->publish($draft, $userId);

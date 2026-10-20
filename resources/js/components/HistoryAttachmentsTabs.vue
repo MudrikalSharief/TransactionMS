@@ -23,6 +23,8 @@
                     :loading="loading"
                     :tx-id="txId"
                     :is-admin="isAdmin"
+                    :workflow-steps="workflowSteps"
+                    :workflow-routes="workflowRoutes"
                     @deleted="(id) => emit('deleted', id)"
                 />
             </v-window-item>
@@ -63,6 +65,7 @@ const props = defineProps({
     isAdmin: { type: Boolean, default: false },
     attachments: { type: Array, default: () => [] },
     workflowSteps: { type: Array, default: () => [] },
+    workflowRoutes: { type: Array, default: () => [] },
     // Current step id: files that already moved forward hide their remove
     // buttons (step lock). Passed from detail pages.
     currentStepId: { type: [Number, String], default: null },

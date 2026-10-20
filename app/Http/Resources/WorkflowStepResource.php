@@ -25,6 +25,7 @@ class WorkflowStepResource extends JsonResource
             'sla_minutes' => $this->sla_minutes,
             'is_start' => (bool) $this->is_start,
             'is_end' => (bool) $this->is_end,
+            'is_end_user' => (bool) $this->is_end_user,
             'role_ids' => $this->whenLoaded('roles', fn () => $this->roles->pluck('id')->values()),
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->map(fn ($r) => [
                 'id' => $r->id,

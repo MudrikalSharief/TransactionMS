@@ -178,7 +178,7 @@ class TransactionFinalizeController extends Controller
                 // never dangles as Pending in History.
                 'received_at' => now(),
                 'received_by' => $request->user()->id,
-                'received_office_id' => $current->office_id,
+                'received_office_id' => $transaction->effectiveStepOfficeId($current),
                 'sla_minutes_snapshot' => (int) ($current->sla_minutes ?? 0),
             ]);
 

@@ -109,20 +109,12 @@ class Transaction extends Model
     }
 
     /**
-     * End-user stations (step roles include end_user) follow this
-     * transaction's office instead of the workflow template's step office.
+     * End-user stations (marked with the step's end-user toggle) follow
+     * this transaction's office instead of the template's step office.
      */
     public function stepIsEndUser(WorkflowStep $step): bool
     {
-        if ($step->relationLoaded('roles')) {
-            return $step->roles->contains(fn ($role) => $role->code === 'end_user');
-        }
-
-        $this->loadMissing('workflow.stepRoles.role');
-
-        return (bool) $this->workflow?->stepRoles
-            ?->where('workflow_step_id', (int) $step->id)
-            ->contains(fn ($stepRole) => ($stepRole->role?->code ?? null) === 'end_user');
+        return (bool) $step->is_end_user;
     }
 
     /** Effective office of a step for this transaction (see stepIsEndUser). */

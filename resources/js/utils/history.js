@@ -89,12 +89,16 @@ function stepNo(step) {
     return step?.order_number ?? null;
 }
 
+export function isCreateRun(run) {
+    return String(run?.action_code || '').toLowerCase() === 'create';
+}
+
 // "HR → Accounting" (+ "Step 2 → Step 3" caption). Create events with no
 // source render as "Created → HR" instead of a raw dash.
 export function movementOf(run) {
     const fromOffice = officeOf(run?.from_step);
     const toOffice = officeOf(run?.to_step);
-    const isCreate = String(run?.action_code || '').toLowerCase() === 'create';
+    const isCreate = isCreateRun(run);
 
     let main;
     if (isCreate || !fromOffice) {
@@ -116,7 +120,7 @@ export function stepLabelOf(run, fallbackIndex) {
     // Badge = the station that performed the run (its history), not the
     // destination. Creates happen before the first station, so they show
     // 0 instead of claiming step 1.
-    if (String(run?.action_code || '').toLowerCase() === 'create') return 0;
+    if (isCreateRun(run)) return 0;
     return stepNo(run?.from_step) ?? stepNo(run?.to_step) ?? fallbackIndex;
 }
 
