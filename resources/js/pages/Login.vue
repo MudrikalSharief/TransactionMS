@@ -186,6 +186,13 @@ function syncHeroVideo(e) {
 }
 
 onMounted(() => {
+    // Warm the viewer welcome picture so "Track your Document Process" opens instantly.
+    try {
+        new Image().src = "/viewer-welcome.jpg";
+    } catch {
+        /* not critical */
+    }
+
     heroMq = window.matchMedia("(min-width: 861px)");
     showHeroVideo.value = heroMq.matches;
     heroMq.addEventListener("change", syncHeroVideo);

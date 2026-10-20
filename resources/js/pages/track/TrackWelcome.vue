@@ -1,40 +1,45 @@
 <template>
     <div class="welcome" :class="{ ready }" role="dialog" aria-label="Welcome" @click="go">
-        <!-- Tall screens letterbox the stage; the flag's colours fill the
-             bands above and below. -->
+        <!-- Soft copy behind, only for tall screens where the picture is
+             letterboxed (static: drawn once, never animated) -->
         <div class="backdrop" aria-hidden="true"></div>
 
-        <!-- Stage keeps a fixed 1408x768 shape, so every effect stays pinned
-             to the same spot on the flag (sun, stars, greeting). -->
+        <!-- Stage keeps the picture's 1408x768 shape, so every effect stays
+             pinned to the same spot in the picture (sun, stars, greeting). -->
         <div class="stage">
             <div class="cam">
-                <!-- The flag itself, rendered live and waving -->
-                <WavingFlag :frame="FLAG" @ready="onReady" />
+                <img
+                    class="pic"
+                    :src="PIC"
+                    alt="Mabuhay! Welcome to the portal. We are delighted to have you here."
+                    draggable="false"
+                    decoding="async"
+                    fetchpriority="high"
+                    @load="onReady"
+                    @error="onReady"
+                />
+
+                <!-- The cloth moving: the same picture rippling in diagonal
+                     folds, lit as they pass, still over the greeting. -->
+                <ClothPhoto :src="PIC" />
 
                 <!-- Light moving across the satin, like wind in the cloth -->
                 <div class="sheen" aria-hidden="true"></div>
 
                 <!-- The sun: slow turning rays and a warm pulse -->
-                <div class="sun" aria-hidden="true" :style="{ left: sunAt[0] + '%', top: sunAt[1] + '%' }">
+                <div class="sun" aria-hidden="true">
                     <div class="sun-rays"></div>
                     <div class="sun-glow"></div>
                 </div>
 
                 <!-- The three stars glint in turn -->
-                <span
-                    v-for="(at, i) in starsAt"
-                    :key="i"
-                    class="star"
-                    aria-hidden="true"
-                    :style="{ left: at[0] + '%', top: at[1] + '%', animationDelay: 0.6 + i * 1.2 + 's' }"
-                ></span>
+                <span class="star s1" aria-hidden="true"></span>
+                <span class="star s2" aria-hidden="true"></span>
+                <span class="star s3" aria-hidden="true"></span>
 
-                <!-- Warm glow behind the greeting and a passing shine across it -->
+                <!-- Warm glow and a passing shine on the greeting (the text
+                     itself is part of the picture and never moves on its own) -->
                 <div class="greet-glow" aria-hidden="true"></div>
-                <div class="greeting">
-                    <h1 class="greet-title">Mabuhay!</h1>
-                    <p class="greet-line">Welcome to the portal.<br />We are delighted to have you here.</p>
-                </div>
                 <div class="greet-shine" aria-hidden="true"></div>
 
                 <!-- Gold motes drifting up -->
@@ -89,20 +94,15 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import WavingFlag from "@/components/track/WavingFlag.vue";
-import { STARS, SUN, pointOnContainer } from "@/components/track/flagGeometry";
+import ClothPhoto from "@/components/track/ClothPhoto.vue";
 
 const router = useRouter();
 
-// Where the flag sits on the stage: sun on the left, the right-hand star
-// just behind the start of "Mabuhay!", and the field taller than the stage
-// so its edges stay off screen as it waves.
-const STAGE_ASPECT = 1408 / 768;
-const FLAG = { sunX: 0.15, sunY: 0.42, height: 1.3 };
-const sunAt = pointOnContainer(FLAG, STAGE_ASPECT, SUN);
-const starsAt = STARS.map((p) => pointOnContainer(FLAG, STAGE_ASPECT, p));
+// Compressed copy (about 120 KB) so the picture arrives fast; the login page
+// also starts loading it in advance.
+const PIC = "/viewer-welcome.jpg";
 
-// Counted from the moment the flag is drawn, not from page open.
+// Counted from the moment the picture is ready, not from page open.
 const AUTO_MS = 4800;
 
 const cityChars = Array.from("City Government of Zamboanga");
@@ -119,7 +119,7 @@ const motes = Array.from({ length: 18 }, (_, id) => ({
     sway: Math.round((rand() - 0.5) * 60),
 }));
 
-// Every animation is paused until the flag has drawn, so nothing plays
+// Every animation is paused until the picture has loaded, so nothing plays
 // over an empty screen.
 const ready = ref(false);
 let timer = null;
@@ -184,8 +184,9 @@ onUnmounted(() => {
 .backdrop {
     display: none;
     position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, #071431 0%, #0b1e52 46%, #4a0b16 54%, #22060c 100%);
+    inset: -6%;
+    background: url('/viewer-welcome.jpg') center / cover no-repeat;
+    filter: blur(30px) brightness(0.5);
 }
 
 /* ---- Stage: the picture's own shape, covering the screen ---- */
@@ -200,13 +201,8 @@ onUnmounted(() => {
 }
 /* Tall screens: fit the whole picture so the greeting is never cropped. */
 @media (max-aspect-ratio: 5/4) {
-    /* Letterboxed: fade the flag's top and bottom into the blue and red
-       bands, and keep the sheen inside. */
     .stage {
         width: min(100vw, calc(100vh * 1.8333));
-        overflow: hidden;
-        -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
-        mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
     }
     .backdrop {
         display: block;
@@ -221,6 +217,14 @@ onUnmounted(() => {
     animation:
         settle-cam 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both,
         drift 14s ease-in-out 1.4s forwards;
+}
+
+.pic {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    user-select: none;
 }
 
 /* Bands of light rolling across the satin. */
@@ -241,9 +245,11 @@ onUnmounted(() => {
     pointer-events: none;
 }
 
-/* ---- Sun (placed on the flag's sun from script) ---- */
+/* ---- Sun (center of the embroidered sun in the picture) ---- */
 .sun {
     position: absolute;
+    left: 16.7%;
+    top: 37.8%;
     width: 30%;
     aspect-ratio: 1;
     transform: translate(-50%, -50%);
@@ -290,37 +296,23 @@ onUnmounted(() => {
     pointer-events: none;
     animation: twinkle 3.6s ease-in-out infinite;
 }
+.s1 {
+    left: 5%;
+    top: 8.5%;
+    animation-delay: 0.6s;
+}
+.s2 {
+    left: 42.6%;
+    top: 34.5%;
+    animation-delay: 1.8s;
+}
+.s3 {
+    left: 5%;
+    top: 85%;
+    animation-delay: 3s;
+}
 
-/* ---- Greeting (centre of the stage) ---- */
-.greeting {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 30%;
-    text-align: center;
-    white-space: normal;
-    color: var(--cream);
-    pointer-events: none;
-    animation: fade-in 0.9s ease-out 0.5s both;
-}
-.greet-title {
-    margin: 0;
-    font-weight: 500;
-    font-size: 8.6cqw;
-    line-height: 1.05;
-    letter-spacing: 0.005em;
-    text-shadow:
-        0 0 2.6cqw rgba(255, 190, 110, 0.45),
-        0 0.25cqw 1.4cqw rgba(2, 6, 20, 0.6);
-}
-.greet-line {
-    margin: 1.6cqw 0 0;
-    font-size: 2.75cqw;
-    line-height: 1.38;
-    text-shadow:
-        0 0 1.6cqw rgba(255, 190, 110, 0.4),
-        0 0.15cqw 0.9cqw rgba(2, 6, 20, 0.7);
-}
+/* ---- Greeting (center of the picture) ---- */
 /* Placed with left/top/size only (no transform), so the breathing scale
    below grows it in place instead of shifting it. */
 .greet-glow {
@@ -650,7 +642,6 @@ onUnmounted(() => {
     .star,
     .greet-glow,
     .greet-shine,
-    .greeting,
     .mote,
     .ch,
     .rule,
