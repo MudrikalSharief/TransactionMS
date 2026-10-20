@@ -929,8 +929,11 @@ onUnmounted(() => {
     color: #1E40AF;
 }
 /* Page change: a short ease-in so the switch reads as one smooth move. */
+/* backwards, not both: once the move ends no transform is left on the
+   wrapper (even an identity transform makes it the containing block for
+   position: fixed, which boxed in full-page backdrops like the tracker's). */
 .page-enter {
-    animation: page-in 0.24s cubic-bezier(.2, .9, .25, 1) both;
+    animation: page-in 0.24s cubic-bezier(.2, .9, .25, 1) backwards;
 }
 @keyframes page-in {
     from { opacity: 0; transform: translateY(6px); }
