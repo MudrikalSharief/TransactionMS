@@ -2334,7 +2334,7 @@ function saveStep() {
         stepError.value = slaError.value;
         return;
     }
-    staging.upsertStep(selectedTypeId.value, {
+    const staged = staging.upsertStep(selectedTypeId.value, {
         id: stepForm.value.id ?? undefined,
         client_id: stepForm.value.client_id ?? undefined,
         code: stepForm.value.code ?? null,
@@ -2349,9 +2349,11 @@ function saveStep() {
         role_ids: (stepForm.value.role_ids || []).map(Number),
     });
     stepDialog.value = false;
-    notice.value = activeDef.value
-        ? "Step staged — press Save version to persist it."
-        : "Step staged — press Save version to create version 1 and persist it.";
+    if (staged.changed) {
+        notice.value = activeDef.value
+            ? "Step staged — press Save version to persist it."
+            : "Step staged — press Save version to create version 1 and persist it.";
+    }
 }
 
 function deleteStep(step) {
@@ -2525,7 +2527,7 @@ function saveRoute() {
         }
     }
 
-    staging.upsertRoute(selectedTypeId.value, {
+    const staged = staging.upsertRoute(selectedTypeId.value, {
         id: routeForm.value.id ?? undefined,
         client_id: routeForm.value.client_id ?? undefined,
         from_step_id: routeForm.value.from_step_id,
@@ -2540,11 +2542,13 @@ function saveRoute() {
         condition_expression: cond,
     });
     routeDialog.value = false;
-    const msg = activeDef.value
-        ? "Route staged — press Save version to persist it."
-        : "Route staged — press Save version to create version 1 and persist it.";
-    notice.value = msg;
-    routeToast.value?.show(msg);
+    if (staged.changed) {
+        const msg = activeDef.value
+            ? "Route staged — press Save version to persist it."
+            : "Route staged — press Save version to create version 1 and persist it.";
+        notice.value = msg;
+        routeToast.value?.show(msg);
+    }
 }
 
 function deleteRoute(route) {

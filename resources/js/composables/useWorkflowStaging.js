@@ -623,16 +623,28 @@ export function useWorkflowStaging() {
         const b = bucket(typeId)
         const k = String(rowKey(row) ?? tmpKey())
         const idx = b.steps.findIndex((s) => String(rowKey(s)) === k)
-        const next = { ...row }
+        const current = idx >= 0 ? b.steps[idx] : null
+        const next = current ? { ...current, ...row } : { ...row }
         // Tmp rows carry the client key as `id` too, so tree/table logic
-        // (keyed by id) works before the server mints real ids.
-        if (next.id == null) next.id = k
-        if (!next.client_id) next.client_id = k
-        if (idx >= 0) b.steps.splice(idx, 1, { ...b.steps[idx], ...next })
-        else b.steps.push(next)
+        // (keyed by id) works before the server mints real ids. Keep the
+        // existing key when an edit submits an empty id/client_id.
+        if (next.id == null) next.id = current?.id ?? k
+        if (!next.client_id) next.client_id = current?.client_id ?? k
+        if (current) {
+            // Opening the edit dialog and pressing Save without changing
+            // anything must not mark the bucket dirty. Compare the merged
+            // row with the working copy using the same normalization as the
+            // save dialog's change counters.
+            if (!diffRow(current, next, STEP_SPECS).length) {
+                return { row: current, changed: false }
+            }
+            b.steps.splice(idx, 1, next)
+        } else {
+            b.steps.push(next)
+        }
         touch(b)
         b.stepsDirty = true
-        return next
+        return { row: next, changed: true }
     }
 
     function removeStep(typeId, key) {
@@ -662,14 +674,21 @@ export function useWorkflowStaging() {
         const b = bucket(typeId)
         const k = String(rowKey(row) ?? row.id ?? tmpKey())
         const idx = b.routes.findIndex((r) => String(rowKey(r) ?? r.id) === k)
-        const next = { ...row }
-        if (next.id == null) next.id = k
-        if (!next.client_id) next.client_id = k
-        if (idx >= 0) b.routes.splice(idx, 1, { ...b.routes[idx], ...next })
-        else b.routes.push(next)
+        const current = idx >= 0 ? b.routes[idx] : null
+        const next = current ? { ...current, ...row } : { ...row }
+        if (next.id == null) next.id = current?.id ?? k
+        if (!next.client_id) next.client_id = current?.client_id ?? k
+        if (current) {
+            if (!diffRow(current, next, ROUTE_SPECS).length) {
+                return { row: current, changed: false }
+            }
+            b.routes.splice(idx, 1, next)
+        } else {
+            b.routes.push(next)
+        }
         touch(b)
         b.routesDirty = true
-        return next
+        return { row: next, changed: true }
     }
 
     function removeRoute(typeId, key) {
@@ -687,13 +706,20 @@ export function useWorkflowStaging() {
         const b = bucket(typeId)
         const k = String(rowKey(row) ?? row.id ?? tmpKey())
         const idx = b.reqDefs.findIndex((d) => String(rowKey(d) ?? d.id) === k)
-        const next = { ...row }
-        if (next.id == null) next.id = k
-        if (!next.client_id) next.client_id = k
-        if (idx >= 0) b.reqDefs.splice(idx, 1, { ...b.reqDefs[idx], ...next })
-        else b.reqDefs.push(next)
+        const current = idx >= 0 ? b.reqDefs[idx] : null
+        const next = current ? { ...current, ...row } : { ...row }
+        if (next.id == null) next.id = current?.id ?? k
+        if (!next.client_id) next.client_id = current?.client_id ?? k
+        if (current) {
+            if (!diffRow(current, next, REQUIREMENT_SPECS).length) {
+                return { row: current, changed: false }
+            }
+            b.reqDefs.splice(idx, 1, next)
+        } else {
+            b.reqDefs.push(next)
+        }
         touch(b)
-        return next
+        return { row: next, changed: true }
     }
 
     function removeReqDef(typeId, key) {

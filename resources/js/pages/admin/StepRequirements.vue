@@ -279,7 +279,7 @@ function addRequirement() {
     addError.value = "";
     try {
         // Staged requirement definition (server mints id + code on save).
-        const created = staging.upsertReqDef(typeId.value, {
+        const { row: created } = staging.upsertReqDef(typeId.value, {
             name: addForm.value.name.trim(),
             code: addForm.value.code?.trim() || null,
             description: addForm.value.description?.trim() || null,
