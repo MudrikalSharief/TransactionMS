@@ -46,7 +46,7 @@ class WorkflowStagingService
 
         $draft = null;
 
-        DB::transaction(function () use ($source, $userId, $data, $typeId, $checklists, &$draft, &$applied) {
+        DB::transaction(function () use ($source, $userId, $data, $typeId, $mode, $checklists, &$draft, &$applied) {
             // Target is always the open draft (one-draft-max); create the
             // shell (cloned from latest published) when none exists yet.
             $draft = WorkflowDefinition::where('transaction_type_id', $typeId)
@@ -142,6 +142,7 @@ class WorkflowStagingService
                         'sla_minutes' => (int) $row['sla_minutes'],
                         'is_start' => (bool) ($row['is_start'] ?? false),
                         'is_end' => (bool) ($row['is_end'] ?? false),
+                        'is_end_user' => (bool) ($row['is_end_user'] ?? false),
                     ]);
                     if (array_key_exists('role_ids', $row)) {
                         $created->roles()->sync(array_map('intval', (array) $row['role_ids']));
@@ -174,6 +175,7 @@ class WorkflowStagingService
                         'sla_minutes' => (int) $row['sla_minutes'],
                         'is_start' => (bool) ($row['is_start'] ?? false),
                         'is_end' => (bool) ($row['is_end'] ?? false),
+                        'is_end_user' => (bool) ($row['is_end_user'] ?? false),
                     ]);
                     if (array_key_exists('role_ids', $row)) {
                         $step->roles()->sync(array_map('intval', (array) $row['role_ids']));

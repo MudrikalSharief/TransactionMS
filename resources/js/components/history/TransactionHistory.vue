@@ -125,48 +125,62 @@
                             </tr>
                             <tr v-if="isOpen(run.id)" :key="`d-${run.id}`" class="history-details-row">
                                 <td colspan="8" class="history-details-cell">
-                                    <v-row dense>
-                                        <v-col cols="12" sm="6">
-                                            <div class="history-label">From Step</div>
-                                            <div class="history-value">{{ detailStepText(run.from_step) }}</div>
-                                        </v-col>
-                                        <v-col cols="12" sm="6">
-                                            <div class="history-label">To Step</div>
-                                            <div class="history-value">{{ detailStepText(run.to_step) }}</div>
-                                        </v-col>
-                                        <v-col cols="12" sm="6">
-                                            <div class="history-label">From User</div>
-                                            <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
-                                        </v-col>
-                                        <v-col cols="12" sm="6">
-                                            <div class="history-label">To User</div>
-                                            <div class="history-value">{{ run.received_by?.name || '—' }}<span v-if="userRoleText(run.received_by)" class="text-medium-emphasis"> · {{ userRoleText(run.received_by) }}</span></div>
-                                        </v-col>
-                                        <v-col cols="12" sm="6">
-                                            <div class="history-label">Released</div>
-                                            <div class="history-value">{{ formatHistoryDate(run.released_at || run.performed_at) }}</div>
-                                        </v-col>
-                                        <v-col cols="12" sm="6">
-                                            <div class="history-label">Received</div>
-                                            <div class="history-value">{{ run.received_at ? formatHistoryDate(run.received_at) : 'Pending' }}</div>
-                                        </v-col>
-                                        <v-col cols="12">
-                                            <div class="history-label">Remarks</div>
-                                            <div class="history-value">{{ run.remarks || 'No remarks provided.' }}</div>
-                                        </v-col>
-                                        <v-col cols="12">
-                                            <div class="history-label mb-2">Attachments</div>
-                                            <AttachmentList
-                                                v-if="(run.attachments || []).length"
-                                                :items="run.attachments || []"
-                                                :tx-id="txId"
-                                                :is-admin="isAdmin"
-                                                :show-details="false"
-                                                @deleted="emit('deleted', $event)"
-                                            />
-                                            <div v-else class="text-caption text-medium-emphasis">No files attached.</div>
-                                        </v-col>
-                                    </v-row>
+                                    <v-row v-if="isCreateRun(run)" dense>
+                                            <v-col cols="12" sm="4">
+                                                <div class="history-label">Created By</div>
+                                                <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                            </v-col>
+                                            <v-col cols="12" sm="4">
+                                                <div class="history-label">Current Location</div>
+                                                <div class="history-value">{{ detailStepText(run.to_step) }}</div>
+                                            </v-col>
+                                            <v-col cols="12" sm="4">
+                                                <div class="history-label">Bound To</div>
+                                                <div class="history-value">{{ boundToText(run) }}</div>
+                                            </v-col>
+                                        </v-row>
+                                        <v-row v-else dense>
+                                            <v-col cols="12" sm="6">
+                                                <div class="history-label">From Step</div>
+                                                <div class="history-value">{{ detailStepText(run.from_step) }}</div>
+                                            </v-col>
+                                            <v-col cols="12" sm="6">
+                                                <div class="history-label">To Step</div>
+                                                <div class="history-value">{{ detailStepText(run.to_step) }}</div>
+                                            </v-col>
+                                            <v-col cols="12" sm="6">
+                                                <div class="history-label">From User</div>
+                                                <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                            </v-col>
+                                            <v-col cols="12" sm="6">
+                                                <div class="history-label">To User</div>
+                                                <div class="history-value">{{ run.received_by?.name || '—' }}<span v-if="userRoleText(run.received_by)" class="text-medium-emphasis"> · {{ userRoleText(run.received_by) }}</span></div>
+                                            </v-col>
+                                            <v-col cols="12" sm="6">
+                                                <div class="history-label">Released</div>
+                                                <div class="history-value">{{ formatHistoryDate(run.released_at || run.performed_at) }}</div>
+                                            </v-col>
+                                            <v-col cols="12" sm="6">
+                                                <div class="history-label">Received</div>
+                                                <div class="history-value">{{ run.received_at ? formatHistoryDate(run.received_at) : 'Pending' }}</div>
+                                            </v-col>
+                                            <v-col cols="12">
+                                                <div class="history-label">Remarks</div>
+                                                <div class="history-value">{{ run.remarks || 'No remarks provided.' }}</div>
+                                            </v-col>
+                                            <v-col cols="12">
+                                                <div class="history-label mb-2">Attachments</div>
+                                                <AttachmentList
+                                                    v-if="(run.attachments || []).length"
+                                                    :items="run.attachments || []"
+                                                    :tx-id="txId"
+                                                    :is-admin="isAdmin"
+                                                    :show-details="false"
+                                                    @deleted="emit('deleted', $event)"
+                                                />
+                                                <div v-else class="text-caption text-medium-emphasis">No files attached.</div>
+                                            </v-col>
+                                        </v-row>
                                 </td>
                             </tr>
                         </template>
@@ -232,30 +246,40 @@
                         </div>
                         <v-expand-transition>
                             <div v-if="isOpen(run.id)" class="mt-3 pt-3 history-mobile-details" @click.stop>
-                                <div class="history-label">From Step</div>
-                                <div class="history-value mb-2">{{ detailStepText(run.from_step) }}</div>
-                                <div class="history-label">To Step</div>
-                                <div class="history-value mb-2">{{ detailStepText(run.to_step) }}</div>
-                                <div class="history-label">From User</div>
-                                <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
-                                <div class="history-label">To User</div>
-                                <div class="history-value mb-2">{{ run.received_by?.name || '—' }}<span v-if="userRoleText(run.received_by)" class="text-medium-emphasis"> · {{ userRoleText(run.received_by) }}</span></div>
-                                <div class="history-label">Released</div>
-                                <div class="history-value mb-2">{{ formatHistoryDate(run.released_at || run.performed_at) }}</div>
-                                <div class="history-label">Received</div>
-                                <div class="history-value mb-2">{{ run.received_at ? formatHistoryDate(run.received_at) : 'Pending' }}</div>
-                                <div class="history-label">Remarks</div>
-                                <div class="history-value mb-2">{{ run.remarks || 'No remarks provided.' }}</div>
-                                <div class="history-label mb-2">Attachments</div>
-                                <AttachmentList
-                                    v-if="(run.attachments || []).length"
-                                    :items="run.attachments || []"
-                                    :tx-id="txId"
-                                    :is-admin="isAdmin"
-                                    :show-details="false"
-                                    @deleted="emit('deleted', $event)"
-                                />
-                                <div v-else class="text-caption text-medium-emphasis">No files attached.</div>
+                                <template v-if="isCreateRun(run)">
+                                    <div class="history-label">Created By</div>
+                                    <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                    <div class="history-label">Current Location</div>
+                                    <div class="history-value mb-2">{{ detailStepText(run.to_step) }}</div>
+                                    <div class="history-label">Bound To</div>
+                                    <div class="history-value">{{ boundToText(run) }}</div>
+                                </template>
+                                <template v-else>
+                                    <div class="history-label">From Step</div>
+                                    <div class="history-value mb-2">{{ detailStepText(run.from_step) }}</div>
+                                    <div class="history-label">To Step</div>
+                                    <div class="history-value mb-2">{{ detailStepText(run.to_step) }}</div>
+                                    <div class="history-label">From User</div>
+                                    <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                    <div class="history-label">To User</div>
+                                    <div class="history-value mb-2">{{ run.received_by?.name || '—' }}<span v-if="userRoleText(run.received_by)" class="text-medium-emphasis"> · {{ userRoleText(run.received_by) }}</span></div>
+                                    <div class="history-label">Released</div>
+                                    <div class="history-value mb-2">{{ formatHistoryDate(run.released_at || run.performed_at) }}</div>
+                                    <div class="history-label">Received</div>
+                                    <div class="history-value mb-2">{{ run.received_at ? formatHistoryDate(run.received_at) : 'Pending' }}</div>
+                                    <div class="history-label">Remarks</div>
+                                    <div class="history-value mb-2">{{ run.remarks || 'No remarks provided.' }}</div>
+                                    <div class="history-label mb-2">Attachments</div>
+                                    <AttachmentList
+                                        v-if="(run.attachments || []).length"
+                                        :items="run.attachments || []"
+                                        :tx-id="txId"
+                                        :is-admin="isAdmin"
+                                        :show-details="false"
+                                        @deleted="emit('deleted', $event)"
+                                    />
+                                    <div v-else class="text-caption text-medium-emphasis">No files attached.</div>
+                                </template>
                             </div>
                         </v-expand-transition>
                     </v-card-text>
@@ -275,6 +299,7 @@ import {
     getActionConfig,
     getStatusConfig,
     getUserInitials,
+    isCreateRun,
     mainTimestamp,
     movementOf,
     stepLabelOf,
@@ -290,6 +315,10 @@ const props = defineProps({
     // Bare mode: melt into a parent tab pane (no outer chrome/title),
     // keeping the filter + search toolbar above the same content.
     bare: { type: Boolean, default: false },
+    // Pinned workflow data: used by the creation row to show where the
+    // transaction was bound next. Steps already carry effective offices.
+    workflowSteps: { type: Array, default: () => [] },
+    workflowRoutes: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['deleted']);
 
@@ -305,6 +334,39 @@ function toggle(id) {
 }
 function isOpen(id) {
     return openIds.value.has(id);
+}
+
+// Creation is not a movement: the next forward route(s) from the start
+// step are what the transaction is bound to. The step payloads already
+// carry the effective office (office-less/end-user steps follow the tx).
+function boundToSteps(run) {
+    if (!isCreateRun(run)) return [];
+    const fromId = Number(run?.to_step?.id);
+    if (!fromId) return [];
+
+    const nextIds = new Set(
+        (props.workflowRoutes || [])
+            .filter((r) => Number(r.from_step_id) === fromId && !r.is_return_route)
+            .map((r) => Number(r.to_step_id)),
+    );
+    if (!nextIds.size) return [];
+
+    const seen = new Set();
+    const out = [];
+    for (const step of (props.workflowSteps || [])) {
+        const id = Number(step.id);
+        if (!nextIds.has(id) || seen.has(id)) continue;
+        seen.add(id);
+        out.push(step);
+    }
+    return out.sort(
+        (a, b) => Number(a.order_number ?? 0) - Number(b.order_number ?? 0),
+    );
+}
+
+function boundToText(run) {
+    const steps = boundToSteps(run);
+    return steps.length ? steps.map((s) => detailStepText(s)).join(' / ') : '—';
 }
 
 const actionOptions = computed(() => {

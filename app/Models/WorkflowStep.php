@@ -23,11 +23,13 @@ class WorkflowStep extends Model
         'sla_minutes',
         'is_start',
         'is_end',
+        'is_end_user',
     ];
 
     protected $casts = [
         'is_start' => 'boolean',
         'is_end' => 'boolean',
+        'is_end_user' => 'boolean',
     ];
 
     public function workflowDefinition(): BelongsTo

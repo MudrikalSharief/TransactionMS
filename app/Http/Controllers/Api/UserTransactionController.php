@@ -107,10 +107,10 @@ class UserTransactionController extends Controller
                 $query->where(function ($w) use ($user) {
                     $w->where(function ($x) use ($user) {
                         $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                            ->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.is_end_user', true));
                     })->orWhereHas('state.currentStep', fn ($s) => $s
                         ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                        ->where('workflow_steps.is_end_user', false));
                 });
             } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
@@ -125,12 +125,12 @@ class UserTransactionController extends Controller
                     $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
                         ->where(function ($x) use ($user) {
                             $x->where(function ($y) use ($user) {
-                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                $y->where('workflow_steps.is_end_user', true);
                                 if ($user->office_id !== null) {
                                     $y->where('transactions.office_id', $user->office_id);
                                 }
                             })->orWhere(function ($y) use ($user) {
-                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                                $y->where('workflow_steps.is_end_user', false);
                                 if ($user->office_id !== null) {
                                     $y->where(function ($z) use ($user) {
                                         $z->whereNull('workflow_steps.office_id')
