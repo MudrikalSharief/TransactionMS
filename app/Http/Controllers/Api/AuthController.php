@@ -56,7 +56,7 @@ class AuthController extends Controller
         // refused as is, never repaired here.
         if (!$guest->is_active || !$guest->isViewerOnly()) {
             return response()->json([
-                'message' => 'Guest access is not available right now.',
+                'message' => 'Document tracking is not available right now.',
             ], 503);
         }
 
