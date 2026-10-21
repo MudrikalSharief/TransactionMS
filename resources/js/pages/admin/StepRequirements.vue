@@ -268,6 +268,31 @@
                                 ></button>
                             </div>
                         </section>
+
+                        <section class="req-sec req-sec-preview">
+                            <div class="req-sec-t">Preview</div>
+                            <div class="req-preview">
+                                <span class="req-preview-ck"></span>
+                                <div class="req-preview-body">
+                                    <div class="req-preview-name">
+                                        <span>{{ addForm.name?.trim() || "Requirement name" }}</span>
+                                        <span
+                                            class="req-tag"
+                                            :class="{ 'req-tag-optional': !addForm.is_required }"
+                                        >
+                                            {{ addForm.is_required ? "Required" : "Optional" }}
+                                        </span>
+                                    </div>
+                                    <p v-if="addForm.description?.trim()" class="req-preview-remark">
+                                        {{ addForm.description.trim() }}
+                                    </p>
+                                    <span v-if="addForm.is_upload_required" class="req-preview-attach">
+                                        <v-icon size="16">mdi-upload</v-icon>
+                                        Attach file
+                                    </span>
+                                </div>
+                            </div>
+                        </section>
                     </v-card-text>
 
                     <v-divider />
@@ -849,6 +874,82 @@ onMounted(async () => {
 .req-tg:focus-visible {
     outline: 3px solid rgba(var(--v-theme-primary), 0.28);
     outline-offset: 2px;
+}
+
+.req-sec-preview {
+    margin: 0 0 6px;
+}
+
+.req-preview {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border: 1.5px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 14px;
+}
+
+.req-preview-ck {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 7px;
+}
+
+.req-preview-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.req-preview-name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 14.5px;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.req-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 800;
+    color: rgb(var(--v-theme-error));
+    background: rgba(var(--v-theme-error), 0.12);
+}
+
+.req-tag-optional {
+    color: rgb(var(--v-theme-secondary));
+    background: rgba(var(--v-border-color), 0.08);
+}
+
+.req-preview-remark {
+    margin: 4px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgb(var(--v-theme-secondary));
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.req-preview-attach {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    margin-top: 10px;
+    padding: 0 12px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgb(var(--v-theme-primary));
 }
 
 .req-ft {

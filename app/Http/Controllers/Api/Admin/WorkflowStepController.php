@@ -20,6 +20,7 @@ class WorkflowStepController extends Controller
     {
         $steps = $workflowDefinition->steps()
             ->with(['roles', 'office'])
+            ->withCount('stepDataDefinitions')
             ->orderBy('order_number')
             ->get();
 

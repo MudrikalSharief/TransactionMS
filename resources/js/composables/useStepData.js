@@ -6,18 +6,21 @@ export function useStepData() {
     const items = ref([]);
     const loading = ref(false);
     const saving = ref(false);
+    let fetchToken = 0;
 
     function baseUrl(workflowDefinitionId, stepId) {
         return `/api/admin/workflow-definitions/${workflowDefinitionId}/steps/${stepId}/step-data`;
     }
 
     async function fetchAll(workflowDefinitionId, stepId) {
+        const token = ++fetchToken;
         loading.value = true;
         try {
             const res = await api.get(baseUrl(workflowDefinitionId, stepId));
+            if (token !== fetchToken) return;
             items.value = res.data.data ?? res.data ?? [];
         } finally {
-            loading.value = false;
+            if (token === fetchToken) loading.value = false;
         }
     }
 
