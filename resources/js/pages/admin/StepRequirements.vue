@@ -130,36 +130,162 @@
             </v-card-text>
         </v-card>
 
-        <v-dialog v-model="addDialog" max-width="600">
-            <v-card rounded="xl" style="overflow: hidden">
-                <v-card-title>Add requirement</v-card-title>
-                <v-divider />
-                <v-card-text>
-                    <v-alert v-if="addError" type="error" variant="tonal" class="mb-3">{{ addError }}</v-alert>
-                    <v-text-field v-model="addForm.name" label="Name" />
-                    <v-text-field
-                        v-model="addForm.code"
-                        label="Code"
-                        hint="System code, e.g. signed_pr_pdf (auto-generated from name if blank)"
-                        persistent-hint
-                    />
-                    <v-textarea v-model="addForm.description" label="Remarks (instructions for workers)" rows="3" />
-                    <v-switch v-model="addForm.is_required" color="grey-darken-3" label="Required item" />
-                    <v-switch v-model="addForm.is_upload_required" color="grey-darken-3" label="Upload required (must attach file)" />
-                </v-card-text>
-                <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="addDialog = false">Cancel</v-btn>
+        <v-dialog
+            v-model="addDialog"
+            max-width="540"
+            content-class="req-dialog-content"
+            @after-enter="focusAddName"
+        >
+            <v-card rounded="xl" class="req-card">
+                <v-card-title class="req-hd">
+                    <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="req-badge">
+                        <v-icon>mdi-clipboard-check-outline</v-icon>
+                    </v-avatar>
+                    <div class="req-hd-t">
+                        <div class="req-title">Add requirement</div>
+                        <div class="req-sub">Add a checklist item that workers must complete for this step.</div>
+                    </div>
                     <v-btn
-                        color="grey-darken-3"
-                        rounded="0"
-                        :loading="adding"
-                        :disabled="!addForm.name?.trim()"
-                        @click="addRequirement"
-                    >
-                        Add
-                    </v-btn>
-                </v-card-actions>
+                        icon="mdi-close"
+                        variant="text"
+                        size="small"
+                        class="req-x"
+                        aria-label="Close add requirement dialog"
+                        @click="addDialog = false"
+                    />
+                </v-card-title>
+
+                <form class="req-form" novalidate @submit.prevent="addRequirement">
+                    <v-card-text class="req-bd">
+                        <v-alert v-if="addError" type="error" variant="tonal" density="compact" class="mb-4">
+                            {{ addError }}
+                        </v-alert>
+
+                        <div class="req-f">
+                            <label class="req-lb" for="req-name">Name <span class="req-required">*</span></label>
+                            <v-text-field
+                                id="req-name"
+                                ref="addNameField"
+                                v-model="addForm.name"
+                                placeholder="e.g. Signed PR (PDF)"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details
+                                autocomplete="off"
+                                :error="!!addFieldErrors.name"
+                                class="req-in"
+                                @update:model-value="onAddNameInput"
+                            />
+                            <div v-if="addFieldErrors.name" class="req-error">{{ addFieldErrors.name }}</div>
+                        </div>
+
+                        <div class="req-f">
+                            <label class="req-lb" for="req-code">Code</label>
+                            <v-text-field
+                                id="req-code"
+                                ref="addCodeField"
+                                v-model="addForm.code"
+                                placeholder="signed_pr_pdf"
+                                maxlength="64"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details
+                                autocomplete="off"
+                                spellcheck="false"
+                                :error="!!addFieldErrors.code"
+                                class="req-in req-in-mono"
+                                @update:model-value="onAddCodeInput"
+                            />
+                            <div v-if="addFieldErrors.code" class="req-error">{{ addFieldErrors.code }}</div>
+                            <div v-else class="req-help">System code. Auto-generated from the name, or type your own.</div>
+                        </div>
+
+                        <div class="req-f">
+                            <label class="req-lb" for="req-remarks">
+                                Remarks
+                                <span class="req-opt">(instructions for workers)</span>
+                            </label>
+                            <v-textarea
+                                id="req-remarks"
+                                v-model="addForm.description"
+                                placeholder="Tell workers what to check or attach"
+                                rows="3"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details
+                                class="req-in req-in-area"
+                            />
+                        </div>
+
+                        <section class="req-sec">
+                            <div class="req-sec-t">Rules</div>
+
+                            <div class="req-rule">
+                                <span class="req-rule-ic">
+                                    <v-icon size="20">mdi-checkbox-marked-outline</v-icon>
+                                </span>
+                                <div class="req-rule-copy">
+                                    <b>Required item</b>
+                                    <span>
+                                        {{
+                                            addForm.is_required
+                                                ? "Must be completed before the step can proceed"
+                                                : "Workers can skip this item"
+                                        }}
+                                    </span>
+                                </div>
+                                <button
+                                    class="req-tg"
+                                    type="button"
+                                    role="switch"
+                                    :aria-checked="addForm.is_required ? 'true' : 'false'"
+                                    aria-label="Required item"
+                                    @click="addForm.is_required = !addForm.is_required"
+                                ></button>
+                            </div>
+
+                            <div class="req-rule">
+                                <span class="req-rule-ic">
+                                    <v-icon size="20">mdi-paperclip</v-icon>
+                                </span>
+                                <div class="req-rule-copy">
+                                    <b>Upload required</b>
+                                    <span>
+                                        {{
+                                            addForm.is_upload_required
+                                                ? "Workers must attach a file"
+                                                : "No file needed"
+                                        }}
+                                    </span>
+                                </div>
+                                <button
+                                    class="req-tg"
+                                    type="button"
+                                    role="switch"
+                                    :aria-checked="addForm.is_upload_required ? 'true' : 'false'"
+                                    aria-label="Upload required"
+                                    @click="addForm.is_upload_required = !addForm.is_upload_required"
+                                ></button>
+                            </div>
+                        </section>
+                    </v-card-text>
+
+                    <v-divider />
+                    <v-card-actions class="req-ft">
+                        <v-btn type="button" variant="outlined" rounded="lg" class="req-b" @click="addDialog = false">
+                            Cancel
+                        </v-btn>
+                        <v-btn
+                            color="primary"
+                            rounded="lg"
+                            class="req-b req-b-pri"
+                            type="submit"
+                            :loading="adding"
+                        >
+                            Add requirement
+                        </v-btn>
+                    </v-card-actions>
+                </form>
             </v-card>
         </v-dialog>
     </div>
@@ -171,6 +297,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useStepRequirements } from "@/composables/useStepRequirements";
+import { useToast } from "@/composables/useToast";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import LoadingVeil from '@/components/LoadingVeil.vue';
 import StagingSaveBar from '@/components/StagingSaveBar.vue';
@@ -197,6 +324,7 @@ const {
 } = useRequirementDefinitions();
 const { assigned, loading, fetchAssigned } = useStepRequirements();
 const staging = useWorkflowStaging();
+const { success: toastSuccess } = useToast();
 
 // Staging is keyed by transaction type: prefer the explicit query param,
 // fall back to the type resolved from the loaded definition.
@@ -232,6 +360,76 @@ const addDialog = ref(false);
 const adding = ref(false);
 const addError = ref("");
 const addForm = ref({ name: "", code: "", description: "", is_required: true, is_upload_required: true });
+const addFieldErrors = ref({ name: "", code: "" });
+const addNameField = ref(null);
+const addCodeField = ref(null);
+// Once the user edits Code themselves, stop regenerating it from Name.
+const codeTouched = ref(false);
+
+function snakeCase(value) {
+    return String(value || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+}
+
+function nextRequirementCode(base) {
+    const taken = new Set(
+        (requirements.value || [])
+            .map((r) => String(r.code || "").toLowerCase())
+            .filter(Boolean),
+    );
+    const bucket = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    for (const def of bucket?.reqDefs || []) {
+        if (def.code) taken.add(String(def.code).toLowerCase());
+    }
+
+    let code = base;
+    let suffix = 2;
+    while (taken.has(code)) code = `${base}_${suffix++}`;
+    return code;
+}
+
+function onAddNameInput(value) {
+    if (!codeTouched.value) {
+        const base = snakeCase(value).slice(0, 50);
+        addForm.value.code = base ? nextRequirementCode(base) : "";
+        addFieldErrors.value.code = "";
+    }
+    if (addFieldErrors.value.name) addFieldErrors.value.name = "";
+}
+
+function onAddCodeInput(value) {
+    codeTouched.value = !!String(value || "").trim();
+    if (addFieldErrors.value.code) addFieldErrors.value.code = "";
+}
+
+function focusAddName() {
+    addNameField.value?.focus();
+}
+
+function validateAddForm() {
+    const name = addForm.value.name?.trim() || "";
+    const code = addForm.value.code?.trim() || "";
+    const errors = { name: "", code: "" };
+
+    if (!name) errors.name = "Enter a requirement name.";
+    if (code && !/^[a-z][a-z0-9_]*$/.test(code)) {
+        errors.code = "Use snake_case, starting with a letter (for example signed_pr_pdf).";
+    }
+
+    addFieldErrors.value = errors;
+    if (errors.name) {
+        addNameField.value?.focus();
+        return false;
+    }
+    if (errors.code) {
+        addCodeField.value?.focus();
+        return false;
+    }
+    return true;
+}
 
 const stepOptions = computed(() =>
     steps.value.map((s) => ({
@@ -242,6 +440,8 @@ const stepOptions = computed(() =>
 
 function openAdd() {
     addError.value = "";
+    addFieldErrors.value = { name: "", code: "" };
+    codeTouched.value = false;
     addForm.value = { name: "", code: "", description: "", is_required: true, is_upload_required: true };
     addDialog.value = true;
 }
@@ -253,6 +453,7 @@ function storeRow(r, idx) {
         is_required: !!r.is_required,
         is_upload_required: r.is_upload_required ?? r.is_required ?? true,
         code: r.code ?? "",
+        name: r.name ?? "",
         description: r.description ?? "",
     };
 }
@@ -269,7 +470,8 @@ function stageBindings() {
 }
 
 function addRequirement() {
-    if (!addForm.value.name?.trim()) return;
+    if (adding.value) return;
+    if (!validateAddForm()) return;
     if (!typeId.value) {
         addError.value = "Resolve the transaction type first (open this page from Workflows).";
         return;
@@ -278,7 +480,7 @@ function addRequirement() {
     addError.value = "";
     try {
         // Staged requirement definition (server mints id + code on save).
-        const created = staging.upsertReqDef(typeId.value, {
+        const { row: created } = staging.upsertReqDef(typeId.value, {
             name: addForm.value.name.trim(),
             code: addForm.value.code?.trim() || null,
             description: addForm.value.description?.trim() || null,
@@ -299,6 +501,7 @@ function addRequirement() {
         ];
         addDialog.value = false;
         stageBindings();
+        toastSuccess(`Requirement "${created.name}" added to this step.`);
     } catch (e) {
         addError.value = e?.message || "Failed to add requirement.";
     } finally {
@@ -427,3 +630,282 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+/* ---- Add requirement modal (design mockup port) ---- */
+.req-card {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow: hidden;
+}
+
+.req-hd {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 22px 24px 14px;
+}
+
+.req-badge {
+    flex: none;
+}
+
+.req-hd-t {
+    min-width: 0;
+}
+
+.req-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+.req-sub {
+    margin-top: 3px;
+    font-size: 14px;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.req-x {
+    margin-left: auto;
+    flex: none;
+}
+
+.req-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.req-bd {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 4px 24px 10px;
+    overflow-y: auto;
+}
+
+.req-f {
+    margin-bottom: 18px;
+}
+
+.req-lb {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.req-required {
+    color: rgb(var(--v-theme-error));
+}
+
+.req-opt {
+    color: rgb(var(--v-theme-secondary));
+    font-weight: 500;
+}
+
+.req-help {
+    margin: 6px 2px 0;
+    font-size: 12.5px;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.req-error {
+    margin: 6px 2px 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--v-theme-error));
+}
+
+.req-in :deep(.v-field) {
+    min-height: 48px;
+    border-radius: 12px;
+    background: #f4f6fb;
+}
+
+.req-in :deep(.v-field__outline) {
+    --v-field-border-width: 1.5px;
+}
+
+.req-in :deep(.v-field--focused) {
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+}
+
+.req-in :deep(.v-field--error) {
+    background: rgb(var(--v-theme-surface));
+}
+
+.req-in-area :deep(.v-field) {
+    min-height: 96px;
+}
+
+.req-in-area :deep(textarea) {
+    padding-top: 12px;
+    line-height: 1.45;
+}
+
+.req-in-mono :deep(input) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14.5px;
+}
+
+.req-sec {
+    margin: 0;
+}
+
+.req-sec-t {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.req-sec-t::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.req-rule {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 14px;
+}
+
+.req-rule-ic {
+    display: grid;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.12);
+    place-items: center;
+}
+
+.req-rule-copy {
+    min-width: 0;
+}
+
+.req-rule-copy b {
+    display: block;
+    font-size: 14.5px;
+}
+
+.req-rule-copy span {
+    font-size: 12.5px;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.req-tg {
+    position: relative;
+    flex: none;
+    width: 48px;
+    height: 28px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 99px;
+    background: #98a2b8;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.req-tg::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    content: "";
+    transition: transform 0.2s;
+}
+
+.req-tg[aria-checked="true"] {
+    background: #1b7a3d;
+}
+
+.req-tg[aria-checked="true"]::after {
+    transform: translateX(20px);
+}
+
+.req-tg:focus-visible {
+    outline: 3px solid rgba(var(--v-theme-primary), 0.28);
+    outline-offset: 2px;
+}
+
+.req-ft {
+    flex: none;
+    gap: 10px;
+    padding: 16px 24px max(20px, env(safe-area-inset-bottom, 0px));
+}
+
+.req-b {
+    height: 46px;
+    padding: 0 22px;
+    font-weight: 700;
+    text-transform: none;
+}
+
+.req-b-pri {
+    min-width: 150px;
+}
+
+html.dark .req-in :deep(.v-field) {
+    background: #232b45;
+}
+
+html.dark .req-in :deep(.v-field--focused) {
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.22);
+}
+
+html.dark .req-rule-ic {
+    background: rgba(147, 197, 253, 0.14);
+    color: #93c5fd;
+}
+
+html.dark .req-tg[aria-checked="true"] {
+    background: #3fbf6f;
+}
+
+@media (max-width: 520px) {
+    :global(.req-dialog-content) {
+        position: fixed !important;
+        inset: auto 0 0 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    :global(.req-dialog-content .req-card) {
+        max-height: 94vh;
+        border-radius: 24px 24px 0 0 !important;
+    }
+
+    .req-ft {
+        flex-direction: column-reverse;
+    }
+
+    .req-b {
+        width: 100%;
+    }
+}
+</style>

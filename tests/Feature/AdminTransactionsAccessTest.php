@@ -22,7 +22,8 @@ use Tests\TestCase;
  * office's papers wherever they sit plus rows parked at their office;
  * superadmin sees all. Any user with an office can create (non-superadmin
  * creations are forced to their own office and respect the type-office
- * restriction; superadmins bypass it).
+ * restriction; superadmins bypass it). The first station's assigned office
+ * is independent of the Originating Office.
  */
 class AdminTransactionsAccessTest extends TestCase
 {
@@ -197,15 +198,46 @@ class AdminTransactionsAccessTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.office.id', $this->gso->id);
     }
 
-    public function test_superadmin_creation_uses_the_chosen_office(): void
+    public function test_superadmin_creation_does_not_depend_on_the_first_step_office(): void
     {
         Sanctum::actingAs($this->userWithRole('superadmin'));
 
         $this->postJson('/api/admin/transactions', [
             'transaction_type_id' => $this->type->id,
             'office_id' => $this->cbo->id,
-            'title' => 'Superadmin create',
-        ])->assertCreated()->assertJsonPath('data.office.id', $this->cbo->id);
+            'title' => 'Originating office is independent',
+        ])->assertCreated()
+            ->assertJsonPath('data.office.id', $this->cbo->id)
+            ->assertJsonPath('data.current_step.office.id', $this->gso->id);
+    }
+
+    public function test_superadmin_creation_uses_originating_office_for_a_blank_first_step(): void
+    {
+        $this->gsoStep->update(['office_id' => null]);
+
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'office_id' => $this->cbo->id,
+            'title' => "User's Office first step",
+        ])->assertCreated()
+            ->assertJsonPath('data.office.id', $this->cbo->id)
+            ->assertJsonPath('data.current_step.office.id', $this->cbo->id);
+    }
+
+    public function test_regular_user_creation_is_not_limited_by_the_first_step_office(): void
+    {
+        $this->gsoStep->update(['office_id' => $this->cbo->id]);
+
+        Sanctum::actingAs($this->userWithRole('clerk', $this->gso));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'title' => 'Origin is independent of step 1',
+        ])->assertCreated()
+            ->assertJsonPath('data.office.id', $this->gso->id)
+            ->assertJsonPath('data.current_step.office.id', $this->cbo->id);
     }
 
     public function test_user_without_office_cannot_create(): void

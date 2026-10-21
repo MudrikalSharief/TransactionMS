@@ -176,12 +176,16 @@ class TransactionTypeOfficeAccessTest extends TestCase
             'is_live' => true,
             'name' => 'Live',
         ]);
-        WorkflowStep::create([
+        $second = WorkflowStep::create([
             'workflow_definition_id' => $live->id,
             'order_number' => 2,
             'code' => 'second',
             'name' => 'Second step',
+            'is_end_user' => true,
         ]);
+        $second->roles()->attach(
+            Role::firstOrCreate(['code' => 'end_user'], ['name' => 'End User'])->id
+        );
         WorkflowStep::create([
             'workflow_definition_id' => $live->id,
             'order_number' => 1,
@@ -195,7 +199,7 @@ class TransactionTypeOfficeAccessTest extends TestCase
 
         // The lookup is cached for 10 min; make this test see the rows it
         // just created instead of a previous test's cached collection.
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v2');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v3');
 
         $rows = collect($this->getJson('/api/admin/transaction-types')->assertOk()->json('data'));
         $row = $rows->firstWhere('id', $this->gsoType->id);
@@ -206,6 +210,8 @@ class TransactionTypeOfficeAccessTest extends TestCase
         );
         $this->assertSame($this->gso->code, $row['workflow_steps'][0]['office']['code']);
         $this->assertTrue($row['workflow_steps'][0]['is_start']);
+        $this->assertFalse($row['workflow_steps'][0]['is_end_user']);
+        $this->assertTrue($row['workflow_steps'][1]['is_end_user']);
 
         // A type with no published workflow still returns a list (empty).
         $any = $rows->firstWhere('code', 'any');

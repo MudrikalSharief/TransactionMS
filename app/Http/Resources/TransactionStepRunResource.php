@@ -71,14 +71,20 @@ class TransactionStepRunResource extends JsonResource
     }
 
     /**
-     * Receipt office: end-user and office-less stations follow the
-     * transaction's office.
+     * Receipt office: end-user stations and blank assignments follow the
+     * transaction's Originating Office. Assigned stations keep the office
+     * snapshot stored on the run, so later workflow edits don't rewrite
+     * history.
      */
     private function receivedOfficePayload(): ?array
     {
-        if ($this->transaction && $this->toStep
-            && ($this->transaction->stepIsEndUser($this->toStep) || $this->toStep->office_id === null)) {
-            return $this->transaction->office?->only(['id', 'code', 'name']);
+        if ($this->transaction && $this->toStep) {
+            if (
+                $this->transaction->stepIsEndUser($this->toStep)
+                || $this->toStep->office_id === null
+            ) {
+                return $this->transaction->office?->only(['id', 'code', 'name']);
+            }
         }
 
         return $this->receivedOffice?->only(['id', 'code', 'name']);

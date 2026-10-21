@@ -102,28 +102,33 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                $this->scopeToOfficeAdmin($query, $user);
+                // Office admins work anything whose current station's
+                // effective office is their office. Legacy no-origin stations
+                // stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
+                    $w->whereHas('state.currentStep', fn ($s) => $s
+                        ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
+                });
             } elseif (empty($roleIds)) {
                 return collect();
             } else {
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                        ->where(function ($x) use ($user) {
-                            $x->where(function ($y) use ($user) {
-                                $y->where('workflow_steps.is_end_user', true);
-                                if ($user->office_id !== null) {
-                                    $y->where('transactions.office_id', $user->office_id);
-                                }
-                            })->orWhere(function ($y) use ($user) {
-                                $y->where('workflow_steps.is_end_user', false);
-                                if ($user->office_id !== null) {
-                                    $y->where(function ($z) use ($user) {
-                                        $z->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
-                                    });
-                                }
-                            });
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+
+                    if ($user->office_id === null) {
+                        // Legacy no-origin transactions keep role-only access
+                        // to blank and end-user stations.
+                        $s->whereLegacyNoOriginFallback();
+                    } else {
+                        $s->where(function ($x) use ($user) {
+                            $x->whereEffectiveOffice($user->office_id)
+                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
+                    }
                 });
             }
         }
@@ -132,31 +137,6 @@ class ApprovalController extends Controller
             ->filter(fn (Transaction $tx) => $tx->state?->currentStep
                 && $this->routing->userCanWorkOnCurrentStep($tx, $user))
             ->values();
-    }
-
-    /**
-     * SQL prefilter for office admins: rows parked at their office (end-user
-     * stations follow the transaction's office), plus step 1 of requests
-     * their office filed (see RoutingEngine::userCanWorkOnStep).
-     * RoutingEngine still has the final say per row.
-     */
-    private function scopeToOfficeAdmin($query, User $user): void
-    {
-        $officeId = (int) $user->office_id;
-
-        $query->where(function ($w) use ($officeId) {
-            $w->where(function ($x) use ($officeId) {
-                $x->where('transactions.office_id', $officeId)
-                    ->whereHas('state.currentStep', fn ($s) => $s->where('workflow_steps.is_end_user', true));
-            })->orWhereHas('state.currentStep', fn ($s) => $s
-                ->where('workflow_steps.office_id', $officeId)
-                ->where('workflow_steps.is_end_user', false))
-            ->orWhere(fn ($o) => $o
-                ->where('transactions.office_id', $officeId)
-                ->whereHas('state.currentStep', fn ($s) => $s->where(fn ($q) => $q
-                    ->where('is_start', true)
-                    ->orWhere('order_number', 1))));
-        });
     }
 
     /** Unchecked required items at the transaction's current station. */
@@ -255,26 +235,31 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                $this->scopeToOfficeAdmin($query, $user);
+                // Office admins work anything whose current station's
+                // effective office is their office. Legacy no-origin stations
+                // stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
+                    $w->whereHas('state.currentStep', fn ($s) => $s
+                        ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
+                });
             } else {
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                        ->where(function ($x) use ($user) {
-                            $x->where(function ($y) use ($user) {
-                                $y->where('workflow_steps.is_end_user', true);
-                                if ($user->office_id !== null) {
-                                    $y->where('transactions.office_id', $user->office_id);
-                                }
-                            })->orWhere(function ($y) use ($user) {
-                                $y->where('workflow_steps.is_end_user', false);
-                                if ($user->office_id !== null) {
-                                    $y->where(function ($z) use ($user) {
-                                        $z->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
-                                    });
-                                }
-                            });
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+
+                    if ($user->office_id === null) {
+                        // Legacy no-origin transactions keep role-only access
+                        // to blank and end-user stations.
+                        $s->whereLegacyNoOriginFallback();
+                    } else {
+                        $s->where(function ($x) use ($user) {
+                            $x->whereEffectiveOffice($user->office_id)
+                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
+                    }
                 });
             }
         }

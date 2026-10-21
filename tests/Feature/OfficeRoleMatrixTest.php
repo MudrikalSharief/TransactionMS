@@ -24,12 +24,13 @@ use Tests\TestCase;
  *  - superadmin: everything, regardless of office.
  *  - office admin (admin role + office): their own office's papers
  *    (view/list) plus any station parked at their office, role aside.
- *  - regular user: role match + office match on the current station
- *    (office-less stations are role-only).
+ *  - regular user: role match + effective office match on the current
+ *    station (blank stations follow the transaction's Originating Office).
  *
  * Shapes: a GSO paper parked at CBO (the tx-44 "outgoing" shape), a GSO
- * paper parked at GSO, a CBO paper parked at CBO, and an office-less
- * station. Actors without an office fall back to role-only matching.
+ * paper parked at GSO, a CBO paper parked at CBO, and a blank
+ * station. Actors without an office keep role-only fallback only on legacy
+ * transactions that have no Originating Office.
  */
 class OfficeRoleMatrixTest extends TestCase
 {
@@ -90,7 +91,7 @@ class OfficeRoleMatrixTest extends TestCase
             'workflow_definition_id' => $this->workflow->id,
             'order_number' => 3,
             'code' => 'free_step',
-            'name' => 'Office-agnostic Step',
+            'name' => "User's Office Step",
             'office_id' => null,
         ]);
 
@@ -214,7 +215,7 @@ class OfficeRoleMatrixTest extends TestCase
             'cbo_clerk' => 200,      // role + office match at the station
             'cbo_approver' => 403,   // right office, wrong role
             'hr_clerk' => 403,       // role, wrong office
-            'no_office_clerk' => 200, // no office -> role-only
+            'no_office_clerk' => 403, // assigned station requires an office
             'no_office_admin' => 403, // admin without office gets no powers
             'gso_end_user' => 200,   // own office's paper is viewable; acting still denied
         ], fn () => $this->getJson("/api/admin/transactions/{$tx->id}"));
@@ -230,7 +231,7 @@ class OfficeRoleMatrixTest extends TestCase
             'gso_clerk' => 403,      // role match, but wrong office
             'cbo_approver' => 403,
             'hr_clerk' => 403,
-            'no_office_clerk' => 200, // no office -> role-only
+            'no_office_clerk' => 403, // assigned station requires an office
             'no_office_admin' => 403,
             'gso_end_user' => 403,   // can view own papers, never receive
         ], function () {
@@ -281,18 +282,19 @@ class OfficeRoleMatrixTest extends TestCase
         $gsoAtCbo = $this->makeTx($this->gso, $this->cboStep);
         $cboAtCbo = $this->makeTx($this->cbo, $this->cboStep);
         $gsoAtGso = $this->makeTx($this->gso, $this->gsoStep);
+        $gsoAtFree = $this->makeTx($this->gso, $this->freeStep);
 
         $expectations = [
-            'superadmin' => [$gsoAtCbo, $cboAtCbo, $gsoAtGso],
-            'gso_admin' => [$gsoAtCbo, $gsoAtGso],
+            'superadmin' => [$gsoAtCbo, $cboAtCbo, $gsoAtGso, $gsoAtFree],
+            'gso_admin' => [$gsoAtCbo, $gsoAtGso, $gsoAtFree],
             'cbo_admin' => [$gsoAtCbo, $cboAtCbo],
-            'gso_clerk' => [$gsoAtCbo, $gsoAtGso],
+            'gso_clerk' => [$gsoAtCbo, $gsoAtGso, $gsoAtFree],
             'cbo_clerk' => [$gsoAtCbo, $cboAtCbo],
             'cbo_approver' => [$cboAtCbo],
             'hr_clerk' => [],
             'no_office_clerk' => [],
             'no_office_admin' => [],
-            'gso_end_user' => [$gsoAtCbo, $gsoAtGso],
+            'gso_end_user' => [$gsoAtCbo, $gsoAtGso, $gsoAtFree],
         ];
 
         foreach ($expectations as $key => $txs) {
@@ -308,18 +310,18 @@ class OfficeRoleMatrixTest extends TestCase
         }
     }
 
-    public function test_office_less_station_matrix(): void
+    public function test_blank_station_follows_the_transactions_office(): void
     {
         $tx = $this->makeTx($this->gso, $this->freeStep);
 
         $this->assertMatrix('detail GSO@free', [
             'superadmin' => 200,
             'gso_admin' => 200,      // own office's paper
-            'gso_clerk' => 200,
-            'cbo_clerk' => 200,      // office-less station: role-only
-            'hr_clerk' => 200,
-            'no_office_clerk' => 200,
-            'cbo_admin' => 403,      // admins get no office powers where no office applies
+            'gso_clerk' => 200,      // role + effective office
+            'cbo_clerk' => 403,      // role, wrong effective office
+            'hr_clerk' => 403,
+            'no_office_clerk' => 403,
+            'cbo_admin' => 403,
             'no_office_admin' => 403,
             'cbo_approver' => 403,
         ], fn () => $this->getJson("/api/admin/transactions/{$tx->id}"));
@@ -327,10 +329,10 @@ class OfficeRoleMatrixTest extends TestCase
         $this->assertMatrix('receive GSO@free', [
             'superadmin' => 200,
             'gso_clerk' => 200,
-            'cbo_clerk' => 200,
-            'hr_clerk' => 200,
-            'no_office_clerk' => 200,
-            'gso_admin' => 403,      // effective office is null -> role required
+            'gso_admin' => 200,      // office admin at the effective office
+            'cbo_clerk' => 403,
+            'hr_clerk' => 403,
+            'no_office_clerk' => 403,
             'cbo_admin' => 403,
             'cbo_approver' => 403,
         ], function () {
@@ -338,6 +340,32 @@ class OfficeRoleMatrixTest extends TestCase
 
             return $this->postJson("/api/admin/transactions/{$tx->id}/receive");
         });
+    }
+
+    public function test_blank_station_approvals_follow_the_transactions_office(): void
+    {
+        $this->makeTx($this->gso, $this->freeStep);
+
+        $expectations = [
+            'superadmin' => 1,
+            'gso_clerk' => 1,
+            'gso_admin' => 1,
+            'cbo_clerk' => 0,
+            'cbo_admin' => 0,
+            'hr_clerk' => 0,
+            'cbo_approver' => 0,
+            'no_office_clerk' => 0,
+        ];
+
+        foreach ($expectations as $key => $rows) {
+            Sanctum::actingAs($this->actor($key));
+
+            $inbox = $this->getJson('/api/approvals')->assertOk();
+            $this->assertCount($rows, $inbox->json('data'), "[approvals] {$key} inbox rows");
+
+            $badge = $this->getJson('/api/approvals/count')->assertOk();
+            $this->assertSame($rows, $badge->json('transactions'), "[approvals badge] {$key}");
+        }
     }
 
     public function test_approvals_inbox_and_badge_matrix(): void

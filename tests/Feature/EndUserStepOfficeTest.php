@@ -18,10 +18,10 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * End-user stations (marked with the step's end-user toggle) always follow
- * the transaction's office — for access and display — even when the
- * workflow template assigns a different office to the station. Office-less
- * stations also display the transaction's office.
+ * End-user stations (explicit toggle) and blank assignments always follow
+ * the transaction's Originating Office - for access and display - even when
+ * the workflow template assigns a different office to an end-user station.
+ * Legacy transactions with no origin keep role-only access to those stations.
  */
 class EndUserStepOfficeTest extends TestCase
 {
@@ -143,7 +143,7 @@ class EndUserStepOfficeTest extends TestCase
             'performed_at' => now(),
             'received_at' => now(),
             'received_by' => $this->creator->id,
-            'received_office_id' => $step->is_end_user ? $office->id : $step->office_id,
+            'received_office_id' => $tx->effectiveStepOfficeId($step),
             'sla_minutes_snapshot' => 0,
         ]);
 
@@ -251,9 +251,10 @@ class EndUserStepOfficeTest extends TestCase
             ->assertJsonPath('data.0.current_step.office.id', $this->csd->id);
     }
 
-    public function test_office_less_station_displays_under_the_transactions_office(): void
+    public function test_blank_station_follows_the_transactions_office(): void
     {
         $csdEndUser = $this->userWithRole($this->endUserRole, $this->csd);
+        $csdAdmin = $this->userWithRole($this->adminRole, $this->csd);
         $gsoAdmin = $this->userWithRole($this->adminRole, $this->gso);
         $hrAdmin = $this->userWithRole($this->adminRole, $this->hr);
         $tx = $this->makeTransaction($this->csd, $this->endUserStep);
@@ -272,6 +273,7 @@ class EndUserStepOfficeTest extends TestCase
             ->assertJsonPath('data.current_step.office_id', $this->csd->id)
             ->assertJsonPath('data.current_step.office.id', $this->csd->id);
 
+        Sanctum::actingAs($csdAdmin);
         $runs = collect($this->getJson("/api/transactions/{$tx->id}")->assertOk()->json('data.runs'));
         $intakeRun = $runs->firstWhere('to_step.id', $this->intakeStep->id);
         $this->assertNotNull($intakeRun);
@@ -291,9 +293,12 @@ class EndUserStepOfficeTest extends TestCase
             ->assertJsonPath('data.0.current_step.office_id', $this->csd->id)
             ->assertJsonPath('data.0.current_step.office.id', $this->csd->id);
 
-        // Office-less stations stay role-only: staff from any office with
-        // the role may view, receive and act on them.
+        // A blank station belongs to the transaction's originating office.
         Sanctum::actingAs($hrAdmin);
+        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        $this->postJson("/api/transactions/{$tx->id}/receive")->assertForbidden();
+
+        Sanctum::actingAs($csdAdmin);
         $this->getJson("/api/transactions/{$tx->id}")->assertOk();
         $this->postJson("/api/transactions/{$tx->id}/receive")->assertOk();
     }

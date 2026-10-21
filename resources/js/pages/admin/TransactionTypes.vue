@@ -110,7 +110,7 @@
             color="grey-darken-3"
             title="Available to every office"
           >
-            ALL Offices
+            Any Office
           </v-chip>
         </template>
 
@@ -324,7 +324,7 @@
             </div>
           </v-alert>
           <div v-if="isSuperadmin && !fieldErrors.office_ids" class="ntt-help">
-            ALL Offices means every office may create this type.
+            Any Office means every office may create this type.
           </div>
         </div>
 
@@ -397,14 +397,14 @@ const isSuperadmin = computed(() => (auth.user.value?.roles ?? []).some((r) => r
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
 const canManage = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
-// "ALL Offices" is the always-present first row. Storing no office rows means
+// "Any Office" is the always-present first row. Storing no office rows means
 // every office may use the type (see CreateTransactionRequest + the index
 // filter). The sentinel is UI-only: save() strips it back to an empty list.
 // Rows are two-line (code over full name): the chip shows `title` (the office
-// code, or "ALL Offices"), the dropdown row adds `subtitle` (full name).
+// code, or "Any Office"), the dropdown row adds `subtitle` (full name).
 const ALL_OFFICES = '__all__'
 const officeOptions = computed(() => [
-  { id: ALL_OFFICES, title: 'ALL Offices', subtitle: 'Available to every office' },
+  { id: ALL_OFFICES, title: 'Any Office', subtitle: 'Available to every office' },
   ...(offices.value || []).map((o) => ({
     id: o.id,
     title: o.code || o.name,
@@ -544,7 +544,7 @@ function clearFieldError(key) {
   fieldErrors.value = next
 }
 
-// ALL Offices and specific offices are mutually exclusive, and ALL is the
+// Any Office and specific offices are mutually exclusive, and Any is the
 // fallback so the field is never blank: picking ALL wins over a selection,
 // picking a real office while ALL is on drops ALL, and clearing the last
 // chip snaps back to ALL.
@@ -602,7 +602,7 @@ async function save() {
     }
     // Superadmin picks the offices; office admins keep their office's
     // existing assignments (backend enforces their office stays included).
-    // ALL Offices is stored as "no office rows" — the sentinel is UI-only.
+    // Any Office is stored as "no office rows" — the sentinel is UI-only.
     if (isSuperadmin.value) {
       payload.office_ids = (form.value.office_ids || []).filter((v) => v !== ALL_OFFICES)
     }
