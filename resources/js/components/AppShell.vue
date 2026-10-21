@@ -929,8 +929,11 @@ onUnmounted(() => {
     color: #1E40AF;
 }
 /* Page change: a short ease-in so the switch reads as one smooth move. */
+/* backwards, not both: once the move ends no transform is left on the
+   wrapper (even an identity transform makes it the containing block for
+   position: fixed, which boxed in full-page backdrops like the tracker's). */
 .page-enter {
-    animation: page-in 0.24s cubic-bezier(.2, .9, .25, 1) both;
+    animation: page-in 0.24s cubic-bezier(.2, .9, .25, 1) backwards;
 }
 @keyframes page-in {
     from { opacity: 0; transform: translateY(6px); }
@@ -968,6 +971,33 @@ onUnmounted(() => {
     display: none;
     width: 0;
     height: 0;
+}
+/* Collapsed rail: the clear strip above would push every item 6px off
+   centre, and each icon keeps a fixed slot plus spacer on its left. Centre
+   items and icons on the rail so they line up with the avatar and the
+   footer buttons below. (Expanded drawer is unaffected.) */
+:deep(.v-navigation-drawer--rail .v-navigation-drawer__content) {
+    padding-right: 0;
+}
+:deep(.v-navigation-drawer--rail .v-list-item) {
+    padding-inline: 0 !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "prepend" !important;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__prepend) {
+    margin-inline: 0;
+    justify-self: center;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__prepend > .v-icon),
+:deep(.v-navigation-drawer--rail .v-list-item__prepend > .v-badge) {
+    margin-inline: 0 !important;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__spacer),
+:deep(.v-navigation-drawer--rail .v-list-item__content) {
+    display: none;
+}
+:deep(.v-navigation-drawer--rail .nav-group-rule) {
+    margin-inline: 12px;
 }
 /* Sidebar profile */
 .nav-profile {

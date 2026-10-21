@@ -45,35 +45,39 @@
       <div class="d-flex flex-column table-stage" style="min-height: 510px">
       <v-data-table
         v-show="!loading"
+        v-model:page="page"
         :items="filtered"
         :loading="loading"
         :headers="headers"
         item-key="id"
         density="compact"
-        :items-per-page="7"
-        :items-per-page-options="[7]"
+        :items-per-page="PER_PAGE"
+        :items-per-page-options="[PER_PAGE]"
         hover
-        class="lgu-table table-pages"
+        class="lgu-table table-pages table-fixed-cols"
       >
         <template v-slot:[`item.name`]="{ item }">
-          <span class="cell-truncate font-weight-bold" :title="item.name">{{ item.name }}</span>
+          <span class="cell-wrap font-weight-bold">{{ item.name }}</span>
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
-          <span class="cell-truncate" :title="item.email">{{ item.email }}</span>
+          <span class="cell-wrap cell-wrap--any">{{ item.email }}</span>
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
-          <v-chip
-            v-for="r in item.roles || []"
-            :key="r.id"
-            rounded="0"
-            size="small"
-            variant="tonal"
-            class="mr-1"
-          >
-            {{ r.name }}
-          </v-chip>
+          <div v-if="(item.roles || []).length" class="chip-stack">
+            <v-chip
+              v-for="r in item.roles"
+              :key="r.id"
+              rounded="0"
+              size="small"
+              variant="tonal"
+              class="chip-wrap"
+            >
+              {{ r.name }}
+            </v-chip>
+          </div>
+          <span v-else class="text-medium-emphasis" title="No active role">—</span>
         </template>
 
         <template v-slot:[`item.office`]="{ item }">
@@ -83,7 +87,7 @@
             size="small"
             variant="tonal"
             color="primary"
-            class="font-weight-bold"
+            class="font-weight-bold chip-wrap"
           >
             {{ item.office?.name || officeNameById.get(Number(item.office_id)) }}
           </v-chip>
@@ -91,7 +95,7 @@
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
-          <v-chip v-if="item.pending_approval" color="warning" rounded="0" size="small" variant="tonal">
+          <v-chip v-if="item.pending_approval" color="warning" rounded="0" size="small" variant="tonal" class="chip-wrap">
             <v-icon start size="small">mdi-clock-outline</v-icon>
             Waiting for approval
           </v-chip>
@@ -213,7 +217,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
@@ -257,19 +261,36 @@ function lockReason(item) {
   return ''
 }
 
-const headers = [
-  { title: 'Name', key: 'name' },
-  { title: 'Email', key: 'email' },
-  { title: 'Roles', key: 'roles', sortable: false },
-  ...(officeMode ? [] : [{ title: 'Office', key: 'office', sortable: false }]),
-  { title: 'Status', key: 'is_active' },
-  { title: '', key: 'actions', sortable: false },
-]
+// Two icon buttons side by side plus cell padding; a waiting account's
+// three buttons wrap onto two lines.
+const ACTIONS_W = 132
+// Columns share the table's width by percentage (table-fixed-cols), so the
+// table flexes with the window and the sidebar; long names, emails, roles
+// and offices wrap inside their columns, and Status and the actions always
+// stay in view.
+const headers = officeMode
+  ? [
+      { title: 'Name', key: 'name', width: '30%' },
+      { title: 'Email', key: 'email', width: '25%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '18%' },
+      { title: 'Status', key: 'is_active', width: '13%' },
+      { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
+    ]
+  : [
+      { title: 'Name', key: 'name', width: '24%' },
+      { title: 'Email', key: 'email', width: '22%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
+      { title: 'Office', key: 'office', sortable: false, width: '17%' },
+      { title: 'Status', key: 'is_active', width: '12%' },
+      { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
+    ]
 
 const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
+const PER_PAGE = 7
+const page = ref(1)
 
 let navObserver = null
 
@@ -429,9 +450,26 @@ async function deactivate(item) {
   }
 }
 
+// Scroll only when there's enough to scroll: with fewer than SCROLL_FROM
+// rows on the current table page, the tab keeps the usual scroll lock;
+// from SCROLL_FROM rows up (wrapped rows can outgrow the screen) the page
+// scrolls. Defined after `filtered` and everything it reads.
+const SCROLL_FROM = 5
+const rowsOnPage = computed(() => {
+  const total = filtered.value.length
+  return Math.max(0, Math.min(PER_PAGE, total - (page.value - 1) * PER_PAGE))
+})
+watch(search, () => { page.value = 1 })
+watch(
+  rowsOnPage,
+  (n) => document.documentElement.classList.toggle('lock-scroll', n < SCROLL_FROM),
+  { immediate: true },
+)
+
 onMounted(() => {
-  // Full scroll lock for this tab: no bars and no scrolling anywhere.
-  document.documentElement.classList.add('lock-scroll')
+  // Scroll lock follows the rows on screen (see rowsOnPage): rows wrap to
+  // show full names, emails and offices, so a full page of users can be
+  // taller than the screen and then the page scrolls.
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
@@ -469,6 +507,50 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full text, wrapped within its column; the row grows to fit. Breaks
+   between words; a single word longer than the column still breaks. */
+.cell-wrap {
+  display: block;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  padding: 10px 0;
+}
+/* Emails have no spaces: let them break anywhere. */
+.cell-wrap--any {
+  overflow-wrap: anywhere;
+}
+/* Actions: always visible here (the global rule hides them while the
+   sidebar is open); with little room the buttons wrap instead. */
+.row-actions,
+:global(html.nav-open) .row-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: none !important;
+  flex-wrap: wrap;
+  gap: 8px !important;
+  min-width: 0;
+  padding: 6px 0;
+}
+.chip-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 0;
+}
+/* Chips that wrap long text instead of being cut at the column edge. */
+.chip-wrap {
+  height: auto !important;
+  min-height: 24px;
+  max-width: 100%;
+  padding-block: 3px;
+  white-space: normal;
+}
+.chip-wrap :deep(.v-chip__content) {
+  white-space: normal;
+  line-height: 1.3;
+}
 /* Hide the table's internal scrollbar; drawer expand can never create a
    visible horizontal bar — overflow is clipped, not scrolled. */
 .lgu-table {
