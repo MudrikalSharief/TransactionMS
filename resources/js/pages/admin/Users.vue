@@ -45,13 +45,14 @@
       <div class="d-flex flex-column table-stage" style="min-height: 510px">
       <v-data-table
         v-show="!loading"
+        v-model:page="page"
         :items="filtered"
         :loading="loading"
         :headers="headers"
         item-key="id"
         density="compact"
-        :items-per-page="7"
-        :items-per-page-options="[7]"
+        :items-per-page="PER_PAGE"
+        :items-per-page-options="[PER_PAGE]"
         hover
         class="lgu-table table-pages table-fixed-cols"
       >
@@ -216,7 +217,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
@@ -288,6 +289,8 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
+const PER_PAGE = 7
+const page = ref(1)
 
 let navObserver = null
 
@@ -447,10 +450,26 @@ async function deactivate(item) {
   }
 }
 
+// Scroll only when there's enough to scroll: with fewer than SCROLL_FROM
+// rows on the current table page, the tab keeps the usual scroll lock;
+// from SCROLL_FROM rows up (wrapped rows can outgrow the screen) the page
+// scrolls. Defined after `filtered` and everything it reads.
+const SCROLL_FROM = 5
+const rowsOnPage = computed(() => {
+  const total = filtered.value.length
+  return Math.max(0, Math.min(PER_PAGE, total - (page.value - 1) * PER_PAGE))
+})
+watch(search, () => { page.value = 1 })
+watch(
+  rowsOnPage,
+  (n) => document.documentElement.classList.toggle('lock-scroll', n < SCROLL_FROM),
+  { immediate: true },
+)
+
 onMounted(() => {
-  // No scroll lock on this tab (unlike the other table tabs): rows wrap to
-  // show full names, emails and offices, so a page of users can be taller
-  // than the screen and the page scrolls instead of cutting rows off.
+  // Scroll lock follows the rows on screen (see rowsOnPage): rows wrap to
+  // show full names, emails and offices, so a full page of users can be
+  // taller than the screen and then the page scrolls.
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
@@ -476,6 +495,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.documentElement.classList.remove('lock-scroll')
   document.documentElement.classList.remove('nav-open')
   try {
     navObserver?.disconnect?.()
