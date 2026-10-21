@@ -46,7 +46,7 @@ class WorkflowStagingService
 
         $draft = null;
 
-        DB::transaction(function () use ($source, $userId, $data, $typeId, $mode, $checklists, &$draft, &$applied) {
+        DB::transaction(function () use ($source, $userId, $data, $typeId, $checklists, $mode, &$draft, &$applied) {
             // Target is always the open draft (one-draft-max); create the
             // shell (cloned from latest published) when none exists yet.
             $draft = WorkflowDefinition::where('transaction_type_id', $typeId)

@@ -253,6 +253,7 @@ function storeRow(r, idx) {
         is_required: !!r.is_required,
         is_upload_required: r.is_upload_required ?? r.is_required ?? true,
         code: r.code ?? "",
+        name: r.name ?? "",
         description: r.description ?? "",
     };
 }

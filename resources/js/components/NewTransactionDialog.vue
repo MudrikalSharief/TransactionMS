@@ -44,7 +44,7 @@
 
           <div class="ntx-flow" :class="{ show: flowSteps.length }" aria-live="polite">
             <h4>Steps this transaction will follow <span>{{ flowSteps.length }} steps</span></h4>
-            <div>
+            <div class="ntx-steps">
               <div v-for="(s, i) in flowSteps" :key="s.id || i" class="ntx-st">
                 <span class="ntx-n">{{ i + 1 }}</span>
                 <div>
@@ -145,7 +145,10 @@ const flowSteps = computed(() => {
 })
 
 function officeLabel(step) {
-  return step?.office?.code || step?.office?.name || ''
+  // Blank and end-user stations both follow the transaction's Originating
+  // Office. Show the actual office when the type preview pins one.
+  if (step?.is_end_user) return "User's Office"
+  return step?.office?.code || step?.office?.name || "User's Office"
 }
 
 function reset() {
@@ -225,6 +228,17 @@ watch(
     })
   }
 )
+
+// The type-office allowlist governs who can create; the first station no
+// longer restricts the Originating Office. Superadmins keep the full list.
+watch(typeId, () => {
+  typeBad.value = false
+  if (!props.isSuperadmin) return
+  const valid = (props.officeOptions || []).some(
+    (o) => Number(o.id) === Number(officeId.value)
+  )
+  if (!valid) officeId.value = ''
+})
 
 onMounted(() => document.addEventListener('keydown', onKeydown, true))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
@@ -308,6 +322,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
   display: flex;
   align-items: flex-start;
   gap: 14px;
+  flex: none;
   padding: 22px 24px 14px;
 }
 .ntx-badge {
@@ -358,7 +373,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
 
 .ntx-bd {
   padding: 4px 24px 10px;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .ntx-f {
@@ -477,6 +493,21 @@ select.ntx-in {
 .ntx-flow h4 span {
   color: var(--ntx-blue);
 }
+.ntx-steps {
+  max-height: 72px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  margin-right: -6px;
+  scrollbar-gutter: stable;
+}
+.ntx-steps::-webkit-scrollbar {
+  width: 8px;
+}
+.ntx-steps::-webkit-scrollbar-thumb {
+  background: var(--ntx-line);
+  border-radius: 999px;
+}
 .ntx-st {
   display: flex;
   gap: 12px;
@@ -568,6 +599,7 @@ select.ntx-in {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  flex: none;
   padding: 16px 24px 20px;
   border-top: 1px solid var(--ntx-line);
 }

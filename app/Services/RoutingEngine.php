@@ -31,8 +31,8 @@ class RoutingEngine
         // Finalized transactions are view-only — no actions at all.
         if ((bool) ($tx->is_done ?? false)) return [];
 
-        // Pending receipt locks the station: destination office must click
-        // Receive before any Proceed/return/jump action is offered.
+        // Pending receipt locks the station: the destination station's
+        // assigned office must click Receive before any action is offered.
         if ($this->hasPendingReceipt($tx)) return [];
 
         if (!$this->userCanWorkOnStep($tx, $user, (int) $currentStep->id)) {
@@ -108,7 +108,8 @@ class RoutingEngine
 
     /**
      * True when the latest forward has not been received yet.
-     * Used to lock Proceed actions until the destination office receives.
+     * Used to lock Proceed actions until the destination station's
+     * assigned office receives.
      */
     public function hasPendingReceipt(Transaction $tx): bool
     {
@@ -327,13 +328,10 @@ class RoutingEngine
         $tx->loadMissing(['workflow.steps', 'workflow.stepRoles.role', 'office']);
 
         $step = $tx->workflow?->steps?->firstWhere('id', $stepId);
-        $effectiveOfficeId = $step ? $tx->effectiveStepOfficeId($step) : null;
+        $assignedOfficeId = $step ? $tx->effectiveStepOfficeId($step) : null;
 
-        // Office admins act on any station parked at their office, role aside,
-        // and at step 1 of requests their office filed, even when step 1 has no office.
-        if ($this->isOfficeAdminFor($effectiveOfficeId, $user)) return true;
-        $isStepOne = $step && ((bool) $step->is_start || (int) $step->order_number === 1);
-        if ($isStepOne && $user->isOfficeAdmin() && (int) $tx->office_id === (int) $user->office_id) return true;
+        // Office admins act on any station assigned to their office, role aside.
+        if ($this->isOfficeAdminFor($assignedOfficeId, $user)) return true;
 
         $allowedRoleIds = $tx->workflow->stepRoles
             ->where('workflow_step_id', $stepId)
@@ -347,7 +345,7 @@ class RoutingEngine
 
         if ($allowedRoleIds->intersect($userRoleIds)->isEmpty()) return false;
 
-        return $this->stepOfficeMatchesUser($effectiveOfficeId, $user);
+        return $this->stepOfficeMatchesUser($assignedOfficeId, $user);
     }
 
     private function isOfficeAdminFor(?int $officeId, User $user): bool
@@ -360,10 +358,14 @@ class RoutingEngine
 
     private function stepOfficeMatchesUser(?int $officeId, User $user): bool
     {
-        if ($user->office_id === null) return true;
+        // No resolved office means a legacy transaction with no Originating
+        // Office; keep those blank/end-user stations role-only.
         if ($officeId === null) return true;
 
-        return (int) $officeId === (int) $user->office_id;
+        // All other stations require the user to belong to the effective
+        // office. Users without an office cannot work an office-bound station.
+        return $user->office_id !== null
+            && (int) $officeId === (int) $user->office_id;
     }
 
     private function routeConditionPasses(WorkflowRoute $route, array $context): bool
