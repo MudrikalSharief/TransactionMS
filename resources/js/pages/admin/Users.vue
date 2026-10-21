@@ -448,8 +448,9 @@ async function deactivate(item) {
 }
 
 onMounted(() => {
-  // Full scroll lock for this tab: no bars and no scrolling anywhere.
-  document.documentElement.classList.add('lock-scroll')
+  // No scroll lock on this tab (unlike the other table tabs): rows wrap to
+  // show full names, emails and offices, so a page of users can be taller
+  // than the screen and the page scrolls instead of cutting rows off.
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
@@ -475,7 +476,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  document.documentElement.classList.remove('lock-scroll')
   document.documentElement.classList.remove('nav-open')
   try {
     navObserver?.disconnect?.()
