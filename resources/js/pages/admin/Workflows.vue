@@ -1398,15 +1398,19 @@ const officeNameById = computed(() => {
     return m;
 });
 
+// The ids are the truth: a staged edit changes office_id / role_ids but the
+// row keeps the loaded `office` / `roles` objects, so read the ids first and
+// use the objects only as a fallback (e.g. an office missing from the list).
 function officeName(item) {
-    if (item?.office?.name) return item.office.name;
     if (item?.office_id == null) return "";
-    return officeNameById.value.get(Number(item.office_id)) || "";
+    const byId = officeNameById.value.get(Number(item.office_id));
+    if (byId) return byId;
+    return Number(item?.office?.id) === Number(item.office_id) ? item.office.name || "" : "";
 }
 
 function roleNames(item) {
     const hiddenId = endUserRoleId.value;
-    if (Array.isArray(item?.roles) && item.roles.length)
+    if (!Array.isArray(item?.role_ids) && Array.isArray(item?.roles) && item.roles.length)
         return item.roles
             .filter((r) => r.code !== "end_user" && Number(r.id) !== hiddenId)
             .map((r) => r.name || r.code);
@@ -1885,8 +1889,12 @@ async function editStep(item) {
     notice.value = "";
     saving.value = true;
     try {
+        // Reopen the working copy's row when there is one, so staged edits
+        // (roles, office, ...) show again instead of the last saved values.
+        const key = String(item?.client_id ?? item?.id);
+        const staged = (stagingBucket.value?.steps || []).find((s) => String(s.client_id ?? s.id) === key);
         const oldSteps = activeDef.value?.steps || [];
-        openStepDialog(stepInDraft(oldSteps, item));
+        openStepDialog(staged || stepInDraft(oldSteps, item));
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to prepare step form.";
     } finally {
