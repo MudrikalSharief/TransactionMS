@@ -467,6 +467,7 @@
             is-admin
             :attachments="tx?.attachments || []"
             :workflow-steps="tx?.workflow_steps || []"
+            :workflow-routes="tx?.workflow_routes || []"
             :current-step-id="tx?.current_step?.id"
             @deleted="removeAttachment"
         />

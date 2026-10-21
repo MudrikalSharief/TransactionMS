@@ -300,6 +300,8 @@ class PurchaseRequestSetupSeeder extends Seeder
                 ->where('workflow_step_id', $step->id)
                 ->whereNotIn('role_id', $roleIds ?: [0])
                 ->delete();
+
+            $step->update(['is_end_user' => in_array('end_user', $roleCodes, true)]);
         }
     }
 }

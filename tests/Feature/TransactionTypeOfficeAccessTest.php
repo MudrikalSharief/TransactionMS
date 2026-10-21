@@ -181,6 +181,7 @@ class TransactionTypeOfficeAccessTest extends TestCase
             'order_number' => 2,
             'code' => 'second',
             'name' => 'Second step',
+            'is_end_user' => true,
         ]);
         $second->roles()->attach(
             Role::firstOrCreate(['code' => 'end_user'], ['name' => 'End User'])->id

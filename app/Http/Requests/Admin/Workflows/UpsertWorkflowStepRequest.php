@@ -22,6 +22,7 @@ class UpsertWorkflowStepRequest extends FormRequest
             'sla_minutes' => ['required', 'integer', 'min:0'],
             'is_start' => ['sometimes', 'boolean'],
             'is_end' => ['sometimes', 'boolean'],
+            'is_end_user' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', 'exists:roles,id'],
         ];

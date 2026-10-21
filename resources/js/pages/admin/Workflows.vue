@@ -79,6 +79,18 @@
                                             >
                                                 SELECT VERSION
                                             </v-btn>
+                                            <v-btn
+                                                v-else-if="d.status === 'draft'"
+                                                size="x-small"
+                                                variant="flat"
+                                                color="success"
+                                                rounded="0"
+                                                class="font-weight-bold"
+                                                v-tooltip="'Publish this draft as the live version for new transactions'"
+                                                @click="versionDialog = false; publishDraft(d)"
+                                            >
+                                                PUBLISH
+                                            </v-btn>
                                         </template>
                                     </v-list-item>
                                 </v-list>
@@ -110,8 +122,8 @@
                         Discard
                     </v-btn>
                     <v-btn
-                        variant="outlined"
-                        color="grey-darken-3"
+                        variant="flat"
+                        color="primary"
                         rounded="0"
                         size="small"
                         prepend-icon="mdi-content-save-plus-outline"
@@ -123,6 +135,19 @@
                     >
                         Save version
                         <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
+                    </v-btn>
+                    <v-btn
+                        v-if="activeDef?.status === 'draft' && !stagingDirty"
+                        variant="flat"
+                        color="success"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-upload"
+                        :disabled="saving"
+                        v-tooltip="'Publish this saved draft as the live version for new transactions'"
+                        @click="publishDraft(activeDef)"
+                    >
+                        Publish
                     </v-btn>
                 </div>
             </v-card-title>
@@ -257,6 +282,16 @@
                             {{ officeName(item) }}
                         </v-chip>
                         <span v-else class="text-medium-emphasis">User's Office</span>
+                    </template>
+                    <template v-slot:[`item.is_end_user`]="{ item }">
+                        <v-switch
+                            :model-value="!!item.is_end_user"
+                            color="success"
+                            density="compact"
+                            hide-details
+                            inset
+                            @update:model-value="toggleEndUser(item, $event)"
+                        />
                     </template>
                     <template v-slot:[`item.role_ids`]="{ item }">
                         <div class="d-flex flex-wrap ga-1">
@@ -1019,13 +1054,34 @@
                                 <span class="sv-radio" aria-hidden="true"></span>
                                 <span class="sv-opt-body">
                                     <span class="sv-opt-title">
-                                        {{ activeDef ? "Overwrite current draft" : "Save as draft version 1" }}
-                                        <span class="sv-tag sv-tag-draft">Stays draft</span>
+                                        {{
+                                            activeDef
+                                                ? isLiveDef(activeDef)
+                                                    ? "Overwrite live version"
+                                                    : "Overwrite current draft"
+                                                : "Save as draft version 1"
+                                        }}
+                                        <span
+                                            class="sv-tag"
+                                            :class="
+                                                activeDef && isLiveDef(activeDef)
+                                                    ? 'sv-tag-live'
+                                                    : 'sv-tag-draft'
+                                            "
+                                        >
+                                            {{
+                                                activeDef && isLiveDef(activeDef)
+                                                    ? "Publishes live"
+                                                    : "Stays draft"
+                                            }}
+                                        </span>
                                     </span>
                                     <span class="sv-opt-desc">
                                         {{
                                             activeDef
-                                                ? "Updates the open draft in place. The version number stays the same."
+                                                ? isLiveDef(activeDef)
+                                                    ? "Updates the running workflow in place and publishes automatically. The old version is kept."
+                                                    : "Updates the open draft in place. The version number stays the same."
                                                 : "Creates version 1 as a draft. It is not live until you publish it."
                                         }}
                                     </span>
@@ -1055,9 +1111,21 @@
                                 </span>
                             </label>
                         </div>
-                        <div v-if="saveMode === 'create-new'" class="sv-warn">
+                        <div
+                            v-if="
+                                saveMode === 'create-new' ||
+                                (saveMode === 'overwrite' && isLiveDef(activeDef))
+                            "
+                            class="sv-warn"
+                        >
                             <v-icon size="18" color="warning">mdi-alert-outline</v-icon>
-                            <span>This goes live immediately for everyone who uses this workflow.</span>
+                            <span>
+                                {{
+                                    saveMode === "create-new"
+                                        ? "This goes live immediately for everyone who uses this workflow."
+                                        : "Overwriting the live version goes live immediately for everyone who uses this workflow."
+                                }}
+                            </span>
                         </div>
                     </section>
 
@@ -1195,6 +1263,7 @@ const {
     loading,
     fetchDefinitions,
     createDraft,
+    publish,
     makeLive,
 } = useWorkflows();
 
@@ -1291,7 +1360,10 @@ const guideSections = [
 ];
 
 const roleOptions = computed(
-    () => (roles.value || []).map((r) => ({ id: r.id, label: `${r.name}` })), // use ${r.code} to show Role Code
+    () =>
+        (roles.value || [])
+            .filter((r) => r.code !== "end_user")
+            .map((r) => ({ id: r.id, label: `${r.name}` })), // use ${r.code} to show Role Code
 );
 
 // UI-only value for the explicit User's Office row. The stored step office
@@ -1315,6 +1387,11 @@ const roleNameById = computed(() => {
     return m;
 });
 
+const endUserRoleId = computed(() => {
+    const found = (roles.value || []).find((r) => r.code === "end_user");
+    return found ? Number(found.id) : null;
+});
+
 const officeNameById = computed(() => {
     const m = new Map();
     for (const o of (offices.value || [])) m.set(Number(o.id), o.name || o.code);
@@ -1328,11 +1405,15 @@ function officeName(item) {
 }
 
 function roleNames(item) {
+    const hiddenId = endUserRoleId.value;
     if (Array.isArray(item?.roles) && item.roles.length)
-        return item.roles.map((r) => r.name || r.code);
-    return (item?.role_ids || []).map(
-        (id) => roleNameById.value.get(Number(id)) || `#${id}`,
-    );
+        return item.roles
+            .filter((r) => r.code !== "end_user" && Number(r.id) !== hiddenId)
+            .map((r) => r.name || r.code);
+    return (item?.role_ids || [])
+        .map(Number)
+        .filter((id) => id !== hiddenId)
+        .map((id) => roleNameById.value.get(id) || `#${id}`);
 }
 
 const selectedTypeName = computed(() => {
@@ -1549,11 +1630,11 @@ const parentStepItems = computed(() => [
 
 const stepHeaders = [
     { title: "#", key: "order_number" },
-    { title: "Code", key: "code" },
     { title: "Name", key: "name" },
     { title: "Stage", key: "stage" },
     { title: "SLA (min)", key: "sla_minutes" },
     { title: "Assigned Office", key: "office_id", sortable: false },
+    { title: "End User", key: "is_end_user", sortable: false },
     { title: "Roles", key: "role_ids", sortable: false },
     { title: "Flags", key: "flags", sortable: false },
     { title: "", key: "actions", sortable: false },
@@ -1638,6 +1719,37 @@ function askMakeLive(d) {
     notice.value = "";
     liveTarget.value = d;
     liveDialog.value = true;
+}
+
+// Publish the open draft (saved, no staged edits). A draft that still has
+// staged edits must be saved as a new live version instead, so the staged
+// rows and the publish happen atomically.
+async function publishDraft(d) {
+    if (!d || d.status !== "draft") return;
+    error.value = "";
+    notice.value = "";
+    if (stagingDirty.value && Number(activeDef.value?.id) === Number(d.id)) {
+        notice.value = "You have staged edits. Use Save version and choose 'Create new version' to publish them.";
+        return;
+    }
+    const ok = await confirm({
+        title: "Publish this draft?",
+        message: `Publish v${d.version} as the live version? New transactions will use it; running transactions stay on their current version.`,
+        confirmLabel: "Publish",
+        tone: "success",
+    });
+    if (!ok) return;
+    saving.value = true;
+    try {
+        await publish(d.id, {});
+        await fetchDefinitions(selectedTypeId.value);
+        selectEffective();
+        notice.value = `v${d.version} published - new transactions will use it.`;
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Publishing failed.";
+    } finally {
+        saving.value = false;
+    }
 }
 
 async function confirmMakeLive() {
@@ -1868,8 +1980,9 @@ async function editRoute(route) {
 const saveDialog = ref(false);
 const saveName = ref("");
 const saveNotes = ref("");
-// Overwrite = persist staged edits onto the open draft (stays draft, same
-// version). Create new = persist + publish as a new live version.
+// Overwrite = persist staged edits onto the open draft. Editing the live
+// version publishes automatically (new version, old kept); editing a draft
+// keeps it a draft. Create new = persist + publish as a new live version.
 const saveMode = ref("overwrite");
 // Dialog-scoped feedback so save errors are visible inside the modal
 // instead of on the page banner behind it.
@@ -2021,6 +2134,7 @@ const saveSubmitLabel = computed(() => {
     if (saveMode.value === "create-new") {
         return activeDef.value ? "Publish new version" : "Publish version 1";
     }
+    if (isLiveDef(activeDef.value)) return "Save & publish";
     return activeDef.value ? "Save draft" : "Create draft";
 });
 
@@ -2081,7 +2195,7 @@ async function confirmSave() {
         } else if (meta?.message) {
             notice.value = meta.message;
         } else {
-            notice.value = "Saved to the open draft — not live yet. Use Make live (or save as a new version) when ready.";
+            notice.value = "Saved to the open draft — not live yet. Press Publish (or save as a new version) when ready.";
         }
     } catch (e) {
         saveError.value =
@@ -2126,6 +2240,30 @@ function toggleRole(id) {
     const cur = (stepForm.value.role_ids || []).map(Number);
     const n = Number(id);
     stepForm.value.role_ids = cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n];
+}
+
+function roleIdsWithEndUser(roleIds, isEndUser) {
+    const next = (roleIds || []).map(Number);
+    const endUserRoleId = Number((roles.value || []).find((r) => r.code === "end_user")?.id);
+    if (!endUserRoleId) return next;
+    const at = next.indexOf(endUserRoleId);
+    if (isEndUser && at === -1) next.push(endUserRoleId);
+    if (!isEndUser && at !== -1) next.splice(at, 1);
+    return next;
+}
+
+function toggleEndUser(item, value) {
+    if (!selectedTypeId.value) return;
+    if (!stagingBucket.value || stagingBucket.value.sourceDefId == null) seedFromActiveDef();
+    error.value = "";
+    staging.upsertStep(selectedTypeId.value, {
+        id: item.id,
+        is_end_user: !!value,
+        role_ids: roleIdsWithEndUser(item.role_ids ?? item.roles?.map?.((r) => r.id), value),
+    });
+    notice.value = value
+        ? "End user station staged — press Save version to persist it."
+        : "End user toggle staged off — press Save version to persist it.";
 }
 
 // SLA duration (picker-only, up to 30 days).
@@ -2290,6 +2428,7 @@ function openStepDialog(step = null) {
             sla_minutes: step.sla_minutes ?? 0,
             is_start: !!step.is_start,
             is_end: !!step.is_end,
+            is_end_user: !!step.is_end_user,
             role_ids: [...(step.role_ids ?? step.roles?.map?.((r) => r.id) ?? [])],
         };
     } else {
@@ -2304,6 +2443,7 @@ function openStepDialog(step = null) {
             sla_minutes: 60,
             is_start: false,
             is_end: false,
+            is_end_user: false,
             role_ids: [],
         };
     }
@@ -2346,6 +2486,7 @@ function saveStep() {
         sla_minutes: slaTotal.value,
         is_start: !!stepForm.value.is_start,
         is_end: !!stepForm.value.is_end,
+        is_end_user: !!stepForm.value.is_end_user,
         role_ids: (stepForm.value.role_ids || []).map(Number),
     });
     stepDialog.value = false;

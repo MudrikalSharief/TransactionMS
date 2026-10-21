@@ -24,17 +24,19 @@ class WorkflowStep extends Model
         'sla_minutes',
         'is_start',
         'is_end',
+        'is_end_user',
     ];
 
     protected $casts = [
         'is_start' => 'boolean',
         'is_end' => 'boolean',
+        'is_end_user' => 'boolean',
     ];
 
     /**
      * SQL prefilter for the current station's effective office.
      *
-     * A fixed office applies unless the station has the end_user role; blank
+     * A fixed office applies unless the station is marked end-user; blank
      * assignments and end-user stations follow the transaction's Originating
      * Office. Used inside whereHas('state.currentStep') queries so the list
      * pages match RoutingEngine::userCanWorkOnStep without loading everything.
@@ -48,12 +50,12 @@ class WorkflowStep extends Model
         return $query->where(function (Builder $x) use ($officeId) {
             $x->where(function (Builder $y) use ($officeId) {
                 $y->where('workflow_steps.office_id', $officeId)
-                    ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    ->where('workflow_steps.is_end_user', false);
             })->orWhere(function (Builder $y) use ($officeId) {
                 $y->where('transactions.office_id', $officeId)
                     ->where(function (Builder $z) {
                         $z->whereNull('workflow_steps.office_id')
-                            ->orWhereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                            ->orWhere('workflow_steps.is_end_user', true);
                     });
             });
         });
@@ -69,7 +71,7 @@ class WorkflowStep extends Model
         return $query->whereNull('transactions.office_id')
             ->where(function (Builder $x) {
                 $x->whereNull('workflow_steps.office_id')
-                    ->orWhereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
+                    ->orWhere('workflow_steps.is_end_user', true);
             });
     }
 

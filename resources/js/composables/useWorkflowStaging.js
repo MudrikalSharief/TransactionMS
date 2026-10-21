@@ -789,6 +789,7 @@ export function useWorkflowStaging() {
             sla_minutes: Number(s.sla_minutes ?? 0),
             is_start: !!s.is_start,
             is_end: !!s.is_end,
+            is_end_user: !!s.is_end_user,
             role_ids: (s.role_ids ?? s.roles?.map?.((r) => r.id) ?? []).map(Number),
         }))
         const routes_upsert = b.routes.map((r) => ({
