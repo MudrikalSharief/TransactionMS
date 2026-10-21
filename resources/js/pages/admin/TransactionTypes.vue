@@ -38,18 +38,19 @@
         :items-per-page="7"
         :items-per-page-options="[7]"
         hover
-        class="lgu-table table-pages"
+        class="lgu-table table-pages table-fixed-cols"
       >
         <template v-slot:[`item.code`]="{ item }">
-          <span class="cell-truncate code-cap" :title="item.code">{{ item.code }}</span>
+          <!-- Line breaks go after the underscores: procurement_it_ / equipment -->
+          <span class="cell-wrap cell-wrap--any"><template v-for="(part, i) in String(item.code || '').split('_')" :key="i">{{ i ? '_' : '' }}<wbr v-if="i" />{{ part }}</template></span>
         </template>
 
         <template v-slot:[`item.name`]="{ item }">
-          <span class="cell-truncate name-cap font-weight-bold" :title="item.name">{{ item.name }}</span>
+          <span class="cell-wrap font-weight-bold">{{ item.name }}</span>
         </template>
 
         <template v-slot:[`item.description`]="{ item }">
-          <span class="desc-full text-medium-emphasis" :title="item.description || ''">{{ item.description || '—' }}</span>
+          <span class="cell-wrap text-medium-emphasis">{{ item.description || '—' }}</span>
         </template>
 
         <template v-slot:[`item.steps`]="{ item }">
@@ -66,7 +67,7 @@
             size="small"
             variant="tonal"
             color="primary"
-            class="font-weight-bold"
+            class="font-weight-bold chip-wrap"
             :clickable="isSuperadmin"
             @click="goSteps(item)"
           >
@@ -89,7 +90,7 @@
         </template>
 
         <template v-slot:[`item.offices`]="{ item }">
-          <div v-if="(item.offices || []).length" class="d-flex flex-wrap ga-1 office-chips">
+          <div v-if="(item.offices || []).length" class="chip-stack">
             <v-chip
               v-for="o in item.offices"
               :key="o.id"
@@ -97,7 +98,7 @@
               size="small"
               variant="tonal"
               color="grey-darken-3"
-              :title="o.name"
+              class="chip-wrap"
             >
               {{ o.name }}
             </v-chip>
@@ -108,6 +109,7 @@
             size="small"
             variant="tonal"
             color="grey-darken-3"
+            class="chip-wrap"
             title="Available to every office"
           >
             Any Office
@@ -122,6 +124,7 @@
                 rounded="0"
                 size="small"
                 variant="tonal"
+                class="chip-wrap"
                 v-bind="props"
               >
                 <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
@@ -414,14 +417,17 @@ const officeOptions = computed(() => [
 // Only `subtitle` is injected — Vuetify keeps item-title as the row title.
 const officeItemProps = (item) => ({ subtitle: item.subtitle })
 
+// Fixed columns (table-fixed-cols): each column keeps its share of the width
+// and long text wraps inside it, so no column is pushed off screen.
+// Description takes what's left after the others.
 const headers = [
-  { title: 'Code', key: 'code' },
-  { title: 'Name', key: 'name' },
+  { title: 'Code', key: 'code', width: '14%' },
+  { title: 'Name', key: 'name', width: '15%' },
   { title: 'Description', key: 'description' },
-  { title: 'Steps', key: 'steps', sortable: false },
-  { title: 'Office(s)', key: 'offices', sortable: false },
-  { title: 'Status', key: 'is_active' },
-  { title: '', key: 'actions', sortable: false },
+  { title: 'Steps', key: 'steps', sortable: false, width: '10%' },
+  { title: 'Office(s)', key: 'offices', sortable: false, width: '19%' },
+  { title: 'Status', key: 'is_active', width: '10%' },
+  { title: '', key: 'actions', sortable: false, width: 132, align: 'end' },
 ]
 
 // Latest workflow version per type → its ordered 1-2-3 steps,
@@ -699,29 +705,36 @@ onUnmounted(() => {
 .lgu-table :deep(table) {
   width: 100%;
 }
-/* Description uses the freed space and wraps — capped at 2 lines so a
-   long description can never stretch rows past the 60px rhythm and break
-   card equality (full text stays on hover via title). */
-.desc-full {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* Full text in every column, wrapped inside its own width (same rules as
+   the Users and Roles tables); the row grows to fit. */
+.cell-wrap {
+  display: block;
   white-space: normal;
-  word-break: break-word;
+  overflow-wrap: break-word;
   line-height: 1.4;
+  padding: 10px 0;
 }
-/* Slim columns stay capped so Description + Offices get the full leftover. */
-.code-cap {
-  max-width: 140px;
+/* Codes have no spaces (procurement_it_equipment): break anywhere. */
+.cell-wrap--any {
+  overflow-wrap: anywhere;
 }
-.name-cap {
-  max-width: 180px;
+.chip-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 0;
 }
-/* Offices fully show: wrap to as many lines as needed, no ellipsis cap. */
-.office-chips {
-  min-width: 0;
+/* Chips wrap long office names instead of being cut at the column edge. */
+.chip-wrap {
+  height: auto !important;
+  min-height: 24px;
   max-width: 100%;
+  padding-block: 3px;
+  white-space: normal;
+}
+.chip-wrap :deep(.v-chip__content) {
+  white-space: normal;
+  line-height: 1.3;
 }
 /* Row actions stay visible normally. They only duck away (with a quick
    blink) while the left navbar is expanded — hovering it or toggled open —
