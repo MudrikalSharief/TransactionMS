@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
 import { readCache, writeCache, invalidateCache, invalidatePrefix, CacheKeys } from "@/composables/useCache";
 import { clearAllStaging } from "@/composables/useWorkflowStaging";
+import { markLoginNotice, clearLoginNotice } from "@/composables/useLoginNotice";
 
 const user = ref(null);
 const initialized = ref(false);
@@ -100,7 +101,10 @@ export function useAuth() {
         // the network and paint THIS user, never flash the last one.
         invalidateCache(CacheKeys.authUser);
         await csrf();
-        await api.post("/api/auth/login", { email, password, remember });
+        const res = await api.post("/api/auth/login", { email, password, remember });
+        // First page after sign-in shows the approvals notice (clerks). Mark
+        // it before init(): the notice reacts as soon as the user is set.
+        if (res.data?.user?.id) markLoginNotice(res.data.user.id);
 
         await init();
 
@@ -133,6 +137,7 @@ export function useAuth() {
             invalidatePrefix(CacheKeys.myTransactions);
             invalidatePrefix(CacheKeys.approvalCount);
             clearAllStaging();
+            clearLoginNotice();
         }
     }
 

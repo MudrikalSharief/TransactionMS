@@ -313,6 +313,7 @@
 
         <ConfirmDialog />
         <AppToaster />
+        <LoginApprovalNotice />
     </v-app>
 </template>
 
@@ -326,6 +327,7 @@ import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
+import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
 import OfflineBar from "@/components/OfflineBar.vue";
 import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
