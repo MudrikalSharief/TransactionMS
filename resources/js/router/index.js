@@ -32,6 +32,7 @@ const Help = () => import("@/pages/Help.vue");
 // tracking pages.
 const PortalHome = () => import("@/pages/portal/PortalHome.vue");
 const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
+const PortalApprovals = () => import("@/pages/portal/PortalApprovals.vue");
 const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
 const TrackList = () => import("@/pages/track/TrackList.vue");
 const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
@@ -77,6 +78,13 @@ export function createRouter() {
                 name: "portal.transactions",
                 component: PortalTransactions,
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
+            },
+            {
+                // Clerk approvals list (same access rule as /approvals).
+                path: "/portal/approvals",
+                name: "portal.approvals",
+                component: PortalApprovals,
+                meta: { requiresAuth: true, title: "Approvals", kind: "staff" },
             },
             {
                 // Short opening animation for viewers; `bare` hides the app chrome.
@@ -236,7 +244,7 @@ export function createRouter() {
                 return "/portal";
             }
         }
-        if (to.name === "approvals" && !canUseApprovals(auth.user.value))
+        if ((to.name === "approvals" || to.name === "portal.approvals") && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
         const isSuperadmin = isSuperadminUser(auth.user.value);
         if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };

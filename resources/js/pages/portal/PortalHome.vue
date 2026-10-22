@@ -105,14 +105,14 @@
                 </v-card>
             </v-col>
 
-            <!-- Latest in my office -->
+            <!-- In my office (oldest 3 first, like Needs My Action) -->
             <v-col cols="12" lg="6" class="d-flex">
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
                             <v-icon color="#1E40AF" size="24">mdi-office-building-outline</v-icon>
                         </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Latest In My Office</span>
+                        <span class="text-subtitle-1 font-weight-bold">In My Office</span>
                         <v-spacer />
                         <v-btn variant="text" size="small" color="grey-darken-3" append-icon="mdi-arrow-right" @click="openList('office')">
                             View all
@@ -201,18 +201,41 @@ function openList(tab) {
     router.push({ path: "/portal/transactions", query: { tab } });
 }
 
+// Home is a summary: each list shows at most 3 rows, the oldest first
+// (ascending by creation time). The lists come newest-first from the server,
+// so the oldest rows sit on the last page(s): read page 1 for the total,
+// then the last page, plus the one before it when the last page is short.
+const SUMMARY_ROWS = 3;
+
+const byCreatedAsc = (a, b) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || Number(a.id) - Number(b.id);
+
+async function oldestRows(url) {
+    const params = { per_page: SUMMARY_ROWS };
+    const first = await api.get(url, { params });
+    const total = first.data?.meta?.total ?? (first.data?.data ?? []).length;
+    const last = first.data?.meta?.last_page ?? 1;
+    let rows = first.data?.data ?? [];
+    if (last > 1) {
+        const pages = total % SUMMARY_ROWS ? [last - 1, last] : [last];
+        const res = await Promise.all(pages.map((page) => api.get(url, { params: { ...params, page } })));
+        rows = res.flatMap((r) => r.data?.data ?? []);
+    }
+    return { rows: [...rows].sort(byCreatedAsc).slice(0, SUMMARY_ROWS), total };
+}
+
 async function load() {
     const [sum, queue, office] = await Promise.allSettled([
         api.get("/api/portal/summary"),
-        api.get("/api/transactions", { params: { per_page: 5 } }),
-        api.get("/api/admin/transactions", { params: { per_page: 5 } }),
+        oldestRows("/api/transactions"),
+        oldestRows("/api/admin/transactions"),
     ]);
     if (sum.status === "fulfilled") summary.value = sum.value.data;
     if (queue.status === "fulfilled") {
-        actionRows.value = queue.value.data?.data ?? [];
-        actionTotal.value = queue.value.data?.meta?.total ?? actionRows.value.length;
+        actionRows.value = queue.value.rows;
+        actionTotal.value = queue.value.total;
     }
-    if (office.status === "fulfilled") officeRows.value = office.value.data?.data ?? [];
+    if (office.status === "fulfilled") officeRows.value = office.value.rows;
     loading.value = false;
 }
 

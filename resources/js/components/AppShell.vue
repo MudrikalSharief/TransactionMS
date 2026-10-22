@@ -155,11 +155,35 @@
                         :key="item.to"
                         :to="item.to"
                         :exact="!!item.exact"
-                        :prepend-icon="item.icon"
+                        :prepend-icon="item.badge == null ? item.icon : undefined"
                         rounded="lg"
-                        v-tooltip:end="rail ? item.title : undefined"
+                        v-tooltip:end="rail ? (item.badge ? `${item.title} · ${item.badgeLabel}` : item.title) : undefined"
                     >
+                        <!-- Items with a count (clerk Approvals): small red badge on
+                             the icon in the rail, a red chip when the menu is open. -->
+                        <template v-if="item.badge != null" #prepend>
+                            <v-badge
+                                :model-value="rail && item.badge > 0"
+                                :content="item.badge > 99 ? '99+' : item.badge"
+                                color="error"
+                                class="approvals-badge"
+                            >
+                                <v-icon>{{ item.icon }}</v-icon>
+                            </v-badge>
+                        </template>
                         <v-list-item-title>{{ item.title.toUpperCase() }}</v-list-item-title>
+                        <template v-if="item.badge != null" #append>
+                            <v-chip
+                                v-if="!rail && item.badge > 0"
+                                size="x-small"
+                                color="error"
+                                variant="flat"
+                                class="font-weight-bold"
+                                v-tooltip="item.badgeLabel"
+                            >
+                                {{ item.badge > 99 ? "99+" : item.badge }}
+                            </v-chip>
+                        </template>
                     </v-list-item>
                 </template>
                 <v-list-item
@@ -358,9 +382,22 @@ const navGroups = computed(() => {
         return [{ title: "Track", items: [{ title: "Track Transactions", icon: "mdi-map-marker-path", to: "/track" }] }];
     }
     if (kind.value === "staff") {
+        const work = [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }];
+        // Clerks (anyone who may approve; end users can't) get their
+        // approvals list, with the number of transactions waiting on them.
+        if (showApprovals.value) {
+            const n = pendingTransactions.value;
+            work.push({
+                title: "Approvals",
+                icon: "mdi-clipboard-check-multiple-outline",
+                to: "/portal/approvals",
+                badge: n,
+                badgeLabel: `${n} transaction${n === 1 ? "" : "s"} waiting for your approval`,
+            });
+        }
         return [
             { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
-            { title: "Work", items: [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }] },
+            { title: "Work", items: work },
         ];
     }
     const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard", to: "/" }] };
@@ -406,6 +443,7 @@ const navGroups = computed(() => {
 // ---- APPROVALS badge: required items not checked yet (uploads + validations) ----
 const approvalBadge = useApprovalBadge();
 const pendingRequirements = approvalBadge.pendingRequirements;
+const pendingTransactions = approvalBadge.pendingTransactions;
 const approvalsBadgeLabel = computed(() => {
     const n = pendingRequirements.value;
     return `${n} required item${n === 1 ? "" : "s"} not checked yet`;
@@ -480,6 +518,9 @@ const searchPages = computed(() => {
         return [
             { title: "Home", subtitle: "Page", icon: "mdi-home-city-outline", to: "/portal" },
             { title: "Transactions", subtitle: "Page", icon: "mdi-file-document-multiple", to: "/portal/transactions" },
+            ...(showApprovals.value
+                ? [{ title: "Approvals", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
+                : []),
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
     }
