@@ -7,8 +7,11 @@
                     <v-icon color="#16307C">mdi-file-document</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">
-                    Transaction: <b>{{ tx?.reference_number }}</b>
-                    <span v-if="tx?.title"> — {{ tx.title }}</span>
+                    <template v-if="tx">
+                        Transaction: <b>{{ tx.reference_number }}</b>
+                        <span v-if="tx.title"> — {{ tx.title }}</span>
+                    </template>
+                    <template v-else>Transaction</template>
                 </span>
                 <v-spacer />
                 <v-btn variant="text" @click="$router.push('/transactions')"
@@ -1442,7 +1445,17 @@ async function load() {
         );
         if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load transaction.";
+        // Plain-language messages instead of the server's raw text
+        // ("Forbidden.", "No query results for model ...").
+        const status = e?.response?.status;
+        if (status === 404) {
+            error.value = "This transaction was not found. It may have been deleted.";
+        } else if (status === 403) {
+            error.value =
+                "You don't have access to this transaction. It isn't at a step for your role and office.";
+        } else {
+            error.value = e?.response?.data?.message || "Failed to load transaction.";
+        }
     } finally {
         loading.value = false;
     }

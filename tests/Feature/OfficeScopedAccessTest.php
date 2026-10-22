@@ -112,13 +112,15 @@ class OfficeScopedAccessTest extends TestCase
         return $tx;
     }
 
-    public function test_office_admin_sees_transactions_parked_at_their_office(): void
+    public function test_office_admin_sees_transactions_filed_by_or_routed_through_their_office(): void
     {
         $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        // The workflow has a GSO step, so every transaction on it is in scope,
+        // wherever it is parked.
         $gsoTx = $this->makeTransaction($this->gso, $this->gsoStep);
         $incomingTx = $this->makeTransaction($this->cbo, $this->gsoStep);
-        $this->makeTransaction($this->gso, $this->cboStep);
-        $this->makeTransaction($this->cbo, $this->cboStep);
+        $movedOnTx = $this->makeTransaction($this->gso, $this->cboStep);
+        $cboTx = $this->makeTransaction($this->cbo, $this->cboStep);
 
         Sanctum::actingAs($ramon);
 
@@ -126,7 +128,7 @@ class OfficeScopedAccessTest extends TestCase
             ->pluck('id')
             ->all();
 
-        $this->assertEqualsCanonicalizing([$gsoTx->id, $incomingTx->id], $ids);
+        $this->assertEqualsCanonicalizing([$gsoTx->id, $incomingTx->id, $movedOnTx->id, $cboTx->id], $ids);
     }
 
     public function test_office_admin_can_act_while_parked_at_their_office(): void
@@ -144,20 +146,22 @@ class OfficeScopedAccessTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.current_step.id', $this->cboStep->id);
 
-        // Once the paper moves to another office, it leaves the admin's queue.
-        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        // Once the paper moves to another office the admin can still follow
+        // it (their office filed it) but can no longer act on it.
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
         $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
             ->assertForbidden();
     }
 
-    public function test_office_admin_cannot_touch_other_offices_transactions(): void
+    public function test_office_admin_cannot_act_at_other_offices_stations(): void
     {
         $ramon = $this->userWithRole($this->adminRole, $this->gso);
         $tx = $this->makeTransaction($this->cbo, $this->cboStep);
 
         Sanctum::actingAs($ramon);
 
-        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        // Viewable (the workflow routes through GSO), but CBO's station is CBO's.
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
         $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
             ->assertForbidden();
     }

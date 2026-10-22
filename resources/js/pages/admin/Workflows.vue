@@ -2102,10 +2102,14 @@ const officeNameById = computed(() => {
     return m;
 });
 
+// The ids are the truth: a staged edit changes office_id / role_ids but the
+// row keeps the loaded `office` / `roles` objects, so read the ids first and
+// use the objects only as a fallback (e.g. an office missing from the list).
 function officeName(item) {
-    if (item?.office?.name) return item.office.name;
     if (item?.office_id == null) return "";
-    return officeNameById.value.get(Number(item.office_id)) || "";
+    const byId = officeNameById.value.get(Number(item.office_id));
+    if (byId) return byId;
+    return Number(item?.office?.id) === Number(item.office_id) ? item.office.name || "" : "";
 }
 
 // Stages are stored as codes (end_user, gso, city_admin …). Present the
@@ -2134,7 +2138,7 @@ function stageLabel(value) {
 
 function roleNames(item) {
     const hiddenId = endUserRoleId.value;
-    if (Array.isArray(item?.roles) && item.roles.length)
+    if (!Array.isArray(item?.role_ids) && Array.isArray(item?.roles) && item.roles.length)
         return item.roles
             .filter((r) => r.code !== "end_user" && Number(r.id) !== hiddenId)
             .map((r) => r.name || r.code);
@@ -2339,14 +2343,16 @@ function descendantsOfStep(id) {
 }
 
 // Routes table: forward-only, ordered start→end by station order.
+// Reads the working copy (tableRoutes / tableSteps, which fall back to the
+// loaded definition before seeding) so staged route edits show at once.
 const sortedRoutes = computed(() => {
     const orderOf = (id) =>
         Number(
-            (activeDef.value?.steps || tableSteps.value || []).find(
+            (tableSteps.value || []).find(
                 (s) => String(s.id) === String(id),
             )?.order_number ?? 9999,
         );
-    return [...(activeDef.value?.routes || tableRoutes.value || [])].sort(
+    return [...(tableRoutes.value || [])].sort(
         (a, b) => {
             return (
                 orderOf(a.from_step_id) - orderOf(b.from_step_id) ||
@@ -2704,8 +2710,12 @@ async function editStep(item) {
     notice.value = "";
     saving.value = true;
     try {
+        // Reopen the working copy's row when there is one, so staged edits
+        // (roles, office, ...) show again instead of the last saved values.
+        const key = String(item?.client_id ?? item?.id);
+        const staged = (stagingBucket.value?.steps || []).find((s) => String(s.client_id ?? s.id) === key);
         const oldSteps = activeDef.value?.steps || [];
-        openStepDialog(stepInDraft(oldSteps, item));
+        openStepDialog(staged || stepInDraft(oldSteps, item));
     } catch (e) {
         error.value =
             e?.response?.data?.message || "Failed to prepare step form.";
@@ -2808,8 +2818,12 @@ async function editRoute(route) {
     notice.value = "";
     saving.value = true;
     try {
+        // Reopen the working copy's row when there is one, so staged edits
+        // show again instead of the last saved values.
+        const key = String(route?.client_id ?? route?.id);
+        const staged = (stagingBucket.value?.routes || []).find((r) => String(r.client_id ?? r.id) === key);
         const oldSteps = activeDef.value?.steps || [];
-        openRouteDialog(routeInDraft(oldSteps, route));
+        openRouteDialog(staged || routeInDraft(oldSteps, route));
     } catch (e) {
         error.value =
             e?.response?.data?.message || "Failed to prepare route form.";
@@ -3225,7 +3239,9 @@ function openStepDialog(step = null) {
             is_start: false,
             is_end: false,
             is_end_user: false,
-            role_ids: [],
+            // Clerk is the universal staff role (any step, limited by the
+            // step's office), so new steps start with it ticked.
+            role_ids: (roles.value || []).filter((r) => r.code === "clerk").map((r) => Number(r.id)),
         };
     }
     stepDialog.value = true;

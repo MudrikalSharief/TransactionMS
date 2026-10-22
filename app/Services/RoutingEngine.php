@@ -9,7 +9,8 @@ use App\Models\WorkflowRoute;
 class RoutingEngine
 {
     public function __construct(
-        private readonly JsonLogicEvaluator $evaluator
+        private readonly JsonLogicEvaluator $evaluator,
+        private readonly OfficeScope $officeScope
     ) {}
 
     public function availableActions(Transaction $tx, User $user): array
@@ -138,6 +139,18 @@ class RoutingEngine
         if (!$currentStepId || !$this->userCanWorkOnStep($tx, $user, $currentStepId)) {
             abort(403, 'You are not allowed to act on the current step.');
         }
+    }
+
+    /**
+     * Viewing is wider than acting: superadmins see everything and office
+     * admins see every transaction in their office's scope (finalized ones
+     * too). Everyone else may only open what they can act on right now.
+     */
+    public function assertUserCanView(Transaction $tx, User $user): void
+    {
+        if ($user->isSuperadmin() || $this->officeScope->covers($tx, $user)) return;
+
+        $this->assertUserCanExecute($tx, $user);
     }
 
     public function assertRouteExecutable(Transaction $tx, int $routeId, User $user): WorkflowRoute

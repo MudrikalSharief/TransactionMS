@@ -65,9 +65,9 @@
                     variant="outlined"
                     class="mb-4"
                 >
-                    <v-card-title class="d-flex align-center flex-wrap ga-2 py-3">
+                    <v-card-title class="d-flex align-center flex-wrap ga-2 py-3 group-head">
                         <v-icon color="primary">mdi-map-marker-radius-outline</v-icon>
-                        <span class="font-weight-bold">{{ group.step.name || group.step.code }}</span>
+                        <span class="font-weight-bold group-name">{{ group.step.name || group.step.code }}</span>
                         <v-chip v-if="group.step.stage" size="small" rounded="0" variant="tonal" color="info">
                             {{ group.step.stage }}
                         </v-chip>
@@ -303,6 +303,16 @@ useSmartPoll(
 </script>
 
 <style scoped>
+/* Step cards: a long step name wraps on narrow screens instead of being cut
+   off by the card title's default single line. */
+.group-head {
+    white-space: normal;
+}
+.group-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+}
 .approval-row {
     cursor: pointer;
 }

@@ -26,7 +26,10 @@ class UserResource extends JsonResource
                     'name' => $this->office->name,
                 ] : null;
             }),
+            'contact_number' => $this->Contact_number,
             'is_active' => (bool) $this->is_active,
+            // Signed up on the login page and waiting for an admin.
+            'pending_approval' => $this->approved_at === null,
             'roles' => $roles,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

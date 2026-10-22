@@ -181,9 +181,13 @@ class EndUserStepOfficeTest extends TestCase
         Sanctum::actingAs($gsoEndUser);
         $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
 
+        // GSO admins may view it (the workflow routes through GSO) but cannot
+        // act at the end-user station, which follows the CSD transaction office.
         Sanctum::actingAs($gsoAdmin);
-        $this->getJson('/api/transactions')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        $this->getJson('/api/transactions')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
+            ->assertForbidden();
 
         // CSD admins govern the station through the transaction's office.
         Sanctum::actingAs($csdAdmin);

@@ -7,13 +7,16 @@ use App\Models\AuditLog;
 use App\Models\Office;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\OfficeScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Dashboard "Transaction Summary" card (superadmin).
+ * Dashboard "Transaction Summary" card (superadmin, and office admins via
+ * /api/office, who only ever see their own office's scope: transactions it
+ * filed or that pass through one of its steps).
  *
  * Period: this week (default: the current Mon–Sun calendar week), a
  * calendar month, or all time, all in Manila time.
@@ -37,6 +40,8 @@ class DashboardSummaryController extends Controller
     private array $processes = [];
     private array $offices = [];
     private ?int $officeId = null;
+    // Office admins: forced to their own office's scope (see OfficeScope).
+    private ?int $scopeOfficeId = null;
 
     public function __invoke(Request $request)
     {
@@ -45,7 +50,7 @@ class DashboardSummaryController extends Controller
         // Tile counts are polled silently every 20s by every open Dashboard —
         // 60s server cache cuts that to 1 query-batch per minute per filter.
         $key = 'dash:summary:'.md5(json_encode([
-            $this->periodMeta, $this->processes, $this->offices, $this->officeId,
+            $this->periodMeta, $this->processes, $this->offices, $this->officeId, $this->scopeOfficeId,
         ]));
 
         $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
@@ -124,10 +129,7 @@ class DashboardSummaryController extends Controller
             : null;
 
         $user = $request->user();
-        if ($user && !$user->hasRole('superadmin')) {
-            $this->offices = $user->office_id ? [(int) $user->office_id] : [-1];
-            $this->officeId = null;
-        }
+        $this->scopeOfficeId = $user->isSuperadmin() ? null : (int) $user->office_id;
     }
 
     private function filtered(Builder $q, bool $withProcess = true): Builder
@@ -135,6 +137,7 @@ class DashboardSummaryController extends Controller
         if ($withProcess && $this->processes) $q->whereIn('transactions.transaction_type_id', $this->processes);
         if ($this->offices) $q->whereIn('transactions.office_id', $this->offices);
         if ($this->officeId !== null) $q->where('transactions.office_id', $this->officeId);
+        if ($this->scopeOfficeId !== null) app(OfficeScope::class)->apply($q, $this->scopeOfficeId);
 
         return $q;
     }
