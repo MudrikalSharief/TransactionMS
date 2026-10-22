@@ -7,16 +7,45 @@
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">Requirements Library</span>
                 <v-spacer />
-                <v-btn variant="text" @click="$router.push('/')">Back</v-btn>
-                <v-btn
-                    color="grey-darken-3"
-                    rounded="0"
-                    prepend-icon="mdi-plus"
-                    :disabled="!selectedWorkflowId"
-                    @click="openDialog()"
-                >
-                    Add Requirement
-                </v-btn>
+                <div class="d-flex align-center ga-2 flex-wrap">
+                    <v-btn variant="text" @click="$router.push('/')">Back</v-btn>
+                    <v-btn
+                        v-if="stagingDirty"
+                        variant="text"
+                        color="error"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-undo"
+                        v-tooltip="'Drop all staged edits and show the last saved state'"
+                        @click="discardStaged"
+                    >
+                        Discard
+                    </v-btn>
+                    <v-btn
+                        variant="flat"
+                        color="primary"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-content-save-plus-outline"
+                        :disabled="!stagingDirty"
+                        v-tooltip="stagingDirty
+                            ? 'Persist staged edits: overwrite the draft or create a new version'
+                            : 'No staged changes to save'"
+                        @click="openSaveDialog"
+                    >
+                        Save version
+                        <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
+                    </v-btn>
+                    <v-btn
+                        color="grey-darken-3"
+                        rounded="0"
+                        prepend-icon="mdi-plus"
+                        :disabled="!selectedWorkflowId"
+                        @click="openDialog()"
+                    >
+                        Add Requirement
+                    </v-btn>
+                </div>
             </v-card-title>
 
             <v-divider />
@@ -27,8 +56,10 @@
                 </v-alert>
 
                 <StagingSaveBar
+                    ref="saveBarRef"
                     :type-id="typeId"
                     :def-id="selectedWorkflowId"
+                    :inline-actions="false"
                     @saved="loadRequirements"
                     @discarded="loadRequirements"
                 />
@@ -269,20 +300,16 @@
                         </template>
                         <template v-slot:[`item.is_upload_required`]="{ item }">
                             <div class="d-flex align-center ga-2">
-                                <!-- Required implies upload: locked on while Required is on. -->
                                 <v-switch
-                                    :model-value="needsUpload(bindOverrides[String(item.workflow_step_id)])"
-                                    :disabled="!!bindOverrides[String(item.workflow_step_id)]?.is_required"
-                                    v-tooltip="bindOverrides[String(item.workflow_step_id)]?.is_required ? 'Required items always need a file' : undefined"
-                                    color="grey-darken-3"
+                                    v-model="bindOverrides[String(item.workflow_step_id)].is_upload_required"
+                                    color="success"
                                     inset
                                     density="compact"
                                     hide-details
                                     @click.stop
-                                    @update:model-value="(v) => (bindOverrides[String(item.workflow_step_id)].is_upload_required = v)"
                                 />
-                                <span class="text-caption font-weight-bold" :class="needsUpload(bindOverrides[String(item.workflow_step_id)]) ? 'text-grey-darken-3' : 'text-medium-emphasis'">
-                                    {{ needsUpload(bindOverrides[String(item.workflow_step_id)]) ? "Upload req." : "No upload" }}
+                                <span class="text-caption font-weight-bold" :class="bindOverrides[String(item.workflow_step_id)]?.is_upload_required ? 'text-grey-darken-3' : 'text-medium-emphasis'">
+                                    {{ bindOverrides[String(item.workflow_step_id)]?.is_upload_required ? "Upload req." : "No upload" }}
                                 </span>
                             </div>
                         </template>
@@ -339,7 +366,7 @@
                         persistent-hint
                         rows="3"
                     />
-                    <v-switch v-model="form.is_active" label="Active" />
+                    <v-switch v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">
@@ -379,6 +406,18 @@ const typeId = computed(() => {
     const t = Number(w?.transaction_type_id);
     return Number.isFinite(t) && t > 0 ? t : null;
 });
+
+const saveBarRef = ref(null);
+
+const stagingDirty = computed(() => (typeId.value ? staging.isDirty(typeId.value) : false));
+
+function openSaveDialog() {
+    saveBarRef.value?.openSaveDialog?.();
+}
+
+function discardStaged() {
+    saveBarRef.value?.discard?.();
+}
 
 const error = ref("");
 
@@ -446,11 +485,6 @@ const bindHeaders = [
     { title: "Required?", key: "is_required", sortable: false, width: "20%" },
     { title: "Upload req.?", key: "is_upload_required", sortable: false, width: "20%" },
 ];
-
-// Required implies upload (mirrors RequirementDefinition::pivotNeedsUpload).
-function needsUpload(ov) {
-    return !!(ov?.is_required || ov?.is_upload_required);
-}
 
 function pivotFor(sid) {
     const prev = ((bindTarget.value?.steps || [])).find((s) => Number(s.id) === Number(sid));
@@ -564,17 +598,6 @@ async function saveBind() {
     bindSaving.value = true;
     error.value = "";
     try {
-<<<<<<< HEAD
-        const payload = bindRows.value.map((r) => ({
-            workflow_step_id: r.workflow_step_id,
-            display_order: Number(r.display_order ?? 0),
-            is_required: !!r.is_required,
-            is_upload_required: needsUpload(r),
-        }));
-        await syncSteps(selectedWorkflowId.value, bindTarget.value.id, {
-            steps: payload,
-        });
-=======
         const reqKey = bindTarget.value.id ?? bindTarget.value.client_id;
         const prevSids = (bindTarget.value.steps || []).map((s) => Number(s.id));
         // Plus stations known only from staged bindings (e.g. binding an
@@ -607,7 +630,6 @@ async function saveBind() {
             }
             staging.setBindings(typeId.value, sid, kept);
         }
->>>>>>> Adustment-Temporary
         bindDialog.value = false;
     } catch (e) {
         error.value = e?.response?.data?.message || e?.message || "Staging the binding failed.";

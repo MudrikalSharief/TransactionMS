@@ -74,7 +74,7 @@ class TransactionEngine
                 // Creation is not a forward — no pending receipt.
                 'received_at' => now(),
                 'received_by' => $userId,
-                'received_office_id' => $startStep->office_id,
+                'received_office_id' => $tx->effectiveStepOfficeId($startStep),
                 'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
             ]);
 
@@ -172,7 +172,7 @@ class TransactionEngine
                 // Pending receipt: next office must click Receive.
                 'received_at' => null,
                 'received_by' => null,
-                'received_office_id' => $toStep?->office_id,
+                'received_office_id' => $toStep ? $tx->effectiveStepOfficeId($toStep) : null,
                 'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
@@ -299,15 +299,9 @@ class TransactionEngine
      * keep saved work, gappy ones reset); forward resends preserve all
      * saved work. Recorded as Returned (backward) or Resent (forward).
      */
-<<<<<<< HEAD
-    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId, string $actionCode = 'revisit'): Transaction
-    {
-        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId, $actionCode) {
-=======
     public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId, array $flaggedItems = []): Transaction
     {
         return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId, $flaggedItems) {
->>>>>>> Adustment-Temporary
             $tx->loadMissing(['state.currentStep', 'workflow', 'workflow.steps']);
 
             $currentStepId = (int) $tx->state?->current_step_id;
@@ -330,22 +324,14 @@ class TransactionEngine
                 'transaction_id' => $tx->id,
                 'from_step_id' => $currentStepId,
                 'to_step_id' => $toStepId,
-<<<<<<< HEAD
-                'action_code' => $actionCode,
-                'remarks' => $remarks ?? 'Jumped to a passed station',
-=======
                 'action_code' => $isForward ? 'resend' : 'return',
                 'remarks' => $remarks ?? ($isForward ? 'Resent to a passed station' : 'Returned to a passed station'),
-<<<<<<< HEAD
->>>>>>> Adustment-Temporary
-=======
                 'flagged_items' => $this->normalizeFlaggedItems($flaggedItems),
->>>>>>> Adustment-Temporary
                 'performed_by' => $userId,
                 'performed_at' => now(),
                 'received_at' => null,
                 'received_by' => null,
-                'received_office_id' => $toStep?->office_id,
+                'received_office_id' => $toStep ? $tx->effectiveStepOfficeId($toStep) : null,
                 'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
@@ -485,7 +471,7 @@ class TransactionEngine
 
         // Upload-required requirements keep their files on intact arrivals.
         $requiredReqs = collect($step->requirementDefinitions ?? [])
-            ->filter(fn ($r) => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot))
+            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
             ->values();
         if ($requiredReqs->isNotEmpty()) {
             $attCounts = collect($tx->attachments ?? [])
@@ -498,7 +484,8 @@ class TransactionEngine
         }
 
         // Required checklist ticks must still be present.
-        $checklistItems = \app(\App\Services\ChecklistService::class)->ensureItems($step);
+        $checklists = \app(\App\Services\ChecklistService::class);
+        $checklistItems = $checklists->visibleItemsFor($tx, $step, $checklists->ensureItems($step));
         $requiredItems = $checklistItems->filter(fn ($i) => (bool) $i->is_required)->values();
         if ($requiredItems->isNotEmpty()) {
             $checkedIds = collect($tx->checklistChecks ?? [])

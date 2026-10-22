@@ -258,7 +258,7 @@ function expand() {
     flex-shrink: 0;
 }
 .sd-pop-title {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-weight: 800;
     font-size: 1rem;
     line-height: 1.2;
@@ -268,7 +268,7 @@ function expand() {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .sd-pop-count {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-weight: 800;
     font-size: 1.6rem;
     color: var(--sd-accent);

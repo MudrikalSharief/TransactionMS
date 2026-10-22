@@ -2,7 +2,7 @@
     <TrackBackdrop quiet />
     <div class="track-detail">
         <v-btn variant="text" color="grey-darken-3" prepend-icon="mdi-arrow-left" class="mb-3" @click="router.push('/track')">
-            Back to my transactions
+            Back to search
         </v-btn>
 
         <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>

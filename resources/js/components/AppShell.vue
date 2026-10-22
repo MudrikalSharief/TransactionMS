@@ -2,14 +2,13 @@
     <v-app>
         <v-app-bar
             v-if="showAuthUi"
-            color="white"
             elevation="0"
-            style="border-bottom: 2px solid #1E40AF"
+            class="app-bar"
         >
             <v-app-bar-nav-icon
                 icon="mdi-menu"
                 v-tooltip="'Menu'"
-                color="primary"
+                color="white"
                 @click="toggleNav"
             />
             <div
@@ -31,13 +30,13 @@
                     style="white-space: nowrap; line-height: 1"
                 >
                     <div
-                        class="font-weight-bold text-primary"
+                        class="font-weight-bold brand-title"
                         style="font-size: 1.1rem; line-height: 1"
                     >
-                        TransactionMF
+                        TransactionMS
                     </div>
                     <div
-                        class="font-weight-bold text-medium-emphasis"
+                        class="font-weight-bold brand-sub"
                         style="font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; margin-top: 3px"
                     >
                         Management Framework
@@ -83,40 +82,55 @@
             </div>
 
             <div class="d-flex align-center" style="flex: 0 0 auto">
+                <ScopeChip class="mr-2 d-none d-lg-inline-flex" />
                 <v-chip
                     variant="flat"
-                    class="mr-2 font-weight-medium"
-                    style="background: #f1f5f9; color: #334155"
+                    class="mr-2 font-weight-medium nav-chip"
                     v-tooltip="'Zamboanga local time'"
                 >
-                    <v-icon start color="primary">mdi-clock-outline</v-icon>
+                    <v-icon start color="#c7d7ff">mdi-clock-outline</v-icon>
                     {{ clock }}
                 </v-chip>
 
                 <v-chip
                     variant="flat"
-                    class="mr-2 font-weight-medium"
-                    style="background: #f1f5f9; color: #334155"
+                    class="mr-2 font-weight-medium nav-chip"
                     v-tooltip="'Weather in Zamboanga City: ' + weatherLabel"
                 >
-                    <v-icon start color="primary">{{ weatherIcon }}</v-icon>
+                    <v-icon start color="#c7d7ff">{{ weatherIcon }}</v-icon>
                     {{ temperature }} · Zamboanga
                 </v-chip>
 
                 <v-chip
                     v-if="auth.user.value"
                     variant="flat"
-                    class="mr-2 font-weight-medium d-none d-md-flex"
-                    style="background: #f1f5f9; color: #334155"
+                    class="mr-2 font-weight-medium nav-chip d-none d-md-flex"
                     v-tooltip="userTooltip"
                 >
-                    <v-icon color="primary">mdi-account-circle</v-icon>
+                    <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
                 </v-chip>
 
+                <!-- Viewers never signed in themselves (Track your Document
+                     Process), so leaving is a plain "back", no confirmation. -->
                 <v-btn
+                    v-if="kind === 'viewer'"
+                    variant="outlined"
+                    color="white"
+                    rounded="pill"
+                    class="track-exit font-weight-bold"
+                    :loading="loggingOut"
+                    v-tooltip="'Leave tracking and return to the login page'"
+                    @click="onLogout"
+                >
+                    <v-icon start>mdi-arrow-left</v-icon>
+                    <span class="d-none d-sm-inline">Back to login</span>
+                </v-btn>
+                <v-btn
+                    v-else
                     icon="mdi-logout"
                     v-tooltip="'Log out'"
-                    color="primary"
+                    color="white"
+                    class="nav-logout"
                     @click="confirmLogout = true"
                 />
             </div>
@@ -126,38 +140,52 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
-            style="border-right: 2px solid #1E40AF"
+            style="border-right: 2px solid #16307C"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
-            <v-list nav color="primary">
-                <v-list-item v-if="kind === 'admin'" to="/" prepend-icon="mdi-view-dashboard" rounded="lg">
-                    <v-list-item-title>DASHBOARD</v-list-item-title>
-                </v-list-item>
-                <template v-if="kind === 'staff'">
-                    <v-list-item to="/portal" prepend-icon="mdi-home-city-outline" rounded="lg" exact>
-                        <v-list-item-title>HOME</v-list-item-title>
-                    </v-list-item>
-                    <v-list-item to="/portal/transactions" prepend-icon="mdi-file-document-multiple" rounded="lg">
-                        <v-list-item-title>TRANSACTIONS</v-list-item-title>
+            <v-list nav color="primary" class="nav-groups">
+                <!-- Role-aware groups: superadmin sees everything, office admins
+                     their office's work and people, everyone else their own work. -->
+                <template v-for="group in navGroups" :key="group.title">
+                    <div v-if="!rail" class="nav-group-label">{{ group.title }}</div>
+                    <v-divider v-else class="nav-group-rule" />
+                    <v-list-item
+                        v-for="item in group.items"
+                        :key="item.to"
+                        :to="item.to"
+                        :exact="!!item.exact"
+                        :prepend-icon="item.badge == null ? item.icon : undefined"
+                        rounded="lg"
+                        v-tooltip:end="rail ? (item.badge ? `${item.title} · ${item.badgeLabel}` : item.title) : undefined"
+                    >
+                        <!-- Items with a count (clerk Approvals): small red badge on
+                             the icon in the rail, a red chip when the menu is open. -->
+                        <template v-if="item.badge != null" #prepend>
+                            <v-badge
+                                :model-value="rail && item.badge > 0"
+                                :content="item.badge > 99 ? '99+' : item.badge"
+                                color="error"
+                                class="approvals-badge"
+                            >
+                                <v-icon>{{ item.icon }}</v-icon>
+                            </v-badge>
+                        </template>
+                        <v-list-item-title>{{ item.title.toUpperCase() }}</v-list-item-title>
+                        <template v-if="item.badge != null" #append>
+                            <v-chip
+                                v-if="!rail && item.badge > 0"
+                                size="x-small"
+                                color="error"
+                                variant="flat"
+                                class="font-weight-bold"
+                                v-tooltip="item.badgeLabel"
+                            >
+                                {{ item.badge > 99 ? "99+" : item.badge }}
+                            </v-chip>
+                        </template>
                     </v-list-item>
                 </template>
-                <v-list-item
-                    v-if="kind === 'viewer'"
-                    to="/track"
-                    prepend-icon="mdi-map-marker-path"
-                    rounded="lg"
-                >
-                    <v-list-item-title>TRACK TRANSACTIONS</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="kind === 'admin' && !isSuperadmin"
-                    to="/my/transactions"
-                    prepend-icon="mdi-file-document-multiple"
-                    rounded="lg"
-                >
-                    <v-list-item-title>MY TRANSACTIONS</v-list-item-title>
-                </v-list-item>
                 <v-list-item
                     v-if="false && showApprovals"
                     to="/approvals"
@@ -189,54 +217,25 @@
                     </template>
                 </v-list-item>
 
-                <v-list-item
-                    v-if="kind === 'admin'"
-                    to="/transactions"
-                    prepend-icon="mdi-swap-horizontal"
-                    rounded="lg"
-                >
-                    <v-list-item-title>TRANSACTIONS</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isSuperadmin" to="/admin/users" prepend-icon="mdi-account-group" rounded="lg">
-                    <v-list-item-title>USERS</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isSuperadmin" to="/admin/roles" prepend-icon="mdi-shield-account" rounded="lg">
-                    <v-list-item-title>ROLES</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin"
-                    to="/admin/offices"
-                    prepend-icon="mdi-office-building-outline"
-                    rounded="lg"
-                >
-                    <v-list-item-title>OFFICES</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin || isOfficeAdmin"
-                    to="/admin/transaction-types"
-                    prepend-icon="mdi-format-list-bulleted-type"
-                    rounded="lg"
-                >
-                    <v-list-item-title>TRANSACTION TYPES</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin"
-                    to="/admin/fields"
-                    prepend-icon="mdi-form-textbox"
-                    rounded="lg"
-                >
-                    <v-list-item-title>FIELDS</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                    v-if="isSuperadmin"
-                    to="/admin/government-references"
-                    prepend-icon="mdi-bank"
-                    rounded="lg"
-                >
-                    <v-list-item-title>GOV REFERENCES</v-list-item-title>
-                </v-list-item>
             </v-list>
             <template #append>
+                <v-divider />
+                <!-- Who is signed in: name, current role, office. Collapsed
+                     rail shows the initials; hover for the details. -->
+                <div
+                    v-if="auth.user.value"
+                    class="nav-profile"
+                    :class="{ 'nav-profile--rail': rail }"
+                    v-tooltip:end="rail ? userTooltip : undefined"
+                >
+                    <div class="nav-profile__avatar">{{ userInitials }}</div>
+                    <div v-if="!rail" class="nav-profile__text">
+                        <div class="nav-profile__name">{{ auth.user.value.name }}</div>
+                        <div class="nav-profile__meta">
+                            {{ primaryRole }}<template v-if="auth.user.value.office"> · {{ auth.user.value.office.code || auth.user.value.office.name }}</template>
+                        </div>
+                    </div>
+                </div>
                 <v-divider />
                 <div
                     class="d-flex pa-2 drawer-footer"
@@ -272,13 +271,19 @@
             </template>
         </v-navigation-drawer>
 
-        <v-main>
+        <v-main class="app-main">
+            <OfflineBar />
             <v-container v-if="showAuthUi" fluid class="pa-6">
-                <router-view />
+                <!-- Keyed by route record (not params) so each page eases in
+                     once, while /my/transactions/1 -> /2 stays a plain update. -->
+                <div :key="route.matched[0]?.path || route.path" class="page-enter">
+                    <router-view />
+                </div>
             </v-container>
             <template v-else>
                 <router-view />
             </template>
+            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-spacer" aria-hidden="true"></div>
             <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
         </v-main>
 
@@ -286,7 +291,7 @@
             <v-card rounded="0">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#1E40AF">mdi-logout</v-icon>
+                        <v-icon color="#16307C">mdi-logout</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold">LOG OUT?</span>
                     <v-spacer />
@@ -307,6 +312,8 @@
         </v-dialog>
 
         <ConfirmDialog />
+        <AppToaster />
+        <LoginApprovalNotice />
     </v-app>
 </template>
 
@@ -314,11 +321,14 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth, canUseApprovals, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
-import { useMyTransactions } from "@/composables/useMyTransactions";
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import ScopeChip from "@/components/ScopeChip.vue";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import AppToaster from "@/components/AppToaster.vue";
+import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
+import OfflineBar from "@/components/OfflineBar.vue";
 import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
 const router = useRouter();
@@ -358,11 +368,7 @@ const showAuthUi = computed(() => {
     return !!auth.user.value && route.name !== "login" && !route.meta?.bare;
 });
 
-const isSuperadmin = computed(() => {
-    const roles = auth.user.value?.roles ?? [];
-    return roles.some((r) => r.code === "superadmin");
-});
-
+const isSuperadmin = computed(() => isSuperadminUser(auth.user.value));
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
@@ -370,9 +376,76 @@ const kind = computed(() => userKind(auth.user.value));
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
 
+// Sidebar, grouped by what the role does. Office admins get superadmin-style
+// tools limited to their office; setup stays superadmin only. Staff use the
+// user portal, viewers the read-only tracking pages.
+const navGroups = computed(() => {
+    if (kind.value === "viewer") {
+        return [{ title: "Track", items: [{ title: "Track Transactions", icon: "mdi-map-marker-path", to: "/track" }] }];
+    }
+    if (kind.value === "staff") {
+        const work = [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }];
+        // Clerks (anyone who may approve; end users can't) get their
+        // approvals list, with the number of transactions waiting on them.
+        if (showApprovals.value) {
+            const n = pendingTransactions.value;
+            work.push({
+                title: "Approvals",
+                icon: "mdi-clipboard-check-multiple-outline",
+                to: "/portal/approvals",
+                badge: n,
+                badgeLabel: `${n} transaction${n === 1 ? "" : "s"} waiting for your approval`,
+            });
+        }
+        return [
+            { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
+            { title: "Work", items: work },
+        ];
+    }
+    const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard", to: "/" }] };
+    if (isSuperadmin.value) {
+        return [
+            overview,
+            { title: "Work", items: [{ title: "Transactions", icon: "mdi-swap-horizontal", to: "/transactions" }] },
+            {
+                title: "People",
+                items: [
+                    { title: "Users", icon: "mdi-account-group", to: "/admin/users" },
+                    { title: "Roles", icon: "mdi-shield-account", to: "/admin/roles" },
+                ],
+            },
+            {
+                title: "Setup",
+                items: [
+                    { title: "Offices", icon: "mdi-office-building-outline", to: "/admin/offices" },
+                    { title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" },
+                    { title: "Fields", icon: "mdi-form-textbox", to: "/admin/fields" },
+                    { title: "Gov References", icon: "mdi-bank", to: "/admin/government-references" },
+                ],
+            },
+        ];
+    }
+    if (isOfficeAdmin.value) {
+        return [
+            overview,
+            { title: "Work", items: [{ title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" }] },
+            { title: "People", items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }] },
+            {
+                title: "Setup",
+                items: [{ title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" }],
+            },
+        ];
+    }
+    return [
+        overview,
+        { title: "Work", items: [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/transactions" }] },
+    ];
+});
+
 // ---- APPROVALS badge: required items not checked yet (uploads + validations) ----
 const approvalBadge = useApprovalBadge();
 const pendingRequirements = approvalBadge.pendingRequirements;
+const pendingTransactions = approvalBadge.pendingTransactions;
 const approvalsBadgeLabel = computed(() => {
     const n = pendingRequirements.value;
     return `${n} required item${n === 1 ? "" : "s"} not checked yet`;
@@ -393,7 +466,25 @@ const userTooltip = computed(() => {
     const u = auth.user.value;
     if (!u) return "User";
     const roles = (u.roles ?? []).map((r) => r.name || r.code).join(", ");
-    return roles ? `${u.email || u.name} (${roles})` : u.email || u.name || "User";
+    const office = u.office?.name ? ` · ${u.office.name}` : "";
+    return roles ? `${u.email || u.name} (${roles})${office}` : `${u.email || u.name || "User"}${office}`;
+});
+
+// Current role for the welcome line and profile: the most senior one held
+// (superadmin, then admin, then the rest in the order assigned).
+const primaryRole = computed(() => {
+    const roles = auth.user.value?.roles ?? [];
+    const rank = (r) => (r.code === "superadmin" ? 0 : r.code === "admin" ? 1 : 2);
+    const top = [...roles].sort((a, b) => rank(a) - rank(b))[0];
+    if (!top) return "No role";
+    if (top.code === "admin" && isOfficeAdmin.value) return "Office Admin";
+    return top.name || top.code;
+});
+
+const userInitials = computed(() => {
+    const parts = (auth.user.value?.name || "").trim().split(/\s+/).filter(Boolean);
+    const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] || "?").slice(0, 2);
+    return letters.toUpperCase();
 });
 
 const confirmLogout = ref(false);
@@ -416,7 +507,6 @@ const searchSelect = ref(null);
 const searchLoading = ref(false);
 let searchLoaded = false;
 
-const myTx = useMyTransactions();
 const allTx = useTransactions();
 
 const searchPages = computed(() => {
@@ -430,6 +520,9 @@ const searchPages = computed(() => {
         return [
             { title: "Home", subtitle: "Page", icon: "mdi-home-city-outline", to: "/portal" },
             { title: "Transactions", subtitle: "Page", icon: "mdi-file-document-multiple", to: "/portal/transactions" },
+            ...(showApprovals.value
+                ? [{ title: "Approvals", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
+                : []),
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
     }
@@ -437,13 +530,8 @@ const searchPages = computed(() => {
         { title: "Dashboard", subtitle: "Page", icon: "mdi-view-dashboard", to: "/" },
         { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
     ];
-    if (!isSuperadmin.value) {
-        pages.splice(1, 0, {
-            title: "My Transactions",
-            subtitle: "Page",
-            icon: "mdi-file-document-multiple",
-            to: "/my/transactions",
-        });
+    if (isOfficeAdmin.value) {
+        pages.push({ title: "Office Users", subtitle: "Page · Office admin", icon: "mdi-account-group", to: "/office/users" });
     }
     if (showApprovals.value) {
         pages.splice(2, 0, {
@@ -484,15 +572,7 @@ async function ensureSearchData() {
     if (searchLoaded || searchLoading.value) return;
     searchLoading.value = true;
     try {
-        if (isSuperadmin.value) {
-            try {
-                await allTx.fetchAll({ q: searchText.value });
-            } catch {
-                await myTx.fetchAll({ q: searchText.value }).catch(() => {});
-            }
-        } else {
-            await myTx.fetchAll({ q: searchText.value });
-        }
+        await allTx.fetchAll({ q: searchText.value });
     } catch {
         /* search stays page-only */
     } finally {
@@ -512,15 +592,7 @@ watch(searchText, (q) => {
         if (!query || kind.value === "viewer") return;
         searchLoading.value = true;
         try {
-            if (isSuperadmin.value) {
-                try {
-                    await allTx.fetchAll({ q: query, silent: true });
-                } catch {
-                    await myTx.fetchAll({ q: query, silent: true }).catch(() => {});
-                }
-            } else {
-                await myTx.fetchAll({ q: query, silent: true });
-            }
+            await allTx.fetchAll({ q: query, silent: true });
         } catch {
             /* keep previous suggestions */
         } finally {
@@ -552,11 +624,7 @@ const searchResults = computed(() => {
         });
     };
 
-    if (isSuperadmin.value) {
-        (allTx.items.value || []).forEach((tx) => pushTx(tx, "/transactions"));
-    } else {
-        (myTx.items.value || []).forEach((tx) => pushTx(tx, "/my/transactions"));
-    }
+    (allTx.items.value || []).forEach((tx) => pushTx(tx, "/transactions"));
 
     return [
         ...txItems.filter((i) => `${i.title} ${i.subtitle}`.toLowerCase().includes(q)).slice(0, 7),
@@ -800,9 +868,59 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Top bar: deep institutional navy (matches the sidebar active fill and
+   dashboard foot bar) so the clock/weather/user/logout controls stop
+   blending into a white header. Thin gold rule nods to the city seal. */
+.app-bar {
+    background: linear-gradient(90deg, #0e1f52 0%, #16307c 100%) !important;
+    border-bottom: 2px solid #d9ab3c;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+}
+.brand-title {
+    color: #ffffff;
+}
+.brand-sub {
+    color: rgba(255, 255, 255, 0.62);
+}
+.nav-chip {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #e8eefc !important;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    transition: background-color 0.15s ease;
+}
+.nav-chip:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+.nav-logout {
+    color: #e8eefc !important;
+}
+.nav-logout:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
 .brand-click {
     cursor: pointer;
     user-select: none;
+}
+/* Viewer "Back to login": navy pill, fills on hover; icon only on phones. */
+.track-exit {
+    border-width: 1.5px;
+    text-transform: none;
+    letter-spacing: 0.01em;
+}
+/* On the navy app bar: white outline, fills light on hover. */
+.track-exit:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+.track-exit :deep(.v-icon) {
+    transition: transform 0.15s ease;
+}
+.track-exit:hover :deep(.v-icon) {
+    transform: translateX(-2px);
+}
+@media (max-width: 599px) {
+    .track-exit :deep(.v-icon--start) {
+        margin-inline-end: 0;
+    }
 }
 /* Compact sidebar: tighter rows so all items fit without scrolling */
 .nav-compact :deep(.v-list-item) {
@@ -823,10 +941,58 @@ onUnmounted(() => {
     min-width: 18px;
     height: 18px;
 }
-/* Active nav item: solid dark fill instead of the faint primary tint. */
+/* Sidebar group labels: quiet small caps that organize, never compete. */
+.nav-group-label {
+    padding: 14px 12px 4px;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(var(--v-theme-on-surface), 0.45);
+    white-space: nowrap;
+    animation: nav-label-in 0.25s ease both;
+}
+.nav-groups > .nav-group-label:first-child {
+    padding-top: 4px;
+}
+.nav-group-rule {
+    margin: 8px 10px;
+    opacity: 0.18;
+}
+.nav-groups > .nav-group-rule:first-child {
+    display: none;
+}
+@keyframes nav-label-in {
+    from { opacity: 0; transform: translateX(-4px); }
+}
+.nav-groups :deep(.v-list-item) {
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+.nav-groups :deep(.v-list-item:not(.v-list-item--active):hover .v-icon) {
+    color: #1E40AF;
+}
+/* Page change: a short ease-in so the switch reads as one smooth move. */
+/* backwards, not both: once the move ends no transform is left on the
+   wrapper (even an identity transform makes it the containing block for
+   position: fixed, which boxed in full-page backdrops like the tracker's). */
+.page-enter {
+    animation: page-in 0.24s cubic-bezier(.2, .9, .25, 1) backwards;
+}
+@keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-enter,
+    .nav-group-label {
+        animation: none;
+    }
+}
+/* Active nav item: solid dark fill instead of the faint primary tint,
+   with a light inner accent so the current page reads at a glance. */
 :deep(.v-navigation-drawer .v-list-item--active) {
-    background-color: #1E3A8A !important;
+    background-color: #0E1F52 !important;
     color: #ffffff !important;
+    box-shadow: inset 3px 0 0 #93C5FD;
 }
 :deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
     opacity: 0 !important;
@@ -835,6 +1001,97 @@ onUnmounted(() => {
 :deep(.v-navigation-drawer .v-list-item--active .v-list-item-title) {
     color: #ffffff !important;
     opacity: 1 !important;
+}
+/* Sidebar scrollbar: never show the thin blue bar in the rail (a short
+   window used to grow one over the edge). Wheel/touch still scrolls; the
+   right padding keeps what would have been the bar's strip as clear space
+   so nothing sits against the border. */
+:deep(.v-navigation-drawer__content) {
+    scrollbar-width: none;
+    padding-right: 6px;
+}
+:deep(.v-navigation-drawer__content)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+/* Collapsed rail: the clear strip above would push every item 6px off
+   centre, and each icon keeps a fixed slot plus spacer on its left. Centre
+   items and icons on the rail so they line up with the avatar and the
+   footer buttons below. (Expanded drawer is unaffected.) */
+:deep(.v-navigation-drawer--rail .v-navigation-drawer__content) {
+    padding-right: 0;
+}
+:deep(.v-navigation-drawer--rail .v-list-item) {
+    padding-inline: 0 !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "prepend" !important;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__prepend) {
+    margin-inline: 0;
+    justify-self: center;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__prepend > .v-icon),
+:deep(.v-navigation-drawer--rail .v-list-item__prepend > .v-badge) {
+    margin-inline: 0 !important;
+}
+:deep(.v-navigation-drawer--rail .v-list-item__spacer),
+:deep(.v-navigation-drawer--rail .v-list-item__content) {
+    display: none;
+}
+:deep(.v-navigation-drawer--rail .nav-group-rule) {
+    margin-inline: 12px;
+}
+/* Sidebar profile */
+.nav-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    min-width: 0;
+}
+.nav-profile--rail {
+    justify-content: center;
+    padding: 10px 0;
+}
+.nav-profile__avatar {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1E3A8A;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    box-shadow: inset 0 -3px 0 #93C5FD;
+}
+.nav-profile__text {
+    min-width: 0;
+    line-height: 1.2;
+    animation: nav-label-in 0.25s ease both;
+}
+.nav-profile__name {
+    font-size: 0.85rem;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.nav-profile__meta {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(var(--v-theme-on-surface), 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+    .nav-profile__text {
+        animation: none;
+    }
 }
 /* Footer theme/help pair */
 .drawer-footer .v-btn {
@@ -854,23 +1111,32 @@ onUnmounted(() => {
     padding-bottom: 4px;
 }
 .search-pixiv :deep(.v-field--focused) {
-    box-shadow: 0 0 0 2px #1E40AF;
+    box-shadow: 0 0 0 2px #16307C;
 }
 .search-pixiv :deep(.v-field__prepend-inner .v-icon) {
-    color: #1E40AF;
+    color: #16307C;
     opacity: 1;
 }
 .search-pixiv :deep(input),
 .search-pixiv :deep(input::placeholder) {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-weight: 700;
+}
+/* Column shell: on short pages the spacer soaks up the leftover height so
+   the dashboard foot bar settles on the viewport bottom instead of floating. */
+.app-main {
+    display: flex;
+    flex-direction: column;
+}
+.app-foot-spacer {
+    flex: 1 1 auto;
 }
 /* Bottom footer container: plain in-flow bar, no overlay, no z-index games. */
 .app-foot-bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1E3A8A;
+    background: #0E1F52;
     padding: 16px 24px;
     margin-top: 24px;
 }

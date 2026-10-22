@@ -42,27 +42,29 @@ class TransactionController extends Controller
         $user = $request->user();
         $user->loadMissing('roles');
         $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
+        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
         if (!$isSuperadmin) {
             if ($user->isOfficeAdmin()) {
-                // Office admins see every transaction parked at their office;
-                // end-user stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                // Office admins track their own office's papers city-wide
+                // (the dashboard summary counts them and their detail opens
+                // from there), plus anything parked at their office. Legacy
+                // no-origin stations stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
+                    $w->where('transactions.office_id', $user->office_id)
+                        ->orWhereHas('state.currentStep', fn ($s) => $s
+                            ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
                 });
             } else {
                 // Regular users: their own office's transactions, plus any
-                // row whose current station lists one of their roles and is
-                // at their office (office-agnostic steps keep the role-only
-                // behavior; end-user stations follow the transaction's
-                // office, already covered by the own-office union).
-                $roleIds = $user->roles->pluck('id')->filter()->values()->all();
-
+                // row whose current station lists one of their roles and has
+                // their office as its effective office. Blank stations follow
+                // the transaction's Originating Office; end-user stations do
+                // too. Legacy no-origin stations stay role-only.
                 if ($user->office_id === null) {
                     $query->whereRaw('1 = 0');
                 } elseif (empty($roleIds)) {
@@ -72,10 +74,9 @@ class TransactionController extends Controller
                         $w->where('transactions.office_id', $user->office_id)
                             ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
                                 $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                                    ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'))
                                     ->where(function ($x) use ($user) {
-                                        $x->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
+                                        $x->whereEffectiveOffice($user->office_id)
+                                            ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                                     });
                             });
                     });
@@ -98,7 +99,8 @@ class TransactionController extends Controller
         $user = $request->user();
 
         if ($user->hasRole('superadmin')) {
-            $officeId = $request->validated()['office_id'] ?? null;
+            // Required by CreateTransactionRequest; never null here.
+            $officeId = $request->validated()['office_id'];
         } else {
             $officeId = $user->office_id;
 
@@ -118,11 +120,13 @@ class TransactionController extends Controller
     public function updateOffice(Request $request, Transaction $transaction, RoutingEngine $routing, AuditService $audit)
     {
         $data = $request->validate([
-            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            // A transaction always belongs to an office; reassignment can
+            // move it but never clear it.
+            'office_id' => ['required', 'integer', 'exists:offices,id'],
         ]);
 
         $before = ['office_id' => $transaction->office_id];
-        $transaction->office_id = $data['office_id'] ?? null;
+        $transaction->office_id = $data['office_id'];
         $transaction->save();
 
         $audit->log($request, 'transactions.reassign_office', $transaction, [

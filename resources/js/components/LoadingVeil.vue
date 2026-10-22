@@ -84,7 +84,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     overflow-y: auto;
 }
 
@@ -147,20 +147,20 @@ onUnmounted(() => {
 .veil-ring.outer {
     inset: 0;
     border: 5px solid #dbe3ef;
-    border-top-color: #1e40af;
-    border-right-color: #1e40af;
+    border-top-color: #16307c;
+    border-right-color: #16307c;
     animation: veil-spin 1.1s linear infinite;
 }
 
 .veil-ring.middle {
     inset: 18px;
-    border: 3px dashed rgba(30, 64, 175, 0.45);
+    border: 3px dashed rgba(22, 48, 124, 0.45);
     animation: veil-spin-rev 2.6s linear infinite;
 }
 
 .veil-core {
     animation: veil-pulse 1.8s ease-in-out infinite;
-    box-shadow: 0 6px 22px rgba(30, 64, 175, 0.35);
+    box-shadow: 0 6px 22px rgba(22, 48, 124, 0.35);
 }
 
 .veil-text {

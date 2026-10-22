@@ -210,6 +210,7 @@ class WorkflowVersioningService
                 'sla_minutes' => $step->sla_minutes,
                 'is_start' => $step->is_start,
                 'is_end' => $step->is_end,
+                'is_end_user' => $step->is_end_user,
             ]);
 
             $new->roles()->sync($step->roles->pluck('id')->all());

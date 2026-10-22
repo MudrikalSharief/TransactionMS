@@ -321,6 +321,8 @@ useSmartPoll(() => {
 .seal {
     display: block;
     margin: 0 auto 14px;
+    /* The welcome screen's seal flies into this one (view transition). */
+    view-transition-name: city-seal;
 }
 .eyebrow {
     font-size: 12px;

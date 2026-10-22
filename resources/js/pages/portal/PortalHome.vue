@@ -8,7 +8,10 @@
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
                             <v-icon color="#1E40AF" size="24">mdi-home-city-outline</v-icon>
                         </v-avatar>
-                        <div>
+                        <!-- The header stays one line: on phones the name and office
+                             shorten with "…", role chips hide and the button
+                             keeps only its icon. -->
+                        <div class="head-text">
                             <div class="text-subtitle-1 font-weight-bold">Welcome, {{ user?.name }}</div>
                             <div class="text-caption text-medium-emphasis">
                                 {{ summary?.office?.name || 'No office assigned' }}
@@ -22,7 +25,7 @@
                             variant="tonal"
                             color="primary"
                             rounded="0"
-                            class="font-weight-bold"
+                            class="font-weight-bold d-none d-sm-inline-flex"
                         >
                             {{ r.name || r.code }}
                         </v-chip>
@@ -30,10 +33,13 @@
                             v-if="canCreate"
                             color="primary"
                             rounded="0"
-                            prepend-icon="mdi-plus"
+                            :icon="xs"
+                            :prepend-icon="xs ? undefined : 'mdi-plus'"
+                            aria-label="New Transaction"
                             @click="router.push({ path: '/portal/transactions', query: { new: '1' } })"
                         >
-                            New Transaction
+                            <v-icon v-if="xs">mdi-plus</v-icon>
+                            <template v-else>New Transaction</template>
                         </v-btn>
                     </v-card-title>
                     <v-alert
@@ -75,8 +81,9 @@
                 </div>
             </v-col>
 
-            <!-- Waiting on my role -->
-            <v-col cols="12" lg="6" class="d-flex">
+            <!-- Waiting on my role: end users only. Clerks have the Approvals
+                 page for this, so it would be a duplicate there. -->
+            <v-col v-if="!hasApprovals" cols="12" lg="6" class="d-flex">
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
@@ -99,14 +106,14 @@
                 </v-card>
             </v-col>
 
-            <!-- Latest in my office -->
-            <v-col cols="12" lg="6" class="d-flex">
+            <!-- In my office (oldest 3 first); full width when it is the only list -->
+            <v-col cols="12" :lg="hasApprovals ? 12 : 6" class="d-flex">
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
                             <v-icon color="#1E40AF" size="24">mdi-office-building-outline</v-icon>
                         </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Latest In My Office</span>
+                        <span class="text-subtitle-1 font-weight-bold">In My Office</span>
                         <v-spacer />
                         <v-btn variant="text" size="small" color="grey-darken-3" append-icon="mdi-arrow-right" @click="openList('office')">
                             View all
@@ -129,14 +136,16 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import TxMiniList from "@/components/portal/TxMiniList.vue";
 
 const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
+const { xs } = useDisplay();
 
 const loading = ref(true);
 const summary = ref(null);
@@ -145,9 +154,12 @@ const actionRows = ref([]);
 const officeRows = ref([]);
 
 const canCreate = computed(() => user.value?.office != null);
+// Clerks (anyone who may approve) work from the Approvals page, so the
+// "Needs my action" tile and list are left out for them.
+const hasApprovals = computed(() => canUseApprovals(user.value));
 
 const tiles = computed(() => [
-    {
+    !hasApprovals.value && {
         key: "action",
         label: "Needs my action",
         value: actionTotal.value,
@@ -187,24 +199,47 @@ const tiles = computed(() => [
         accent: "#1E40AF",
         go: () => openList("office"),
     },
-]);
+].filter(Boolean));
 
 function openList(tab) {
     router.push({ path: "/portal/transactions", query: { tab } });
 }
 
+// Home is a summary: each list shows at most 3 rows, the oldest first
+// (ascending by creation time). The lists come newest-first from the server,
+// so the oldest rows sit on the last page(s): read page 1 for the total,
+// then the last page, plus the one before it when the last page is short.
+const SUMMARY_ROWS = 3;
+
+const byCreatedAsc = (a, b) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || Number(a.id) - Number(b.id);
+
+async function oldestRows(url) {
+    const params = { per_page: SUMMARY_ROWS };
+    const first = await api.get(url, { params });
+    const total = first.data?.meta?.total ?? (first.data?.data ?? []).length;
+    const last = first.data?.meta?.last_page ?? 1;
+    let rows = first.data?.data ?? [];
+    if (last > 1) {
+        const pages = total % SUMMARY_ROWS ? [last - 1, last] : [last];
+        const res = await Promise.all(pages.map((page) => api.get(url, { params: { ...params, page } })));
+        rows = res.flatMap((r) => r.data?.data ?? []);
+    }
+    return { rows: [...rows].sort(byCreatedAsc).slice(0, SUMMARY_ROWS), total };
+}
+
 async function load() {
     const [sum, queue, office] = await Promise.allSettled([
         api.get("/api/portal/summary"),
-        api.get("/api/transactions", { params: { per_page: 5 } }),
-        api.get("/api/admin/transactions", { params: { per_page: 5 } }),
+        hasApprovals.value ? Promise.resolve({ rows: [], total: 0 }) : oldestRows("/api/transactions"),
+        oldestRows("/api/admin/transactions"),
     ]);
     if (sum.status === "fulfilled") summary.value = sum.value.data;
     if (queue.status === "fulfilled") {
-        actionRows.value = queue.value.data?.data ?? [];
-        actionTotal.value = queue.value.data?.meta?.total ?? actionRows.value.length;
+        actionRows.value = queue.value.rows;
+        actionTotal.value = queue.value.total;
     }
-    if (office.status === "fulfilled") officeRows.value = office.value.data?.data ?? [];
+    if (office.status === "fulfilled") officeRows.value = office.value.rows;
     loading.value = false;
 }
 
@@ -219,6 +254,16 @@ useSmartPoll(load);
 }
 .portal-avatar {
     border: 2px solid rgb(var(--v-theme-primary));
+}
+/* Name + office take the room that's left and shorten with "…". */
+.head-text {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.head-text > div {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .portal-tiles {
     display: grid;

@@ -24,9 +24,6 @@ const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue
 const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
 const TransactionDetail = () => import("@/pages/transactions/TransactionDetail.vue");
 
-const MyTransactionsList = () => import("@/pages/my/MyTransactionList.vue");
-const MyTransactionDetail = () => import("@/pages/my/MyTransactionDetail.vue");
-
 const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
 const Help = () => import("@/pages/Help.vue");
@@ -35,13 +32,27 @@ const Help = () => import("@/pages/Help.vue");
 // tracking pages.
 const PortalHome = () => import("@/pages/portal/PortalHome.vue");
 const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
+const PortalApprovals = () => import("@/pages/portal/PortalApprovals.vue");
 const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
 const TrackList = () => import("@/pages/track/TrackList.vue");
 const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
 
-import { useAuth, canUseApprovals, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
+import { toast } from "@/composables/useToast";
+
+// Workflow editing spans these pages; moving between them preserves the
+// staged bucket, so only leaving the whole area should warn.
+function isWorkflowArea(route) {
+    const path = route?.path ?? "";
+    return (
+        path === "/admin/workflows" ||
+        path.startsWith("/admin/workflows/") ||
+        path === "/admin/requirements" ||
+        path.startsWith("/admin/requirements/")
+    );
+}
 
 export function createRouter() {
     const router = _createRouter({
@@ -69,6 +80,13 @@ export function createRouter() {
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
             },
             {
+                // Clerk approvals list (same access rule as /approvals).
+                path: "/portal/approvals",
+                name: "portal.approvals",
+                component: PortalApprovals,
+                meta: { requiresAuth: true, title: "Approvals", kind: "staff" },
+            },
+            {
                 // Short opening animation for viewers; `bare` hides the app chrome.
                 path: "/track/welcome",
                 name: "track.welcome",
@@ -92,6 +110,13 @@ export function createRouter() {
                 path: "/admin/users",
                 component: AdminUsers,
                 meta: { requiresAuth: true, superadmin: true },
+            },
+            // Office admins: same Users page, limited to their own office.
+            {
+                path: "/office/users",
+                name: "office.users",
+                component: AdminUsers,
+                meta: { requiresAuth: true, officeScope: true },
             },
             {
                 path: "/admin/roles",
@@ -139,7 +164,7 @@ export function createRouter() {
 
             {
                 path: "/admin/workflows/:workflowId/requirements",
-                name: "admin.requirements",
+                name: "admin.workflow-requirements",
                 component: AdminRequirements,
                 meta: { requiresAuth: true, superadmin: true },
             },
@@ -173,16 +198,14 @@ export function createRouter() {
                 meta: { requiresAuth: true, superadmin: true },
             },
             {
+                // My Transactions was retired in favour of the shared
+                // Transactions list; keep old bookmarks working.
                 path: "/my/transactions",
-                name: "my.transactions",
-                component: MyTransactionsList,
-                meta: { requiresAuth: true },
+                redirect: "/transactions",
             },
             {
                 path: "/my/transactions/:id",
-                name: "my.transaction.detail",
-                component: MyTransactionDetail,
-                meta: { requiresAuth: true },
+                redirect: (to) => `/transactions/${to.params.id}`,
             },
             {
                 path: "/approvals",
@@ -199,7 +222,7 @@ export function createRouter() {
         ],
     });
 
-    router.beforeEach(async (to) => {
+    router.beforeEach(async (to, from) => {
         const auth = useAuth();
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
@@ -221,26 +244,23 @@ export function createRouter() {
                 return "/portal";
             }
         }
-        if (to.name === "approvals" && !canUseApprovals(auth.user.value))
+        if ((to.name === "approvals" || to.name === "portal.approvals") && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
-        // My Transactions is redundant for superadmin (bypass returns all rows,
-        // same as Transactions) — send them to the admin list instead.
-        const roles = auth.user.value?.roles ?? [];
-        const isSuperadmin = roles.some((r) => r.code === "superadmin");
+        const isSuperadmin = isSuperadminUser(auth.user.value);
         if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };
         if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
             return { name: "dashboard" };
-        if (isSuperadmin && to.path.startsWith("/my/transactions")) {
-            const rest = to.path.slice("/my/transactions".length);
-            return rest ? `/transactions${rest}` : "/transactions";
-        }
-        // Staged workflow edits live only in memory until Save version:
-        // stop accidental loss on navigation (Save and Discard live on the
-        // workflow pages; a reload also drops staged edits).
-        if (anyStagingDirty()) {
+        // /office/* is the office admin's own area (the API enforces the same).
+        if (to.meta.officeScope && !isOfficeAdminUser(auth.user.value)) return { name: "dashboard" };
+        // Staged workflow edits live only in memory until Save version.
+        // They survive navigation between workflow pages, so only warn when
+        // actually leaving the workflow editing area.
+        const leavingWorkflow = isWorkflowArea(from) && !isWorkflowArea(to);
+        if (leavingWorkflow && anyStagingDirty()) {
             const leave = await confirm({
-                title: "Leave without saving?",
-                message: "You have unsaved workflow changes. Leave without saving them?",
+                title: "Leave this page?",
+                message:
+                    "You have unsaved workflow changes. They will stay in memory until you save, discard, or reload.",
                 confirmLabel: "Leave",
                 cancelLabel: "Stay",
             });
@@ -249,9 +269,18 @@ export function createRouter() {
         return true;
     });
 
-    router.afterEach((to) => {
-        const base = "TransactionMF";
+    router.afterEach((to, from, failure) => {
+        const base = "TransactionMS";
         document.title = to.meta?.title ? `${base} | ${to.meta.title}` : base;
+        if (failure) return;
+        // Re-entering the workflow area with a dirty bucket: remind the user
+        // that their earlier Leave did not discard the staged changes.
+        const returningToWorkflow = !isWorkflowArea(from) && isWorkflowArea(to);
+        if (returningToWorkflow && anyStagingDirty()) {
+            toast.warning(
+                "Unsaved workflow changes are still staged. Save or discard them before leaving again.",
+            );
+        }
     });
 
     return router;

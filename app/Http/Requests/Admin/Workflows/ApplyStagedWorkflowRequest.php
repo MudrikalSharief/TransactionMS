@@ -37,6 +37,7 @@ class ApplyStagedWorkflowRequest extends FormRequest
             'steps_upsert.*.sla_minutes' => ['required', 'integer', 'min:0'],
             'steps_upsert.*.is_start' => ['sometimes', 'boolean'],
             'steps_upsert.*.is_end' => ['sometimes', 'boolean'],
+            'steps_upsert.*.is_end_user' => ['sometimes', 'boolean'],
             'steps_upsert.*.role_ids' => ['sometimes', 'array'],
             'steps_upsert.*.role_ids.*' => ['integer', 'exists:roles,id'],
 
@@ -101,6 +102,19 @@ class ApplyStagedWorkflowRequest extends FormRequest
             'step_fields.*.*.field_definition_id' => ['required', 'integer', 'exists:field_definitions,id'],
             'step_fields.*.*.display_order' => ['nullable', 'integer', 'min:0'],
             'step_fields.*.*.required_override' => ['nullable', 'boolean'],
+
+            'step_data' => ['nullable', 'array'],
+            'step_data.*' => ['array'],
+            'step_data.*.*.key' => ['nullable'],
+            'step_data.*.*.source_id' => ['nullable', 'integer'],
+            'step_data.*.*.original_code' => ['nullable', 'string', 'max:100'],
+            'step_data.*.*.code' => ['required', 'string', 'max:100'],
+            'step_data.*.*.display_name' => ['required', 'string', 'max:255'],
+            'step_data.*.*.type' => ['nullable', 'string', 'max:50'],
+            'step_data.*.*.is_required' => ['nullable', 'boolean'],
+            'step_data.*.*.display_order' => ['nullable', 'integer', 'min:0'],
+            'step_data.*.*.min_length' => ['nullable', 'integer', 'min:0'],
+            'step_data.*.*.max_length' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

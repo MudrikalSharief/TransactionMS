@@ -44,9 +44,15 @@ const stars = [
     --tb-blue: 30, 64, 175;
     --tb-red: 185, 28, 28;
     --tb-gold: 201, 162, 75;
+    /* The whole page area: below the app bar, right of the sidebar
+       (Vuetify's layout offsets), so the sun stays centred on the content. */
     position: fixed;
-    inset: 0;
+    top: var(--v-layout-top, 0px);
+    left: var(--v-layout-left, 0px);
+    right: var(--v-layout-right, 0px);
+    bottom: var(--v-layout-bottom, 0px);
     z-index: 0;
+    transition: left 0.2s ease;
     overflow: hidden;
     pointer-events: none;
     background: rgb(var(--v-theme-background));

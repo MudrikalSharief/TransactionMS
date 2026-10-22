@@ -4,7 +4,7 @@
     <v-card rounded="0" elevation="1" class="lgu-card">
       <v-card-title class="d-flex align-center pa-5 lgu-head">
         <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-          <v-icon color="#1E40AF">mdi-swap-horizontal</v-icon>
+          <v-icon color="#16307C">mdi-swap-horizontal</v-icon>
         </v-avatar>
         <span class="text-h6 font-weight-bold">Transactions</span>
         <v-spacer />
@@ -127,7 +127,7 @@
                   v-bind="props"
                 >
                   <v-icon start size="small">{{ stepIcon(item.current_step) }}</v-icon>
-                  {{ item.current_step?.name || item.current_step?.code || 'Unassigned' }}
+                  <span class="tx-chip-text">{{ item.current_step?.name || item.current_step?.code || 'Unassigned' }}</span>
                 </v-chip>
                 <v-chip
                   v-if="item.is_done"
@@ -160,39 +160,15 @@
       </v-card-text>
     </v-card>
 
-    <v-dialog v-model="dialog" max-width="700">
-      <v-card rounded="xl" style="overflow: hidden">
-        <v-card-title>New Transaction</v-card-title>
-        <v-divider />
-        <v-card-text>
-          <v-select
-            v-model="form.transaction_type_id"
-            :items="typeOptions"
-            item-title="label"
-            item-value="id"
-            label="Transaction Type"
-          />
-          <v-select
-            v-if="isSuperadmin"
-            v-model="form.office_id"
-            :items="officeOptions"
-            item-title="label"
-            item-value="id"
-            label="Office (optional)"
-            clearable
-          />
-          <v-text-field v-model="form.title" label="Title (optional)" />
-          <v-alert type="info" variant="tonal" class="mt-3">
-            Transaction will follow the <b>current steps</b> for the chosen type.
-          </v-alert>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="justify-end">
-          <v-btn variant="text" @click="dialog=false">Cancel</v-btn>
-          <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="createTx">Create</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <NewTransactionDialog
+      v-model="dialog"
+      :type-options="typeOptions"
+      :office-options="officeOptions"
+      :is-superadmin="isSuperadmin"
+      :saving="saving"
+      :error="error"
+      @submit="createTx"
+    />
 
     <v-dialog v-model="confirmDialog" max-width="500">
       <v-card rounded="xl" style="overflow: hidden">
@@ -222,6 +198,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
+import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 
 const router = useRouter()
 const { items, loading, meta, fetchAll, create, destroy } = useTransactions()
@@ -246,23 +223,26 @@ const search = ref('')
 
 let navObserver = null
 
-const form = ref({
-  transaction_type_id: null,
-  office_id: null,
-  title: '',
-})
-
 const typeOptions = computed(() => {
   const myOfficeId = auth.user.value?.office?.id ?? null
   return (types.value || [])
     .filter((t) => {
       // Superadmins can originate any type for any office.
       if (isSuperadmin.value) return true
+      // The type-level allowlist decides who can create; the first station
+      // no longer restricts the Originating Office.
       const ids = t.office_ids ?? (t.offices || []).map((o) => o.id)
-      if (!ids.length) return true
-      return myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId))
+      return !ids.length
+        || (myOfficeId != null && ids.some((id) => Number(id) === Number(myOfficeId)))
     })
-    .map((t) => ({ id: t.id, label: `${t.name} (${t.code})` }))
+    .map((t) => ({
+      id: t.id,
+      label: t.name,
+      name: t.name,
+      code: t.code,
+      // Ordered steps of the type's live workflow, for the dialog's flow preview.
+      workflow_steps: t.workflow_steps ?? [],
+    }))
 })
 
 const officeOptions = computed(() =>
@@ -275,8 +255,8 @@ const baseHeaders = [
   { title: 'Ref #', key: 'reference_number' },
   { title: 'Title', key: 'title' },
   { title: 'Transaction Type', key: 'type', sortable: false },
-  { title: 'Office', key: 'office', sortable: false },
-  { title: 'Current Step', key: 'current_step', sortable: false },
+  { title: 'Originating Office', key: 'office', sortable: false },
+  { title: 'Current Step', key: 'current_step', sortable: false, width: 200 },
   { title: 'Created', key: 'created_at' },
 ]
 
@@ -378,7 +358,6 @@ function timeAgo(iso) {
 
 function openCreate() {
   error.value = ''
-  form.value = { transaction_type_id: null, office_id: null, title: '' }
   dialog.value = true
 }
 
@@ -386,23 +365,26 @@ function go(id) {
   router.push(`/transactions/${id}`)
 }
 
-async function createTx() {
+async function createTx(payload) {
   saving.value = true
   error.value = ''
   try {
-    const payload = {
-      transaction_type_id: form.value.transaction_type_id,
-      title: form.value.title || null,
+    const body = {
+      transaction_type_id: payload?.transaction_type_id,
+      title: payload?.title || null,
     }
     // Office is only a choice for superadmins; admins/employees are
     // created under their own office automatically.
-    if (isSuperadmin.value) payload.office_id = form.value.office_id ?? null
-    const tx = await create(payload)
+    if (isSuperadmin.value) body.office_id = payload?.office_id ?? null
+    const tx = await create(body)
     dialog.value = false
     await fetchAll({ q: search.value, page: page.value })
     go(tx.id)
   } catch (e) {
-    error.value = e?.response?.data?.message || 'Create failed.'
+    const errs = e?.response?.data?.errors
+    const first = errs && Object.values(errs).find(Boolean)
+    const msg = Array.isArray(first) ? first[0] : first
+    error.value = msg || e?.response?.data?.message || 'Create failed.'
   } finally {
     saving.value = false
   }
@@ -503,15 +485,18 @@ useSmartPoll(async () => {
 }
 /* Long titles / offices / chip names truncate to one line (full text on
    hover) so rows always hold the 60px rhythm and the card matches the
-   other tabs. Full values remain visible on the detail page. */
+   other tabs. Full values remain visible on the detail page. The step
+   chip's icon must not eat the text budget, so the text gets its own
+   cap slightly inside the chip's overall cap. */
 .tx-chip :deep(.v-chip__content) {
-  max-width: 150px;
+  max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .tx-chip-text {
   min-width: 0;
+  max-width: 170px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -519,19 +504,19 @@ useSmartPoll(async () => {
 /* Boxed table header: dark-blue fill, white text, outer border only —
    no dividers between header cells (first/last cells carry the edges). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #1E3A8A !important;
+  background-color: #0E1F52 !important;
   color: #ffffff !important;
-  border-top: 2px solid #1E3A8A !important;
-  border-bottom: 3px solid #1E3A8A !important;
+  border-top: 2px solid #0E1F52 !important;
+  border-bottom: 3px solid #0E1F52 !important;
   border-left: none !important;
   border-right: none !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #1E3A8A !important;
+  border-left: 2px solid #0E1F52 !important;
   padding-left: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #1E3A8A !important;
+  border-right: 2px solid #0E1F52 !important;
   padding-right: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),

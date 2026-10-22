@@ -1,30 +1,50 @@
 <template>
     <div>
         <v-card rounded="0" elevation="1" class="lgu-card">
-            <v-card-title class="d-flex align-center flex-wrap ga-2 pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-file-document-multiple</v-icon>
+            <!-- Same header as the admin pages (outlined navy badge, outlined
+                 buttons). On phones the buttons drop their labels so the
+                 one-line card header still fits. -->
+            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
+                <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
+                    <v-icon color="#16307C">mdi-file-document-multiple</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">Transactions</span>
                 <v-spacer />
-                <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-refresh" :loading="loading" @click="load">
-                    Refresh
+                <v-btn
+                    variant="outlined"
+                    color="grey-darken-3"
+                    rounded="0"
+                    height="40"
+                    :loading="loading"
+                    :icon="xs"
+                    :prepend-icon="xs ? undefined : 'mdi-refresh'"
+                    aria-label="Refresh"
+                    @click="load"
+                >
+                    <v-icon v-if="xs">mdi-refresh</v-icon>
+                    <template v-else>Refresh</template>
                 </v-btn>
                 <v-btn
                     v-if="canCreate"
+                    variant="outlined"
                     color="primary"
                     rounded="0"
-                    prepend-icon="mdi-plus"
+                    height="40"
+                    :icon="xs"
+                    :prepend-icon="xs ? undefined : 'mdi-plus'"
+                    aria-label="New Transaction"
                     @click="openCreate"
                 >
-                    New Transaction
+                    <v-icon v-if="xs">mdi-plus</v-icon>
+                    <template v-else>New Transaction</template>
                 </v-btn>
             </v-card-title>
 
             <v-divider />
 
+            <!-- Clerks only see My office: what waits on them is on Approvals. -->
             <v-tabs v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
-                <v-tab value="action" class="font-weight-bold">
+                <v-tab v-if="!hasApprovals" value="action" class="font-weight-bold">
                     <v-icon start>mdi-tray-full</v-icon>
                     Needs my action
                 </v-tab>
@@ -67,7 +87,8 @@
                         density="compact"
                         height="398"
                         fixed-header
-                        :items-per-page="25"
+                        :items-per-page="PER_PAGE"
+                        hide-default-footer
                         :sort-by="[{ key: 'created_at', order: 'desc' }]"
                         hover
                         class="lgu-table table-search"
@@ -189,8 +210,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import TableLoader from "@/components/TableLoader.vue";
@@ -201,10 +223,18 @@ const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 const typeStore = useTransactionTypes();
+const { xs } = useDisplay();
+
+// 7 rows per page, like the admin tables; the server pages them and the
+// pager under the table moves between pages.
+const PER_PAGE = 7;
 
 // "action" = rows waiting on my role (opens the working page);
 // "office" = my office's rows (opens the read/track page).
-const tab = ref(route.query.tab === "office" ? "office" : "action");
+// Clerks (anyone who may approve) have the Approvals page for "Needs my
+// action", so they only get the office list here.
+const hasApprovals = computed(() => canUseApprovals(user.value));
+const tab = ref(hasApprovals.value || route.query.tab === "office" ? "office" : "action");
 const items = ref([]);
 const loading = ref(true);
 const error = ref("");
@@ -228,7 +258,7 @@ const endpoint = () => (tab.value === "action" ? "/api/transactions" : "/api/adm
 async function fetchRows({ silent = false } = {}) {
     if (!silent) loading.value = true;
     try {
-        const params = { page: page.value, per_page: 25 };
+        const params = { page: page.value, per_page: PER_PAGE };
         if (search.value && search.value.trim()) params.q = search.value.trim();
         const res = await api.get(endpoint(), { params });
         items.value = res.data?.data ?? [];
@@ -360,3 +390,27 @@ useSmartPoll(() => {
     return fetchRows({ silent: true });
 });
 </script>
+
+<style scoped>
+/* Boxed table header: dark-blue fill, white text (same as the admin tables). */
+.lgu-table :deep(thead tr th.v-data-table__th) {
+    background-color: #0e1f52 !important;
+    color: #ffffff !important;
+    border-top: 2px solid #0e1f52 !important;
+    border-bottom: 3px solid #0e1f52 !important;
+    border-left: none !important;
+    border-right: none !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
+    border-left: 2px solid #0e1f52 !important;
+    padding-left: 20px !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
+    border-right: 2px solid #0e1f52 !important;
+    padding-right: 20px !important;
+}
+.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
+.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
+    color: #ffffff !important;
+}
+</style>

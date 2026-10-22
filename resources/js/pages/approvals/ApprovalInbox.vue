@@ -65,9 +65,9 @@
                     variant="outlined"
                     class="mb-4"
                 >
-                    <v-card-title class="d-flex align-center flex-wrap ga-2 py-3">
+                    <v-card-title class="d-flex align-center flex-wrap ga-2 py-3 group-head">
                         <v-icon color="primary">mdi-map-marker-radius-outline</v-icon>
-                        <span class="font-weight-bold">{{ group.step.name || group.step.code }}</span>
+                        <span class="font-weight-bold group-name">{{ group.step.name || group.step.code }}</span>
                         <v-chip v-if="group.step.stage" size="small" rounded="0" variant="tonal" color="info">
                             {{ group.step.stage }}
                         </v-chip>
@@ -140,18 +140,15 @@
             @changed="replaceTx"
             @proceeded="onProceeded"
         />
-
-        <v-snackbar v-model="snack.show" :color="snack.color" timeout="4000">
-            {{ snack.text }}
-        </v-snackbar>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useApprovals } from "@/composables/useApprovals";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import { useSmartPoll } from "@/composables/useSmartPoll";
+import { toast } from "@/composables/useToast";
 import TableLoader from "@/components/TableLoader.vue";
 import GuideTable from "@/components/GuideTable.vue";
 import ApprovalProceedDialog from "@/components/ApprovalProceedDialog.vue";
@@ -175,7 +172,6 @@ async function goToPage(p) {
 }
 const dialogOpen = ref(false);
 const dialogTxId = ref(null);
-const snack = reactive({ show: false, text: "", color: "success" });
 
 const guideSections = [
     {
@@ -266,9 +262,7 @@ function replaceTx(updated) {
 
 async function onProceeded(movedTx) {
     const to = movedTx?.current_step?.name;
-    snack.text = `${movedTx?.reference_number || "Transaction"} moved${to ? ` to ${to}` : ""}.`;
-    snack.color = "success";
-    snack.show = true;
+    toast.success(`${movedTx?.reference_number || "Transaction"} moved${to ? ` to ${to}` : ""}.`);
     await load();
 }
 
@@ -309,6 +303,16 @@ useSmartPoll(
 </script>
 
 <style scoped>
+/* Step cards: a long step name wraps on narrow screens instead of being cut
+   off by the card title's default single line. */
+.group-head {
+    white-space: normal;
+}
+.group-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+}
 .approval-row {
     cursor: pointer;
 }

@@ -296,6 +296,9 @@ async function loadAssigned() {
                 sid,
                 assignmentRows.value.map((r) => ({
                     field_definition_id: r.field_definition_id,
+                    name: r.name,
+                    code: r.code,
+                    type: r.type,
                     display_order: Number(r.display_order ?? 0),
                     required_override: r.required_override ?? null,
                 })),
@@ -318,6 +321,9 @@ async function stageFields() {
         Number(selectedStepId.value),
         assignmentRows.value.map((r) => ({
             field_definition_id: r.field_definition_id,
+            name: r.name,
+            code: r.code,
+            type: r.type,
             display_order: Number(r.display_order ?? 0),
             required_override: r.required_override ?? null,
         })),

@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -22,11 +25,21 @@ class AuthController extends Controller
 
         $remember = (bool) ($data['remember'] ?? false);
 
-        if (!Auth::guard('web')->attempt($credentials, $remember)) {
+        if (!Auth::guard('web')->validate($credentials)) {
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 422);
         }
+
+        // Only a correct password reveals that the account is still waiting.
+        $user = User::where('email', $credentials['email'])->first();
+        if ($user?->isPendingApproval()) {
+            return response()->json([
+                'message' => 'Your account is waiting for approval. You can sign in once an administrator approves it.',
+            ], 403);
+        }
+
+        Auth::guard('web')->login($user, $remember);
 
         $request->session()->regenerate();
 
@@ -42,15 +55,18 @@ class AuthController extends Controller
 
     /**
      * "Log in as Guest": passwordless sign-in to the configured guest
-     * account, which must be a viewer-only (read-only) account.
+     * account, which must be a viewer-only (read-only) account. The account
+     * is created on first use, so a fresh database needs no seeding.
      */
     public function guest(Request $request): JsonResponse
     {
-        $guest = User::where('email', config('auth.guest_email'))->first();
+        $guest = User::where('email', config('auth.guest_email'))->first() ?? $this->createGuestAccount();
 
-        if (!$guest || !$guest->is_active || !$guest->isViewerOnly()) {
+        // An existing account that was deactivated or given more roles is
+        // refused as is, never repaired here.
+        if (!$guest->is_active || !$guest->isViewerOnly()) {
             return response()->json([
-                'message' => 'Guest access is not available right now.',
+                'message' => 'Document tracking is not available right now.',
             ], 503);
         }
 
@@ -66,6 +82,31 @@ class AuthController extends Controller
                 'email' => $guest->email,
             ],
         ]);
+    }
+
+    private function createGuestAccount(): User
+    {
+        $viewerRole = Role::firstOrCreate(
+            ['code' => 'viewer'],
+            ['name' => 'Viewer', 'description' => 'Read-only access.']
+        );
+
+        // Guests sign in without a password, so this one is random and never shown.
+        $guest = User::firstOrCreate(
+            ['email' => config('auth.guest_email')],
+            [
+                'name' => 'Guest Viewer',
+                'password' => Hash::make(Str::random(40)),
+                'is_active' => true,
+                'approved_at' => now(),
+            ]
+        );
+
+        if ($guest->wasRecentlyCreated) {
+            $guest->roles()->attach($viewerRole->id);
+        }
+
+        return $guest->load('roles');
     }
 
     public function me(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse

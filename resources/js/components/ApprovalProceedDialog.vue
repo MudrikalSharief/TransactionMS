@@ -99,8 +99,8 @@
 
 <script setup>
 // Proceed modal for the Approvals page. Mirrors the Proceed flow of
-// pages/my/MyTransactionDetail.vue (same ProceedWizard, same gating), limited
-// to forward moves — returns, jumps and finalize stay on the transaction page.
+// pages/transactions/TransactionDetail.vue (same ProceedWizard, same gating),
+// limited to forward moves — returns, jumps and finalize stay on that page.
 // Keep the gating computeds in sync with that page when its rules change.
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -178,10 +178,10 @@ const selectedAction = computed(() =>
 );
 const selectedActionLabel = computed(() => (selectedAction.value ? labelForAction(selectedAction.value) : ""));
 
-// Proceed modal title: Proceeding to "stepname" (office code). Name comes from
-// the destination step (workflow_routes.to_step_id → workflow_steps); office
-// code comes from the CURRENT step's Destination Office (where the paper is
-// being sent from, e.g. General Service Office when on step 1).
+// Proceed modal title: Proceeding to "stepname" (office code). Name and
+// office both come from the destination step's effective office. Blank
+// assignments resolve to the Originating Office; only a legacy no-origin
+// station adds no suffix.
 function destStepForTitle() {
     const direct = selectedAction.value?.to_step;
     const routeId = Number(selectedRouteId.value);
@@ -193,29 +193,15 @@ function destStepForTitle() {
     }
     return direct ?? null;
 }
-function currentOfficeForTitle() {
-    const cur = tx.value?.current_step;
-    if (cur?.office?.code || cur?.office?.name || cur?.stage) return cur;
-    const cid = cur?.id;
-    if (cid != null) {
-        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(cid));
-        if (s) return s;
-    }
-    return cur ?? null;
-}
 
-// Single-line Proceed modal title: destination step name + current office code.
+// Single-line Proceed modal title: destination step name + assigned office.
 const proceedModalTitle = computed(() => {
     if (!selectedRouteId.value || !selectedAction.value) return "Proceed";
     const dest = destStepForTitle();
     const n = dest?.order_number;
     const name = dest?.name || dest?.code || (n != null && n !== "" ? `Step ${n}` : "");
     if (!name) return "Proceed";
-    const cur = currentOfficeForTitle();
-    const office = String(
-        cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
-        dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
-    ).trim();
+    const office = String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
     return office ? `Proceeding to "${name}" (${office})` : `Proceeding to "${name}"`;
 });
 
@@ -466,7 +452,7 @@ async function returnForMissing({ toStepId, remarks }) {
 
 function openTransaction() {
     open.value = false;
-    router.push(`/my/transactions/${props.txId}`);
+    router.push(`/transactions/${props.txId}`);
 }
 </script>
 

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Transactions\CreateTransactionRequest;
 use App\Http\Requests\Transactions\ExecuteActionRequest;
 use App\Http\Resources\TransactionListResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
+use App\Models\TransactionType;
+use App\Services\OfficeScope;
 use App\Services\RoutingEngine;
 use App\Services\TransactionEngine;
 use Illuminate\Http\Request;
@@ -66,7 +69,7 @@ class UserTransactionController extends Controller
         ]);
     }
 
-    public function index(Request $request, RoutingEngine $routing)
+    public function index(Request $request, RoutingEngine $routing, OfficeScope $officeScope)
     {
         $user = $request->user();
         $data = $request->validate([
@@ -102,43 +105,39 @@ class UserTransactionController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // Office admins: rows parked at their office; end-user
-                // stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                // Office admins: rows whose current station's effective office
+                // is their office (blank and end-user stations follow the
+                // transaction's Originating Office; legacy no-origin stations
+                // stay role-only), plus every transaction their office filed or
+                // that routes through it (OfficeScope), which they can follow.
+                $query->where(function ($w) use ($roleIds, $user, $officeScope) {
+                    $w->whereHas('state.currentStep', fn ($s) => $s
+                        ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        })
+                        ->orWhere(fn ($o) => $officeScope->apply($o, (int) $user->office_id));
                 });
             } elseif (empty($roleIds)) {
                 return TransactionListResource::collection($query->whereRaw('1 = 0')->paginate($perPage));
             } else {
                 // Push the role + office gate to SQL (no schema change). Only
                 // rows whose current station lists one of the user's roles and
-                // matches their office: regular stations by stored office
-                // (office-less keep role-only), end-user stations by the
-                // transaction's office. Keeps the exact
-                // userCanWorkOnCurrentStep() semantics for the paged rows below.
+                // has their office as its effective office. Legacy transactions
+                // with no Originating Office keep role-only access to blank and
+                // end-user stations.
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                        ->where(function ($x) use ($user) {
-                            $x->where(function ($y) use ($user) {
-                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                                if ($user->office_id !== null) {
-                                    $y->where('transactions.office_id', $user->office_id);
-                                }
-                            })->orWhere(function ($y) use ($user) {
-                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                                if ($user->office_id !== null) {
-                                    $y->where(function ($z) use ($user) {
-                                        $z->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
-                                    });
-                                }
-                            });
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+
+                    if ($user->office_id === null) {
+                        $s->whereLegacyNoOriginFallback();
+                    } else {
+                        $s->where(function ($x) use ($user) {
+                            $x->whereEffectiveOffice($user->office_id)
+                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
+                    }
                 });
             }
         }
@@ -150,16 +149,42 @@ class UserTransactionController extends Controller
         // cheap, unlike filtering the whole table.
         $page->setCollection(
             $page->getCollection()->filter(
-                fn (Transaction $tx) => $isSuperadmin || $routing->userCanWorkOnCurrentStep($tx, $user)
+                fn (Transaction $tx) => $isSuperadmin
+                    || $officeScope->covers($tx, $user)
+                    || $routing->userCanWorkOnCurrentStep($tx, $user)
             )->values()
         );
 
         return TransactionListResource::collection($page);
     }
 
+    /**
+     * Office admins start transactions for processes their office may file
+     * (linked to their office, or linked to no office); the transaction
+     * belongs to their office. Superadmins use the admin API.
+     */
+    public function store(CreateTransactionRequest $request, TransactionEngine $engine)
+    {
+        $user = $request->user();
+        abort_unless($user->isOfficeAdmin(), 403, 'Only office admins can start transactions here.');
+
+        $typeId = (int) $request->validated()['transaction_type_id'];
+        $allowed = TransactionType::query()->fileableBy((int) $user->office_id)->whereKey($typeId)->exists();
+        abort_unless($allowed, 403, 'Your office is not set up to file this process.');
+
+        $tx = $engine->create(
+            $typeId,
+            $request->validated()['title'] ?? null,
+            $user->id,
+            (int) $user->office_id
+        );
+
+        return (new TransactionResource($tx))->response()->setStatusCode(201);
+    }
+
     public function show(Transaction $transaction, Request $request, RoutingEngine $routing)
     {
-        $routing->assertUserCanExecute($transaction, $request->user());
+        $routing->assertUserCanView($transaction, $request->user());
 
         $transaction->load([
             'type',

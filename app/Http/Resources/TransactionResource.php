@@ -78,9 +78,6 @@ class TransactionResource extends JsonResource
             return ['id' => $st->id, 'order_number' => $st->order_number, 'code' => $st->code, 'name' => $st->name];
         };
         if ($currentStep) {
-<<<<<<< HEAD
-            $this->loadMissing(['requirementChecks.checker.office', 'checklistChecks.checker', 'attachments.uploader']);
-=======
             $this->loadMissing(['requirementChecks.checker', 'checklistChecks.checker', 'attachments.uploader']);
             // Structured return flags aimed at this station: latest arrival
             // at the current step wins (empty flags clear old ones). Matched
@@ -106,7 +103,6 @@ class TransactionResource extends JsonResource
                 $n = strtolower(trim((string) ($name ?? '')));
                 return $n !== '' && in_array($n, $flaggedNames, true);
             };
->>>>>>> Adustment-Temporary
             $checks = collect($this->requirementChecks ?? [])
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->keyBy('requirement_definition_id');
@@ -174,7 +170,7 @@ class TransactionResource extends JsonResource
                     'pivot' => [
                         'display_order' => (int) ($r->pivot?->display_order ?? 0),
                         'is_required' => (bool) ($r->pivot?->is_required ?? true),
-                        'is_upload_required' => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot),
+                        'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                     ],
                     'checked' => (bool) $check,
                     'checked_at' => $check?->checked_at?->toISOString(),
@@ -217,44 +213,13 @@ class TransactionResource extends JsonResource
             // station and the files it uploaded, so the reviewer can see
             // what they are validating (Approvals page).
             $sourceStepByReq = [];
-            $sourceStepsByReq = [];
+            $ownerStepIdsByReq = [];
             foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
                 foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
                     $sourceStepByReq[(int) $reqId] ??= $pred;
-                    $sourceStepsByReq[(int) $reqId][] = $pred;
+                    $ownerStepIdsByReq[(int) $reqId][] = (int) $pred->id;
                 }
             }
-
-            // Physical-copy ticks made at predecessor stations, so the next
-            // station sees who verified each item and from which office.
-            $checksByStepReq = collect($this->requirementChecks ?? [])
-                ->keyBy(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id));
-            $sourceVerification = function (int $reqId) use ($sourceStepsByReq, $checksByStepReq) {
-                $preds = $sourceStepsByReq[$reqId] ?? [];
-                if (!$preds) return null;
-                // Merged branches: the station that actually ticked wins.
-                foreach ($preds as $pred) {
-                    $check = $checksByStepReq->get(((int) $pred->id) . ':' . $reqId);
-                    if ($check) {
-                        $office = $check->checker?->office ?? $pred->office;
-                        return [
-                            'verified' => true,
-                            'verified_at' => $check->checked_at?->toISOString(),
-                            'verified_by' => $check->checker?->only(['id', 'name']),
-                            'office' => $office?->only(['id', 'name']),
-                            'step' => ['id' => $pred->id, 'name' => $pred->name, 'order_number' => $pred->order_number],
-                        ];
-                    }
-                }
-                $pred = $preds[0];
-                return [
-                    'verified' => false,
-                    'verified_at' => null,
-                    'verified_by' => null,
-                    'office' => $pred->office?->only(['id', 'name']),
-                    'step' => ['id' => $pred->id, 'name' => $pred->name, 'order_number' => $pred->order_number],
-                ];
-            };
             $attsByStepReq = collect($this->attachments ?? [])
                 ->groupBy(fn ($a) => ((int) $a->workflow_step_id) . ':' . ((int) ($a->requirement_definition_id ?? 0)));
 
@@ -263,6 +228,16 @@ class TransactionResource extends JsonResource
             // requirement so the wizard can offer a View button per file.
             $attsByReqTx = collect($this->relationLoaded('attachments') ? ($this->attachments ?? []) : [])
                 ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
+
+            // Only surface rows mirrored from a requirement the previous
+            // station actually ticked for this transaction (custom rows are
+            // hidden too). The rows themselves stay in the workflow config.
+            $checklistItems = $checklistService->visibleItemsFor(
+                $this->resource,
+                $currentStep,
+                $checklistItems,
+                $ownerStepIdsByReq
+            );
 
             foreach ($checklistItems as $item) {
                 $cCheck = $checklistChecks->get($item->id);
@@ -288,15 +263,9 @@ class TransactionResource extends JsonResource
                     'checked' => (bool) $cCheck,
                     'checked_at' => $cCheck?->checked_at?->toISOString(),
                     'checked_by' => $cCheck?->checker?->only(['id', 'name']),
-<<<<<<< HEAD
-                    'source_verification' => $item->requirement_definition_id
-                        ? $sourceVerification((int) $item->requirement_definition_id)
-                        : null,
-=======
                     'prev_checked' => (bool) $prevReqCheck,
                     'prev_checked_by' => $prevReqCheck?->checker?->only(['id', 'name']),
                     'prev_step' => $sourceStep && $item->requirement_definition_id ? $sourceStep->only(['id', 'name', 'order_number']) : null,
->>>>>>> Adustment-Temporary
                     'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
@@ -382,7 +351,7 @@ class TransactionResource extends JsonResource
                         'pivot' => [
                             'display_order' => (int) ($r->pivot?->display_order ?? 0),
                             'is_required' => (bool) ($r->pivot?->is_required ?? true),
-                            'is_upload_required' => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot),
+                            'is_upload_required' => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true),
                         ],
                         'checked' => (bool) $check,
                         'checked_at' => $check?->checked_at?->toISOString(),
@@ -606,9 +575,9 @@ class TransactionResource extends JsonResource
     }
 
     /**
-     * office_id + office for a step, with end-user and office-less
-     * stations following the transaction's office instead of the
-     * workflow template's step office.
+     * office_id + office for a step. End-user stations and blank assignments
+     * follow the transaction's Originating Office. Legacy transactions with
+     * no originating office resolve to null (role-only fallback).
      */
     private function stepOfficePayload($step): array
     {

@@ -15,6 +15,7 @@
              for 2s, then drag it onto another card to swap them. -->
         <v-row
             align="stretch"
+            :class="{ 'dash-staff': isStaff }"
             @pointerdown="onHoldStart"
             @pointermove="onHoldMove"
             @pointerup="onHoldEnd"
@@ -27,7 +28,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#1E40AF" size="24">mdi-chart-bar</v-icon>
+                                <v-icon color="#16307C" size="24">mdi-chart-bar</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">{{ scopeProcessTitle }}</span>
                             <v-spacer />
@@ -79,7 +80,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#1E40AF" size="24">mdi-rocket-launch-outline</v-icon>
+                                <v-icon color="#16307C" size="24">mdi-rocket-launch-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Get Started</span>
                         </v-card-title>
@@ -108,7 +109,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card summary-card">
                         <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#1E40AF" size="24">mdi-clipboard-text-clock-outline</v-icon>
+                                <v-icon color="#16307C" size="24">mdi-clipboard-text-clock-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
                             <v-spacer />
@@ -221,11 +222,11 @@
                         </v-card-text>
                     </v-card>
                 </v-col>
-                <v-col v-else-if="id === 'recent'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                <v-col v-else-if="id === 'recent'" cols="12" :lg="isStaff ? 8 : 4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#1E40AF" size="24">mdi-history</v-icon>
+                                <v-icon color="#16307C" size="24">mdi-history</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
                             <v-spacer />
@@ -284,7 +285,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#1E40AF" size="24">mdi-tray-full</v-icon>
+                                <v-icon color="#16307C" size="24">mdi-tray-full</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
                             <v-spacer />
@@ -347,17 +348,67 @@
                         </v-card-text>
                     </v-card>
                 </v-col>
+                <v-col v-else-if="id === 'intransit'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 dash-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                                <v-icon color="#16307C" size="24">mdi-truck-fast-outline</v-icon>
+                            </v-avatar>
+                            <span class="text-subtitle-1 font-weight-bold">In Transit</span>
+                            <v-spacer />
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pa-2">
+                            <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
+                            </div>
+                            <v-alert
+                                v-else-if="!inTransit.length"
+                                type="info"
+                                variant="tonal"
+                                rounded="0"
+                                class="ma-2"
+                            >
+                                Nothing in transit — everything your office owns is with you.
+                            </v-alert>
+                            <v-list v-else lines="two" class="py-0">
+                                <v-list-item
+                                    v-for="tx in inTransit"
+                                    :key="tx.id"
+                                    rounded="0"
+                                    class="recent-row"
+                                    @click="openTx(tx)"
+                                >
+                                    <template v-slot:prepend>
+                                        <v-avatar color="grey-darken-3" variant="tonal" rounded="0" size="34">
+                                            <v-icon color="grey-darken-3" size="20">mdi-file-document-outline</v-icon>
+                                        </v-avatar>
+                                    </template>
+                                    <v-list-item-title class="font-weight-bold">
+                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                    </v-list-item-title>
+                                    <v-list-item-subtitle>
+                                        {{ transitSubtitle(tx) }} · {{ timeAgo(tx.entered_at || tx.created_at) }}
+                                    </v-list-item-subtitle>
+                                    <template v-slot:append>
+                                        <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
+                                    </template>
+                                </v-list-item>
+                            </v-list>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
             </template>
         </v-row>
         <SummaryDetailDialog
-            v-if="isSuperadmin"
+            v-if="canSeeSummary"
             v-model:open="detail.open"
             :category="detail.category"
             :process-id="detail.processId"
             :process-name="detail.processName"
             :origin-el="detail.originEl"
             :query="summaryQuery"
-            :period-label="summary?.period?.label || 'This week'"
+            :period-label="summary?.period?.label || 'All time'"
             :scope-chips="officeScopeChips"
         />
     </div>
@@ -368,9 +419,9 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
+import { summaryApiBase } from '@/composables/useSummaryRows'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
-import { useMyTransactions } from '@/composables/useMyTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
@@ -385,7 +436,6 @@ const auth = useAuth()
 const { api } = useApi()
 
 const txStore = useTransactions()
-const myStore = useMyTransactions()
 const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
@@ -397,14 +447,25 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
-const canViewSummary = computed(() => isSuperadmin.value || isOfficeAdminUser(auth.user.value))
+// Office admins get the Transaction Summary for their own office's scope.
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+
+// Standard users (role-based staff) get an action-first dashboard: no
+// analytics, queue tightened to what is actually waiting on them, and an
+// in-transit card showing where their office's papers currently sit.
+const isStaff = computed(() => !canSeeSummary.value)
 
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
-// Default order; Transaction Summary is superadmin / office admin only.
-const cardIds = computed(() =>
-    ['summary', 'graph', 'start', 'recent', 'action'].filter((id) => id !== 'summary' || canViewSummary.value)
-)
+// Default order; Transaction Summary is superadmin / office admin only,
+// and the staff layout swaps the graph + Get Started hero for the queue.
+const cardIds = computed(() => {
+    if (canSeeSummary.value) {
+        return ['summary', 'graph', 'start', 'recent', 'action']
+    }
+    return ['action', 'intransit', 'recent', 'start']
+})
 const {
     order: cardOrder,
     changed: layoutChanged,
@@ -528,10 +589,9 @@ onUnmounted(() => {
     window.removeEventListener('keydown', onEscapeWhileArmed)
 })
 
-// Scope: superadmin sees everything, everyone else sees their own queue.
-const scopeSource = computed(() =>
-    isSuperadmin.value ? (txStore.items.value || []) : (myStore.items.value || [])
-)
+// Scope: the Transactions endpoint already narrows rows per user; superadmins
+// see everything while regular users see their office/role queue.
+const scopeSource = computed(() => txStore.items.value || [])
 
 // Series colors: validated categorical palette (dataviz reference
 // palette, adjacent-pair safe in both modes), light and dark steps.
@@ -741,10 +801,11 @@ const graphSeries = computed(() => {
 })
 
 // ---- Transaction Summary card (superadmin) ----
-// Period: this week (the current Mon–Sun week), or one of the last 12
-// months (Manila calendar).
+// Period: all time by default so pending work never hides on a week/month
+// rollover; switchable to this week (current Mon–Sun week) or one of the
+// last 12 months (Manila calendar).
 // Completed counts by finalize date, the rest by created date (server side).
-const summaryPeriod = ref('this_week')
+const summaryPeriod = ref('all')
 const periodOptions = computed(() => [
     { title: 'All time', value: 'all' },
     { title: 'This week', value: 'this_week' },
@@ -757,27 +818,29 @@ const summaryError = ref('')
 
 // Same scope as the graph, but independent of the graph's Month and
 // Process filters. No office assigned: the backend aggregates all offices.
+// Office admins send no office: the server forces their office's full scope
+// (filed by it or passing through it), which an office_code would narrow.
 const summaryQuery = computed(() => ({
     month: summaryPeriod.value === 'this_week' ? undefined : summaryPeriod.value,
-    ...(scopeCode.value ? { office_code: scopeCode.value } : {}),
+    ...(isSuperadmin.value && scopeCode.value ? { office_code: scopeCode.value } : {}),
     ...(officeFilter.value?.length ? { offices: [...officeFilter.value].sort((a, b) => a - b) } : {}),
 }))
 
 let summaryRequest = 0
 async function loadSummary() {
-    if (!canViewSummary.value) return
+    if (!canSeeSummary.value) return
     const mine = ++summaryRequest
     // Instant illusion: last summary for this period/office paints at once
     // (template already dims stale tiles via .summary-stale), then the
     // network refreshes silently. Spinner only shows with zero cached data.
-    const cacheKey = `${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`
+    const cacheKey = scopedKey(`${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`, auth.user.value?.id)
     const cached = readCache(cacheKey)
     if (cached != null && mine === summaryRequest) summary.value = cached
     const quiet = cached != null
     if (!quiet) summaryLoading.value = true
     summaryError.value = ''
     try {
-        const res = await api.get('/api/admin/dashboard/summary', { params: summaryQuery.value })
+        const res = await api.get(summaryApiBase(), { params: summaryQuery.value })
         if (mine === summaryRequest) {
             summary.value = res.data
             writeCache(cacheKey, res.data)
@@ -791,7 +854,7 @@ async function loadSummary() {
 watch(summaryQuery, loadSummary, { deep: true })
 
 const summaryScopeText = computed(
-    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'This week',
+    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'All time',
 )
 
 // Status tiles: the icon carries the status color, the number stays in text ink.
@@ -831,38 +894,81 @@ const byProcessRows = computed(() => {
 })
 
 // Oldest first: longest-waiting items the user can act on (max 5).
-// Superadmin uses the full queue (My Transactions is hidden as redundant).
+// Admins keep the office/system queue; staff only see rows the server
+// flags as waiting on them (same gate the write endpoints enforce), so
+// the queue never lists a paper parked at another office.
 const actionQueue = computed(() => {
-    const base = isSuperadmin.value
-        ? [...(txStore.items.value || [])]
-        : [...(myStore.items.value || [])]
+    const base = [...(txStore.items.value || [])].filter(
+        (tx) => !isStaff.value || tx.needs_action,
+    )
     base.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
     return base.slice(0, 5)
 })
+
+// Staff only: the office's own papers currently parked at another office
+// (not waiting on this user), longest-waiting first.
+const inTransit = computed(() => {
+    const myOfficeId = myOffice.value?.id ?? null
+    if (myOfficeId == null) return []
+    const list = (scopeSource.value || []).filter(
+        (tx) =>
+            !tx.is_done &&
+            !tx.needs_action &&
+            Number(tx.office?.id) === Number(myOfficeId) &&
+            tx.current_step?.office_id != null &&
+            Number(tx.current_step.office_id) !== Number(myOfficeId),
+    )
+    list.sort((a, b) => new Date(a.entered_at || a.created_at || 0) - new Date(b.entered_at || b.created_at || 0))
+    return list.slice(0, 5)
+})
+const inTransitIds = computed(() => new Set(inTransit.value.map((tx) => tx.id)))
 
 const recent = computed(() => {
     const source = scopeSource.value || []
     const list = officeIds.value.size
         ? source.filter((tx) => officeIds.value.has(tx.office?.id))
         : [...source]
-    list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-    return list.slice(0, 4)
+    // Staff: the feed holds the rest — never duplicates the queue or the
+    // in-transit card.
+    const feed = isStaff.value
+        ? list.filter((tx) => !tx.needs_action && !inTransitIds.value.has(tx.id))
+        : list
+    feed.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    return feed.slice(0, 4)
 })
 
 // Evenly-distributed shortcut rows that always fill the Get Started card.
 const startLinks = computed(() => {
+    // Staff with papers already have a queue shortcut in Needs My Action;
+    // Get Started shrinks to Help. The full card is the empty state.
+    if (isStaff.value && scopeSource.value.length) {
+        return [
+            { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#16307C', go: goToHelp },
+        ]
+    }
     const links = [
-        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#1E40AF', go: goToHelp },
+        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#16307C', go: goToHelp },
         isSuperadmin.value
-            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#1E40AF', go: goToQueue }
-            : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#1E40AF', go: goToQueue },
+            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue }
+            : isOfficeAdmin.value
+              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue }
+              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue },
     ]
+    if (isOfficeAdmin.value) {
+        links.push({
+            title: 'Office users',
+            subtitle: 'People and roles in your office',
+            icon: 'mdi-account-group',
+            color: '#1E40AF',
+            go: () => router.push('/office/users'),
+        })
+    }
     if (isSuperadmin.value) {
         links.push({
             title: 'Manage offices',
             subtitle: 'Offices, steps, and assignments',
             icon: 'mdi-office-building-outline',
-            color: '#1E40AF',
+            color: '#16307C',
             go: () => router.push('/admin/offices'),
         })
     }
@@ -873,6 +979,13 @@ function txSubtitle(tx) {
     return [tx.reference_number, tx.transaction_type?.name || tx.transaction_type_name]
         .filter(Boolean)
         .join(' · ') || tx.current_step?.name || ''
+}
+
+// In Transit rows: where the paper sits now (station + office).
+function transitSubtitle(tx) {
+    const step = tx.current_step?.name || tx.current_step?.code
+    const office = tx.current_step?.office?.code || tx.current_step?.office?.name
+    return [step, office].filter(Boolean).join(' · ') || 'With another office'
 }
 
 function timeAgo(iso) {
@@ -886,11 +999,11 @@ function timeAgo(iso) {
 }
 
 function openTx(tx) {
-    router.push(isSuperadmin.value ? `/transactions/${tx.id}` : `/my/transactions/${tx.id}`)
+    router.push(`/transactions/${tx.id}`)
 }
 
 function goToQueue() {
-    router.push(isSuperadmin.value ? '/transactions' : '/my/transactions')
+    router.push('/transactions')
 }
 
 function goToHelp() {
@@ -907,9 +1020,7 @@ onMounted(async () => {
     const uid = auth.user.value?.id ?? storedUserId()
     const warm =
         isCached(CacheKeys.transactionTypes) ||
-        (isSuperadmin.value
-            ? isCached(scopedKey(CacheKeys.transactions, uid))
-            : isCached(scopedKey(CacheKeys.myTransactions, uid)))
+        isCached(scopedKey(CacheKeys.transactions, uid))
     loading.value = !warm
     const opts = { silent: warm }
     loadSummary()
@@ -920,11 +1031,7 @@ onMounted(async () => {
     }
 
     try {
-        if (isSuperadmin.value) {
-            await txStore.fetchAll(opts)
-        } else {
-            await myStore.fetchAll(opts)
-        }
+        await txStore.fetchAll(opts)
     } catch { /* keep defaults */ }
 
     refreshedAt.value = new Date()
@@ -937,12 +1044,10 @@ onMounted(async () => {
 useSmartPoll(async () => {
     const opts = { silent: true }
     try {
-        if (isSuperadmin.value) {
-            await txStore.fetchAll(opts)
-            loadSummary()
-        } else {
-            await myStore.fetchAll(opts)
-        }
+        // Everyone reads the shared Transactions list now (My Transactions
+        // was retired); the summary is for superadmins and office admins.
+        await txStore.fetchAll(opts)
+        if (canSeeSummary.value) loadSummary()
         refreshedAt.value = new Date()
     } catch {
         /* next tick retries */
@@ -961,12 +1066,26 @@ onUnmounted(() => {
     flex-grow: 1;
     max-width: 100%;
 }
+/* Staff layout: the two rows stretch to fill the viewport instead of
+   hugging the top and leaving dead space below (desktop only; on small
+   screens the cards stack and size to content). */
+@media (min-width: 1280px) {
+    .dash-staff {
+        align-content: stretch;
+        min-height: calc(100vh - 190px);
+    }
+}
+/* Keep Get Started shortcut rows at their natural height so a single
+   row doesn't balloon to fill the taller card; content stays top-aligned. */
+.dash-staff [data-card='start'] .start-row {
+    flex: 0 0 auto !important;
+}
 /* Armed card: lifted, grabbing cursor, frozen scroll/selection while moving. */
 .dash-dragging {
     cursor: grabbing;
 }
 .dash-dragging > .v-card {
-    box-shadow: 0 16px 36px rgba(30, 64, 175, 0.35);
+    box-shadow: 0 16px 36px rgba(22, 48, 124, 0.35);
     outline: 2px solid rgb(var(--v-theme-primary));
     outline-offset: 2px;
 }

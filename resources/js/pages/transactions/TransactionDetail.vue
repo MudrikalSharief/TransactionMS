@@ -4,11 +4,14 @@
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                    <v-icon color="#1E40AF">mdi-file-document</v-icon>
+                    <v-icon color="#16307C">mdi-file-document</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">
-                    Transaction: <b>{{ tx?.reference_number }}</b>
-                    <span v-if="tx?.title"> — {{ tx.title }}</span>
+                    <template v-if="tx">
+                        Transaction: <b>{{ tx.reference_number }}</b>
+                        <span v-if="tx.title"> — {{ tx.title }}</span>
+                    </template>
+                    <template v-else>Transaction</template>
                 </span>
                 <v-spacer />
                 <v-btn variant="text" @click="$router.push('/transactions')"
@@ -79,8 +82,9 @@
                         class="mb-3"
                     >
                         <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
-                        <div class="text-caption">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
-                        <v-btn color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
+                        <div class="text-caption" v-if="canReceivePending">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <div class="text-caption" v-else>Waiting at {{ pendingReceiptStation }} — only its staff can receive it.</div>
+                        <v-btn v-if="canReceivePending" color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
                             <v-icon start>mdi-inbox-arrow-down</v-icon>
                             Receive Step
                         </v-btn>
@@ -287,6 +291,9 @@
                                 {{ item.station.order_number }}. {{ item.station.name }}
                                 <v-chip v-if="isCurrentRow(item)" rounded="0" size="x-small" class="ml-1" variant="tonal" color="primary">here</v-chip>
                             </div>
+                            <div class="text-caption text-medium-emphasis">
+                                {{ stationOfficeLabel(item.station) }}
+                            </div>
                         </template>
 
                         <template v-slot:[`item.name`]="{ item }">
@@ -463,6 +470,7 @@
             is-admin
             :attachments="tx?.attachments || []"
             :workflow-steps="tx?.workflow_steps || []"
+            :workflow-routes="tx?.workflow_routes || []"
             :current-step-id="tx?.current_step?.id"
             @deleted="removeAttachment"
         />
@@ -687,9 +695,9 @@
         </v-dialog>
 
         <!-- End-of-transaction footer: same deep-blue bar as the dashboard foot. -->
-        <v-sheet v-if="tx" color="#1E3A8A" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
+        <v-sheet v-if="tx" color="#0E1F52" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
             <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
-                <v-icon color="#1E40AF" size="32">mdi-flag-checkered</v-icon>
+                <v-icon color="#16307C" size="32">mdi-flag-checkered</v-icon>
             </v-avatar>
             <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
             <div class="text-left">
@@ -1124,6 +1132,13 @@ function isCurrentRow(row) {
     return Number(row.station?.id) === Number(tx.value?.current_step?.id);
 }
 
+function stationOfficeLabel(station) {
+    const office = station?.office;
+    // Blank assignments resolve to the transaction's Originating Office.
+    // The fallback only applies to legacy transactions that have no origin.
+    return office?.name || office?.code || "User's Office";
+}
+
 function waitText(row) {
     const st = row.station || {};
     const who = (st.roles || []).map((r) => r.name || r.code).filter(Boolean).join(" / ");
@@ -1158,6 +1173,53 @@ const currentStepRoles = computed(() => {
         (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
     );
     return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
+});
+
+// Destination station of the pending receipt (current step, effective
+// office already resolved by the API) for the "waiting at ..." caption.
+const pendingReceiptStation = computed(() => {
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    const office = entry?.step?.office?.name;
+    const who = currentStepRoles.value.join(' / ');
+    const base = office || 'the receiving office';
+    return who ? `${base} (${who})` : base;
+});
+
+// Mirrors the server's receive gate (RoutingEngine::userCanWorkOnStep):
+// superadmin, the effective office's office admin, or a role holder in
+// that office. Blank assignments follow the Originating Office; only a
+// legacy transaction with no origin keeps role-only access. Everyone else
+// gets a 403, so don't offer it.
+const canReceivePending = computed(() => {
+    if (!pendingReceipt.value || !tx.value) return false;
+    const u = auth.user.value;
+    if (!u) return false;
+    if (isSuperadmin()) return true;
+
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    const step = entry?.step;
+    if (!step) return false;
+
+    const destOfficeId = step.office_id ?? null;
+    const userOfficeId = u.office?.id ?? u.office_id ?? null;
+    const isOfficeAdmin =
+        userOfficeId != null && (u.roles || []).some((r) => r.code === 'admin');
+
+    if (isOfficeAdmin && destOfficeId != null && Number(destOfficeId) === Number(userOfficeId)) {
+        return true;
+    }
+
+    const stepRoleCodes = new Set((step.roles || []).map((r) => r.code));
+    const hasRole = [...myRoleCodes.value].some((c) => stepRoleCodes.has(c));
+    if (!hasRole) return false;
+    // No resolved office means a legacy transaction with no Originating
+    // Office; keep its blank/end-user stations role-only.
+    if (destOfficeId == null) return true;
+    return userOfficeId != null && Number(destOfficeId) === Number(userOfficeId);
 });
 
 async function receiveStep() {
@@ -1384,7 +1446,17 @@ async function load() {
         );
         if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load transaction.";
+        // Plain-language messages instead of the server's raw text
+        // ("Forbidden.", "No query results for model ...").
+        const status = e?.response?.status;
+        if (status === 404) {
+            error.value = "This transaction was not found. It may have been deleted.";
+        } else if (status === 403) {
+            error.value =
+                "You don't have access to this transaction. It isn't at a step for your role and office.";
+        } else {
+            error.value = e?.response?.data?.message || "Failed to load transaction.";
+        }
     } finally {
         loading.value = false;
     }
@@ -1945,10 +2017,9 @@ const actionButtonLabel = computed(() => {
     return "Proceed";
 });
 
-// Proceed modal title: Proceeding to "stepname" (office code). Name comes from
-// the destination step (workflow_routes.to_step_id → workflow_steps); office
-// code comes from the CURRENT step's Destination Office (where the paper is
-// being sent from, e.g. General Service Office when on step 1).
+// Proceed modal title: Proceeding to "stepname" (office code). Both the
+// name and office come from the destination step's effective office
+// (blank assignments resolve to the Originating Office).
 function destStepForTitle() {
     if (isJumpSelected.value) {
         const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(jumpStepId.value));
@@ -1965,26 +2036,14 @@ function destStepForTitle() {
     }
     return direct ?? null;
 }
-function currentOfficeForTitle() {
-    const cur = tx.value?.current_step;
-    if (cur?.office?.code || cur?.office?.name || cur?.stage) return cur;
-    const cid = cur?.id;
-    if (cid != null) {
-        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(cid));
-        if (s) return s;
-    }
-    return cur ?? null;
-}
 function proceedTitle(prefix) {
     const dest = destStepForTitle();
     const n = dest?.order_number ?? selectedStepNumber.value ?? "";
     const name = dest?.name || dest?.code || (n !== "" && n != null ? `Step ${n}` : "");
     if (!name) return "Proceed";
-    const cur = currentOfficeForTitle();
-    const office = String(
-        cur?.office?.code ?? cur?.office?.name ?? cur?.stage ??
-        dest?.office?.code ?? dest?.office?.name ?? dest?.stage ?? "",
-    ).trim();
+    // Show the destination station's effective office, not the current
+    // station's. Legacy no-origin stations add no suffix.
+    const office = String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
     return office ? `${prefix} "${name}" (${office})` : `${prefix} "${name}"`;
 }
 

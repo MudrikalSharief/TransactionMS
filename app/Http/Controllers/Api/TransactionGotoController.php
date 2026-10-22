@@ -61,22 +61,12 @@ class TransactionGotoController extends Controller
             abort(422, 'Use Proceed to move forward to this station.');
         }
 
-        // Sent back from the proceed modal because the previous station's
-        // items were missing: recorded as its own history action.
-        $actionCode = ($request->validated()['reason'] ?? null) === 'missing_requirements'
-            ? 'return_missing'
-            : 'revisit';
-
         $tx = $engine->jumpToStep(
             $transaction,
             $toStepId,
             $request->validated()['remarks'] ?? null,
             (int) $request->user()->id,
-<<<<<<< HEAD
-            $actionCode
-=======
             $request->validated()['flagged_items'] ?? []
->>>>>>> Adustment-Temporary
         );
 
         $tx->load([

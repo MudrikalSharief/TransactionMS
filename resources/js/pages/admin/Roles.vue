@@ -3,7 +3,7 @@
   <v-card rounded="0" elevation="1" class="lgu-card">
     <v-card-title class="d-flex align-center pa-5 lgu-head">
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-        <v-icon color="#1E40AF">mdi-shield-account</v-icon>
+        <v-icon color="#16307C">mdi-shield-account</v-icon>
       </v-avatar>
       <span class="text-h6 font-weight-bold">Roles</span>
       <v-spacer />
@@ -40,7 +40,7 @@
         :items-per-page="7"
         :items-per-page-options="[7]"
         hover
-        class="lgu-table table-pages"
+        class="lgu-table table-pages table-fixed-cols"
       >
         <template v-slot:[`item.code`]="{ item }">
           <span class="cell-truncate" :title="item.code">{{ item.code }}</span>
@@ -51,7 +51,7 @@
         </template>
 
         <template v-slot:[`item.description`]="{ item }">
-          <span class="cell-truncate text-medium-emphasis" :title="item.description || ''">{{ item.description || '—' }}</span>
+          <span class="desc-wrap text-medium-emphasis">{{ item.description || '—' }}</span>
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
@@ -106,11 +106,14 @@ import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } = useRoles()
 
+// Fixed widths (table-fixed-cols): a long description wraps onto more
+// lines inside its column instead of pushing the edit/delete buttons off
+// screen.
 const headers = [
-  { title: 'Code', key: 'code' },
-  { title: 'Name', key: 'name' },
+  { title: 'Code', key: 'code', width: 180 },
+  { title: 'Name', key: 'name', width: 200 },
   { title: 'Description', key: 'description' },
-  { title: '', key: 'actions', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: 120, align: 'end' },
 ]
 
 const dialog = ref(false)
@@ -216,6 +219,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full description, wrapped within its column; the row grows to fit. */
+.desc-wrap {
+  display: block;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  padding: 10px 0;
+}
 /* Hide the table's internal scrollbar; drawer expand can never create a
    visible horizontal bar — overflow is clipped, not scrolled. */
 .lgu-table {
@@ -238,19 +249,19 @@ onUnmounted(() => {
 /* Boxed table header: dark-blue fill, white text, outer border only —
    no dividers between header cells (matches Transactions tab). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #1E3A8A !important;
+  background-color: #0E1F52 !important;
   color: #ffffff !important;
-  border-top: 2px solid #1E3A8A !important;
-  border-bottom: 3px solid #1E3A8A !important;
+  border-top: 2px solid #0E1F52 !important;
+  border-bottom: 3px solid #0E1F52 !important;
   border-left: none !important;
   border-right: none !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #1E3A8A !important;
+  border-left: 2px solid #0E1F52 !important;
   padding-left: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #1E3A8A !important;
+  border-right: 2px solid #0E1F52 !important;
   padding-right: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),

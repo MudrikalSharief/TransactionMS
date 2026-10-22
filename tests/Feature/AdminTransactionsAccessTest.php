@@ -18,10 +18,12 @@ use Tests\TestCase;
 /**
  * Admin transaction routes: viewing is open to every signed-in user. Regular
  * users see their own office's transactions plus rows whose current station
- * lists one of their roles at their office; office admins see rows parked at
- * their office; superadmin sees all. Any user with an office can create
- * (non-superadmin creations are forced to their own office and respect the
- * type-office restriction; superadmins bypass it).
+ * lists one of their roles at their office; office admins see their own
+ * office's papers wherever they sit plus rows parked at their office;
+ * superadmin sees all. Any user with an office can create (non-superadmin
+ * creations are forced to their own office and respect the type-office
+ * restriction; superadmins bypass it). The first station's assigned office
+ * is independent of the Originating Office.
  */
 class AdminTransactionsAccessTest extends TestCase
 {
@@ -137,14 +139,14 @@ class AdminTransactionsAccessTest extends TestCase
         $this->getJson("/api/admin/transactions/{$cboTx->id}")->assertForbidden();
     }
 
-    public function test_office_admin_sees_transactions_parked_at_their_office_regardless_of_role(): void
+    public function test_office_admin_sees_own_office_papers_and_rows_parked_at_their_office(): void
     {
         $admin = $this->userWithRole('admin', $this->gso);
         $gsoTx = $this->makeTransaction($this->gso, $this->gsoStep);
         $reviewTx = $this->makeTransaction($this->gso, $this->gsoReviewStep);
         $incomingTx = $this->makeTransaction($this->cbo, $this->gsoStep);
         $outgoingTx = $this->makeTransaction($this->gso, $this->cboStep);
-        $this->makeTransaction($this->cbo, $this->cboStep);
+        $cboTx = $this->makeTransaction($this->cbo, $this->cboStep);
 
         Sanctum::actingAs($admin);
 
@@ -152,11 +154,17 @@ class AdminTransactionsAccessTest extends TestCase
             ->pluck('id')
             ->all();
 
-        $this->assertEqualsCanonicalizing([$gsoTx->id, $reviewTx->id, $incomingTx->id], $ids);
+        $this->assertEqualsCanonicalizing(
+            [$gsoTx->id, $reviewTx->id, $incomingTx->id, $outgoingTx->id],
+            $ids
+        );
 
         $this->getJson("/api/admin/transactions/{$gsoTx->id}")->assertOk();
         $this->getJson("/api/admin/transactions/{$incomingTx->id}")->assertOk();
-        $this->getJson("/api/admin/transactions/{$outgoingTx->id}")->assertForbidden();
+        // Own-office papers open wherever they now sit (the dashboard
+        // summary links here); other offices' rows stay forbidden.
+        $this->getJson("/api/admin/transactions/{$outgoingTx->id}")->assertOk();
+        $this->getJson("/api/admin/transactions/{$cboTx->id}")->assertForbidden();
     }
 
     public function test_office_less_user_sees_an_empty_list(): void
@@ -190,15 +198,46 @@ class AdminTransactionsAccessTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.office.id', $this->gso->id);
     }
 
-    public function test_superadmin_creation_uses_the_chosen_office(): void
+    public function test_superadmin_creation_does_not_depend_on_the_first_step_office(): void
     {
         Sanctum::actingAs($this->userWithRole('superadmin'));
 
         $this->postJson('/api/admin/transactions', [
             'transaction_type_id' => $this->type->id,
             'office_id' => $this->cbo->id,
-            'title' => 'Superadmin create',
-        ])->assertCreated()->assertJsonPath('data.office.id', $this->cbo->id);
+            'title' => 'Originating office is independent',
+        ])->assertCreated()
+            ->assertJsonPath('data.office.id', $this->cbo->id)
+            ->assertJsonPath('data.current_step.office.id', $this->gso->id);
+    }
+
+    public function test_superadmin_creation_uses_originating_office_for_a_blank_first_step(): void
+    {
+        $this->gsoStep->update(['office_id' => null]);
+
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'office_id' => $this->cbo->id,
+            'title' => "User's Office first step",
+        ])->assertCreated()
+            ->assertJsonPath('data.office.id', $this->cbo->id)
+            ->assertJsonPath('data.current_step.office.id', $this->cbo->id);
+    }
+
+    public function test_regular_user_creation_is_not_limited_by_the_first_step_office(): void
+    {
+        $this->gsoStep->update(['office_id' => $this->cbo->id]);
+
+        Sanctum::actingAs($this->userWithRole('clerk', $this->gso));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'title' => 'Origin is independent of step 1',
+        ])->assertCreated()
+            ->assertJsonPath('data.office.id', $this->gso->id)
+            ->assertJsonPath('data.current_step.office.id', $this->cbo->id);
     }
 
     public function test_user_without_office_cannot_create(): void
@@ -234,5 +273,31 @@ class AdminTransactionsAccessTest extends TestCase
             'office_id' => $this->gso->id,
             'title' => 'Bypassed restriction',
         ])->assertCreated()->assertJsonPath('data.office.id', $this->gso->id);
+    }
+
+    public function test_superadmin_creation_requires_an_office(): void
+    {
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->postJson('/api/admin/transactions', [
+            'transaction_type_id' => $this->type->id,
+            'title' => 'No office chosen',
+        ])->assertStatus(422)->assertJsonValidationErrors('office_id');
+    }
+
+    public function test_reassigning_an_office_cannot_clear_it(): void
+    {
+        $tx = $this->makeTransaction($this->gso, $this->gsoStep);
+        Sanctum::actingAs($this->userWithRole('superadmin'));
+
+        $this->putJson("/api/admin/transactions/{$tx->id}/office", [
+            'office_id' => null,
+        ])->assertStatus(422)->assertJsonValidationErrors('office_id');
+
+        $this->putJson("/api/admin/transactions/{$tx->id}/office", [
+            'office_id' => $this->cbo->id,
+        ])->assertOk();
+
+        $this->assertSame($this->cbo->id, $tx->fresh()->office_id);
     }
 }

@@ -66,6 +66,9 @@
                     <span class="hover-badge" :class="`hover-badge-${badgeKind}`"><v-icon size="x-small" aria-hidden="true">mdi-check</v-icon>{{ badgeText }}</span>
                 </div>
                 <div class="hover-title">{{ titleText }}</div>
+                <div class="hover-assigned">
+                    Assigned office: <b>{{ assignedOfficeLabel }}</b>
+                </div>
                 <div v-if="showCallout" class="hover-callout">
                     <v-icon size="small" color="#7ab7ff" aria-hidden="true">mdi-information-outline</v-icon>
                     <span>{{ hintText }}</span>
@@ -174,6 +177,10 @@ const hasExtra = computed(() =>
 
 const stepNumber = computed(() => props.s?.order_number ?? (props.index + 1));
 const titleText = computed(() => props.s?.name || props.s?.code || `Step ${props.index + 1}`);
+const assignedOfficeLabel = computed(() => {
+    const office = props.s?.office;
+    return office?.name || office?.code || "User's Office";
+});
 
 const badgeText = computed(() => {
     if (props.state === 'current') return 'Current';
@@ -340,6 +347,15 @@ const avatarLetter = computed(() => String(moveBy.value || '?').trim().charAt(0)
     line-height: 1.3;
     color: #ffffff;
     overflow-wrap: break-word;
+}
+.hover-assigned {
+    margin-top: 5px;
+    font-size: 12.5px;
+    color: #9ca0a8;
+}
+.hover-assigned b {
+    color: #ececee;
+    font-weight: 600;
 }
 .hover-callout {
     display: flex;

@@ -1,5 +1,8 @@
 <template>
-    <div class="login-shell">
+    <div
+        class="login-shell"
+        :class="{ 'hide-cursor': loading && pointer.seen }"
+    >
         <section class="side">
             <header class="brand">
                 <img
@@ -10,14 +13,19 @@
                     height="64"
                 />
                 <div>
-                    <h1>TransactionMF</h1>
+                    <h1>TransactionMS</h1>
                     <p>City Government of Zamboanga</p>
                 </div>
             </header>
 
-            <main class="panel">
+            <main v-if="mode === 'signin'" class="panel">
                 <h2>Sign in</h2>
                 <p class="sub">Use your city government account to continue.</p>
+
+                <div v-if="notice" class="notice" role="status" aria-live="polite">
+                    <v-icon aria-hidden="true">mdi-check-circle-outline</v-icon>
+                    <span>{{ notice }}</span>
+                </div>
 
                 <div v-if="error" :key="errorKey" class="error" role="alert" aria-live="assertive">
                     <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
@@ -100,38 +108,165 @@
                 <p class="guest-note">View-only. No account or sign-in needed.</p>
 
                 <p class="help">
-                    Need an account? Contact your department's system administrator.
+                    Need an account?
+                    <button type="button" class="link" @click="openRegister">Create an account</button>
+                </p>
+            </main>
+
+            <!-- Create an account: the same details a superadmin enters for a
+                 new user, plus a contact number. It waits for approval. -->
+            <main v-else class="panel">
+                <h2>Create an account</h2>
+                <p class="sub">An administrator reviews new accounts. You can sign in once yours is approved.</p>
+
+                <div v-if="regError" :key="errorKey" class="error" role="alert" aria-live="assertive">
+                    <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
+                    <span>{{ regError }}</span>
+                </div>
+
+                <form novalidate :aria-busy="registering ? 'true' : 'false'" @submit.prevent="register">
+                    <div class="field">
+                        <label for="reg-name">Full name</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-account-outline</v-icon>
+                            <input
+                                id="reg-name"
+                                v-model.trim="reg.name"
+                                type="text"
+                                autocomplete="name"
+                                placeholder="Juan Dela Cruz"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.name ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-email">Email</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-email-outline</v-icon>
+                            <input
+                                id="reg-email"
+                                v-model.trim="reg.email"
+                                type="email"
+                                autocomplete="email"
+                                autocapitalize="none"
+                                spellcheck="false"
+                                placeholder="name@zamboanga.gov.ph"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.email ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-contact">Contact number</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-phone-outline</v-icon>
+                            <input
+                                id="reg-contact"
+                                v-model.trim="reg.contact_number"
+                                type="tel"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                placeholder="09171234567"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.contact_number ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.contact_number" class="field-error">{{ fieldErrors.contact_number }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-password">Password</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-lock-outline</v-icon>
+                            <input
+                                id="reg-password"
+                                v-model="reg.password"
+                                :type="showPassword ? 'text' : 'password'"
+                                autocomplete="new-password"
+                                placeholder="At least 8 characters"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.password ? 'true' : 'false'"
+                                required
+                            />
+                            <button
+                                type="button"
+                                class="toggle"
+                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                :aria-pressed="showPassword ? 'true' : 'false'"
+                                @click="showPassword = !showPassword"
+                            >
+                                <v-icon>{{ showPassword ? "mdi-eye-off-outline" : "mdi-eye-outline" }}</v-icon>
+                            </button>
+                        </div>
+                        <p v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-office">Office</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-office-building-outline</v-icon>
+                            <select
+                                id="reg-office"
+                                v-model="reg.office_id"
+                                :disabled="registering || !options.offices.length"
+                                :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
+                                required
+                            >
+                                <option :value="null" disabled>Choose your office</option>
+                                <option v-for="o in options.offices" :key="o.id" :value="o.id">{{ o.name }}</option>
+                            </select>
+                        </div>
+                        <p v-if="fieldErrors.office_id" class="field-error">{{ fieldErrors.office_id }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-role">Role</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-badge-account-horizontal-outline</v-icon>
+                            <select
+                                id="reg-role"
+                                v-model="reg.role_id"
+                                :disabled="registering || !options.roles.length"
+                                :aria-invalid="fieldErrors.role_ids ? 'true' : 'false'"
+                                required
+                            >
+                                <option :value="null" disabled>Choose your role</option>
+                                <option v-for="r in options.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                            </select>
+                        </div>
+                        <p v-if="fieldErrors.role_ids" class="field-error">{{ fieldErrors.role_ids }}</p>
+                    </div>
+
+                    <button class="btn" :class="{ loading: registering }" type="submit" :disabled="!canRegister">
+                        <span v-if="registering" class="spin" aria-hidden="true"></span>
+                        <span>{{ registering ? "Creating account…" : "Create account" }}</span>
+                    </button>
+                </form>
+
+                <p class="help">
+                    Already have an account?
+                    <button type="button" class="link" @click="openSignIn">Sign in</button>
                 </p>
             </main>
 
             <footer>
-                <span>© City Government of Zamboanga</span>
-                <span>Authorized users only</span>
+                <span>City Government of Zamboanga</span>
             </footer>
         </section>
 
         <aside class="hero" aria-label="Available modules">
-            <video
-                v-if="showHeroVideo"
-                class="hero-video"
-                :src="'/loginpage.mp4'"
-                autoplay
-                muted
-                loop
-                playsinline
-                preload="metadata"
-                aria-hidden="true"
-                tabindex="-1"
-            ></video>
-
             <div class="hero-content">
                 <h3>One place for city transactions</h3>
                 <p>Process requests, approvals and records across departments.</p>
                 <ul class="mods">
-                    <li class="mod">
-                        <v-icon aria-hidden="true">mdi-file-document-edit-outline</v-icon>
-                        PR
-                    </li>
                     <li class="mod">
                         <v-icon aria-hidden="true">mdi-cart-outline</v-icon>
                         Procurement
@@ -145,26 +280,43 @@
                         Disbursement
                     </li>
                     <li class="mod">
-                        <v-icon aria-hidden="true">mdi-calendar-check-outline</v-icon>
-                        Leave
+                        <v-icon aria-hidden="true">mdi-chart-pie</v-icon>
+                        Budget
                     </li>
                     <li class="mod">
-                        <v-icon aria-hidden="true">mdi-airplane</v-icon>
-                        Travel Order
+                        <v-icon aria-hidden="true">mdi-file-certificate-outline</v-icon>
+                        Permits
+                    </li>
+                    <li class="mod">
+                        <v-icon aria-hidden="true">mdi-file-document-multiple-outline</v-icon>
+                        Records
                     </li>
                 </ul>
             </div>
         </aside>
+
+        <div
+            v-if="loading && pointer.seen"
+            class="spin-cursor"
+            :style="{ transform: `translate3d(${pointer.x}px, ${pointer.y}px, 0)` }"
+            aria-hidden="true"
+        ></div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
+import { useApi } from "@/composables/useApi";
 
 const router = useRouter();
 const auth = useAuth();
+const { api, csrf } = useApi();
+
+// "signin" or "register" (Create an account), in the same panel.
+const mode = ref("signin");
+const notice = ref("");
 
 const email = ref("");
 const password = ref("");
@@ -176,30 +328,22 @@ const guestLoading = ref(false);
 const error = ref("");
 const errorKey = ref(0);
 
-// Looping background clip for the photo panel. Rendered only at >=861px
-// (mirroring the CSS breakpoint that hides the hero on phones), so small
-// screens never download the multi-MB video for a panel they can't see.
-const showHeroVideo = ref(false);
-let heroMq = null;
-function syncHeroVideo(e) {
-    showHeroVideo.value = e.matches;
+// Spinning cursor while signing in: CSS cursor images can't animate, so the
+// native pointer is hidden and a spinner div follows it. Position is tracked
+// off-render (plain vars) and only mirrored into reactive state while busy.
+const pointer = ref({ x: 0, y: 0, seen: false });
+let lastPointer = { x: 0, y: 0, seen: false };
+
+function trackPointer(e) {
+    lastPointer = { x: e.clientX, y: e.clientY, seen: true };
+    if (loading.value) pointer.value = lastPointer;
 }
 
-onMounted(() => {
-    // Warm the viewer welcome picture so "Track your Document Process" opens instantly.
-    try {
-        new Image().src = "/viewer-welcome.jpg";
-    } catch {
-        /* not critical */
-    }
+onMounted(() => window.addEventListener("mousemove", trackPointer, { passive: true }));
+onUnmounted(() => window.removeEventListener("mousemove", trackPointer));
 
-    heroMq = window.matchMedia("(min-width: 861px)");
-    showHeroVideo.value = heroMq.matches;
-    heroMq.addEventListener("change", syncHeroVideo);
-});
-
-onUnmounted(() => {
-    heroMq?.removeEventListener("change", syncHeroVideo);
+watch(loading, (busy) => {
+    if (busy) pointer.value = lastPointer;
 });
 
 const canSubmit = computed(
@@ -210,6 +354,7 @@ async function submit() {
     if (!canSubmit.value) return;
     loading.value = true;
     error.value = "";
+    notice.value = "";
 
     try {
         await auth.login({
@@ -230,6 +375,83 @@ async function submit() {
         errorKey.value += 1;
     } finally {
         loading.value = false;
+    }
+}
+
+// ---- Create an account ----------------------------------------------------
+
+const emptyReg = () => ({ name: "", email: "", contact_number: "", password: "", office_id: null, role_id: null });
+const reg = ref(emptyReg());
+const options = ref({ offices: [], roles: [] });
+const registering = ref(false);
+const regError = ref("");
+const fieldErrors = ref({});
+
+const canRegister = computed(
+    () =>
+        !registering.value &&
+        reg.value.name &&
+        reg.value.email &&
+        reg.value.contact_number &&
+        reg.value.password.length >= 8 &&
+        reg.value.office_id != null &&
+        reg.value.role_id != null,
+);
+
+async function openRegister() {
+    mode.value = "register";
+    error.value = "";
+    notice.value = "";
+    regError.value = "";
+    fieldErrors.value = {};
+    if (options.value.offices.length) return;
+    try {
+        const res = await api.get("/api/auth/register/options");
+        options.value = { offices: res.data.offices ?? [], roles: res.data.roles ?? [] };
+    } catch {
+        regError.value = "Could not load offices and roles. Check your connection and try again.";
+        errorKey.value += 1;
+    }
+}
+
+function openSignIn() {
+    mode.value = "signin";
+    regError.value = "";
+}
+
+async function register() {
+    if (!canRegister.value) return;
+    registering.value = true;
+    regError.value = "";
+    fieldErrors.value = {};
+
+    try {
+        await csrf();
+        const res = await api.post("/api/auth/register", {
+            name: reg.value.name,
+            email: reg.value.email,
+            contact_number: reg.value.contact_number,
+            password: reg.value.password,
+            office_id: reg.value.office_id,
+            role_ids: [reg.value.role_id],
+        });
+        // Back to sign in, email filled in, with what happens next.
+        email.value = reg.value.email;
+        password.value = "";
+        reg.value = emptyReg();
+        notice.value = res.data?.message || "Account created. You can sign in once an administrator approves it.";
+        mode.value = "signin";
+    } catch (e) {
+        const errs = e?.response?.data?.errors || {};
+        fieldErrors.value = Object.fromEntries(
+            Object.entries(errs).map(([k, v]) => [k.replace(/\.\d+$/, ""), Array.isArray(v) ? v[0] : v]),
+        );
+        regError.value = Object.keys(errs).length
+            ? "Check the highlighted fields."
+            : e?.response?.data?.message || "Could not create the account. Please try again.";
+        errorKey.value += 1;
+    } finally {
+        registering.value = false;
     }
 }
 
@@ -263,13 +485,40 @@ async function guestLogin() {
     overflow: auto;
     background: #ffffff;
     color: #14213d;
-    font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
 .login-shell::-webkit-scrollbar {
     display: none;
     width: 0;
+}
+
+/* Spinning cursor while signing in: the native pointer is hidden and this
+   ring follows it (CSS cursor images can't animate, so a real element it is). */
+.login-shell.hide-cursor,
+.login-shell.hide-cursor * {
+    cursor: none;
+}
+.spin-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    pointer-events: none;
+    z-index: 9999;
+    will-change: transform;
+}
+.spin-cursor::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 3px solid rgba(22, 48, 124, 0.25);
+    border-top-color: #16307C;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
 
 /* ---- Left: form panel ---- */
@@ -297,7 +546,7 @@ async function guestLogin() {
     font-size: 26px;
     line-height: 1.1;
     font-weight: 800;
-    color: #1E40AF;
+    color: #16307C;
     letter-spacing: -0.01em;
 }
 .brand p {
@@ -305,11 +554,13 @@ async function guestLogin() {
     font-size: 13px;
     font-weight: 600;
     color: #5b6780;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .panel {
     margin: auto 0;
-    padding: 48px 0 24px;
+    padding: 40px 0;
     width: 100%;
 }
 .panel h2 {
@@ -346,9 +597,11 @@ async function guestLogin() {
 }
 .field label {
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 .control {
     position: relative;
@@ -382,9 +635,9 @@ async function guestLogin() {
 }
 .control input:focus {
     outline: none;
-    border-color: #1E40AF;
+    border-color: #16307C;
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.22);
+    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.22);
 }
 .control input:disabled {
     opacity: 0.72;
@@ -428,7 +681,7 @@ async function guestLogin() {
     background: #e6ebf5;
 }
 .toggle:focus-visible {
-    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline: 3px solid rgba(22, 48, 124, 0.28);
 }
 .toggle .v-icon {
     font-size: 20px;
@@ -438,7 +691,7 @@ async function guestLogin() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: -4px 0 24px;
+    margin: 16px 0 44px;
     font-size: 14px;
 }
 .check {
@@ -455,7 +708,7 @@ async function guestLogin() {
     height: 18px;
     padding: 0;
     margin: 0;
-    accent-color: #1E40AF;
+    accent-color: #16307C;
     cursor: inherit;
 }
 .check input:disabled {
@@ -468,7 +721,7 @@ async function guestLogin() {
     height: 54px;
     border: 0;
     border-radius: 12px;
-    background: #1E40AF;
+    background: #16307C;
     color: #ffffff;
     font: inherit;
     font-size: 16px;
@@ -479,6 +732,8 @@ async function guestLogin() {
     gap: 10px;
     cursor: pointer;
     transition: background 0.15s ease, transform 0.05s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 .btn:hover:not(:disabled) {
     background: #142d82;
@@ -494,7 +749,7 @@ async function guestLogin() {
     cursor: progress;
 }
 .btn:focus-visible {
-    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline: 3px solid rgba(22, 48, 124, 0.28);
     outline-offset: 2px;
 }
 
@@ -542,16 +797,93 @@ async function guestLogin() {
     color: #5b6780;
 }
 
-footer {
-    font-size: 12.5px;
-    color: #5b6780;
+/* ---- Create an account ---- */
+.link {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: #1E40AF;
+    cursor: pointer;
+}
+.link:hover {
+    text-decoration: underline;
+}
+.link:focus-visible {
+    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.notice {
     display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    background: #e7f5ec;
+    color: #1d6b3c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 18px;
+}
+.notice .v-icon {
+    font-size: 20px;
+    flex: none;
+}
+/* Selects match the text inputs, with their own chevron. */
+.control select {
+    width: 100%;
+    height: 52px;
+    border: 1.5px solid #d5dbe8;
+    border-radius: 12px;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6780' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+            no-repeat right 18px center,
+        #f3f5fb;
+    color: #14213d;
+    font: inherit;
+    font-size: 16px;
+    padding: 0 44px 0 46px;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.control select:hover:not(:disabled) {
+    border-color: #aab4cc;
+}
+.control select:focus {
+    outline: none;
+    border-color: #1E40AF;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.22);
+}
+.control select:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+.control input[aria-invalid="true"],
+.control select[aria-invalid="true"] {
+    border-color: #b42318;
+}
+.field-error {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #b42318;
 }
 
-/* ---- Right: photo/video hero ---- */
+footer {
+    font-size: 12.5px;
+    color: #16307C;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ---- Right: photo hero ---- */
 .hero {
     position: relative;
     overflow: hidden;
@@ -560,19 +892,9 @@ footer {
     justify-content: flex-end;
     padding: 56px;
     color: #ffffff;
-    /* Photo fallback: paints before the clip buffers, when autoplay is
-       blocked, and for reduced-motion users (video hidden there). */
     background: url('/loginpage.jpg') center / cover no-repeat;
 }
-.hero-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 0;
-}
-/* Legibility scrim: above the video, below the text/pills. */
+/* Legibility scrim: above the photo, below the text/pills. */
 .hero::after {
     content: "";
     position: absolute;
@@ -613,16 +935,18 @@ footer {
     align-items: center;
     gap: 10px;
     background: rgba(255, 255, 255, 0.94);
-    color: #1E40AF;
+    color: #16307C;
     border-radius: 14px;
     padding: 12px 14px;
     font-weight: 700;
-    font-size: 14.5px;
+    font-size: 13.5px;
     box-shadow: 0 6px 18px rgba(8, 20, 60, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 .mod .v-icon {
     font-size: 22px;
-    color: #1E40AF;
+    color: #16307C;
     flex: none;
 }
 
@@ -649,11 +973,6 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    /* An autoplaying loop is exactly what these users opted out of:
-       keep the static photo instead. */
-    .hero-video {
-        display: none;
-    }
     .control input,
     .toggle,
     .btn {

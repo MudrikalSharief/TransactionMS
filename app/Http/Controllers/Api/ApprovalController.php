@@ -45,6 +45,8 @@ class ApprovalController extends Controller
      */
     public function count(Request $request)
     {
+        $this->ensureApprovalsAllowed($request->user());
+
         // Badge totals need the whole inbox, not one page — but the badge now
         // polls every 1-5min (AppShell) so a 60s server cache is safe and
         // keeps weak devices / bad networks from rescanning on every poll.
@@ -67,6 +69,24 @@ class ApprovalController extends Controller
         return response()->json($cached);
     }
 
+    /**
+     * Approvals needs an assigned role, and end users submit rather than
+     * approve. Superadmin always keeps access. Mirrors canUseApprovals()
+     * in resources/js/composables/useAuth.js. Shared by index() and count()
+     * so the badge endpoint can't bypass the inbox gate.
+     */
+    private function ensureApprovalsAllowed(User $user): void
+    {
+        $user->loadMissing('roles');
+        $roleCodes = $user->roles->pluck('code');
+        if ($roleCodes->isEmpty()) {
+            abort(403, 'The Approvals section requires an assigned role.');
+        }
+        if ($roleCodes->contains('end_user') && !$roleCodes->contains('superadmin')) {
+            abort(403, 'The Approvals section is not available to end users.');
+        }
+    }
+
     /** Full inbox collection for the badge (minimal columns, no pagination). */
     private function allInboxRows(User $user): Collection
     {
@@ -77,41 +97,38 @@ class ApprovalController extends Controller
 
         $query = Transaction::query()
             ->where('is_done', false)
-            ->with(['state.currentStep', 'attachments', 'checklistChecks'])
+            ->with(['state.currentStep', 'attachments', 'checklistChecks', 'requirementChecks'])
             ->latest();
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // End-user stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                // Office admins work anything whose current station's
+                // effective office is their office. Legacy no-origin stations
+                // stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
+                    $w->whereHas('state.currentStep', fn ($s) => $s
+                        ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
                 });
             } elseif (empty($roleIds)) {
                 return collect();
             } else {
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                        ->where(function ($x) use ($user) {
-                            $x->where(function ($y) use ($user) {
-                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                                if ($user->office_id !== null) {
-                                    $y->where('transactions.office_id', $user->office_id);
-                                }
-                            })->orWhere(function ($y) use ($user) {
-                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                                if ($user->office_id !== null) {
-                                    $y->where(function ($z) use ($user) {
-                                        $z->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
-                                    });
-                                }
-                            });
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+
+                    if ($user->office_id === null) {
+                        // Legacy no-origin transactions keep role-only access
+                        // to blank and end-user stations.
+                        $s->whereLegacyNoOriginFallback();
+                    } else {
+                        $s->where(function ($x) use ($user) {
+                            $x->whereEffectiveOffice($user->office_id)
+                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
+                    }
                 });
             }
         }
@@ -135,9 +152,15 @@ class ApprovalController extends Controller
             // Read-only (itemsFor, no sync): checklist rows are synced on write
             // paths (requirements/routes/checklist admins + transitions), so
             // GETs never WRITE — faster lists + safe on bad networks/retries.
+            // Visible rows are transaction-specific (only requirements ticked
+            // at the predecessor), so cache the step config + owner map and
+            // filter per transaction below.
             'checklist' => (int) $step->order_number === 1
                 ? collect()
-                : $this->checklists->itemsFor($step)->filter(fn ($i) => $i->is_required)->pluck('id')->map(fn ($id) => (int) $id),
+                : $this->checklists->itemsFor($step)->filter(fn ($i) => (bool) $i->is_required)->values(),
+            'checklist_owners' => (int) $step->order_number === 1
+                ? []
+                : $this->checklists->ownerStepIdsByReq($step),
         ];
 
         $uploaded = $tx->attachments
@@ -148,26 +171,33 @@ class ApprovalController extends Controller
             ->where('workflow_step_id', $step->id)
             ->pluck('checklist_override_id')
             ->map(fn ($id) => (int) $id);
+        $tickedReqKeys = collect($tx->requirementChecks ?? [])
+            ->map(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id))
+            ->flip();
+
+        $visibleRequiredIds = $cache[$step->id]['checklist']
+            ->filter(function ($item) use ($cache, $step, $tickedReqKeys) {
+                $reqId = (int) ($item->requirement_definition_id ?? 0);
+                if (!$reqId) return false;
+
+                foreach ($cache[$step->id]['checklist_owners'][$reqId] ?? [] as $stepId) {
+                    if ($tickedReqKeys->has($stepId . ':' . $reqId)) return true;
+                }
+
+                return false;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
 
         return $cache[$step->id]['uploads']->reject(fn ($id) => $uploaded->contains($id))->count()
-            + $cache[$step->id]['checklist']->reject(fn ($id) => $ticked->contains($id))->count();
+            + $visibleRequiredIds->reject(fn ($id) => $ticked->contains($id))->count();
     }
 
     private function inbox(User $user, array $filters = [])
     {
-        $user->loadMissing('roles');
+        $this->ensureApprovalsAllowed($user);
 
-        // Approvals needs an assigned role, and end users submit rather than
-        // approve. Superadmin always keeps access. Mirrors canUseApprovals()
-        // in resources/js/composables/useAuth.js.
         $roleCodes = $user->roles->pluck('code');
-        if ($roleCodes->isEmpty()) {
-            abort(403, 'The Approvals section requires an assigned role.');
-        }
-        if ($roleCodes->contains('end_user') && !$roleCodes->contains('superadmin')) {
-            abort(403, 'The Approvals section is not available to end users.');
-        }
-
         $isSuperadmin = $roleCodes->contains('superadmin');
         $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();
@@ -205,34 +235,31 @@ class ApprovalController extends Controller
 
         if (!$isSuperadmin) {
             if ($isOfficeAdmin) {
-                // End-user stations follow the transaction's office.
-                $query->where(function ($w) use ($user) {
-                    $w->where(function ($x) use ($user) {
-                        $x->where('transactions.office_id', $user->office_id)
-                            ->whereHas('state.currentStep.roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                    })->orWhereHas('state.currentStep', fn ($s) => $s
-                        ->where('workflow_steps.office_id', $user->office_id)
-                        ->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user')));
+                // Office admins work anything whose current station's
+                // effective office is their office. Legacy no-origin stations
+                // stay role-only, even for admins.
+                $query->where(function ($w) use ($roleIds, $user) {
+                    $w->whereHas('state.currentStep', fn ($s) => $s
+                        ->whereEffectiveOffice($user->office_id))
+                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
+                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
+                                ->whereLegacyNoOriginFallback();
+                        });
                 });
             } else {
                 $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                        ->where(function ($x) use ($user) {
-                            $x->where(function ($y) use ($user) {
-                                $y->whereHas('roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                                if ($user->office_id !== null) {
-                                    $y->where('transactions.office_id', $user->office_id);
-                                }
-                            })->orWhere(function ($y) use ($user) {
-                                $y->whereDoesntHave('roles', fn ($r) => $r->where('roles.code', 'end_user'));
-                                if ($user->office_id !== null) {
-                                    $y->where(function ($z) use ($user) {
-                                        $z->whereNull('workflow_steps.office_id')
-                                            ->orWhere('workflow_steps.office_id', $user->office_id);
-                                    });
-                                }
-                            });
+                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+
+                    if ($user->office_id === null) {
+                        // Legacy no-origin transactions keep role-only access
+                        // to blank and end-user stations.
+                        $s->whereLegacyNoOriginFallback();
+                    } else {
+                        $s->where(function ($x) use ($user) {
+                            $x->whereEffectiveOffice($user->office_id)
+                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
+                    }
                 });
             }
         }
