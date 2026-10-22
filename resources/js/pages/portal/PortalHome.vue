@@ -81,8 +81,9 @@
                 </div>
             </v-col>
 
-            <!-- Waiting on my role -->
-            <v-col cols="12" lg="6" class="d-flex">
+            <!-- Waiting on my role: end users only. Clerks have the Approvals
+                 page for this, so it would be a duplicate there. -->
+            <v-col v-if="!hasApprovals" cols="12" lg="6" class="d-flex">
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
@@ -105,8 +106,8 @@
                 </v-card>
             </v-col>
 
-            <!-- In my office (oldest 3 first, like Needs My Action) -->
-            <v-col cols="12" lg="6" class="d-flex">
+            <!-- In my office (oldest 3 first); full width when it is the only list -->
+            <v-col cols="12" :lg="hasApprovals ? 12 : 6" class="d-flex">
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
@@ -137,7 +138,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import TxMiniList from "@/components/portal/TxMiniList.vue";
 
@@ -153,9 +154,12 @@ const actionRows = ref([]);
 const officeRows = ref([]);
 
 const canCreate = computed(() => user.value?.office != null);
+// Clerks (anyone who may approve) work from the Approvals page, so the
+// "Needs my action" tile and list are left out for them.
+const hasApprovals = computed(() => canUseApprovals(user.value));
 
 const tiles = computed(() => [
-    {
+    !hasApprovals.value && {
         key: "action",
         label: "Needs my action",
         value: actionTotal.value,
@@ -195,7 +199,7 @@ const tiles = computed(() => [
         accent: "#1E40AF",
         go: () => openList("office"),
     },
-]);
+].filter(Boolean));
 
 function openList(tab) {
     router.push({ path: "/portal/transactions", query: { tab } });
@@ -227,7 +231,7 @@ async function oldestRows(url) {
 async function load() {
     const [sum, queue, office] = await Promise.allSettled([
         api.get("/api/portal/summary"),
-        oldestRows("/api/transactions"),
+        hasApprovals.value ? Promise.resolve({ rows: [], total: 0 }) : oldestRows("/api/transactions"),
         oldestRows("/api/admin/transactions"),
     ]);
     if (sum.status === "fulfilled") summary.value = sum.value.data;

@@ -42,8 +42,9 @@
 
             <v-divider />
 
+            <!-- Clerks only see My office: what waits on them is on Approvals. -->
             <v-tabs v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
-                <v-tab value="action" class="font-weight-bold">
+                <v-tab v-if="!hasApprovals" value="action" class="font-weight-bold">
                     <v-icon start>mdi-tray-full</v-icon>
                     Needs my action
                 </v-tab>
@@ -211,7 +212,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import TableLoader from "@/components/TableLoader.vue";
@@ -230,7 +231,10 @@ const PER_PAGE = 7;
 
 // "action" = rows waiting on my role (opens the working page);
 // "office" = my office's rows (opens the read/track page).
-const tab = ref(route.query.tab === "office" ? "office" : "action");
+// Clerks (anyone who may approve) have the Approvals page for "Needs my
+// action", so they only get the office list here.
+const hasApprovals = computed(() => canUseApprovals(user.value));
+const tab = ref(hasApprovals.value || route.query.tab === "office" ? "office" : "action");
 const items = ref([]);
 const loading = ref(true);
 const error = ref("");
