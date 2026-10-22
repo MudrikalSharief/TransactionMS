@@ -2458,7 +2458,9 @@ function openStepDialog(step = null) {
             is_start: false,
             is_end: false,
             is_end_user: false,
-            role_ids: [],
+            // Clerk is the universal staff role (any step, limited by the
+            // step's office), so new steps start with it ticked.
+            role_ids: (roles.value || []).filter((r) => r.code === "clerk").map((r) => Number(r.id)),
         };
     }
     stepDialog.value = true;
