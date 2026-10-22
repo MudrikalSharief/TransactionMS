@@ -21,8 +21,9 @@ use Illuminate\Validation\Rule;
  */
 class RegistrationController extends Controller
 {
-    /** Roles nobody can pick when signing up (admin roles, and end user). */
-    private const NOT_OFFERED = [...UserApproval::PROTECTED_ROLES, 'end_user'];
+    /** Roles nobody can pick when signing up: admin roles, end user, and viewer
+     *  (viewers use the passwordless "Track your Document Process" button). */
+    private const NOT_OFFERED = [...UserApproval::PROTECTED_ROLES, 'end_user', 'viewer'];
 
     /** What the sign-up form offers: every office, and the roles one may ask for. */
     public function options(): JsonResponse
