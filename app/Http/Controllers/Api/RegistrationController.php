@@ -21,13 +21,16 @@ use Illuminate\Validation\Rule;
  */
 class RegistrationController extends Controller
 {
+    /** Roles nobody can pick when signing up (admin roles, and end user). */
+    private const NOT_OFFERED = [...UserApproval::PROTECTED_ROLES, 'end_user'];
+
     /** What the sign-up form offers: every office, and the roles one may ask for. */
     public function options(): JsonResponse
     {
         return response()->json([
             'offices' => Office::query()->orderBy('name')->get(['id', 'code', 'name']),
             'roles' => Role::query()
-                ->whereNotIn('code', UserApproval::PROTECTED_ROLES)
+                ->whereNotIn('code', self::NOT_OFFERED)
                 ->orderBy('name')
                 ->get(['id', 'code', 'name']),
         ]);
@@ -42,12 +45,13 @@ class RegistrationController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'office_id' => ['required', 'integer', 'exists:offices,id'],
             'role_ids' => ['required', 'array', 'min:1'],
-            'role_ids.*' => ['integer', Rule::exists('roles', 'id')->whereNotIn('code', UserApproval::PROTECTED_ROLES)],
+            'role_ids.*' => ['integer', Rule::exists('roles', 'id')->whereNotIn('code', self::NOT_OFFERED)],
         ], [
             'email.unique' => 'An account with this email already exists.',
             'contact_number.regex' => 'Enter a valid contact number, for example 09171234567.',
             'office_id.required' => 'Choose your office.',
             'role_ids.required' => 'Choose your role.',
+            'role_ids.*.exists' => 'That role cannot be chosen when signing up. Choose another role.',
         ]);
 
         DB::transaction(function () use ($request, $data, $audit) {
