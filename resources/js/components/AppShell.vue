@@ -325,7 +325,6 @@ import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind
 import ScopeChip from "@/components/ScopeChip.vue";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
-import { usePendingAccounts } from "@/composables/usePendingAccounts";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
@@ -412,7 +411,6 @@ const navGroups = computed(() => {
                 title: "People",
                 items: [
                     { title: "Users", icon: "mdi-account-group", to: "/admin/users" },
-                    accountApprovalsItem.value,
                     { title: "Roles", icon: "mdi-shield-account", to: "/admin/roles" },
                 ],
             },
@@ -431,10 +429,7 @@ const navGroups = computed(() => {
         return [
             overview,
             { title: "Work", items: [{ title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" }] },
-            {
-                title: "People",
-                items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }, accountApprovalsItem.value],
-            },
+            { title: "People", items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }] },
             {
                 title: "Setup",
                 items: [{ title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" }],
@@ -446,26 +441,6 @@ const navGroups = computed(() => {
         { title: "Work", items: [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/transactions" }] },
     ];
 });
-
-// ---- Account Approvals (sign-ups waiting): superadmin and office admins ----
-const canApproveAccounts = computed(() => isSuperadmin.value || isOfficeAdmin.value);
-const pendingAccountsBadge = usePendingAccounts();
-const accountApprovalsItem = computed(() => {
-    const n = pendingAccountsBadge.pendingAccounts.value;
-    return {
-        title: "Account Approvals",
-        icon: "mdi-account-clock-outline",
-        to: "/admin/account-approvals",
-        badge: n,
-        badgeLabel: `${n} account${n === 1 ? "" : "s"} waiting for approval`,
-    };
-});
-function refreshPendingAccounts(force = false) {
-    if (canApproveAccounts.value) pendingAccountsBadge.refresh({ office: !isSuperadmin.value, force });
-    else pendingAccountsBadge.clear();
-}
-watch(canApproveAccounts, () => refreshPendingAccounts(true), { immediate: true });
-watch(() => route.fullPath, () => refreshPendingAccounts());
 
 // ---- APPROVALS badge: required items not checked yet (uploads + validations) ----
 const approvalBadge = useApprovalBadge();
@@ -557,9 +532,6 @@ const searchPages = computed(() => {
     ];
     if (isOfficeAdmin.value) {
         pages.push({ title: "Office Users", subtitle: "Page · Office admin", icon: "mdi-account-group", to: "/office/users" });
-    }
-    if (isSuperadmin.value || isOfficeAdmin.value) {
-        pages.push({ title: "Account Approvals", subtitle: "Page", icon: "mdi-account-clock-outline", to: "/admin/account-approvals" });
     }
     if (showApprovals.value) {
         pages.splice(2, 0, {

@@ -6,7 +6,6 @@ import Login from "@/pages/Login.vue";
 const Dashboard = () => import("@/pages/Dashboard.vue");
 
 const AdminUsers = () => import("@/pages/admin/Users.vue");
-const AdminAccountApprovals = () => import("@/pages/admin/AccountApprovals.vue");
 const AdminRoles = () => import("@/pages/admin/Roles.vue");
 const AdminOffices = () => import("@/pages/admin/Offices.vue");
 const AdminOfficeSteps = () => import("@/pages/admin/OfficeSteps.vue");
@@ -111,14 +110,6 @@ export function createRouter() {
                 path: "/admin/users",
                 component: AdminUsers,
                 meta: { requiresAuth: true, superadmin: true },
-            },
-            // Sign-ups waiting for approval: superadmin (every office) and
-            // office admins (their own office; the API enforces the scope).
-            {
-                path: "/admin/account-approvals",
-                name: "admin.account-approvals",
-                component: AdminAccountApprovals,
-                meta: { requiresAuth: true, officeAdmin: true, title: "Account Approvals" },
             },
             // Office admins: same Users page, limited to their own office.
             {
