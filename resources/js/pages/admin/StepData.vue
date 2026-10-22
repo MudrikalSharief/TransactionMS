@@ -120,7 +120,7 @@
                         persistent-hint
                         placeholder="e.g. receipt_number"
                     />
-                    <v-switch v-model="form.is_required" color="grey-darken-3" label="Required" />
+                    <v-switch v-model="form.is_required" color="success" label="Required" />
                     <v-text-field v-model.number="form.display_order" type="number" label="Display order" min="0" />
                     <v-row>
                         <v-col cols="6">
