@@ -1555,10 +1555,12 @@ function descendantsOfStep(id) {
 }
 
 // Routes table: forward-only, ordered start→end by station order.
+// Reads the working copy (tableRoutes / tableSteps, which fall back to the
+// loaded definition before seeding) so staged route edits show at once.
 const sortedRoutes = computed(() => {
     const orderOf = (id) =>
-        Number((activeDef.value?.steps || tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? 9999);
-    return [...(activeDef.value?.routes || tableRoutes.value || [])].sort((a, b) => {
+        Number((tableSteps.value || []).find((s) => String(s.id) === String(id))?.order_number ?? 9999);
+    return [...(tableRoutes.value || [])].sort((a, b) => {
         return orderOf(a.from_step_id) - orderOf(b.from_step_id) || orderOf(a.to_step_id) - orderOf(b.to_step_id);
     });
 });
@@ -1974,8 +1976,12 @@ async function editRoute(route) {
     notice.value = "";
     saving.value = true;
     try {
+        // Reopen the working copy's row when there is one, so staged edits
+        // show again instead of the last saved values.
+        const key = String(route?.client_id ?? route?.id);
+        const staged = (stagingBucket.value?.routes || []).find((r) => String(r.client_id ?? r.id) === key);
         const oldSteps = activeDef.value?.steps || [];
-        openRouteDialog(routeInDraft(oldSteps, route));
+        openRouteDialog(staged || routeInDraft(oldSteps, route));
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to prepare route form.";
     } finally {
