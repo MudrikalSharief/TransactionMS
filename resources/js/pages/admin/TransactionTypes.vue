@@ -333,7 +333,7 @@
 
         <div class="ntt-sw">
           <div>
-            <div class="ntt-sw-t">Active</div>
+            <div class="ntt-sw-t">{{ form.is_active ? 'Active' : 'Inactive' }}</div>
             <div class="ntt-sw-d">
               {{ form.is_active ? 'Available for new requests' : 'Hidden from new requests' }}
             </div>

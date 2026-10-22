@@ -181,7 +181,7 @@
 
         <!-- New users start active; the switch is only for existing ones
              (e.g. turning a deactivated account back on). -->
-        <v-switch v-if="form.id && !form.pending_approval" v-model="form.is_active" label="Active" />
+        <v-switch v-if="form.id && !form.pending_approval" v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
 
         <v-select
           v-model="form.role_ids"

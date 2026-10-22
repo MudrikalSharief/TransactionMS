@@ -335,7 +335,7 @@
                         persistent-hint
                         rows="3"
                     />
-                    <v-switch v-model="form.is_active" label="Active" />
+                    <v-switch v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">
