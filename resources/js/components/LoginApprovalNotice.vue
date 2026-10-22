@@ -1,98 +1,132 @@
 <template>
-    <!-- Routing slip shown once after a clerk signs in: what arrived since
-         their last sign-in and what is almost due. The slip drops in and the
-         office "Received" stamp is pressed onto it (one entrance moment). -->
+    <!-- After a clerk signs in: their in-tray folder. The paper is ruled
+         like a receiving logbook; what is due is marked RUSH / LATE in the
+         margin, and the office's Received stamp is pressed on (one entrance
+         sequence: folder pulled up, stamp pressed, dater rolls to now). -->
     <v-dialog
         v-model="open"
-        max-width="580"
-        transition="slip-drop"
+        max-width="620"
+        transition="tray-pull"
         scrim="#0E1F52"
-        class="slip-dialog"
+        class="tray-dialog"
         @after-leave="markSeen"
     >
-        <div class="slip" role="document" aria-labelledby="slip-title" aria-describedby="slip-summary">
-            <header class="slip-band">
-                <img class="slip-seal" :src="'/zamboanga-seal.png'" alt="" width="40" height="40" />
-                <div class="slip-who">
-                    <div id="slip-title" class="slip-title">Routing slip for {{ user?.name }}</div>
-                    <div class="slip-office">{{ user?.office?.name || "Your office" }}</div>
-                </div>
-                <v-btn icon="mdi-close" variant="text" color="white" size="small" aria-label="Close" @click="open = false" />
-            </header>
+        <div class="tray" role="document" aria-labelledby="tray-greet" aria-describedby="tray-summary">
+            <svg class="tray-defs" width="0" height="0" aria-hidden="true" focusable="false">
+                <!-- Uneven stamp-pad ink: speckled coverage, slightly wobbly edges. -->
+                <filter id="tray-ink" x="-4%" y="-4%" width="108%" height="108%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" result="grain" />
+                    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.25 1.6" result="cover" />
+                    <feComposite in="SourceGraphic" in2="cover" operator="in" result="inked" />
+                    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="wave" />
+                    <feDisplacementMap in="inked" in2="wave" scale="2.4" xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+            </svg>
 
-            <div class="slip-body">
-                <div class="slip-lead">
-                    <p id="slip-summary" class="slip-summary">
-                        <strong>{{ total }} {{ total === 1 ? "transaction is" : "transactions are" }}</strong>
-                        waiting for your approval. {{ detailLine }}
+            <div class="tray-top">
+                <div class="tray-tab">
+                    <img class="tab-seal" :src="'/zamboanga-seal.png'" alt="" width="22" height="22" />
+                    <span class="tab-code">{{ officeCode }}</span>
+                    <span class="tab-count" :aria-label="`${total} waiting`">{{ total }}</span>
+                </div>
+                <button type="button" class="tray-close" aria-label="Close" @click="open = false">
+                    <v-icon size="20">mdi-close</v-icon>
+                </button>
+            </div>
+
+            <div class="tray-paper">
+                <div class="paper-head">
+                    <h2 id="tray-greet" class="paper-greet">{{ greeting }}, {{ user?.name }}.</h2>
+                    <p id="tray-summary" class="paper-summary">
+                        Your in-tray has {{ total }} {{ total === 1 ? "document" : "documents" }} waiting for approval.
+                        {{ detailLine }}
                     </p>
-                    <div class="stamp" aria-hidden="true">
-                        <span class="stamp-word">Received</span>
-                        <span class="stamp-date">{{ stampDate }}</span>
-                        <span class="stamp-count">{{ total }} waiting</span>
+                </div>
+
+                <!-- Receiving stamp, as used at city hall receiving desks. -->
+                <div class="rcv" aria-hidden="true">
+                    <div class="rcv-ink">
+                        <div class="rcv-org">City Government of Zamboanga</div>
+                        <div class="rcv-office">{{ officeName }}</div>
+                        <div class="rcv-word">Received</div>
+                        <div class="rcv-line">
+                            <span class="rcv-k">Date</span>
+                            <span class="rcv-v dater">
+                                <template v-for="(c, i) in dateChars" :key="`d${i}`">
+                                    <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
+                                    <span v-else class="dg-fixed">{{ c.value }}</span>
+                                </template>
+                            </span>
+                        </div>
+                        <div class="rcv-line">
+                            <span class="rcv-k">Time</span>
+                            <span class="rcv-v dater">
+                                <template v-for="(c, i) in timeChars" :key="`t${i}`">
+                                    <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i + 8 }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
+                                    <span v-else class="dg-fixed">{{ c.value }}</span>
+                                </template>
+                            </span>
+                        </div>
+                        <div class="rcv-line">
+                            <span class="rcv-k">By</span>
+                            <span class="rcv-v rcv-by">{{ user?.name }}</span>
+                        </div>
                     </div>
                 </div>
 
-                <section v-if="due.length" class="slip-sec">
-                    <h3 class="slip-h">
-                        Almost due
-                        <span class="slip-n slip-n--due">{{ due.length }}</span>
-                    </h3>
-                    <ul class="slip-list">
-                        <li
-                            v-for="item in due.slice(0, SHOW)"
-                            :key="item.tx.id"
-                            class="slip-row slip-row--due"
-                            tabindex="0"
-                            role="link"
-                            @click="go(item.tx)"
-                            @keydown.enter.prevent="go(item.tx)"
-                        >
-                            <div class="row-top">
-                                <span class="row-ref">{{ item.tx.reference_number || `#${item.tx.id}` }}</span>
-                                <span class="row-title">{{ item.tx.title || item.tx.transaction_type?.name }}</span>
-                                <span class="row-when" :class="{ 'is-late': item.left < 0 }">{{ leftLabel(item.left) }}</span>
-                            </div>
-                            <div class="row-step">{{ item.tx.current_step?.name }}</div>
-                            <div class="sla" :title="`Time limit at this step: ${slaLabel(item.sla)}`">
-                                <i :style="{ '--used': `${Math.round(item.used * 100)}%` }" />
-                            </div>
-                        </li>
-                    </ul>
-                </section>
+                <!-- Logbook: ruled lines, red margin; rows sit on the rules. -->
+                <div class="ledger" role="list">
+                    <div class="ledger-cols" aria-hidden="true">
+                        <span class="lc-margin" />
+                        <span>Control no.</span>
+                        <span>Particulars</span>
+                        <span class="lc-due">Due</span>
+                    </div>
 
-                <section v-if="fresh.length" class="slip-sec">
-                    <h3 class="slip-h">
-                        New since you last signed in
-                        <span class="slip-n">{{ fresh.length }}</span>
-                    </h3>
-                    <ul class="slip-list">
-                        <li
-                            v-for="tx in fresh.slice(0, SHOW)"
-                            :key="tx.id"
-                            class="slip-row"
-                            tabindex="0"
-                            role="link"
-                            @click="go(tx)"
-                            @keydown.enter.prevent="go(tx)"
-                        >
-                            <div class="row-top">
-                                <span class="row-ref">{{ tx.reference_number || `#${tx.id}` }}</span>
-                                <span class="row-title">{{ tx.title || tx.transaction_type?.name }}</span>
-                                <span class="row-when">Arrived {{ ago(tx.entered_at) }}</span>
-                            </div>
-                            <div class="row-step">{{ tx.current_step?.name }}</div>
-                        </li>
-                    </ul>
-                </section>
+                    <div
+                        v-for="item in due.slice(0, SHOW)"
+                        :key="`due-${item.tx.id}`"
+                        class="ledger-row"
+                        role="listitem"
+                        tabindex="0"
+                        @click="go(item.tx)"
+                        @keydown.enter.prevent="go(item.tx)"
+                    >
+                        <span class="mark" :class="item.left < 0 ? 'mark--late' : 'mark--rush'">{{ item.left < 0 ? "Late" : "Rush" }}</span>
+                        <span class="lr-ref">{{ item.tx.reference_number || `#${item.tx.id}` }}</span>
+                        <span class="lr-what">
+                            <span class="lr-title">{{ item.tx.title || item.tx.transaction_type?.name }}</span>
+                            <span class="lr-step">{{ item.tx.current_step?.name }}</span>
+                        </span>
+                        <span class="lr-due" :class="{ 'is-late': item.left < 0 }">{{ leftLabel(item.left) }}</span>
+                    </div>
 
-                <p v-if="hidden > 0" class="slip-more">{{ hidden }} more in Approvals.</p>
+                    <div
+                        v-for="tx in fresh.slice(0, SHOW)"
+                        :key="`new-${tx.id}`"
+                        class="ledger-row"
+                        role="listitem"
+                        tabindex="0"
+                        @click="go(tx)"
+                        @keydown.enter.prevent="go(tx)"
+                    >
+                        <span class="mark mark--new">New</span>
+                        <span class="lr-ref">{{ tx.reference_number || `#${tx.id}` }}</span>
+                        <span class="lr-what">
+                            <span class="lr-title">{{ tx.title || tx.transaction_type?.name }}</span>
+                            <span class="lr-step">{{ tx.current_step?.name }}</span>
+                        </span>
+                        <span class="lr-due lr-due--quiet">Arrived {{ ago(tx.entered_at) }}</span>
+                    </div>
+
+                    <div v-if="hidden > 0" class="ledger-more">{{ hidden }} more in Approvals.</div>
+                </div>
+
+                <div class="paper-foot">
+                    <v-btn variant="text" rounded="0" color="grey-darken-3" @click="open = false">Remind me later</v-btn>
+                    <v-btn variant="flat" rounded="0" color="primary" class="paper-cta" @click="openApprovals">Open approvals</v-btn>
+                </div>
             </div>
-
-            <footer class="slip-foot">
-                <v-btn variant="text" rounded="0" color="grey-darken-3" @click="open = false">Remind me later</v-btn>
-                <v-btn variant="flat" rounded="0" color="primary" class="slip-cta" @click="openApprovals">Open approvals</v-btn>
-            </footer>
         </div>
     </v-dialog>
 </template>
@@ -109,10 +143,10 @@ const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 
-// Rows shown per section; the rest are counted under "more in Approvals".
+// Log lines shown per kind; the rest are counted as "more in Approvals".
 const SHOW = 3;
 // "Almost due": a quarter or less of the step's time limit is left
-// (overdue rows count too and say so).
+// (overdue rows count too, marked Late).
 const DUE_SHARE = 0.25;
 // First sign-in on this device: "new" means arrived in the last day.
 const FIRST_LOOK_MS = 24 * 3600 * 1000;
@@ -128,8 +162,7 @@ const due = computed(() =>
             const sla = Number(tx.current_step?.sla_minutes || 0);
             const entered = Date.parse(tx.entered_at || "");
             if (!sla || !Number.isFinite(entered)) return null;
-            const left = entered + sla * 60000 - now.value;
-            return { tx, sla, left, used: Math.min(1, Math.max(0, 1 - left / (sla * 60000))) };
+            return { tx, sla, left: entered + sla * 60000 - now.value };
         })
         .filter((d) => d && d.left <= d.sla * 60000 * DUE_SHARE)
         .sort((a, b) => a.left - b.left),
@@ -137,7 +170,7 @@ const due = computed(() =>
 const dueIds = computed(() => new Set(due.value.map((d) => d.tx.id)));
 
 // New = arrived at the clerk's step since the last notice (not already
-// listed under Almost due).
+// logged as due).
 const fresh = computed(() => {
     const since = seenAt.value ?? now.value - FIRST_LOOK_MS;
     return rows.value
@@ -163,11 +196,23 @@ const detailLine = computed(() => {
     return line.charAt(0).toUpperCase() + line.slice(1) + ".";
 });
 
-const stampDate = computed(() =>
-    new Date(now.value)
-        .toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" })
-        .toUpperCase(),
+const officeCode = computed(() => user.value?.office?.code || "In-tray");
+const officeName = computed(() => user.value?.office?.name || "Receiving");
+
+const manila = (opts) => new Date(now.value).toLocaleString("en-US", { timeZone: "Asia/Manila", ...opts });
+const greeting = computed(() => {
+    const h = Number(manila({ hour: "numeric", hour12: false })) % 24;
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+});
+
+// Dater band characters: digits roll, the rest stay put.
+const chars = (s) => [...s].map((ch) => (/\d/.test(ch) ? { digit: true, value: Number(ch) } : { digit: false, value: ch }));
+const dateChars = computed(() =>
+    chars(manila({ month: "short", day: "2-digit", year: "numeric" }).replace(",", "").toUpperCase()),
 );
+const timeChars = computed(() => chars(manila({ hour: "2-digit", minute: "2-digit", hour12: true })));
 
 function span(ms) {
     const m = Math.max(1, Math.round(Math.abs(ms) / 60000));
@@ -177,8 +222,7 @@ function span(ms) {
     const d = Math.floor(h / 24);
     return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
 }
-const leftLabel = (left) => (left < 0 ? `Overdue by ${span(left)}` : `${span(left)} left`);
-const slaLabel = (min) => span(min * 60000);
+const leftLabel = (left) => (left < 0 ? `${span(left)} late` : `${span(left)} left`);
 const ago = (iso) => `${span(now.value - Date.parse(iso))} ago`;
 
 async function loadAll() {
@@ -231,321 +275,506 @@ function openApprovals() {
 </script>
 
 <style>
-/* Teleported dialog: global styles, every class prefixed "slip". */
-.slip-dialog .v-overlay__scrim {
-    opacity: 0.55;
-}
-.slip {
-    --slip-navy: #16307c;
-    --slip-deep: #0e1f52;
-    --slip-gold: #d9ab3c;
-    --slip-ink: #b3261e;
-    --slip-rule: #e3e8f3;
-    --slip-text: #1f2937;
-    --slip-muted: #5b6475;
-    position: relative;
-    background: #fff;
-    color: var(--slip-text);
-    font-family: "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif;
-    box-shadow: 0 18px 50px rgba(14, 31, 82, 0.35);
-    overflow: hidden;
+/* Teleported dialog: global styles, prefixed "tray" / "paper" / "ledger" /
+   "rcv". Palette: system navy + seal gold, logbook rules, stamp-pad ink. */
+@property --ink-r {
+    syntax: "<percentage>";
+    inherits: false;
+    initial-value: 160%;
 }
 
-/* Band: navy with the same gold rule as the app bar. */
-.slip-band {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 12px 14px 18px;
-    background: var(--slip-deep);
-    border-bottom: 2px solid var(--slip-gold);
-    color: #fff;
+.tray-dialog .v-overlay__scrim {
+    opacity: 0.6;
 }
-.slip-seal {
-    flex: none;
+.tray {
+    --navy: #16307c;
+    --deep: #0e1f52;
+    --gold: #d9ab3c;
+    --rule: #d6e0f2;
+    --margin: #e8a3a3;
+    --ink: #2c2799;
+    --red: #b3261e;
+    --text: #1d2433;
+    --muted: #5b6475;
+    --line: 28px;
+    font-family: "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+}
+.tray-defs {
+    position: absolute;
+}
+
+/* Folder tab (navy, angled edge) sitting on the paper; close on the right. */
+.tray-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+.tray-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    height: 40px;
+    padding: 0 34px 0 14px;
+    background: var(--navy);
+    color: #fff;
+    clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 100%, 0 100%);
+}
+.tab-seal {
     border-radius: 50%;
     background: #fff;
-    padding: 2px;
+    padding: 1px;
 }
-.slip-who {
-    flex: 1 1 auto;
-    min-width: 0;
+.tab-code {
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
 }
-.slip-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
-}
-.slip-office {
+.tab-count {
+    min-width: 24px;
+    padding: 1px 7px;
+    background: var(--gold);
+    color: var(--deep);
+    font-weight: 800;
     font-size: 0.8rem;
-    opacity: 0.8;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.tray-close {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 4px;
+    color: #fff;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+}
+.tray-close:hover,
+.tray-close:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+    outline: none;
 }
 
-.slip-body {
-    padding: 18px 22px 6px;
-    max-height: min(62vh, 520px);
+/* Paper: navy folder edge on top, logbook margin line on the left. */
+.tray-paper {
+    position: relative;
+    background: #fff;
+    border-top: 4px solid var(--navy);
+    box-shadow: 0 1px 0 var(--gold), 0 26px 60px rgba(8, 18, 52, 0.45);
+    max-height: min(80vh, 640px);
     overflow-x: hidden;
     overflow-y: auto;
 }
-
-/* Lead: summary sentence with the stamp in the corner. */
-.slip-lead {
-    position: relative;
-    min-height: 96px;
-    padding-right: 150px;
-}
-.slip-summary {
-    margin: 0;
-    font-size: 1.02rem;
-    line-height: 1.55;
-    max-width: 34ch;
-}
-.slip-summary strong {
-    color: var(--slip-navy);
-}
-
-/* The rubber "Received" stamp: double-ruled, red ink, slightly crooked. */
-.stamp {
+.tray-paper::before {
+    content: "";
     position: absolute;
-    top: -4px;
-    right: 0;
-    width: 136px;
-    padding: 7px 8px 6px;
-    border: 3px double var(--slip-ink);
-    color: var(--slip-ink);
-    text-align: center;
-    transform: rotate(-9deg);
-    opacity: 0.88;
-    mix-blend-mode: multiply;
-    animation: slip-stamp 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.32s both;
+    top: 0;
+    bottom: 0;
+    left: 64px;
+    width: 1px;
+    background: var(--margin);
+    pointer-events: none;
 }
-.stamp-word {
-    display: block;
+
+.paper-head {
+    padding: 22px 252px 10px 80px;
+    min-height: 196px;
+}
+.paper-greet {
+    margin: 0 0 6px;
+    font-size: 1.3rem;
     font-weight: 800;
-    font-size: 1rem;
-    letter-spacing: 0.16em;
+    line-height: 1.25;
+    color: var(--deep);
+}
+.paper-summary {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    color: var(--text);
+    max-width: 40ch;
+}
+
+/* ---- Receiving stamp ---------------------------------------------------- */
+.rcv {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    width: 214px;
+    transform: rotate(-4deg);
+}
+/* The stamp's shadow coming down before contact. */
+.rcv::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    background: rgba(8, 18, 52, 0.55);
+    filter: blur(14px);
+    opacity: 0;
+    animation: rcv-shadow 0.32s ease-in 0.3s both;
+    pointer-events: none;
+}
+.rcv-ink {
+    position: relative;
+    padding: 7px 10px 8px;
+    border: 2.5px solid var(--ink);
+    outline: 1px solid var(--ink);
+    outline-offset: 2px;
+    color: var(--ink);
+    text-align: center;
+    mix-blend-mode: multiply;
+    filter: url(#tray-ink);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 var(--ink-r), transparent calc(var(--ink-r) + 18%));
+    mask-image: radial-gradient(circle at 50% 50%, #000 var(--ink-r), transparent calc(var(--ink-r) + 18%));
+    animation: rcv-press 0.5s cubic-bezier(0.3, 0.7, 0.2, 1) 0.58s both;
+}
+.rcv-org {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
-.stamp-date {
-    display: block;
-    margin: 3px 0;
+.rcv-office {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-top: 1px;
+}
+.rcv-word {
+    margin: 4px -10px 5px;
     padding: 2px 0;
-    border-top: 1px solid currentColor;
-    border-bottom: 1px solid currentColor;
+    border-top: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    line-height: 1.15;
+}
+.rcv-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    text-align: left;
+    font-size: 0.72rem;
+    line-height: 1.5;
+}
+.rcv-k {
+    flex: none;
+    width: 34px;
     font-weight: 700;
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+}
+.rcv-v {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-bottom: 1px solid currentColor;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
 }
-.stamp-count {
-    display: block;
+.rcv-by {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     font-weight: 700;
-    font-size: 0.82rem;
 }
 
-/* Sections */
-.slip-sec {
-    margin-top: 16px;
+/* Dater: each digit is a band of 0-9 0-9 that rolls to the right number. */
+.dater {
+    display: inline-flex;
+    align-items: flex-end;
 }
-.slip-h {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 6px;
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: var(--slip-deep);
-}
-.slip-n {
-    min-width: 22px;
-    padding: 1px 7px;
-    background: var(--slip-navy);
-    color: #fff;
-    font-size: 0.75rem;
+.dg {
+    display: inline-block;
+    height: 1.25em;
+    overflow: hidden;
+    line-height: 1.25em;
+    width: 0.66em;
     text-align: center;
-    font-variant-numeric: tabular-nums;
 }
-.slip-n--due {
-    background: var(--slip-ink);
+.dg > span {
+    display: block;
+    transform: translateY(calc(var(--d) * -1.25em));
+    animation: dater-roll 0.55s cubic-bezier(0.25, 0.9, 0.3, 1.05) calc(1.02s + var(--i) * 0.035s) both;
 }
-.slip-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--slip-rule);
+.dg > span > i {
+    display: block;
+    height: 1.25em;
+    font-style: normal;
 }
-.slip-row {
-    padding: 9px 10px 9px 12px;
-    border-bottom: 1px solid var(--slip-rule);
-    border-left: 3px solid var(--slip-navy);
+.dg-fixed {
+    white-space: pre;
+}
+
+/* ---- Logbook ------------------------------------------------------------- */
+.ledger {
+    position: relative;
+    margin-top: 6px;
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(var(--line) - 1px),
+        var(--rule) calc(var(--line) - 1px),
+        var(--rule) var(--line)
+    );
+}
+.ledger-cols,
+.ledger-row {
+    display: grid;
+    grid-template-columns: 64px 142px minmax(0, 1fr) auto;
+    column-gap: 14px;
+    padding-right: 22px;
+}
+.ledger-cols {
+    height: var(--line);
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--navy);
+}
+.lc-due {
+    text-align: right;
+}
+.ledger-row {
+    min-height: calc(var(--line) * 2);
+    align-items: center;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
-.slip-row--due {
-    border-left-color: var(--slip-ink);
-}
-.slip-row:hover,
-.slip-row:focus-visible {
-    background: #f3f6fc;
+.ledger-row:hover,
+.ledger-row:focus-visible {
+    background-color: rgba(22, 48, 124, 0.06);
     outline: none;
 }
-.slip-row:focus-visible {
-    box-shadow: inset 0 0 0 2px var(--slip-navy);
-}
-.row-top {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    min-width: 0;
-}
-.row-ref {
-    flex: none;
-    font-weight: 700;
-    font-size: 0.8rem;
-    color: var(--slip-navy);
-    font-variant-numeric: tabular-nums;
-}
-.row-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-.row-when {
-    flex: none;
-    font-size: 0.78rem;
-    color: var(--slip-muted);
-    font-variant-numeric: tabular-nums;
-}
-.row-when.is-late {
-    color: var(--slip-ink);
-    font-weight: 700;
-}
-.row-step {
-    margin-top: 1px;
-    font-size: 0.8rem;
-    color: var(--slip-muted);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-/* Time used at this step, against its limit. */
-.sla {
-    height: 4px;
-    margin-top: 7px;
-    background: var(--slip-rule);
-}
-.sla i {
-    display: block;
-    height: 100%;
-    width: var(--used);
-    background: var(--slip-ink);
-    animation: slip-fill 0.7s ease-out 0.55s both;
-}
-.slip-more {
-    margin: 10px 0 0;
-    font-size: 0.82rem;
-    color: var(--slip-muted);
+.ledger-row:focus-visible {
+    box-shadow: inset 3px 0 0 var(--navy);
 }
 
-.slip-foot {
+/* Margin marks: little hand stamps, as on paper documents. */
+.mark {
+    justify-self: center;
+    padding: 1px 5px;
+    border: 1.5px solid currentColor;
+    font-size: 0.64rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    transform: rotate(-7deg);
+}
+.mark--rush {
+    color: var(--red);
+}
+.mark--late {
+    color: #fff;
+    background: var(--red);
+    border-color: var(--red);
+}
+.mark--new {
+    color: var(--navy);
+    transform: none;
+}
+
+.lr-ref {
+    font-weight: 800;
+    font-size: 0.82rem;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+}
+.lr-what {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: var(--line);
+}
+.lr-title,
+.lr-step {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.lr-title {
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+.lr-step {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+.lr-due {
+    justify-self: end;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.lr-due.is-late {
+    color: var(--red);
+}
+.lr-due--quiet {
+    font-weight: 500;
+    color: var(--muted);
+}
+.ledger-more {
+    height: var(--line);
+    line-height: var(--line);
+    padding-left: 78px;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.paper-foot {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 14px 18px 18px;
+    padding: 16px 22px 20px 78px;
 }
-.slip-cta {
-    min-width: 160px;
+.paper-cta {
+    min-width: 168px;
 }
 
-/* Entrance: the slip drops onto the desk, then the stamp is pressed. */
-.slip-drop-enter-active {
-    animation: slip-drop 0.34s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+/* ---- Entrance: pulled from the tray, then the stamp is pressed ---------- */
+.tray-pull-enter-active {
+    animation: tray-pull 0.34s cubic-bezier(0.2, 0.8, 0.25, 1) both;
 }
-.slip-drop-enter-active .slip {
-    animation: slip-jolt 0.18s ease-out 0.62s;
+.tray-pull-enter-active .tray-paper {
+    animation: paper-jolt 0.16s ease-out 0.62s;
 }
-.slip-drop-leave-active {
+.tray-pull-leave-active {
     transition: opacity 0.18s ease, transform 0.18s ease;
 }
-.slip-drop-leave-to {
+.tray-pull-leave-to {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(14px);
 }
-@keyframes slip-drop {
+@keyframes tray-pull {
     from {
         opacity: 0;
-        transform: translateY(-36px) rotate(-1.2deg);
+        transform: translateY(46px);
     }
     to {
         opacity: 1;
         transform: none;
     }
 }
-@keyframes slip-stamp {
+@keyframes rcv-shadow {
     0% {
         opacity: 0;
-        transform: rotate(-16deg) scale(1.9);
+        transform: scale(1.35) translate(10px, -14px);
     }
-    70% {
-        opacity: 0.95;
-        transform: rotate(-8deg) scale(0.94);
+    85% {
+        opacity: 0.55;
     }
     100% {
-        opacity: 0.88;
-        transform: rotate(-9deg) scale(1);
+        opacity: 0;
+        transform: scale(1) translate(0, 0);
     }
 }
-@keyframes slip-jolt {
+@keyframes rcv-press {
+    0% {
+        --ink-r: 0%;
+        opacity: 0;
+        transform: scale(1.06);
+    }
+    12% {
+        opacity: 1;
+    }
+    100% {
+        --ink-r: 160%;
+        opacity: 0.92;
+        transform: scale(1);
+    }
+}
+@keyframes paper-jolt {
     0%,
     100% {
         transform: none;
     }
-    40% {
+    45% {
         transform: translateY(2px);
     }
 }
-@keyframes slip-fill {
+@keyframes dater-roll {
     from {
-        width: 0;
+        transform: translateY(calc((var(--d) + 10) * -1.25em));
+    }
+    to {
+        transform: translateY(calc(var(--d) * -1.25em));
     }
 }
 
-/* Phones: the stamp moves above the summary instead of beside it. */
-@media (max-width: 520px) {
-    .slip-lead {
-        padding-right: 0;
-        padding-top: 92px;
+/* ---- Phones: stamp sits under the greeting, ledger loses the margin ---- */
+@media (max-width: 600px) {
+    .tray-paper::before {
+        left: 40px;
     }
-    .stamp {
-        left: 50%;
+    .paper-head {
+        padding: 18px 18px 4px 52px;
+        min-height: 0;
+    }
+    .rcv {
+        position: relative;
+        top: auto;
         right: auto;
-        margin-left: -68px;
+        margin: 10px auto 6px;
     }
-    .slip-foot {
+    .ledger-cols {
+        display: none;
+    }
+    .ledger-row {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "mark ref due"
+            "mark what what";
+        padding: 4px 14px 4px 0;
+        row-gap: 0;
+    }
+    .ledger-row .mark {
+        grid-area: mark;
+        font-size: 0.56rem;
+        padding: 1px 3px;
+    }
+    .lr-ref {
+        grid-area: ref;
+        line-height: var(--line);
+    }
+    .lr-due {
+        grid-area: due;
+    }
+    .lr-what {
+        grid-area: what;
+    }
+    .ledger-more {
+        padding-left: 52px;
+    }
+    .paper-foot {
         flex-direction: column-reverse;
+        padding: 14px 16px 18px 52px;
     }
-    .slip-foot .v-btn {
+    .paper-foot .v-btn {
         width: 100%;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .slip-drop-enter-active,
-    .slip-drop-enter-active .slip,
-    .stamp,
-    .sla i {
+    .tray-pull-enter-active,
+    .tray-pull-enter-active .tray-paper,
+    .rcv::before,
+    .rcv-ink,
+    .dg > span {
         animation: none !important;
     }
-    .slip-drop-enter-active {
-        transition: opacity 0.2s ease;
-    }
-    .slip-drop-enter-from {
-        opacity: 0;
+    .rcv-ink {
+        -webkit-mask-image: none;
+        mask-image: none;
+        opacity: 0.92;
     }
 }
 </style>
