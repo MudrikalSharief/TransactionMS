@@ -80,7 +80,7 @@
                         <span class="lc-margin" />
                         <span>Control no.</span>
                         <span>Particulars</span>
-                        <span class="lc-due">Due</span>
+                        <span class="lc-due">Status</span>
                     </div>
 
                     <div
@@ -117,6 +117,24 @@
                             <span class="lr-step">{{ tx.current_step?.name }}</span>
                         </span>
                         <span class="lr-due lr-due--quiet">Arrived {{ ago(tx.entered_at) }}</span>
+                    </div>
+
+                    <div
+                        v-for="tx in waiting.slice(0, waitingShown)"
+                        :key="`wait-${tx.id}`"
+                        class="ledger-row"
+                        role="listitem"
+                        tabindex="0"
+                        @click="go(tx)"
+                        @keydown.enter.prevent="go(tx)"
+                    >
+                        <span class="mark-none" aria-hidden="true" />
+                        <span class="lr-ref">{{ tx.reference_number || `#${tx.id}` }}</span>
+                        <span class="lr-what">
+                            <span class="lr-title">{{ tx.title || tx.transaction_type?.name }}</span>
+                            <span class="lr-step">{{ tx.current_step?.name }}</span>
+                        </span>
+                        <span class="lr-due lr-due--quiet">Waiting {{ span(now - Date.parse(tx.entered_at)) }}</span>
                     </div>
 
                     <div v-if="hidden > 0" class="ledger-more">{{ hidden }} more in Approvals.</div>
@@ -178,9 +196,24 @@ const fresh = computed(() => {
         .sort((a, b) => Date.parse(b.entered_at) - Date.parse(a.entered_at));
 });
 
+// Everything else still pending: the reminder part, oldest first.
+const waiting = computed(() => {
+    const listed = new Set([...dueIds.value, ...fresh.value.map((tx) => tx.id)]);
+    return rows.value
+        .filter((tx) => !listed.has(tx.id))
+        .sort((a, b) => Date.parse(a.entered_at) - Date.parse(b.entered_at));
+});
+// Still-waiting rows fill up to SHOW lines in total, after due and new.
+const waitingShown = computed(() =>
+    Math.max(0, SHOW - Math.min(due.value.length, SHOW) - Math.min(fresh.value.length, SHOW)),
+);
+
 const total = computed(() => rows.value.length);
 const hidden = computed(
-    () => Math.max(0, due.value.length - SHOW) + Math.max(0, fresh.value.length - SHOW),
+    () =>
+        Math.max(0, due.value.length - SHOW) +
+        Math.max(0, fresh.value.length - SHOW) +
+        Math.max(0, waiting.value.length - waitingShown.value),
 );
 
 const detailLine = computed(() => {
@@ -239,7 +272,8 @@ async function loadAll() {
 }
 
 // Runs once the signed-in user has left the login page: only clerks (staff
-// who may approve), only right after sign-in, only when there is news.
+// who may approve), only right after sign-in. A reminder: it shows whenever
+// anything is pending; due and new items are marked.
 watch(
     () => (route.name && route.name !== "login" ? user.value?.id : null),
     async (id) => {
@@ -253,7 +287,7 @@ watch(
         }
         seenAt.value = approvalsSeenAt(id);
         now.value = Date.now();
-        if (due.value.length || fresh.value.length) open.value = true;
+        if (total.value > 0) open.value = true;
         else markApprovalsSeen(id);
     },
     { immediate: true },
@@ -579,6 +613,9 @@ function openApprovals() {
 .mark--new {
     color: var(--navy);
     transform: none;
+}
+.mark-none {
+    display: block;
 }
 
 .lr-ref {
