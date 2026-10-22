@@ -45,7 +45,7 @@
                     <p class="paper-office">{{ officeName }}</p>
                     <ul v-if="tally.length" class="tally">
                         <li v-for="t in tally" :key="t.key" :class="{ 'is-zero': !t.n }">
-                            <span class="mark" :class="`mark--${t.key}`">{{ t.mark }}</span>
+                            <span class="slip-mark" :class="`slip-mark--${t.key}`">{{ t.mark }}</span>
                             <span class="tally-n">{{ t.n }}</span> {{ t.label }}
                         </li>
                     </ul>
@@ -398,7 +398,7 @@ function openApprovals() {
     font-size: 0.9rem;
     color: var(--text);
 }
-.tally .mark {
+.tally .slip-mark {
     min-width: 74px;
     text-align: center;
 }
@@ -529,7 +529,7 @@ function openApprovals() {
     white-space: pre;
 }
 
-.mark {
+.slip-mark {
     justify-self: center;
     padding: 1px 5px;
     border: 1.5px solid currentColor;
@@ -540,15 +540,15 @@ function openApprovals() {
     line-height: 1.3;
     transform: rotate(-7deg);
 }
-.mark--due {
+.slip-mark--due {
     color: var(--red);
 }
-.mark--past {
+.slip-mark--past {
     color: #fff;
     background: var(--red);
     border-color: var(--red);
 }
-.mark--new {
+.slip-mark--new {
     color: var(--navy);
     transform: none;
 }
