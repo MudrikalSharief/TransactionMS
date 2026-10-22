@@ -44,7 +44,7 @@
                     </h2>
                     <p class="paper-office">{{ officeName }}</p>
                     <ul v-if="tally.length" class="tally">
-                        <li v-for="t in tally" :key="t.key">
+                        <li v-for="t in tally" :key="t.key" :class="{ 'is-zero': !t.n }">
                             <span class="mark" :class="`mark--${t.key}`">{{ t.mark }}</span>
                             <span class="tally-n">{{ t.n }}</span> {{ t.label }}
                         </li>
@@ -121,8 +121,7 @@ const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 
-// "Almost due": a quarter or less of the step's time limit is left
-// (overdue rows count too, marked Late).
+// "Almost due": a quarter or less of the step's time limit is left.
 const DUE_SHARE = 0.25;
 // First sign-in on this device: "new" means arrived in the last day.
 const FIRST_LOOK_MS = 24 * 3600 * 1000;
@@ -132,7 +131,8 @@ const rows = ref([]);
 const seenAt = ref(null);
 const now = ref(Date.now());
 
-const due = computed(() =>
+// Pending items whose step has a time limit, with the time left (ms).
+const timed = computed(() =>
     rows.value
         .map((tx) => {
             const sla = Number(tx.current_step?.sla_minutes || 0);
@@ -140,31 +140,36 @@ const due = computed(() =>
             if (!sla || !Number.isFinite(entered)) return null;
             return { tx, sla, left: entered + sla * 60000 - now.value };
         })
-        .filter((d) => d && d.left <= d.sla * 60000 * DUE_SHARE)
-        .sort((a, b) => a.left - b.left),
+        .filter(Boolean),
 );
-const dueIds = computed(() => new Set(due.value.map((d) => d.tx.id)));
+// Past due: the time limit has passed. Due: still within it; "almost due"
+// when a quarter or less of the time is left.
+const pastDue = computed(() => timed.value.filter((d) => d.left < 0));
+const dueNow = computed(() => timed.value.filter((d) => d.left >= 0));
+const almostDue = computed(() => dueNow.value.filter((d) => d.left <= d.sla * 60000 * DUE_SHARE));
 
-// New = arrived at the clerk's step since the last notice (not already
-// logged as due).
+// New = arrived at the clerk's step since the last notice.
 const fresh = computed(() => {
     const since = seenAt.value ?? now.value - FIRST_LOOK_MS;
-    return rows.value
-        .filter((tx) => !dueIds.value.has(tx.id) && Date.parse(tx.entered_at || "") > since)
-        .sort((a, b) => Date.parse(b.entered_at) - Date.parse(a.entered_at));
+    return rows.value.filter((tx) => Date.parse(tx.entered_at || "") > since);
 });
 
 const total = computed(() => rows.value.length);
 
 // Tally under the summary; only the kinds that apply.
 const tally = computed(() => {
-    const late = due.value.filter((d) => d.left < 0).length;
-    const soon = due.value.length - late;
+    const almost = almostDue.value.length;
     return [
-        { key: "late", mark: "Late", n: late, label: "overdue" },
-        { key: "rush", mark: "Rush", n: soon, label: "almost due" },
-        { key: "new", mark: "New", n: fresh.value.length, label: "new since last sign-in" },
-    ].filter((t) => t.n > 0);
+        { key: "past", mark: "Past due", n: pastDue.value.length, label: "past the time limit", always: true },
+        {
+            key: "due",
+            mark: "Due",
+            n: dueNow.value.length,
+            label: almost ? `on time, ${almost} almost due` : "on time",
+            always: true,
+        },
+        { key: "new", mark: "New", n: fresh.value.length, label: "since your last sign-in" },
+    ].filter((t) => t.always || t.n > 0);
 });
 
 const officeCode = computed(() => user.value?.office?.code || "In-tray");
@@ -394,8 +399,11 @@ function openApprovals() {
     color: var(--text);
 }
 .tally .mark {
-    min-width: 52px;
+    min-width: 74px;
     text-align: center;
+}
+.tally li.is-zero {
+    opacity: 0.5;
 }
 .tally-n {
     font-weight: 800;
@@ -532,10 +540,10 @@ function openApprovals() {
     line-height: 1.3;
     transform: rotate(-7deg);
 }
-.mark--rush {
+.mark--due {
     color: var(--red);
 }
-.mark--late {
+.mark--past {
     color: #fff;
     background: var(--red);
     border-color: var(--red);
