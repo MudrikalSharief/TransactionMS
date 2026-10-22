@@ -16,10 +16,10 @@
                 <!-- Uneven stamp-pad ink: speckled coverage, slightly wobbly edges. -->
                 <filter id="tray-ink" x="-4%" y="-4%" width="108%" height="108%">
                     <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" result="grain" />
-                    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.25 1.6" result="cover" />
+                    <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.8 1.65" result="cover" />
                     <feComposite in="SourceGraphic" in2="cover" operator="in" result="inked" />
                     <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="wave" />
-                    <feDisplacementMap in="inked" in2="wave" scale="2.4" xChannelSelector="R" yChannelSelector="G" />
+                    <feDisplacementMap in="inked" in2="wave" scale="1.3" xChannelSelector="R" yChannelSelector="G" />
                 </filter>
             </svg>
 
@@ -35,109 +35,69 @@
             </div>
 
             <div class="tray-paper">
+                <!-- Summary only: how many are pending at the office, and a
+                     tally of what needs attention (no per-document list). -->
                 <div class="paper-head">
-                    <h2 id="tray-greet" class="paper-greet">{{ greeting }}, {{ user?.name }}.</h2>
-                    <p id="tray-summary" class="paper-summary">
-                        Your in-tray has {{ total }} {{ total === 1 ? "document" : "documents" }} waiting for approval.
-                        {{ detailLine }}
-                    </p>
+                    <p id="tray-greet" class="paper-greet">{{ greeting }}, {{ user?.name }}.</p>
+                    <h2 id="tray-summary" class="paper-summary">
+                        {{ total }} pending {{ total === 1 ? "approval" : "approvals" }} in office {{ officeCode }}.
+                    </h2>
+                    <p class="paper-office">{{ officeName }}</p>
+                    <ul v-if="tally.length" class="tally">
+                        <li v-for="t in tally" :key="t.key">
+                            <span class="mark" :class="`mark--${t.key}`">{{ t.mark }}</span>
+                            <span class="tally-n">{{ t.n }}</span> {{ t.label }}
+                        </li>
+                    </ul>
                 </div>
 
-                <!-- Receiving stamp, as used at city hall receiving desks. -->
+                <!-- Round official receiving seal: city and office around the
+                     rings, the flag's three stars, a RECEIVED ribbon across,
+                     then the dater (date, time, clerk's initials). -->
                 <div class="rcv" aria-hidden="true">
                     <div class="rcv-ink">
-                        <div class="rcv-org">City Government of Zamboanga</div>
-                        <div class="rcv-office">{{ officeName }}</div>
-                        <div class="rcv-word">Received</div>
-                        <div class="rcv-line">
-                            <span class="rcv-k">Date</span>
-                            <span class="rcv-v dater">
+                        <svg class="rcv-svg" viewBox="0 0 228 200" width="228" height="200">
+                            <defs>
+                                <path id="rcv-arc-top" d="M 44 100 A 70 70 0 0 1 184 100" />
+                                <path id="rcv-arc-bottom" d="M 35 100 A 79 79 0 0 0 193 100" />
+                            </defs>
+                            <circle cx="114" cy="100" r="93" class="rcv-stroke" stroke-width="3" />
+                            <circle cx="114" cy="100" r="88" class="rcv-stroke" stroke-width="1" />
+                            <circle cx="114" cy="100" r="62" class="rcv-stroke" stroke-width="1.5" />
+                            <text class="rcv-arc" :style="{ fontSize: `${arcSize(TOP_TEXT)}px` }">
+                                <textPath href="#rcv-arc-top" startOffset="50%" text-anchor="middle">{{ TOP_TEXT }}</textPath>
+                            </text>
+                            <text class="rcv-arc" :style="{ fontSize: `${arcSize(officeName)}px` }">
+                                <textPath href="#rcv-arc-bottom" startOffset="50%" text-anchor="middle">{{ officeName.toUpperCase() }}</textPath>
+                            </text>
+                            <!-- Three stars inside the inner ring -->
+                            <g class="rcv-fill" transform="translate(114 62)">
+                                <path v-for="x in [-18, 0, 18]" :key="x" :transform="`translate(${x} ${x === 0 ? -4 : 0}) scale(${x === 0 ? 1.15 : 0.9})`" :d="STAR" />
+                            </g>
+                            <!-- RECEIVED ribbon over the rings -->
+                            <rect x="8" y="80" width="212" height="38" fill="#fff" />
+                            <rect x="8" y="80" width="212" height="38" class="rcv-stroke" stroke-width="2.5" />
+                            <rect x="12" y="84" width="204" height="30" class="rcv-stroke" stroke-width="0.8" />
+                            <text x="114" y="108" text-anchor="middle" class="rcv-word">RECEIVED</text>
+                        </svg>
+                        <div class="rcv-dater">
+                            <span class="dater rcv-date">
                                 <template v-for="(c, i) in dateChars" :key="`d${i}`">
                                     <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
                                     <span v-else class="dg-fixed">{{ c.value }}</span>
                                 </template>
                             </span>
-                        </div>
-                        <div class="rcv-line">
-                            <span class="rcv-k">Time</span>
-                            <span class="rcv-v dater">
-                                <template v-for="(c, i) in timeChars" :key="`t${i}`">
-                                    <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i + 8 }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
-                                    <span v-else class="dg-fixed">{{ c.value }}</span>
-                                </template>
+                            <span class="rcv-time">
+                                <span class="dater">
+                                    <template v-for="(c, i) in timeChars" :key="`t${i}`">
+                                        <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i + 8 }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
+                                        <span v-else class="dg-fixed">{{ c.value }}</span>
+                                    </template>
+                                </span>
+                                <span class="rcv-by">{{ initials }}</span>
                             </span>
                         </div>
-                        <div class="rcv-line">
-                            <span class="rcv-k">By</span>
-                            <span class="rcv-v rcv-by">{{ user?.name }}</span>
-                        </div>
                     </div>
-                </div>
-
-                <!-- Logbook: ruled lines, red margin; rows sit on the rules. -->
-                <div class="ledger" role="list">
-                    <div class="ledger-cols" aria-hidden="true">
-                        <span class="lc-margin" />
-                        <span>Control no.</span>
-                        <span>Particulars</span>
-                        <span class="lc-due">Status</span>
-                    </div>
-
-                    <div
-                        v-for="item in due.slice(0, SHOW)"
-                        :key="`due-${item.tx.id}`"
-                        class="ledger-row"
-                        role="listitem"
-                        tabindex="0"
-                        @click="go(item.tx)"
-                        @keydown.enter.prevent="go(item.tx)"
-                    >
-                        <span class="mark" :class="item.left < 0 ? 'mark--late' : 'mark--rush'">{{ item.left < 0 ? "Late" : "Rush" }}</span>
-                        <span class="lr-ref">{{ item.tx.reference_number || `#${item.tx.id}` }}</span>
-                        <span class="lr-what">
-                            <span class="lr-title">{{ item.tx.title || item.tx.transaction_type?.name }}</span>
-                            <span class="lr-step">{{ item.tx.current_step?.name }}</span>
-                        </span>
-                        <span class="lr-due" :class="{ 'is-late': item.left < 0 }">{{ leftLabel(item.left) }}</span>
-                    </div>
-
-                    <div
-                        v-for="tx in fresh.slice(0, SHOW)"
-                        :key="`new-${tx.id}`"
-                        class="ledger-row"
-                        role="listitem"
-                        tabindex="0"
-                        @click="go(tx)"
-                        @keydown.enter.prevent="go(tx)"
-                    >
-                        <span class="mark mark--new">New</span>
-                        <span class="lr-ref">{{ tx.reference_number || `#${tx.id}` }}</span>
-                        <span class="lr-what">
-                            <span class="lr-title">{{ tx.title || tx.transaction_type?.name }}</span>
-                            <span class="lr-step">{{ tx.current_step?.name }}</span>
-                        </span>
-                        <span class="lr-due lr-due--quiet">Arrived {{ ago(tx.entered_at) }}</span>
-                    </div>
-
-                    <div
-                        v-for="tx in waiting.slice(0, waitingShown)"
-                        :key="`wait-${tx.id}`"
-                        class="ledger-row"
-                        role="listitem"
-                        tabindex="0"
-                        @click="go(tx)"
-                        @keydown.enter.prevent="go(tx)"
-                    >
-                        <span class="mark-none" aria-hidden="true" />
-                        <span class="lr-ref">{{ tx.reference_number || `#${tx.id}` }}</span>
-                        <span class="lr-what">
-                            <span class="lr-title">{{ tx.title || tx.transaction_type?.name }}</span>
-                            <span class="lr-step">{{ tx.current_step?.name }}</span>
-                        </span>
-                        <span class="lr-due lr-due--quiet">Waiting {{ span(now - Date.parse(tx.entered_at)) }}</span>
-                    </div>
-
-                    <div v-if="hidden > 0" class="ledger-more">{{ hidden }} more in Approvals.</div>
                 </div>
 
                 <div class="paper-foot">
@@ -161,8 +121,6 @@ const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 
-// Log lines shown per kind; the rest are counted as "more in Approvals".
-const SHOW = 3;
 // "Almost due": a quarter or less of the step's time limit is left
 // (overdue rows count too, marked Late).
 const DUE_SHARE = 0.25;
@@ -196,41 +154,37 @@ const fresh = computed(() => {
         .sort((a, b) => Date.parse(b.entered_at) - Date.parse(a.entered_at));
 });
 
-// Everything else still pending: the reminder part, oldest first.
-const waiting = computed(() => {
-    const listed = new Set([...dueIds.value, ...fresh.value.map((tx) => tx.id)]);
-    return rows.value
-        .filter((tx) => !listed.has(tx.id))
-        .sort((a, b) => Date.parse(a.entered_at) - Date.parse(b.entered_at));
-});
-// Still-waiting rows fill up to SHOW lines in total, after due and new.
-const waitingShown = computed(() =>
-    Math.max(0, SHOW - Math.min(due.value.length, SHOW) - Math.min(fresh.value.length, SHOW)),
-);
-
 const total = computed(() => rows.value.length);
-const hidden = computed(
-    () =>
-        Math.max(0, due.value.length - SHOW) +
-        Math.max(0, fresh.value.length - SHOW) +
-        Math.max(0, waiting.value.length - waitingShown.value),
-);
 
-const detailLine = computed(() => {
+// Tally under the summary; only the kinds that apply.
+const tally = computed(() => {
     const late = due.value.filter((d) => d.left < 0).length;
     const soon = due.value.length - late;
-    const isAre = (n) => (n === 1 ? "is" : "are");
-    const parts = [];
-    if (late) parts.push(`${late} ${isAre(late)} overdue`);
-    if (soon) parts.push(`${soon} ${isAre(soon)} almost due`);
-    if (fresh.value.length) parts.push(`${fresh.value.length} arrived since you last signed in`);
-    if (!parts.length) return "";
-    const line = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
-    return line.charAt(0).toUpperCase() + line.slice(1) + ".";
+    return [
+        { key: "late", mark: "Late", n: late, label: "overdue" },
+        { key: "rush", mark: "Rush", n: soon, label: "almost due" },
+        { key: "new", mark: "New", n: fresh.value.length, label: "new since last sign-in" },
+    ].filter((t) => t.n > 0);
 });
 
 const officeCode = computed(() => user.value?.office?.code || "In-tray");
 const officeName = computed(() => user.value?.office?.name || "Receiving");
+
+// Seal text: the city on the top arc, the office on the bottom arc. Long
+// names get a smaller size so they stay inside the ring.
+const TOP_TEXT = "CITY GOVERNMENT OF ZAMBOANGA";
+// ~0.86em per uppercase glyph incl. tracking; the top arc is ~210px long.
+const arcSize = (text) => Math.max(6.5, Math.min(10.5, 196 / (String(text).length * 0.86)));
+const STAR = "M0,-7 L2.06,-2.84 L6.66,-2.16 L3.33,1.08 L4.11,5.66 L0,3.5 L-4.11,5.66 L-3.33,1.08 L-6.66,-2.16 L-2.06,-2.84 Z";
+// Clerk's initials on the dater line (e.g. Rhea Lyn Francisco -> RLF).
+const initials = computed(() =>
+    String(user.value?.name || "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w[0].toUpperCase())
+        .join("")
+        .slice(0, 4),
+);
 
 const manila = (opts) => new Date(now.value).toLocaleString("en-US", { timeZone: "Asia/Manila", ...opts });
 const greeting = computed(() => {
@@ -246,17 +200,6 @@ const dateChars = computed(() =>
     chars(manila({ month: "short", day: "2-digit", year: "numeric" }).replace(",", "").toUpperCase()),
 );
 const timeChars = computed(() => chars(manila({ hour: "2-digit", minute: "2-digit", hour12: true })));
-
-function span(ms) {
-    const m = Math.max(1, Math.round(Math.abs(ms) / 60000));
-    if (m < 60) return `${m}m`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
-    const d = Math.floor(h / 24);
-    return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
-}
-const leftLabel = (left) => (left < 0 ? `${span(left)} late` : `${span(left)} left`);
-const ago = (iso) => `${span(now.value - Date.parse(iso))} ago`;
 
 async function loadAll() {
     const all = [];
@@ -297,11 +240,6 @@ function markSeen() {
     if (user.value?.id) markApprovalsSeen(user.value.id, now.value);
 }
 
-function go(tx) {
-    open.value = false;
-    router.push(`/transactions/${tx.id}`);
-}
-
 function openApprovals() {
     open.value = false;
     router.push("/portal/approvals");
@@ -309,8 +247,8 @@ function openApprovals() {
 </script>
 
 <style>
-/* Teleported dialog: global styles, prefixed "tray" / "paper" / "ledger" /
-   "rcv". Palette: system navy + seal gold, logbook rules, stamp-pad ink. */
+/* Teleported dialog: global styles, prefixed "tray" / "paper" / "tally" /
+   "rcv". Palette: system navy + seal gold, logbook margin, stamp-pad ink. */
 @property --ink-r {
     syntax: "<percentage>";
     inherits: false;
@@ -326,7 +264,7 @@ function openApprovals() {
     --gold: #d9ab3c;
     --rule: #d6e0f2;
     --margin: #e8a3a3;
-    --ink: #2c2799;
+    --ink: #1c2a8a;
     --red: #b3261e;
     --text: #1d2433;
     --muted: #5b6475;
@@ -413,110 +351,147 @@ function openApprovals() {
 }
 
 .paper-head {
-    padding: 22px 252px 10px 80px;
-    min-height: 196px;
+    padding: 26px 262px 12px 84px;
+    min-height: 230px;
 }
 .paper-greet {
-    margin: 0 0 6px;
-    font-size: 1.3rem;
-    font-weight: 800;
-    line-height: 1.25;
-    color: var(--deep);
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    color: var(--muted);
 }
+/* The summary is the message: one formal headline. */
 .paper-summary {
     margin: 0;
-    font-size: 0.98rem;
-    line-height: 1.55;
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--deep);
+    max-width: 16ch;
+}
+.paper-office {
+    margin: 8px 0 0;
+    padding-top: 8px;
+    border-top: 2px solid var(--gold);
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--navy);
+}
+.tally {
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.tally li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
     color: var(--text);
-    max-width: 40ch;
+}
+.tally .mark {
+    min-width: 52px;
+    text-align: center;
+}
+.tally-n {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--deep);
 }
 
 /* ---- Receiving stamp ---------------------------------------------------- */
 .rcv {
     position: absolute;
-    top: 18px;
-    right: 22px;
-    width: 214px;
-    transform: rotate(-4deg);
+    top: 10px;
+    right: 14px;
+    width: 228px;
+    height: 200px;
+    transform: rotate(-8deg);
 }
-/* The stamp's shadow coming down before contact. */
+/* The stamp's shadow coming down before contact (round, like the seal). */
 .rcv::before {
     content: "";
     position: absolute;
-    inset: 6px;
-    background: rgba(8, 18, 52, 0.55);
-    filter: blur(14px);
+    left: 24px;
+    top: 10px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: rgba(8, 18, 52, 0.5);
+    filter: blur(16px);
     opacity: 0;
     animation: rcv-shadow 0.32s ease-in 0.3s both;
     pointer-events: none;
 }
 .rcv-ink {
     position: relative;
-    padding: 7px 10px 8px;
-    border: 2.5px solid var(--ink);
-    outline: 1px solid var(--ink);
-    outline-offset: 2px;
+    width: 228px;
+    height: 200px;
     color: var(--ink);
-    text-align: center;
     mix-blend-mode: multiply;
     filter: url(#tray-ink);
     -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 var(--ink-r), transparent calc(var(--ink-r) + 18%));
     mask-image: radial-gradient(circle at 50% 50%, #000 var(--ink-r), transparent calc(var(--ink-r) + 18%));
     animation: rcv-press 0.5s cubic-bezier(0.3, 0.7, 0.2, 1) 0.58s both;
 }
-.rcv-org {
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+.rcv-svg {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
 }
-.rcv-office {
-    font-size: 0.66rem;
+.rcv-stroke {
+    fill: none;
+    stroke: currentColor;
+}
+.rcv-fill {
+    fill: currentColor;
+}
+.rcv-arc {
+    fill: currentColor;
+    font-family: "Public Sans", system-ui, sans-serif;
     font-weight: 800;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    line-height: 1.2;
-    margin-top: 1px;
+    letter-spacing: 0.08em;
 }
 .rcv-word {
-    margin: 4px -10px 5px;
-    padding: 2px 0;
-    border-top: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
-    font-size: 1.35rem;
+    fill: currentColor;
+    font-family: "Public Sans", system-ui, sans-serif;
+    font-size: 24px;
     font-weight: 900;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    line-height: 1.15;
+    letter-spacing: 0.2em;
 }
-.rcv-line {
+/* Dater under the ribbon, inside the inner ring. */
+.rcv-dater {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 122px;
     display: flex;
-    align-items: baseline;
-    gap: 6px;
-    text-align: left;
-    font-size: 0.72rem;
-    line-height: 1.5;
-}
-.rcv-k {
-    flex: none;
-    width: 34px;
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.6rem;
-    letter-spacing: 0.06em;
-}
-.rcv-v {
-    flex: 1 1 auto;
-    min-width: 0;
-    border-bottom: 1px solid currentColor;
+    flex-direction: column;
+    align-items: center;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.rcv-date {
+    font-size: 13px;
+    letter-spacing: 0.04em;
+}
+.rcv-time {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
 }
 .rcv-by {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-weight: 700;
+    padding-left: 6px;
+    border-left: 1px solid currentColor;
+    line-height: 1.25em;
 }
 
 /* Dater: each digit is a band of 0-9 0-9 that rolls to the right number. */
@@ -546,51 +521,6 @@ function openApprovals() {
     white-space: pre;
 }
 
-/* ---- Logbook ------------------------------------------------------------- */
-.ledger {
-    position: relative;
-    margin-top: 6px;
-    background-image: repeating-linear-gradient(
-        to bottom,
-        transparent 0,
-        transparent calc(var(--line) - 1px),
-        var(--rule) calc(var(--line) - 1px),
-        var(--rule) var(--line)
-    );
-}
-.ledger-cols,
-.ledger-row {
-    display: grid;
-    grid-template-columns: 64px 142px minmax(0, 1fr) auto;
-    column-gap: 14px;
-    padding-right: 22px;
-}
-.ledger-cols {
-    height: var(--line);
-    align-items: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--navy);
-}
-.lc-due {
-    text-align: right;
-}
-.ledger-row {
-    min-height: calc(var(--line) * 2);
-    align-items: center;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-.ledger-row:hover,
-.ledger-row:focus-visible {
-    background-color: rgba(22, 48, 124, 0.06);
-    outline: none;
-}
-.ledger-row:focus-visible {
-    box-shadow: inset 3px 0 0 var(--navy);
-}
-
-/* Margin marks: little hand stamps, as on paper documents. */
 .mark {
     justify-self: center;
     padding: 1px 5px;
@@ -614,59 +544,6 @@ function openApprovals() {
     color: var(--navy);
     transform: none;
 }
-.mark-none {
-    display: block;
-}
-
-.lr-ref {
-    font-weight: 800;
-    font-size: 0.82rem;
-    color: var(--navy);
-    font-variant-numeric: tabular-nums;
-}
-.lr-what {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    line-height: var(--line);
-}
-.lr-title,
-.lr-step {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-.lr-title {
-    font-weight: 600;
-    font-size: 0.92rem;
-}
-.lr-step {
-    font-size: 0.8rem;
-    color: var(--muted);
-}
-.lr-due {
-    justify-self: end;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-.lr-due.is-late {
-    color: var(--red);
-}
-.lr-due--quiet {
-    font-weight: 500;
-    color: var(--muted);
-}
-.ledger-more {
-    height: var(--line);
-    line-height: var(--line);
-    padding-left: 78px;
-    font-size: 0.82rem;
-    color: var(--muted);
-}
-
 .paper-foot {
     display: flex;
     justify-content: flex-end;
@@ -718,15 +595,18 @@ function openApprovals() {
     0% {
         --ink-r: 0%;
         opacity: 0;
-        transform: scale(1.06);
+        transform: rotate(-6deg) scale(1.07);
     }
     12% {
         opacity: 1;
     }
+    55% {
+        transform: rotate(0.6deg) scale(0.985);
+    }
     100% {
         --ink-r: 160%;
-        opacity: 0.92;
-        transform: scale(1);
+        opacity: 0.94;
+        transform: rotate(0) scale(1);
     }
 }
 @keyframes paper-jolt {
@@ -756,40 +636,14 @@ function openApprovals() {
         padding: 18px 18px 4px 52px;
         min-height: 0;
     }
+    .paper-summary {
+        font-size: 1.35rem;
+    }
     .rcv {
         position: relative;
         top: auto;
         right: auto;
         margin: 10px auto 6px;
-    }
-    .ledger-cols {
-        display: none;
-    }
-    .ledger-row {
-        grid-template-columns: 40px minmax(0, 1fr) auto;
-        grid-template-areas:
-            "mark ref due"
-            "mark what what";
-        padding: 4px 14px 4px 0;
-        row-gap: 0;
-    }
-    .ledger-row .mark {
-        grid-area: mark;
-        font-size: 0.56rem;
-        padding: 1px 3px;
-    }
-    .lr-ref {
-        grid-area: ref;
-        line-height: var(--line);
-    }
-    .lr-due {
-        grid-area: due;
-    }
-    .lr-what {
-        grid-area: what;
-    }
-    .ledger-more {
-        padding-left: 52px;
     }
     .paper-foot {
         flex-direction: column-reverse;
