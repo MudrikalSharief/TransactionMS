@@ -4,7 +4,19 @@
         <!-- Heading folds away once a search is under way -->
         <div class="lead">
             <div class="lead-inner">
-                <img class="seal" :src="'/zamboanga-seal.png'" alt="" width="60" height="60" />
+                <!-- The welcome screen's pair, small: city seal and system
+                     emblem joined by the same gold link. -->
+                <div class="marks">
+                    <img class="seal" :src="'/zamboanga-seal.png'" alt="City of Zamboanga seal" width="60" height="60" />
+                    <span class="marks-tie" aria-hidden="true"><i></i></span>
+                    <img
+                        class="tms"
+                        :src="'/tms-logo-128.png'"
+                        alt="Transaction Management System emblem"
+                        width="60"
+                        height="62"
+                    />
+                </div>
                 <div class="eyebrow">Transaction tracker</div>
                 <h1 class="title">Where is your document?</h1>
                 <p class="sub">
@@ -318,11 +330,53 @@ useSmartPoll(() => {
     margin-bottom: 0;
 }
 
+.marks {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    margin: 0 auto 14px;
+}
 .seal {
     display: block;
-    margin: 0 auto 14px;
+    width: 60px;
+    height: 60px;
     /* The welcome screen's seal flies into this one (view transition). */
     view-transition-name: city-seal;
+}
+.tms {
+    display: block;
+    width: 60px;
+    height: 62px;
+    object-fit: contain;
+    /* ...and the system emblem into this one. */
+    view-transition-name: tms-emblem;
+}
+/* The same gold link as on the welcome screen, in miniature. */
+.marks-tie {
+    position: relative;
+    width: 34px;
+    height: 60px;
+    flex: none;
+}
+.marks-tie::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 29.5px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #c9a24b 30%, #c9a24b 70%, transparent);
+}
+.marks-tie i {
+    position: absolute;
+    left: 50%;
+    top: 30px;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    background: #c9a24b;
+    transform: rotate(45deg);
 }
 .eyebrow {
     font-size: 12px;

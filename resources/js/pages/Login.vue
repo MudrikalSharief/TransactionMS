@@ -4,17 +4,26 @@
         :class="{ 'hide-cursor': loading && pointer.seen }"
     >
         <section class="side">
+            <!-- Lockup: the emblem, a gold rule like its inner ring, and the
+                 name in the emblem's own navy and gold, with its ribbon motto. -->
             <header class="brand">
-                <img
-                    class="seal"
-                    :src="'/zamboanga-seal.png'"
-                    alt="City Government of Zamboanga seal"
-                    width="64"
-                    height="64"
-                />
-                <div>
-                    <h1>TransactionMS</h1>
-                    <p>City Government of Zamboanga</p>
+                <span class="brand-mark">
+                    <img
+                        class="seal"
+                        :src="'/tms-logo-128.png'"
+                        alt="Transaction Management System emblem, Local Government of Zamboanga City"
+                        width="76"
+                        height="79"
+                    />
+                </span>
+                <span class="brand-rule" aria-hidden="true"></span>
+                <div class="brand-text">
+                    <p class="brand-city">City Government of Zamboanga</p>
+                    <h1 class="brand-name">Transaction<span>MS</span></h1>
+                    <p class="brand-motto">
+                        <span class="brand-link" aria-hidden="true"><i></i></span>
+                        E-Service &amp; Efficient
+                    </p>
                 </div>
             </header>
 
@@ -531,31 +540,134 @@ async function guestLogin() {
     min-width: 0;
 }
 
+/* ---- Brand lockup (colours taken from the emblem) ---- */
 .brand {
+    --emblem-navy: #16307c;
+    --emblem-gold: #b8891b;
+    --emblem-gold-text: #8a6612; /* darker gold: readable at small sizes */
     display: flex;
     align-items: center;
     gap: 16px;
 }
+.brand-mark {
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 84px;
+    height: 84px;
+    animation: brand-settle 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Faint dotted gold ring behind the emblem, like its engraved rim. */
+.brand-mark::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px dashed rgba(184, 137, 27, 0.45);
+}
 .seal {
-    width: 64px;
-    height: 64px;
+    position: relative;
+    width: 76px;
+    height: 79px;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 10px rgba(22, 48, 124, 0.22));
+}
+/* Gold rule between emblem and name, drawn top to bottom. */
+.brand-rule {
+    flex: none;
+    width: 1.5px;
+    height: 62px;
+    background: linear-gradient(180deg, transparent, var(--emblem-gold) 18%, var(--emblem-gold) 82%, transparent);
+    transform-origin: top center;
+    animation: brand-rule 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+}
+.brand-text {
+    min-width: 0;
+    animation: brand-text 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s both;
+}
+.brand-city {
+    margin: 0 0 3px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--emblem-gold-text);
+}
+.brand-name {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--emblem-navy);
+}
+.brand-name span {
+    color: var(--emblem-gold);
+}
+/* The ribbon's motto, led by the same lozenge-and-line link as the
+   welcome screen. */
+.brand-motto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 0;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 13.5px;
+    font-style: italic;
+    color: #4a5670;
+}
+.brand-link {
+    position: relative;
+    width: 26px;
+    height: 7px;
     flex: none;
 }
-.brand h1 {
-    margin: 0;
-    font-size: 26px;
-    line-height: 1.1;
-    font-weight: 800;
-    color: #16307C;
-    letter-spacing: -0.01em;
+.brand-link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 3px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--emblem-gold) 40%);
 }
-.brand p {
-    margin: 4px 0 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: #5b6780;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+.brand-link i {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 7px;
+    height: 7px;
+    background: var(--emblem-gold);
+    transform: rotate(45deg) scale(0.8);
+}
+@keyframes brand-settle {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@keyframes brand-rule {
+    from {
+        transform: scaleY(0);
+    }
+    to {
+        transform: none;
+    }
+}
+@keyframes brand-text {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .panel {
@@ -972,11 +1084,44 @@ footer {
     }
 }
 
+/* Phones: a tighter lockup so the city line never reaches the edge. */
+@media (max-width: 440px) {
+    .brand {
+        gap: 12px;
+    }
+    .brand-mark {
+        width: 68px;
+        height: 68px;
+    }
+    .seal {
+        width: 60px;
+        height: 62px;
+    }
+    .brand-rule {
+        height: 52px;
+    }
+    .brand-city {
+        font-size: 9.5px;
+        letter-spacing: 0.12em;
+    }
+    .brand-name {
+        font-size: 24px;
+    }
+    .brand-motto {
+        font-size: 12.5px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .control input,
     .toggle,
     .btn {
         transition: none !important;
+    }
+    .brand-mark,
+    .brand-rule,
+    .brand-text {
+        animation: none;
     }
 }
 </style>

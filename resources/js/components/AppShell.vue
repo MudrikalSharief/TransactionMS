@@ -18,10 +18,10 @@
                 @click="router.push(homePathFor(auth.user.value))"
             >
                 <v-img
-                    src="/zamboanga-seal.png"
-                    alt="Zamboanga Seal"
-                    width="32"
-                    height="32"
+                    src="/tms-logo-128.png"
+                    alt="Transaction Management System logo"
+                    width="34"
+                    height="35"
                     class="mr-2"
                     style="flex: 0 0 auto"
                 />
