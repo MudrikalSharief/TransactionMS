@@ -109,7 +109,7 @@ export function createRouter() {
 
             {
                 path: "/admin/workflows/:workflowId/requirements",
-                name: "admin.requirements",
+                name: "admin.workflow-requirements",
                 component: AdminRequirements,
                 meta: { requiresAuth: true, superadmin: true },
             },

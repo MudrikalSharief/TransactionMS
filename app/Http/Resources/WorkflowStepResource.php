@@ -24,6 +24,7 @@ class WorkflowStepResource extends JsonResource
             ] : null),
             'sla_minutes' => $this->sla_minutes,
             'step_data_count' => $this->whenCounted('stepDataDefinitions'),
+            'step_requirements_count' => $this->whenCounted('requirementDefinitions'),
             'is_start' => (bool) $this->is_start,
             'is_end' => (bool) $this->is_end,
             'is_end_user' => (bool) $this->is_end_user,

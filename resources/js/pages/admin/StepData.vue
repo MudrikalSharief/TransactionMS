@@ -114,38 +114,6 @@
                 <TableLoader compact label="step data" icon="mdi-text-box-outline" />
             </div>
 
-            <div v-else-if="!selectedStepId" class="sd-empty">
-                <div class="sd-empty-icon">
-                    <v-icon size="30">mdi-text-box-search-outline</v-icon>
-                </div>
-                <h3>Select a step</h3>
-                <p>Choose a step above to manage its data fields.</p>
-            </div>
-
-            <div v-else-if="error && !sortedItems.length" class="sd-empty">
-                <div class="sd-empty-icon sd-empty-icon-error">
-                    <v-icon size="30">mdi-alert-circle-outline</v-icon>
-                </div>
-                <h3>Couldn't load data fields</h3>
-                <p>Check the error above, then try again.</p>
-                <button type="button" class="sd-add" @click="loadItems">
-                    <v-icon size="18">mdi-refresh</v-icon>
-                    <span>Try again</span>
-                </button>
-            </div>
-
-            <div v-else-if="!sortedItems.length" class="sd-empty">
-                <div class="sd-empty-icon">
-                    <v-icon size="30">mdi-form-textbox</v-icon>
-                </div>
-                <h3>No data fields yet</h3>
-                <p>Add a field to collect a value when this step proceeds.</p>
-                <button type="button" class="sd-add" @click="openAdd">
-                    <v-icon size="18">mdi-plus</v-icon>
-                    <span>Add data field</span>
-                </button>
-            </div>
-
             <div v-else class="sd-rows" role="table" aria-label="Data fields">
                 <div class="sd-row sd-row-head" role="row">
                     <div role="columnheader">Field</div>
@@ -203,6 +171,82 @@
                         </button>
                     </div>
                 </div>
+
+                <template v-if="!sortedItems.length">
+                    <div
+                        v-for="n in 2"
+                        :key="`empty-ghost-top-${n}`"
+                        class="sd-row sd-row-ghost"
+                        aria-hidden="true"
+                    >
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+
+                    <div class="sd-row sd-row-noitem" role="row">
+                        <div class="sd-noitem-cell" role="cell" aria-colspan="4">
+                            <div class="sd-noitem-copy">
+                                <b>{{ noItemTitle }}</b>
+                                <span>{{ noItemText }}</span>
+                            </div>
+                            <button
+                                v-if="noItemAction === 'add'"
+                                type="button"
+                                class="sd-add"
+                                @click="openAdd"
+                            >
+                                <v-icon size="18">mdi-plus</v-icon>
+                                <span>Add data field</span>
+                            </button>
+                            <button
+                                v-else-if="noItemAction === 'items'"
+                                type="button"
+                                class="sd-add"
+                                @click="loadItems"
+                            >
+                                <v-icon size="18">mdi-refresh</v-icon>
+                                <span>Try again</span>
+                            </button>
+                            <button
+                                v-else-if="noItemAction === 'steps'"
+                                type="button"
+                                class="sd-add"
+                                @click="retrySteps"
+                            >
+                                <v-icon size="18">mdi-refresh</v-icon>
+                                <span>Try again</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        v-for="n in 2"
+                        :key="`empty-ghost-bottom-${n}`"
+                        class="sd-row sd-row-ghost"
+                        aria-hidden="true"
+                    >
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                </template>
+
+                <template v-else>
+                    <div
+                        v-for="n in ghostRowCount"
+                        :key="`ghost-${n}`"
+                        class="sd-row sd-row-ghost"
+                        aria-hidden="true"
+                    >
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                </template>
             </div>
         </section>
 
@@ -257,7 +301,9 @@
                         </div>
 
                         <div class="df-f">
-                            <label class="df-lb" for="df-code">Code</label>
+                            <label class="df-lb" for="df-code">
+                                Code <span class="df-required">*</span>
+                            </label>
                             <v-text-field
                                 id="df-code"
                                 ref="codeField"
@@ -275,7 +321,7 @@
                             />
                             <div v-if="fieldErrors.code" class="df-error">{{ fieldErrors.code }}</div>
                             <div v-else class="df-help">
-                                Auto-generated from the name, or type your own.
+                                Type the field's system code manually in snake_case.
                             </div>
                         </div>
 
@@ -470,13 +516,43 @@ const sortedItems = computed(() =>
 
 const cardSubtitle = computed(() => {
     if (stepsLoading.value) return "Loading steps…";
-    if (!selectedStepId.value) return "Select a step to manage its data fields.";
+    if (!selectedStepId.value) {
+        return steps.value.length
+            ? "Select a step to manage its data fields."
+            : "No steps available.";
+    }
     if (loading.value) return "Loading fields…";
 
     const count = sortedItems.value.length;
     if (!count) return "Nothing added yet";
     return `${count} ${count === 1 ? "field" : "fields"} for “${selectedStep.value?.name || "this step"}”`;
 });
+
+const noItemTitle = computed(() => {
+    if (error.value && !selectedStepId.value) return "Couldn't load steps";
+    if (!selectedStepId.value) return steps.value.length ? "Select a step" : "No steps available";
+    if (error.value) return "Couldn't load data fields";
+    return "No data fields yet";
+});
+
+const noItemText = computed(() => {
+    if (error.value && !selectedStepId.value) return "Check the error above, then try again.";
+    if (!selectedStepId.value) {
+        return steps.value.length
+            ? "Choose a step above to manage its data fields."
+            : "This workflow doesn't have any steps yet.";
+    }
+    if (error.value) return "Check the error above, then try again.";
+    return "Add a field to collect a value when this step proceeds.";
+});
+
+const noItemAction = computed(() => {
+    if (error.value) return selectedStepId.value ? "items" : "steps";
+    if (!selectedStepId.value) return null;
+    return "add";
+});
+
+const ghostRowCount = computed(() => Math.max(0, 5 - sortedItems.value.length));
 
 function stepFieldCount(id) {
     const key = String(id);
@@ -649,20 +725,8 @@ const nameField = ref(null);
 const codeField = ref(null);
 const minField = ref(null);
 const maxField = ref(null);
-// Once the user edits Code themselves, stop regenerating it from Display name.
-const codeTouched = ref(false);
 
 const isEditing = computed(() => editingId.value != null);
-
-function slugify(v) {
-    return String(v || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-}
-
-function codeFromName(value) {
-    const base = slugify(value).slice(0, 95);
-    if (!base) return "";
-    return /^[a-z]/.test(base) ? base : `field_${base}`.slice(0, 95);
-}
 
 function optionalInt(value) {
     if (value === "" || value === null || value === undefined) return null;
@@ -670,18 +734,12 @@ function optionalInt(value) {
     return Number.isFinite(n) ? n : NaN;
 }
 
-function nextFieldCode(base) {
-    const taken = new Set(
-        (items.value || [])
-            .filter((item) => Number(item.id) !== Number(editingId.value))
-            .map((item) => String(item.code || "").toLowerCase())
-            .filter(Boolean),
-    );
+function onDisplayNameInput() {
+    if (fieldErrors.value.display_name) fieldErrors.value.display_name = "";
+}
 
-    let code = base;
-    let suffix = 2;
-    while (taken.has(code)) code = `${base}_${suffix++}`;
-    return code;
+function onCodeInput() {
+    if (fieldErrors.value.code) fieldErrors.value.code = "";
 }
 
 function focusName() {
@@ -696,20 +754,6 @@ function clearLengthError() {
     if (fieldErrors.value.lengths) fieldErrors.value.lengths = "";
 }
 
-function onDisplayNameInput(value) {
-    if (!codeTouched.value) {
-        const base = codeFromName(value);
-        form.value.code = base ? nextFieldCode(base) : "";
-        fieldErrors.value.code = "";
-    }
-    if (fieldErrors.value.display_name) fieldErrors.value.display_name = "";
-}
-
-function onCodeInput(value) {
-    codeTouched.value = !!String(value ?? "").trim();
-    if (fieldErrors.value.code) fieldErrors.value.code = "";
-}
-
 const previewMeta = computed(() => {
     const max = optionalInt(form.value.max_length);
     if (max !== null && !Number.isNaN(max)) return `0/${max}`;
@@ -722,7 +766,7 @@ const previewMeta = computed(() => {
 
 function validateForm() {
     const name = form.value.display_name?.trim() || "";
-    let code = form.value.code?.trim() || "";
+    const code = form.value.code?.trim() || "";
     const min = optionalInt(form.value.min_length);
     const max = optionalInt(form.value.max_length);
     const errors = { display_name: "", code: "", lengths: "" };
@@ -731,12 +775,8 @@ function validateForm() {
         errors.display_name = "Enter a display name.";
     }
 
-    if (!code && name) {
-        code = nextFieldCode(codeFromName(name));
-    }
-
     if (!code) {
-        errors.code = "Enter a code or a display name to generate one.";
+        errors.code = "Enter a code in snake_case (starting with a letter).";
     } else if (!/^[a-z][a-z0-9_]*$/.test(code)) {
         errors.code = "Use snake_case, starting with a letter (for example receipt_number).";
     } else if (code.length > 100) {
@@ -784,7 +824,6 @@ function validateForm() {
 function openAdd() {
     formError.value = "";
     editingId.value = null;
-    codeTouched.value = false;
     clearFieldErrors();
     form.value = {
         display_name: "",
@@ -800,7 +839,6 @@ function openAdd() {
 function openEdit(item) {
     formError.value = "";
     editingId.value = item.id;
-    codeTouched.value = true;
     clearFieldErrors();
     form.value = {
         display_name: item.display_name ?? "",
@@ -814,7 +852,7 @@ function openEdit(item) {
 }
 
 function cleanPayload() {
-    const code = form.value.code?.trim() || nextFieldCode(codeFromName(form.value.display_name));
+    const code = form.value.code?.trim() || "";
     return {
         display_name: form.value.display_name.trim(),
         code,
@@ -915,17 +953,26 @@ watch(selectedStepId, async (id, previous) => {
     await loadItems();
 });
 
-onMounted(async () => {
-    document.addEventListener("mousedown", onDocumentPointerDown);
-    document.addEventListener("keydown", onDocumentKeydown);
-
-    await loadSteps();
+function selectInitialStep() {
     const sid = stepIdFromUrl.value;
     if (Number.isFinite(sid) && steps.value.some((step) => Number(step.id) === sid)) {
         selectedStepId.value = sid;
     } else if (steps.value.length) {
         selectedStepId.value = steps.value[0].id;
     }
+}
+
+async function retrySteps() {
+    await loadSteps();
+    if (!selectedStepId.value) selectInitialStep();
+}
+
+onMounted(async () => {
+    document.addEventListener("mousedown", onDocumentPointerDown);
+    document.addEventListener("keydown", onDocumentKeydown);
+
+    await loadSteps();
+    selectInitialStep();
 });
 
 onBeforeUnmount(() => {
@@ -939,8 +986,16 @@ onBeforeUnmount(() => {
 .sd-page {
     --sd-field: #f4f6fb;
     --sd-hover: #f3f6fc;
-    max-width: 980px;
-    margin: 0 auto;
+    /* Cancel AppShell's v-container pa-6 so this page can use the
+       mockup's adaptive full-width gutters. */
+    width: auto;
+    max-width: none;
+    margin: 0 -24px;
+    padding: 0 clamp(16px, 3vw, 48px) 16px;
+}
+
+.sd-page :deep(.v-alert) {
+    border-radius: 0;
 }
 
 .sd-sr-only {
@@ -967,7 +1022,7 @@ onBeforeUnmount(() => {
     flex: none;
     width: 48px;
     height: 48px;
-    border-radius: 14px;
+    border-radius: 0;
     background: rgb(var(--v-theme-primary));
     color: rgb(var(--v-theme-on-primary));
     place-items: center;
@@ -988,6 +1043,7 @@ onBeforeUnmount(() => {
 .sd-title p {
     margin: 2px 0 0;
     font-size: 14px;
+    line-height: 1.2;
     color: rgb(var(--v-theme-secondary));
 }
 
@@ -1000,7 +1056,7 @@ onBeforeUnmount(() => {
     margin-left: auto;
     padding: 0 16px;
     border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 12px;
+    border-radius: 0;
     background: rgb(var(--v-theme-surface));
     color: rgb(var(--v-theme-on-surface));
     font-size: 14px;
@@ -1029,7 +1085,7 @@ onBeforeUnmount(() => {
     gap: 12px;
     margin-bottom: 22px;
     padding: 14px 16px;
-    border-radius: 14px;
+    border-radius: 0;
     background: rgba(var(--v-theme-primary), 0.1);
     font-size: 14px;
     line-height: 1.5;
@@ -1049,6 +1105,7 @@ onBeforeUnmount(() => {
     margin: 0 0 10px;
     font-size: 12px;
     font-weight: 800;
+    line-height: 1.2;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgb(var(--v-theme-secondary));
@@ -1068,7 +1125,7 @@ onBeforeUnmount(() => {
     min-height: 68px;
     padding: 10px 14px 10px 10px;
     border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 16px;
+    border-radius: 0;
     background: rgb(var(--v-theme-surface));
     color: rgb(var(--v-theme-on-surface));
     text-align: left;
@@ -1096,7 +1153,7 @@ onBeforeUnmount(() => {
     flex: none;
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: 0;
     background: rgba(var(--v-theme-primary), 0.12);
     color: rgb(var(--v-theme-primary));
     font-size: 16px;
@@ -1114,6 +1171,7 @@ onBeforeUnmount(() => {
     overflow: hidden;
     font-size: 16px;
     font-weight: 700;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1125,6 +1183,7 @@ onBeforeUnmount(() => {
     color: rgb(var(--v-theme-secondary));
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12.5px;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1132,11 +1191,12 @@ onBeforeUnmount(() => {
 .sd-count {
     flex: none;
     padding: 3px 10px;
-    border-radius: 99px;
+    border-radius: 0;
     background: var(--sd-field);
     color: rgb(var(--v-theme-secondary));
     font-size: 12px;
     font-weight: 800;
+    line-height: 1.2;
 }
 
 .sd-chev {
@@ -1159,7 +1219,7 @@ onBeforeUnmount(() => {
     padding: 8px;
     overflow: auto;
     border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 18px;
+    border-radius: 0;
     background: rgb(var(--v-theme-surface));
     box-shadow: 0 18px 40px -12px rgba(20, 33, 61, 0.3);
 }
@@ -1172,7 +1232,7 @@ onBeforeUnmount(() => {
     width: 100%;
     padding: 10px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 0;
     background: transparent;
     color: rgb(var(--v-theme-on-surface));
     text-align: left;
@@ -1190,7 +1250,7 @@ onBeforeUnmount(() => {
     bottom: 12px;
     left: -8px;
     width: 4px;
-    border-radius: 0 4px 4px 0;
+    border-radius: 0;
     background: rgb(var(--v-theme-primary));
     content: "";
 }
@@ -1200,7 +1260,7 @@ onBeforeUnmount(() => {
     flex: none;
     width: 40px;
     height: 40px;
-    border-radius: 10px;
+    border-radius: 0;
     background: rgba(var(--v-theme-primary), 0.12);
     color: rgb(var(--v-theme-primary));
     font-size: 15px;
@@ -1218,6 +1278,7 @@ onBeforeUnmount(() => {
     overflow: hidden;
     font-size: 14.5px;
     font-weight: 700;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1229,6 +1290,7 @@ onBeforeUnmount(() => {
     color: rgb(var(--v-theme-secondary));
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1254,7 +1316,7 @@ onBeforeUnmount(() => {
 .sd-card {
     overflow: hidden;
     border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 20px;
+    border-radius: 0;
     background: rgb(var(--v-theme-surface));
     box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
 }
@@ -1271,12 +1333,14 @@ onBeforeUnmount(() => {
     margin: 0;
     font-size: 17px;
     font-weight: 800;
+    line-height: 1.2;
 }
 
 .sd-card-hd p {
     margin: 2px 0 0;
     color: rgb(var(--v-theme-secondary));
     font-size: 13px;
+    line-height: 1.2;
 }
 
 .sd-add {
@@ -1289,7 +1353,7 @@ onBeforeUnmount(() => {
     margin-left: auto;
     padding: 0 18px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 0;
     background: rgb(var(--v-theme-primary));
     color: rgb(var(--v-theme-on-primary));
     font-size: 14.5px;
@@ -1310,7 +1374,9 @@ onBeforeUnmount(() => {
 .sd-loading {
     display: flex;
     align-items: center;
-    min-height: 260px;
+    /* Five ghost rows plus the table header, so the card does not jump
+       when the loader is replaced by the table or empty state. */
+    min-height: 404px;
     padding: 12px 0;
 }
 
@@ -1320,7 +1386,11 @@ onBeforeUnmount(() => {
 
 .sd-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 150px 90px 96px;
+    grid-template-columns:
+        minmax(0, 2.4fr)
+        minmax(160px, 1fr)
+        minmax(90px, 0.5fr)
+        112px;
     align-items: center;
     gap: 12px;
     padding: 14px 20px;
@@ -1331,12 +1401,59 @@ onBeforeUnmount(() => {
     border-bottom: 0;
 }
 
+.sd-row-ghost {
+    min-height: 74px;
+    pointer-events: none;
+}
+
+.sd-row.sd-row-noitem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 138px;
+    padding: 24px;
+    text-align: center;
+}
+
+.sd-noitem-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 460px;
+}
+
+.sd-noitem-copy {
+    width: 100%;
+}
+
+.sd-noitem-copy b {
+    display: block;
+    font-size: 16px;
+    line-height: 1.2;
+}
+
+.sd-noitem-copy span {
+    display: block;
+    margin-top: 4px;
+    font-size: 14px;
+    line-height: 1.35;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.sd-row-noitem .sd-add {
+    height: 40px;
+    margin-left: 0;
+}
+
 .sd-row-head {
     padding: 10px 20px;
     background: var(--sd-field);
     color: rgb(var(--v-theme-secondary));
     font-size: 12px;
     font-weight: 800;
+    line-height: 1.2;
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
@@ -1357,6 +1474,7 @@ onBeforeUnmount(() => {
     display: block;
     font-size: 15px;
     font-weight: 700;
+    line-height: 1.2;
     word-break: break-word;
 }
 
@@ -1371,16 +1489,18 @@ onBeforeUnmount(() => {
 .sd-code {
     display: inline-block;
     padding: 2px 8px;
-    border-radius: 6px;
+    border-radius: 0;
     background: var(--sd-field);
     color: rgb(var(--v-theme-secondary));
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
+    line-height: 1.2;
 }
 
 .sd-limit {
     color: rgb(var(--v-theme-secondary));
     font-size: 12px;
+    line-height: 1.2;
 }
 
 .sd-req {
@@ -1403,7 +1523,7 @@ onBeforeUnmount(() => {
     height: 26px;
     padding: 0;
     border: 0;
-    border-radius: 99px;
+    border-radius: 0;
     background: #98a2b8;
     cursor: pointer;
     transition: background 0.2s, opacity 0.2s;
@@ -1415,7 +1535,7 @@ onBeforeUnmount(() => {
     left: 3px;
     width: 20px;
     height: 20px;
-    border-radius: 50%;
+    border-radius: 0;
     background: #fff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     content: "";
@@ -1445,7 +1565,7 @@ onBeforeUnmount(() => {
     min-width: 34px;
     height: 30px;
     padding: 0 6px;
-    border-radius: 9px;
+    border-radius: 0;
     background: var(--sd-field);
     font-size: 14px;
     font-weight: 800;
@@ -1464,7 +1584,7 @@ onBeforeUnmount(() => {
     height: 40px;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: 0;
     background: none;
     cursor: pointer;
     place-items: center;
@@ -1490,42 +1610,6 @@ onBeforeUnmount(() => {
 
 .sd-ib-delete:hover:not(:disabled) {
     background: rgba(var(--v-theme-error), 0.1);
-}
-
-.sd-empty {
-    padding: 56px 20px;
-    text-align: center;
-}
-
-.sd-empty-icon {
-    display: grid;
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 14px;
-    border-radius: 20px;
-    background: rgba(var(--v-theme-primary), 0.12);
-    color: rgb(var(--v-theme-primary));
-    place-items: center;
-}
-
-.sd-empty-icon-error {
-    background: rgba(var(--v-theme-error), 0.1);
-    color: rgb(var(--v-theme-error));
-}
-
-.sd-empty h3 {
-    margin: 0 0 4px;
-    font-size: 17px;
-}
-
-.sd-empty p {
-    margin: 0 0 18px;
-    color: rgb(var(--v-theme-secondary));
-    font-size: 14px;
-}
-
-.sd-empty .sd-add {
-    margin: 0 auto;
 }
 
 /* ---- Add / Edit data field modal ---- */
@@ -1660,7 +1744,7 @@ onBeforeUnmount(() => {
     margin-left: auto;
     padding: 0;
     border: 0;
-    border-radius: 99px;
+    border-radius: 0;
     background: #98a2b8;
     cursor: pointer;
     transition: background 0.2s;
@@ -1672,7 +1756,7 @@ onBeforeUnmount(() => {
     left: 3px;
     width: 22px;
     height: 22px;
-    border-radius: 50%;
+    border-radius: 0;
     background: #fff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     content: "";
@@ -1834,6 +1918,28 @@ html.dark .df-preview-input span:first-child {
     color: #9aa7c4;
 }
 
+@media (min-width: 1200px) {
+    .sd-title h1 {
+        font-size: 26px;
+    }
+
+    .sd-card-hd {
+        padding: 20px 28px;
+    }
+
+    .sd-row {
+        padding: 16px 28px;
+    }
+
+    .sd-row-head {
+        padding: 12px 28px;
+    }
+
+    .sd-field b {
+        font-size: 16px;
+    }
+}
+
 @media (max-width: 720px) {
     :global(.df-dialog-content) {
         position: fixed !important;
@@ -1865,7 +1971,12 @@ html.dark .df-preview-input span:first-child {
         margin-left: 0;
     }
 
-    .sd-row-head {
+    .sd-loading {
+        min-height: 244px;
+    }
+
+    .sd-row-head,
+    .sd-row-ghost {
         display: none;
     }
 

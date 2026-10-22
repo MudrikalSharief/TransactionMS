@@ -7,16 +7,45 @@
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">Requirements Library</span>
                 <v-spacer />
-                <v-btn variant="text" @click="$router.push('/')">Back</v-btn>
-                <v-btn
-                    color="grey-darken-3"
-                    rounded="0"
-                    prepend-icon="mdi-plus"
-                    :disabled="!selectedWorkflowId"
-                    @click="openDialog()"
-                >
-                    Add Requirement
-                </v-btn>
+                <div class="d-flex align-center ga-2 flex-wrap">
+                    <v-btn variant="text" @click="$router.push('/')">Back</v-btn>
+                    <v-btn
+                        v-if="stagingDirty"
+                        variant="text"
+                        color="error"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-undo"
+                        v-tooltip="'Drop all staged edits and show the last saved state'"
+                        @click="discardStaged"
+                    >
+                        Discard
+                    </v-btn>
+                    <v-btn
+                        variant="flat"
+                        color="primary"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-content-save-plus-outline"
+                        :disabled="!stagingDirty"
+                        v-tooltip="stagingDirty
+                            ? 'Persist staged edits: overwrite the draft or create a new version'
+                            : 'No staged changes to save'"
+                        @click="openSaveDialog"
+                    >
+                        Save version
+                        <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
+                    </v-btn>
+                    <v-btn
+                        color="grey-darken-3"
+                        rounded="0"
+                        prepend-icon="mdi-plus"
+                        :disabled="!selectedWorkflowId"
+                        @click="openDialog()"
+                    >
+                        Add Requirement
+                    </v-btn>
+                </div>
             </v-card-title>
 
             <v-divider />
@@ -27,8 +56,10 @@
                 </v-alert>
 
                 <StagingSaveBar
+                    ref="saveBarRef"
                     :type-id="typeId"
                     :def-id="selectedWorkflowId"
+                    :inline-actions="false"
                     @saved="loadRequirements"
                     @discarded="loadRequirements"
                 />
@@ -375,6 +406,18 @@ const typeId = computed(() => {
     const t = Number(w?.transaction_type_id);
     return Number.isFinite(t) && t > 0 ? t : null;
 });
+
+const saveBarRef = ref(null);
+
+const stagingDirty = computed(() => (typeId.value ? staging.isDirty(typeId.value) : false));
+
+function openSaveDialog() {
+    saveBarRef.value?.openSaveDialog?.();
+}
+
+function discardStaged() {
+    saveBarRef.value?.discard?.();
+}
 
 const error = ref("");
 

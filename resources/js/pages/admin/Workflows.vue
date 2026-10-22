@@ -127,10 +127,10 @@
                         rounded="0"
                         size="small"
                         prepend-icon="mdi-content-save-plus-outline"
-                        :disabled="!stagingDirty && !activeDef"
+                        :disabled="!stagingDirty"
                         v-tooltip="stagingDirty
                             ? 'Persist staged edits: overwrite the draft or create a new version'
-                            : (activeDef ? 'Save or publish the current version' : 'Stage a step first — Save version creates version 1')"
+                            : (activeDef?.status === 'draft' ? 'No staged changes — use Publish to publish this draft' : 'No staged changes to save')"
                         @click="openSaveDialog"
                     >
                         Save version

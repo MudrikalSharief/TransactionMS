@@ -28,6 +28,6 @@ SELECT transaction_type_id, version, status FROM workflow_definitions ORDER BY t
 - If login fails: check `is_active=1`, correct DB (MySQL `transaction` vs stray `database/database.sqlite`), rerun `php artisan db:seed --class=SuperAdminSeeder`.
 
 ## Notes / known quirks
-- Duplicate route name `admin.requirements` in `resources/js/router/index.js` (requirements index overwrites workflow-scoped name) — use paths for navigation.
+- Requirements routes: the library index uses `admin.requirements` (`/admin/requirements`); the workflow-scoped page uses `admin.workflow-requirements` (`/admin/workflows/:workflowId/requirements`). Keep the names distinct — duplicate names make one path unreachable.
 - No router role guard; admin links hidden by `isSuperadmin` UI check only — API still enforces `EnsureRole:superadmin`.
 - `User.HasApiTokens` trait present but login is session-based; no bearer tokens issued.

@@ -1,134 +1,321 @@
 <template>
-    <div>
-        <LoadingVeil :show="loading || !ready" label="step requirements" icon="mdi-clipboard-list-outline" />
-        <v-card rounded="0" elevation="1" class="lgu-card">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-clipboard-list-outline</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">Requirements</span>
-                <v-spacer />
-                <v-btn variant="text" @click="goBack">Back</v-btn>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
+    <div class="sr-page">
+        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-4">
+            {{ error }}
+        </v-alert>
 
-                <StagingSaveBar
-                    :type-id="typeId"
-                    :def-id="workflowDefinitionId"
-                    @saved="afterBulkSaved"
-                    @discarded="loadAssigned"
-                />
+        <header class="sr-top">
+            <div class="sr-badge">
+                <v-icon size="24">mdi-clipboard-check-outline</v-icon>
+            </div>
+            <div class="sr-title">
+                <h1>Requirements</h1>
+                <p>Choose a step and manage what workers must complete or upload.</p>
+            </div>
+            <div class="sr-head-actions">
+                <v-btn
+                    v-if="stagingDirty"
+                    variant="text"
+                    color="error"
+                    rounded="0"
+                    size="small"
+                    prepend-icon="mdi-undo"
+                    v-tooltip="'Drop all staged edits and show the last saved state'"
+                    @click="discardStaged"
+                >
+                    Discard
+                </v-btn>
+                <v-btn
+                    variant="flat"
+                    color="primary"
+                    rounded="0"
+                    size="small"
+                    prepend-icon="mdi-content-save-plus-outline"
+                    :disabled="!stagingDirty"
+                    v-tooltip="stagingDirty
+                        ? 'Persist staged edits: overwrite the draft or create a new version'
+                        : 'No staged changes to save'"
+                    @click="openSaveDialog"
+                >
+                    Save version
+                    <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
+                </v-btn>
+                <button type="button" class="sr-back" @click="goBack">
+                    <v-icon size="18">mdi-arrow-left</v-icon>
+                    <span>Back</span>
+                </button>
+            </div>
+        </header>
 
-                <v-alert type="info" variant="tonal" class="mb-3">
-                    Staged assignment — edits stay local until you press Save version.
-                </v-alert>
+        <div class="sr-info">
+            <v-icon size="20" class="sr-info-ic">mdi-information-outline</v-icon>
+            <span>
+                <b>Staged assignment.</b>
+                Edits stay local until you press Save version.
+            </span>
+        </div>
 
-                <v-row>
-                    <v-col cols="12">
-                        <v-select
-                            v-model="selectedStepId"
-                            :items="stepOptions"
-                            item-title="label"
-                            item-value="id"
-                            label="Select Step"
-                            :loading="stepsLoading || loading"
-                            :disabled="!workflowDefinitionId"
-                        />
-                    </v-col>
-                </v-row>
+        <StagingSaveBar
+            ref="saveBarRef"
+            :type-id="typeId"
+            :def-id="workflowDefinitionId"
+            :inline-actions="false"
+            @saved="afterBulkSaved"
+            @discarded="loadAssigned"
+        />
 
-                <v-divider class="my-3" />
+        <p class="sr-lbl">Select step</p>
 
-                <v-alert v-if="!selectedStepId" type="info" variant="tonal">
-                    Pick a step first.
-                </v-alert>
+        <div ref="stepMenuRef" class="sr-dd" @focusout="onStepMenuFocusOut">
+            <button
+                ref="stepTrigger"
+                type="button"
+                class="sr-trigger"
+                :class="{ 'sr-trigger-open': stepMenuOpen }"
+                :disabled="stepsLoading || !stepOptions.length"
+                aria-haspopup="listbox"
+                aria-controls="sr-step-menu"
+                :aria-expanded="stepMenuOpen ? 'true' : 'false'"
+                @click="toggleStepMenu"
+                @keydown="onTriggerKeydown"
+            >
+                <span class="sr-sr-only">Select step</span>
+                <span class="sr-step-n">{{ selectedStep?.order_number ?? "-" }}</span>
+                <span class="sr-step-tx">
+                    <b>{{ selectedStep?.name || (stepsLoading ? "Loading steps…" : "Select a step") }}</b>
+                    <small>{{ selectedStep?.code || "No step selected" }}</small>
+                </span>
+                <span v-if="selectedStep" class="sr-count">
+                    {{ countLabel(stepRequirementCount(selectedStep.id)) }}
+                </span>
+                <v-icon class="sr-chev" :class="{ 'sr-chev-open': stepMenuOpen }" size="20">
+                    mdi-chevron-down
+                </v-icon>
+            </button>
 
-                <div v-else>
-                    <div class="d-flex align-center mb-3">
-                        <div class="text-subtitle-1 font-weight-bold">
-                            Requirements for this step
-                        </div>
-                        <v-spacer />
-                        <v-btn
-                            color="grey-darken-3"
-                            rounded="0"
-                            prepend-icon="mdi-plus"
-                            @click="openAdd"
-                        >
-                            Add requirement
-                        </v-btn>
+            <div
+                v-if="stepMenuOpen"
+                id="sr-step-menu"
+                class="sr-menu"
+                role="listbox"
+                aria-label="Steps"
+            >
+                <button
+                    v-for="(option, index) in stepOptions"
+                    :key="option.id"
+                    :ref="(el) => setStepOptionEl(el, index)"
+                    type="button"
+                    class="sr-option"
+                    :class="{ 'sr-option-selected': isSelectedStep(option.id) }"
+                    role="option"
+                    :aria-selected="isSelectedStep(option.id) ? 'true' : 'false'"
+                    @click="selectStep(option.id)"
+                    @keydown="onStepOptionKeydown($event, index)"
+                >
+                    <span class="sr-option-n">{{ option.order_number }}</span>
+                    <span class="sr-option-tx">
+                        <b>{{ option.name }}</b>
+                        <small>{{ option.code }}</small>
+                    </span>
+                    <span class="sr-count">{{ countLabel(option.count) }}</span>
+                    <v-icon
+                        class="sr-option-ck"
+                        :class="{ 'sr-option-ck-on': isSelectedStep(option.id) }"
+                        size="20"
+                        aria-hidden="true"
+                    >
+                        mdi-check
+                    </v-icon>
+                </button>
+                <div v-if="!stepOptions.length" class="sr-option-empty">No steps available.</div>
+            </div>
+        </div>
+
+        <section class="sr-card" aria-live="polite">
+            <div class="sr-card-hd">
+                <div>
+                    <h2>Requirements for this step</h2>
+                    <p>{{ cardSubtitle }}</p>
+                </div>
+                <button
+                    type="button"
+                    class="sr-add"
+                    :disabled="!selectedStepId || showLoader"
+                    @click="openAdd"
+                >
+                    <v-icon size="18">mdi-plus</v-icon>
+                    <span>Add requirement</span>
+                </button>
+            </div>
+
+            <div v-if="showLoader" class="sr-loading">
+                <TableLoader compact label="step requirements" icon="mdi-clipboard-list-outline" />
+            </div>
+
+            <div v-else class="sr-rows" role="table" aria-label="Requirements">
+                <div class="sr-row sr-row-head" role="row">
+                    <div role="columnheader">Name</div>
+                    <div role="columnheader">Code</div>
+                    <div role="columnheader">Required</div>
+                    <div role="columnheader">Upload required</div>
+                    <div role="columnheader"></div>
+                </div>
+
+                <div
+                    v-for="item in assignmentRows"
+                    :key="String(item.requirement_definition_id)"
+                    class="sr-row sr-row-item"
+                    role="row"
+                >
+                    <div class="sr-name" role="cell">
+                        <b>{{ item.name }}</b>
+                        <span v-if="item.description">{{ item.description }}</span>
                     </div>
 
-                    <div class="d-flex flex-column" style="min-height: 510px">
-                        <v-data-table
-                            v-show="!loading"
-                            :headers="assignHeaders"
-                            :items="assignmentRows"
-                            item-key="requirement_definition_id"
-                            :items-per-page="25"
-                            density="compact"
-                            height="450"
-                            fixed-header
-                            hover
-                            class="lgu-table"
+                    <div class="sr-code-cell" role="cell">
+                        <input
+                            v-if="typeof item.requirement_definition_id !== 'number'"
+                            v-model="item.code"
+                            type="text"
+                            class="sr-code-in"
+                            placeholder="e.g. dtr, pr, voucher"
+                            maxlength="64"
+                            autocomplete="off"
+                            spellcheck="false"
+                            :aria-label="`Code for ${item.name}`"
+                            @update:model-value="stageBindings"
+                        />
+                        <code v-else class="sr-code">{{ item.code || "—" }}</code>
+                    </div>
+
+                    <div class="sr-req sr-req-r" role="cell">
+                        <button
+                            type="button"
+                            class="sr-tg"
+                            role="switch"
+                            :aria-checked="item.is_required ? 'true' : 'false'"
+                            :aria-label="`Toggle required for ${item.name}`"
+                            @click="toggleRequired(item)"
+                        ></button>
+                        <span :class="{ 'sr-on': item.is_required }">
+                            {{ item.is_required ? "Required" : "Optional" }}
+                        </span>
+                    </div>
+
+                    <div class="sr-req sr-req-u" role="cell">
+                        <button
+                            type="button"
+                            class="sr-tg"
+                            role="switch"
+                            :aria-checked="item.is_upload_required ? 'true' : 'false'"
+                            :aria-label="`Toggle upload required for ${item.name}`"
+                            @click="toggleUploadRequired(item)"
+                        ></button>
+                        <span :class="{ 'sr-on': item.is_upload_required }">
+                            {{ item.is_upload_required ? "File required" : "No file" }}
+                        </span>
+                    </div>
+
+                    <div class="sr-actions" role="cell">
+                        <button
+                            type="button"
+                            class="sr-ib sr-ib-edit"
+                            :aria-label="`Edit ${item.name}`"
+                            @click="openEdit(item)"
                         >
-                            <template v-slot:[`item.name`]="{ item }">
-                                <div class="font-weight-medium">{{ item.name }}</div>
-                                <div v-if="item.description" class="text-caption text-medium-emphasis">
-                                    {{ item.description }}
-                                </div>
-                            </template>
-
-                            <template v-slot:[`item.code`]="{ item }">
-                                <v-text-field
-                                    v-model="item.code"
-                                    density="compact"
-                                    hide-details
-                                    placeholder="e.g. dtr, pr, voucher"
-                                    style="max-width: 220px"
-                                    :disabled="typeof item.requirement_definition_id === 'number'"
-                                    :title="typeof item.requirement_definition_id === 'number' ? 'Codes are frozen once saved' : ''"
-                                    @update:model-value="stageBindings"
-                                />
-                            </template>
-
-                            <template v-slot:[`item.is_required`]="{ item }">
-                                <v-checkbox
-                                    v-model="item.is_required"
-                                    density="compact"
-                                    hide-details
-                                    color="grey-darken-3"
-                                    @update:model-value="stageBindings"
-                                />
-                            </template>
-
-                            <template v-slot:[`item.is_upload_required`]="{ item }">
-                                <v-checkbox
-                                    v-model="item.is_upload_required"
-                                    density="compact"
-                                    hide-details
-                                    color="grey-darken-3"
-                                    @update:model-value="stageBindings"
-                                />
-                            </template>
-
-                            <template v-slot:[`item.actions`]="{ item }">
-                                <v-btn
-                                    icon="mdi-delete"
-                                    v-tooltip="'Remove from this step'"
-                                    size="small"
-                                    variant="text"
-                                    color="error"
-                                    @click="removeRow(item)"
-                                />
-                            </template>
-                        </v-data-table>
+                            <v-icon size="19">mdi-pencil-outline</v-icon>
+                        </button>
+                        <button
+                            type="button"
+                            class="sr-ib sr-ib-delete"
+                            :aria-label="`Remove ${item.name} from this step`"
+                            @click="removeRow(item)"
+                        >
+                            <v-icon size="19">mdi-trash-can-outline</v-icon>
+                        </button>
                     </div>
                 </div>
-            </v-card-text>
-        </v-card>
+
+                <template v-if="!assignmentRows.length">
+                    <div
+                        v-for="n in 2"
+                        :key="`empty-ghost-top-${n}`"
+                        class="sr-row sr-row-ghost"
+                        aria-hidden="true"
+                    >
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+
+                    <div class="sr-row sr-row-noitem" role="row">
+                        <div class="sr-noitem-cell" role="cell" aria-colspan="5">
+                            <div class="sr-noitem-copy">
+                                <b>{{ noItemTitle }}</b>
+                                <span>{{ noItemText }}</span>
+                            </div>
+                            <button
+                                v-if="noItemAction === 'add'"
+                                type="button"
+                                class="sr-add"
+                                @click="openAdd"
+                            >
+                                <v-icon size="18">mdi-plus</v-icon>
+                                <span>Add requirement</span>
+                            </button>
+                            <button
+                                v-else-if="noItemAction === 'items'"
+                                type="button"
+                                class="sr-add"
+                                @click="loadAssigned"
+                            >
+                                <v-icon size="18">mdi-refresh</v-icon>
+                                <span>Try again</span>
+                            </button>
+                            <button
+                                v-else-if="noItemAction === 'steps'"
+                                type="button"
+                                class="sr-add"
+                                @click="retrySteps"
+                            >
+                                <v-icon size="18">mdi-refresh</v-icon>
+                                <span>Try again</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        v-for="n in 2"
+                        :key="`empty-ghost-bottom-${n}`"
+                        class="sr-row sr-row-ghost"
+                        aria-hidden="true"
+                    >
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                </template>
+
+                <template v-else>
+                    <div
+                        v-for="n in ghostRowCount"
+                        :key="`ghost-${n}`"
+                        class="sr-row sr-row-ghost"
+                        aria-hidden="true"
+                    >
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                </template>
+            </div>
+        </section>
 
         <v-dialog
             v-model="addDialog"
@@ -180,7 +367,7 @@
                         </div>
 
                         <div class="req-f">
-                            <label class="req-lb" for="req-code">Code</label>
+                            <label class="req-lb" for="req-code">Code <span class="req-required">*</span></label>
                             <v-text-field
                                 id="req-code"
                                 ref="addCodeField"
@@ -197,7 +384,7 @@
                                 @update:model-value="onAddCodeInput"
                             />
                             <div v-if="addFieldErrors.code" class="req-error">{{ addFieldErrors.code }}</div>
-                            <div v-else class="req-help">System code. Auto-generated from the name, or type your own.</div>
+                            <div v-else class="req-help">Type the system code manually in snake_case.</div>
                         </div>
 
                         <div class="req-f">
@@ -313,19 +500,94 @@
                 </form>
             </v-card>
         </v-dialog>
+
+        <v-dialog
+            v-model="editDialog"
+            max-width="480"
+            content-class="req-dialog-content"
+            @after-enter="focusEditName"
+        >
+            <v-card rounded="xl" class="req-card">
+                <v-card-title class="req-hd">
+                    <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="req-badge">
+                        <v-icon>mdi-pencil-outline</v-icon>
+                    </v-avatar>
+                    <div class="req-hd-t">
+                        <div class="req-title">Edit requirement</div>
+                        <div class="req-sub">Change the requirement name. Its code and rules stay unchanged.</div>
+                    </div>
+                    <v-btn
+                        icon="mdi-close"
+                        variant="text"
+                        size="small"
+                        class="req-x"
+                        aria-label="Close edit requirement dialog"
+                        @click="editDialog = false"
+                    />
+                </v-card-title>
+
+                <form class="req-form" novalidate @submit.prevent="saveEdit">
+                    <v-card-text class="req-bd">
+                        <v-alert v-if="editError" type="error" variant="tonal" density="compact" class="mb-4">
+                            {{ editError }}
+                        </v-alert>
+
+                        <div class="req-f">
+                            <label class="req-lb" for="req-edit-name">Name <span class="req-required">*</span></label>
+                            <v-text-field
+                                id="req-edit-name"
+                                ref="editNameField"
+                                v-model="editForm.name"
+                                placeholder="e.g. Signed PR (PDF)"
+                                variant="outlined"
+                                density="comfortable"
+                                hide-details
+                                autocomplete="off"
+                                :error="!!editNameError"
+                                class="req-in"
+                                @update:model-value="editNameError = ''"
+                            />
+                            <div v-if="editNameError" class="req-error">{{ editNameError }}</div>
+                        </div>
+
+                        <div class="req-code-ro">
+                            <span>Code</span>
+                            <code>{{ editCode || "—" }}</code>
+                        </div>
+                        <div class="req-help">The system code and requirement rules are not changed here.</div>
+                    </v-card-text>
+
+                    <v-divider />
+                    <v-card-actions class="req-ft">
+                        <v-btn type="button" variant="outlined" rounded="lg" class="req-b" @click="editDialog = false">
+                            Cancel
+                        </v-btn>
+                        <v-btn
+                            color="primary"
+                            rounded="lg"
+                            class="req-b req-b-pri"
+                            type="submit"
+                            :loading="editSaving"
+                        >
+                            Save name
+                        </v-btn>
+                    </v-card-actions>
+                </form>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useStepRequirements } from "@/composables/useStepRequirements";
 import { useToast } from "@/composables/useToast";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
-import LoadingVeil from '@/components/LoadingVeil.vue';
 import StagingSaveBar from '@/components/StagingSaveBar.vue';
+import TableLoader from "@/components/TableLoader.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -362,6 +624,19 @@ const typeId = computed(() => {
 
 const error = ref("");
 
+const saveBarRef = ref(null);
+const stagingDirty = computed(() =>
+    typeId.value ? staging.isDirty(typeId.value) : false,
+);
+
+function openSaveDialog() {
+    saveBarRef.value?.openSaveDialog?.();
+}
+
+function discardStaged() {
+    saveBarRef.value?.discard?.();
+}
+
 const steps = ref([]);
 const stepsLoading = ref(false);
 const selectedStepId = ref(null);
@@ -372,13 +647,172 @@ const assignmentRows = ref([]);
 // until then (loading alone clears on warm cache before rows exist).
 const ready = ref(false);
 
-const assignHeaders = [
-    { title: "Name", key: "name", sortable: false },
-    { title: "Code", key: "code", sortable: false },
-    { title: "Required?", key: "is_required", sortable: false },
-    { title: "Upload required?", key: "is_upload_required", sortable: false },
-    { title: "", key: "actions", sortable: false },
-];
+const stepMenuOpen = ref(false);
+const stepMenuRef = ref(null);
+const stepTrigger = ref(null);
+const stepOptionEls = ref([]);
+
+const selectedStep = computed(
+    () => steps.value.find((step) => Number(step.id) === Number(selectedStepId.value)) || null,
+);
+
+const showLoader = computed(
+    () => stepsLoading.value || !ready.value || (!!selectedStepId.value && loading.value),
+);
+
+function stepRequirementCount(id) {
+    if (Number(id) === Number(selectedStepId.value) && ready.value && !loading.value) {
+        return assignmentRows.value.length;
+    }
+    const bucket = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    const staged = bucket?.bindings?.[String(id)];
+    if (staged) return staged.length;
+    const step = steps.value.find((row) => Number(row.id) === Number(id));
+    return Math.max(0, Number(step?.step_requirements_count ?? 0));
+}
+
+const stepOptions = computed(() =>
+    steps.value.map((step) => ({
+        id: step.id,
+        order_number: step.order_number,
+        name: step.name,
+        code: step.code,
+        count: stepRequirementCount(step.id),
+    })),
+);
+
+function countLabel(count) {
+    return `${count} ${count === 1 ? "requirement" : "requirements"}`;
+}
+
+const cardSubtitle = computed(() => {
+    if (stepsLoading.value) return "Loading steps…";
+    if (!steps.value.length) return "No steps available.";
+    if (!selectedStepId.value) return "Select a step to manage its requirements.";
+    if (loading.value) return "Loading requirements…";
+    if (error.value) return "Couldn't load requirements.";
+    const count = assignmentRows.value.length;
+    if (!count) return "Nothing added yet";
+    return `${countLabel(count)} for “${selectedStep.value?.name || "this step"}”`;
+});
+
+const noItemTitle = computed(() => {
+    if (error.value && !selectedStepId.value) return "Couldn't load steps";
+    if (!selectedStepId.value) return steps.value.length ? "Select a step" : "No steps available";
+    if (error.value) return "Couldn't load requirements";
+    return "No requirements yet";
+});
+
+const noItemText = computed(() => {
+    if (error.value && !selectedStepId.value) return "Check the error above, then try again.";
+    if (!selectedStepId.value) {
+        return steps.value.length
+            ? "Choose a step above to manage its requirements."
+            : "This workflow doesn't have any steps yet.";
+    }
+    if (error.value) return "Check the error above, then try again.";
+    return "Add a requirement that workers must complete for this step.";
+});
+
+const noItemAction = computed(() => {
+    if (error.value) return selectedStepId.value ? "items" : "steps";
+    if (!selectedStepId.value) return null;
+    return "add";
+});
+
+const ghostRowCount = computed(() => Math.max(0, 5 - assignmentRows.value.length));
+
+function isSelectedStep(id) {
+    return Number(id) === Number(selectedStepId.value);
+}
+
+function setStepOptionEl(el, index) {
+    if (el) stepOptionEls.value[index] = el;
+}
+
+function focusStepOption(index) {
+    const count = stepOptions.value.length;
+    if (!count) return;
+    const next = (index + count) % count;
+    nextTick(() => stepOptionEls.value[next]?.focus?.());
+}
+
+function openStepMenu(index) {
+    if (!stepOptions.value.length) return;
+    stepMenuOpen.value = true;
+    focusStepOption(index);
+}
+
+function closeStepMenu(restoreFocus = false) {
+    stepMenuOpen.value = false;
+    if (restoreFocus) nextTick(() => stepTrigger.value?.focus?.());
+}
+
+function toggleStepMenu() {
+    if (stepMenuOpen.value) {
+        closeStepMenu();
+        return;
+    }
+    const index = stepOptions.value.findIndex((option) => isSelectedStep(option.id));
+    openStepMenu(index >= 0 ? index : 0);
+}
+
+function onTriggerKeydown(event) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    openStepMenu(event.key === "ArrowUp" ? stepOptions.value.length - 1 : 0);
+}
+
+function onStepOptionKeydown(event, index) {
+    if (event.key === "ArrowDown") {
+        event.preventDefault();
+        focusStepOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        focusStepOption(index - 1);
+    } else if (event.key === "Home") {
+        event.preventDefault();
+        focusStepOption(0);
+    } else if (event.key === "End") {
+        event.preventDefault();
+        focusStepOption(stepOptions.value.length - 1);
+    }
+}
+
+function onStepMenuFocusOut(event) {
+    if (stepMenuOpen.value && !stepMenuRef.value?.contains(event.relatedTarget)) {
+        stepMenuOpen.value = false;
+    }
+}
+
+function onDocumentPointerDown(event) {
+    if (!stepMenuOpen.value) return;
+    if (!stepMenuRef.value?.contains(event.target)) stepMenuOpen.value = false;
+}
+
+function onDocumentKeydown(event) {
+    if (event.key === "Escape" && stepMenuOpen.value) {
+        event.preventDefault();
+        closeStepMenu(true);
+    }
+}
+
+function selectStep(id) {
+    const changed = !isSelectedStep(id);
+    stepMenuOpen.value = false;
+    if (changed) selectedStepId.value = id;
+    nextTick(() => stepTrigger.value?.focus?.());
+}
+
+// Edit-name dialog
+const editDialog = ref(false);
+const editSaving = ref(false);
+const editError = ref("");
+const editNameError = ref("");
+const editForm = ref({ name: "" });
+const editCode = ref("");
+const editKey = ref(null);
+const editNameField = ref(null);
 
 // Add-entry dialog
 const addDialog = ref(false);
@@ -388,45 +822,12 @@ const addForm = ref({ name: "", code: "", description: "", is_required: true, is
 const addFieldErrors = ref({ name: "", code: "" });
 const addNameField = ref(null);
 const addCodeField = ref(null);
-// Once the user edits Code themselves, stop regenerating it from Name.
-const codeTouched = ref(false);
 
-function snakeCase(value) {
-    return String(value || "")
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-}
-
-function nextRequirementCode(base) {
-    const taken = new Set(
-        (requirements.value || [])
-            .map((r) => String(r.code || "").toLowerCase())
-            .filter(Boolean),
-    );
-    const bucket = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
-    for (const def of bucket?.reqDefs || []) {
-        if (def.code) taken.add(String(def.code).toLowerCase());
-    }
-
-    let code = base;
-    let suffix = 2;
-    while (taken.has(code)) code = `${base}_${suffix++}`;
-    return code;
-}
-
-function onAddNameInput(value) {
-    if (!codeTouched.value) {
-        const base = snakeCase(value).slice(0, 50);
-        addForm.value.code = base ? nextRequirementCode(base) : "";
-        addFieldErrors.value.code = "";
-    }
+function onAddNameInput() {
     if (addFieldErrors.value.name) addFieldErrors.value.name = "";
 }
 
-function onAddCodeInput(value) {
-    codeTouched.value = !!String(value || "").trim();
+function onAddCodeInput() {
     if (addFieldErrors.value.code) addFieldErrors.value.code = "";
 }
 
@@ -440,7 +841,9 @@ function validateAddForm() {
     const errors = { name: "", code: "" };
 
     if (!name) errors.name = "Enter a requirement name.";
-    if (code && !/^[a-z][a-z0-9_]*$/.test(code)) {
+    if (!code) {
+        errors.code = "Enter a code in snake_case (for example signed_pr_pdf).";
+    } else if (!/^[a-z][a-z0-9_]*$/.test(code)) {
         errors.code = "Use snake_case, starting with a letter (for example signed_pr_pdf).";
     }
 
@@ -456,17 +859,82 @@ function validateAddForm() {
     return true;
 }
 
-const stepOptions = computed(() =>
-    steps.value.map((s) => ({
-        id: s.id,
-        label: `${s.order_number}. ${s.name} (${s.code})`,
-    })),
-);
+function toggleRequired(item) {
+    item.is_required = !item.is_required;
+    stageBindings();
+}
+
+function toggleUploadRequired(item) {
+    item.is_upload_required = !item.is_upload_required;
+    stageBindings();
+}
+
+function openEdit(item) {
+    editError.value = "";
+    editNameError.value = "";
+    editKey.value = item.requirement_definition_id;
+    editCode.value = item.code || "";
+    editForm.value = { name: item.name || "" };
+    editDialog.value = true;
+}
+
+function focusEditName() {
+    editNameField.value?.focus();
+}
+
+function saveEdit() {
+    if (editSaving.value) return;
+    const name = editForm.value.name?.trim() || "";
+    if (!name) {
+        editNameError.value = "Enter a requirement name.";
+        editNameField.value?.focus();
+        return;
+    }
+    if (!typeId.value) {
+        editError.value = "Resolve the transaction type first (open this page from Workflows).";
+        return;
+    }
+
+    const key = editKey.value;
+    const row = assignmentRows.value.find(
+        (item) => String(item.requirement_definition_id) === String(key),
+    );
+    if (!row) {
+        editError.value = "Requirement not found.";
+        return;
+    }
+
+    editSaving.value = true;
+    editError.value = "";
+    try {
+        const bucket = staging.buckets.get(String(typeId.value));
+        const currentDef = (bucket?.reqDefs || []).find(
+            (def) => String(def.client_id ?? def.id) === String(key),
+        );
+        const patch = { name };
+        if (typeof key === "number") patch.id = key;
+        else patch.client_id = key;
+        if (!currentDef) {
+            patch.code = row.code || null;
+            patch.description = row.description || null;
+        }
+        staging.upsertReqDef(typeId.value, patch);
+        assignmentRows.value = assignmentRows.value.map((item) =>
+            String(item.requirement_definition_id) === String(key) ? { ...item, name } : item,
+        );
+        stageBindings();
+        editDialog.value = false;
+        toastSuccess(`Requirement renamed to "${name}".`);
+    } catch (e) {
+        editError.value = e?.message || "Failed to rename requirement.";
+    } finally {
+        editSaving.value = false;
+    }
+}
 
 function openAdd() {
     addError.value = "";
     addFieldErrors.value = { name: "", code: "" };
-    codeTouched.value = false;
     addForm.value = { name: "", code: "", description: "", is_required: true, is_upload_required: true };
     addDialog.value = true;
 }
@@ -504,10 +972,10 @@ function addRequirement() {
     adding.value = true;
     addError.value = "";
     try {
-        // Staged requirement definition (server mints id + code on save).
+        // Staged requirement definition (server mints the id on save).
         const { row: created } = staging.upsertReqDef(typeId.value, {
             name: addForm.value.name.trim(),
-            code: addForm.value.code?.trim() || null,
+            code: addForm.value.code.trim(),
             description: addForm.value.description?.trim() || null,
         });
         // Attach to the current step immediately with the chosen required flag.
@@ -584,8 +1052,12 @@ function enrichStagedRow(r, idx) {
     };
 }
 
+let loadAssignedToken = 0;
+
 async function loadAssigned() {
+    const token = ++loadAssignedToken;
     if (!selectedStepId.value) {
+        assignmentRows.value = [];
         ready.value = true;
         return;
     }
@@ -593,6 +1065,7 @@ async function loadAssigned() {
     error.value = "";
     try {
         await fetchAssigned(workflowDefinitionId.value, Number(selectedStepId.value));
+        if (token !== loadAssignedToken) return;
         const sid = Number(selectedStepId.value);
         // Prefer already-staged rows so revisit never shows stale server
         // state over unsaved edits; names resolve via staged defs/catalog.
@@ -623,9 +1096,27 @@ async function loadAssigned() {
             staging.seedReqDefs(typeId.value, requirements.value || []);
         }
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load assigned requirements.";
+        if (token === loadAssignedToken) {
+            error.value = e?.response?.data?.message || "Failed to load assigned requirements.";
+        }
     } finally {
-        ready.value = true;
+        if (token === loadAssignedToken) ready.value = true;
+    }
+}
+
+function selectInitialStep() {
+    const sid = stepIdFromUrl.value;
+    if (Number.isFinite(sid) && steps.value.some((step) => Number(step.id) === sid)) {
+        selectedStepId.value = sid;
+    } else if (steps.value.length) {
+        selectedStepId.value = steps.value[0].id;
+    }
+}
+
+async function retrySteps() {
+    await loadSteps();
+    if (!selectedStepId.value || !steps.value.some((step) => Number(step.id) === Number(selectedStepId.value))) {
+        selectInitialStep();
     }
 }
 
@@ -636,27 +1127,852 @@ async function afterBulkSaved() {
 }
 
 watch(selectedStepId, async () => {
+    editDialog.value = false;
     assigned.value = [];
     assignmentRows.value = [];
-    if (!selectedStepId.value) return;
+    if (!selectedStepId.value) {
+        ready.value = true;
+        return;
+    }
     await loadAssigned();
 });
 
 onMounted(async () => {
+    document.addEventListener("mousedown", onDocumentPointerDown);
+    document.addEventListener("keydown", onDocumentKeydown);
+
     // Requirement catalog and step list are independent: fetch in parallel.
     await Promise.allSettled([fetchReqs(workflowDefinitionId.value), loadSteps()]);
+    selectInitialStep();
+    if (!selectedStepId.value) ready.value = true;
+});
 
-    const sid = stepIdFromUrl.value;
-    if (sid && !Number.isNaN(sid)) {
-        selectedStepId.value = sid;
-        await loadAssigned();
-    } else {
-        ready.value = true; // nothing to load: show the picker UI, no veil
-    }
+onBeforeUnmount(() => {
+    document.removeEventListener("mousedown", onDocumentPointerDown);
+    document.removeEventListener("keydown", onDocumentKeydown);
 });
 </script>
 
 <style scoped>
+/* ---- Requirements page ---- */
+.sr-page {
+    --sr-field: #f4f6fb;
+    --sr-hover: #f3f6fc;
+    /* Cancel AppShell's v-container pa-6 so the page can use the
+       mockup's adaptive full-width gutters. */
+    width: auto;
+    max-width: none;
+    margin: 0 -24px;
+    padding: 0 clamp(16px, 3vw, 48px) 16px;
+}
+
+.sr-page :deep(.v-alert) {
+    border-radius: 0;
+}
+
+.sr-page :deep(.v-btn) {
+    border-radius: 0;
+}
+
+.sr-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.sr-badge {
+    display: grid;
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 0;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    place-items: center;
+}
+
+.sr-title {
+    min-width: 0;
+}
+
+.sr-title h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+}
+
+.sr-title p {
+    margin: 2px 0 0;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.sr-head-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.sr-head-actions .sr-back {
+    margin-left: 0;
+}
+
+.sr-back {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: 8px;
+    height: 42px;
+    margin-left: auto;
+    padding: 0 16px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 0;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.sr-back:hover {
+    background: var(--sr-hover);
+}
+
+.sr-back:focus-visible,
+.sr-add:focus-visible,
+.sr-trigger:focus-visible,
+.sr-option:focus-visible,
+.sr-ib:focus-visible,
+.sr-tg:focus-visible,
+.sr-code-in:focus-visible {
+    outline: 3px solid rgba(var(--v-theme-primary), 0.28);
+    outline-offset: 2px;
+}
+
+.sr-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 22px;
+    padding: 14px 16px;
+    border-radius: 0;
+    background: rgba(var(--v-theme-primary), 0.1);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.sr-info-ic {
+    flex: none;
+    margin-top: 1px;
+    color: rgb(var(--v-theme-primary));
+}
+
+.sr-info b {
+    color: rgb(var(--v-theme-primary));
+}
+
+.sr-lbl {
+    margin: 0 0 10px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ---- Step picker ---- */
+.sr-dd {
+    position: relative;
+    margin-bottom: 22px;
+}
+
+.sr-trigger {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 68px;
+    padding: 10px 14px 10px 10px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 0;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sr-trigger:hover:not(:disabled) {
+    border-color: rgba(var(--v-theme-primary), 0.45);
+}
+
+.sr-trigger:focus-visible,
+.sr-trigger-open {
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.18);
+}
+
+.sr-trigger:disabled {
+    opacity: 0.65;
+    cursor: default;
+}
+
+.sr-step-n {
+    display: grid;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 0;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-size: 16px;
+    font-weight: 800;
+    place-items: center;
+}
+
+.sr-step-tx {
+    flex: 1;
+    min-width: 0;
+}
+
+.sr-step-tx b {
+    display: block;
+    overflow: hidden;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sr-step-tx small {
+    display: block;
+    overflow: hidden;
+    margin-top: 2px;
+    color: rgb(var(--v-theme-secondary));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sr-count {
+    flex: none;
+    padding: 3px 10px;
+    border-radius: 0;
+    background: var(--sr-field);
+    color: rgb(var(--v-theme-secondary));
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.sr-chev {
+    flex: none;
+    color: rgb(var(--v-theme-secondary));
+    transition: transform 0.2s;
+}
+
+.sr-chev-open {
+    transform: rotate(180deg);
+}
+
+.sr-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
+    z-index: 20;
+    max-height: 320px;
+    padding: 8px;
+    overflow: auto;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 0;
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 18px 40px -12px rgba(20, 33, 61, 0.3);
+}
+
+.sr-option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-on-surface));
+    text-align: left;
+    cursor: pointer;
+}
+
+.sr-option:hover,
+.sr-option:focus-visible {
+    background: var(--sr-hover);
+}
+
+.sr-option-selected::before {
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    left: -8px;
+    width: 4px;
+    border-radius: 0;
+    background: rgb(var(--v-theme-primary));
+    content: "";
+}
+
+.sr-option-n {
+    display: grid;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 0;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-size: 15px;
+    font-weight: 800;
+    place-items: center;
+}
+
+.sr-option-tx {
+    flex: 1;
+    min-width: 0;
+}
+
+.sr-option-tx b {
+    display: block;
+    overflow: hidden;
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sr-option-tx small {
+    display: block;
+    overflow: hidden;
+    margin-top: 2px;
+    color: rgb(var(--v-theme-secondary));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sr-option-ck {
+    flex: none;
+    color: rgb(var(--v-theme-primary));
+    opacity: 0;
+}
+
+.sr-option-ck-on {
+    opacity: 1;
+}
+
+.sr-option-empty {
+    padding: 18px 12px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 14px;
+    text-align: center;
+}
+
+.sr-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---- Requirements card ---- */
+.sr-card {
+    overflow: hidden;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 0;
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
+}
+
+.sr-card-hd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.sr-card-hd h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.sr-card-hd p {
+    margin: 2px 0 0;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.sr-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 8px;
+    height: 44px;
+    margin-left: auto;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 0;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.sr-add:hover:not(:disabled) {
+    filter: brightness(0.93);
+}
+
+.sr-add:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sr-loading {
+    display: flex;
+    align-items: center;
+    min-height: 404px;
+    padding: 12px 0;
+}
+
+.sr-rows {
+    width: 100%;
+}
+
+.sr-row {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 2fr)
+        minmax(0, 1.4fr)
+        minmax(150px, 1fr)
+        minmax(170px, 1fr)
+        112px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.sr-row:last-child {
+    border-bottom: 0;
+}
+
+.sr-row-ghost {
+    min-height: 74px;
+    pointer-events: none;
+}
+
+.sr-row.sr-row-noitem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 138px;
+    padding: 24px;
+    text-align: center;
+}
+
+.sr-noitem-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 460px;
+}
+
+.sr-noitem-copy {
+    width: 100%;
+}
+
+.sr-noitem-copy b {
+    display: block;
+    font-size: 16px;
+    line-height: 1.2;
+}
+
+.sr-noitem-copy span {
+    display: block;
+    margin-top: 4px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.sr-row-noitem .sr-add {
+    height: 40px;
+    margin-left: 0;
+}
+
+.sr-row-head {
+    padding: 10px 20px;
+    background: var(--sr-field);
+    color: rgb(var(--v-theme-secondary));
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sr-row-item {
+    transition: background 0.12s;
+}
+
+.sr-row-item:hover {
+    background: var(--sr-hover);
+}
+
+.sr-name {
+    min-width: 0;
+}
+
+.sr-name b {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.sr-name span {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 4px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 12.5px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.sr-code-cell {
+    min-width: 0;
+}
+
+.sr-code {
+    display: inline-block;
+    max-width: 100%;
+    padding: 3px 9px;
+    border-radius: 0;
+    background: var(--sr-field);
+    color: rgb(var(--v-theme-secondary));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.sr-code-in {
+    width: 100%;
+    max-width: 220px;
+    height: 32px;
+    padding: 0 9px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 0;
+    outline: none;
+    background: var(--sr-field);
+    color: rgb(var(--v-theme-on-surface));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sr-code-in:focus {
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.16);
+}
+
+.sr-code-in::placeholder {
+    color: rgb(var(--v-theme-secondary));
+    opacity: 0.75;
+}
+
+.sr-req {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.sr-on {
+    color: #1b7a3d;
+}
+
+.sr-tg {
+    position: relative;
+    flex: none;
+    width: 44px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #98a2b8;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.sr-tg::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    content: "";
+    transition: transform 0.2s;
+}
+
+.sr-tg[aria-checked="true"] {
+    background: #1b7a3d;
+}
+
+.sr-tg[aria-checked="true"]::after {
+    transform: translateX(18px);
+}
+
+.sr-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.sr-ib {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    place-items: center;
+}
+
+.sr-ib-edit {
+    color: #b86e00;
+}
+
+.sr-ib-edit:hover {
+    background: rgba(184, 110, 0, 0.12);
+}
+
+.sr-ib-delete {
+    color: #c62828;
+}
+
+.sr-ib-delete:hover {
+    background: rgba(198, 40, 40, 0.1);
+}
+
+html.dark .sr-page {
+    --sr-field: #1c2645;
+    --sr-hover: #1d2745;
+}
+
+html.dark .sr-card {
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
+}
+
+html.dark .sr-menu {
+    box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.65);
+}
+
+html.dark .sr-info {
+    background: rgba(var(--v-theme-primary), 0.14);
+}
+
+html.dark .sr-tg[aria-checked="true"] {
+    background: #3fbf6f;
+}
+
+html.dark .sr-on {
+    color: #3fbf6f;
+}
+
+html.dark .sr-ib-edit {
+    color: #ffbf47;
+}
+
+html.dark .sr-ib-edit:hover {
+    background: rgba(255, 191, 71, 0.12);
+}
+
+html.dark .sr-ib-delete {
+    color: #ff8a80;
+}
+
+html.dark .sr-ib-delete:hover {
+    background: rgba(255, 138, 128, 0.12);
+}
+
+@media (min-width: 1200px) {
+    .sr-title h1 {
+        font-size: 26px;
+    }
+
+    .sr-card-hd {
+        padding: 20px 28px;
+    }
+
+    .sr-row {
+        padding: 16px 28px;
+    }
+
+    .sr-row-head {
+        padding: 12px 28px;
+    }
+
+    .sr-name b {
+        font-size: 16px;
+    }
+
+    .sr-code-in {
+        max-width: 240px;
+    }
+}
+
+@media (max-width: 720px) {
+    .sr-back {
+        padding: 0 12px;
+    }
+
+    .sr-back span {
+        display: none;
+    }
+
+    .sr-card-hd {
+        flex-wrap: wrap;
+    }
+
+    .sr-add {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .sr-loading {
+        min-height: 244px;
+    }
+
+    .sr-row-head,
+    .sr-row-ghost {
+        display: none;
+    }
+
+    .sr-row {
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "name actions"
+            "code code"
+            "reqr requ";
+        row-gap: 10px;
+    }
+
+    .sr-name {
+        grid-area: name;
+    }
+
+    .sr-code-cell {
+        grid-area: code;
+    }
+
+    .sr-req-r {
+        grid-area: reqr;
+    }
+
+    .sr-req-u {
+        grid-area: requ;
+    }
+
+    .sr-actions {
+        grid-area: actions;
+        align-self: start;
+    }
+
+    .sr-code-in {
+        max-width: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .sr-title h1 {
+        font-size: 22px;
+    }
+
+    .sr-badge {
+        width: 44px;
+        height: 44px;
+    }
+
+    .sr-step-tx b {
+        font-size: 15px;
+    }
+
+    .sr-step-n {
+        width: 40px;
+        height: 40px;
+    }
+
+    .sr-count {
+        padding: 3px 8px;
+        font-size: 11px;
+    }
+
+    .sr-option {
+        gap: 10px;
+        padding: 8px;
+    }
+
+    .sr-option-n {
+        width: 36px;
+        height: 36px;
+    }
+
+    .sr-row {
+        padding: 14px 20px;
+    }
+
+    .sr-req {
+        font-size: 12.5px;
+    }
+}
+
 /* ---- Add requirement modal (design mockup port) ---- */
 .req-card {
     display: flex;
@@ -736,6 +2052,31 @@ onMounted(async () => {
     margin: 6px 2px 0;
     font-size: 12.5px;
     color: rgb(var(--v-theme-secondary));
+}
+
+.req-code-ro {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 12px;
+}
+
+.req-code-ro span {
+    flex: none;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.req-code-ro code {
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
 }
 
 .req-error {
