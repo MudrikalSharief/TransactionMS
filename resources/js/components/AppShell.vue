@@ -833,7 +833,7 @@ onUnmounted(() => {
 }
 .search-pixiv :deep(input),
 .search-pixiv :deep(input::placeholder) {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-weight: 700;
 }
 /* Column shell: on short pages the spacer soaks up the leftover height so

@@ -1,54 +1,33 @@
 <template>
     <div class="sr-page">
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-4">
+        <v-alert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+        >
             {{ error }}
         </v-alert>
 
-        <header class="sr-top">
-            <div class="sr-badge">
-                <v-icon size="24">mdi-clipboard-check-outline</v-icon>
-            </div>
-            <div class="sr-title">
-                <h1>Requirements</h1>
-                <p>Choose a step and manage what workers must complete or upload.</p>
-            </div>
-            <div class="sr-head-actions">
-                <v-btn
-                    v-if="stagingDirty"
-                    variant="text"
-                    color="error"
-                    rounded="0"
-                    size="small"
-                    prepend-icon="mdi-undo"
-                    v-tooltip="'Drop all staged edits and show the last saved state'"
-                    @click="discardStaged"
-                >
-                    Discard
-                </v-btn>
-                <v-btn
-                    variant="flat"
-                    color="primary"
-                    rounded="0"
-                    size="small"
-                    prepend-icon="mdi-content-save-plus-outline"
-                    :disabled="!stagingDirty"
-                    v-tooltip="stagingDirty
-                        ? 'Persist staged edits: overwrite the draft or create a new version'
-                        : 'No staged changes to save'"
-                    @click="openSaveDialog"
-                >
-                    Save version
-                    <v-chip v-if="stagingDirty" size="x-small" color="warning" variant="flat" class="ml-2 font-weight-bold">UNSAVED</v-chip>
-                </v-btn>
-                <button type="button" class="sr-back" @click="goBack">
-                    <v-icon size="18">mdi-arrow-left</v-icon>
-                    <span>Back</span>
-                </button>
-            </div>
-        </header>
+        <WorkflowPageHeader
+            icon="mdi-clipboard-check-outline"
+            title="Requirements"
+            subtitle="Choose a step and manage what workers must complete or upload."
+            :version="defVersion"
+            :status="defStatus"
+            :is-live="defIsLive"
+            :dirty="stagingDirty"
+            :save-disabled="!stagingDirty"
+            @back="goBack"
+            @discard="discardStaged"
+            @save="openSaveDialog"
+        />
 
         <div class="sr-info">
-            <v-icon size="20" class="sr-info-ic">mdi-information-outline</v-icon>
+            <v-icon size="20" class="sr-info-ic"
+                >mdi-information-outline</v-icon
+            >
             <span>
                 <b>Staged assignment.</b>
                 Edits stay local until you press Save version.
@@ -80,15 +59,26 @@
                 @keydown="onTriggerKeydown"
             >
                 <span class="sr-sr-only">Select step</span>
-                <span class="sr-step-n">{{ selectedStep?.order_number ?? "-" }}</span>
+                <span class="sr-step-n">{{
+                    selectedStep?.order_number ?? "-"
+                }}</span>
                 <span class="sr-step-tx">
-                    <b>{{ selectedStep?.name || (stepsLoading ? "Loading steps…" : "Select a step") }}</b>
-                    <small>{{ selectedStep?.code || "No step selected" }}</small>
+                    <b>{{
+                        selectedStep?.name ||
+                        (stepsLoading ? "Loading steps…" : "Select a step")
+                    }}</b>
+                    <small>{{
+                        selectedStep?.code || "No step selected"
+                    }}</small>
                 </span>
                 <span v-if="selectedStep" class="sr-count">
                     {{ countLabel(stepRequirementCount(selectedStep.id)) }}
                 </span>
-                <v-icon class="sr-chev" :class="{ 'sr-chev-open': stepMenuOpen }" size="20">
+                <v-icon
+                    class="sr-chev"
+                    :class="{ 'sr-chev-open': stepMenuOpen }"
+                    size="20"
+                >
                     mdi-chevron-down
                 </v-icon>
             </button>
@@ -108,7 +98,9 @@
                     class="sr-option"
                     :class="{ 'sr-option-selected': isSelectedStep(option.id) }"
                     role="option"
-                    :aria-selected="isSelectedStep(option.id) ? 'true' : 'false'"
+                    :aria-selected="
+                        isSelectedStep(option.id) ? 'true' : 'false'
+                    "
                     @click="selectStep(option.id)"
                     @keydown="onStepOptionKeydown($event, index)"
                 >
@@ -120,14 +112,18 @@
                     <span class="sr-count">{{ countLabel(option.count) }}</span>
                     <v-icon
                         class="sr-option-ck"
-                        :class="{ 'sr-option-ck-on': isSelectedStep(option.id) }"
+                        :class="{
+                            'sr-option-ck-on': isSelectedStep(option.id),
+                        }"
                         size="20"
                         aria-hidden="true"
                     >
                         mdi-check
                     </v-icon>
                 </button>
-                <div v-if="!stepOptions.length" class="sr-option-empty">No steps available.</div>
+                <div v-if="!stepOptions.length" class="sr-option-empty">
+                    No steps available.
+                </div>
             </div>
         </div>
 
@@ -149,7 +145,11 @@
             </div>
 
             <div v-if="showLoader" class="sr-loading">
-                <TableLoader compact label="step requirements" icon="mdi-clipboard-list-outline" />
+                <TableLoader
+                    compact
+                    label="step requirements"
+                    icon="mdi-clipboard-list-outline"
+                />
             </div>
 
             <div v-else class="sr-rows" role="table" aria-label="Requirements">
@@ -169,12 +169,17 @@
                 >
                     <div class="sr-name" role="cell">
                         <b>{{ item.name }}</b>
-                        <span v-if="item.description">{{ item.description }}</span>
+                        <span v-if="item.description">{{
+                            item.description
+                        }}</span>
                     </div>
 
                     <div class="sr-code-cell" role="cell">
                         <input
-                            v-if="typeof item.requirement_definition_id !== 'number'"
+                            v-if="
+                                typeof item.requirement_definition_id !==
+                                'number'
+                            "
                             v-model="item.code"
                             type="text"
                             class="sr-code-in"
@@ -185,7 +190,9 @@
                             :aria-label="`Code for ${item.name}`"
                             @update:model-value="stageBindings"
                         />
-                        <code v-else class="sr-code">{{ item.code || "—" }}</code>
+                        <code v-else class="sr-code">{{
+                            item.code || "—"
+                        }}</code>
                     </div>
 
                     <div class="sr-req sr-req-r" role="cell">
@@ -207,12 +214,18 @@
                             type="button"
                             class="sr-tg"
                             role="switch"
-                            :aria-checked="item.is_upload_required ? 'true' : 'false'"
+                            :aria-checked="
+                                item.is_upload_required ? 'true' : 'false'
+                            "
                             :aria-label="`Toggle upload required for ${item.name}`"
                             @click="toggleUploadRequired(item)"
                         ></button>
                         <span :class="{ 'sr-on': item.is_upload_required }">
-                            {{ item.is_upload_required ? "File required" : "No file" }}
+                            {{
+                                item.is_upload_required
+                                    ? "File required"
+                                    : "No file"
+                            }}
                         </span>
                     </div>
 
@@ -223,7 +236,7 @@
                             :aria-label="`Edit ${item.name}`"
                             @click="openEdit(item)"
                         >
-                            <v-icon size="19">mdi-pencil-outline</v-icon>
+                            <v-icon size="18">mdi-pencil</v-icon>
                         </button>
                         <button
                             type="button"
@@ -231,7 +244,7 @@
                             :aria-label="`Remove ${item.name} from this step`"
                             @click="removeRow(item)"
                         >
-                            <v-icon size="19">mdi-trash-can-outline</v-icon>
+                            <v-icon size="18">mdi-delete</v-icon>
                         </button>
                     </div>
                 </div>
@@ -251,7 +264,11 @@
                     </div>
 
                     <div class="sr-row sr-row-noitem" role="row">
-                        <div class="sr-noitem-cell" role="cell" aria-colspan="5">
+                        <div
+                            class="sr-noitem-cell"
+                            role="cell"
+                            aria-colspan="5"
+                        >
                             <div class="sr-noitem-copy">
                                 <b>{{ noItemTitle }}</b>
                                 <span>{{ noItemText }}</span>
@@ -325,12 +342,21 @@
         >
             <v-card rounded="xl" class="req-card">
                 <v-card-title class="req-hd">
-                    <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="req-badge">
+                    <v-avatar
+                        color="primary"
+                        variant="tonal"
+                        rounded="lg"
+                        size="44"
+                        class="req-badge"
+                    >
                         <v-icon>mdi-clipboard-check-outline</v-icon>
                     </v-avatar>
                     <div class="req-hd-t">
                         <div class="req-title">Add requirement</div>
-                        <div class="req-sub">Add a checklist item that workers must complete for this step.</div>
+                        <div class="req-sub">
+                            Add a checklist item that workers must complete for
+                            this step.
+                        </div>
                     </div>
                     <v-btn
                         icon="mdi-close"
@@ -342,14 +368,26 @@
                     />
                 </v-card-title>
 
-                <form class="req-form" novalidate @submit.prevent="addRequirement">
+                <form
+                    class="req-form"
+                    novalidate
+                    @submit.prevent="addRequirement"
+                >
                     <v-card-text class="req-bd">
-                        <v-alert v-if="addError" type="error" variant="tonal" density="compact" class="mb-4">
+                        <v-alert
+                            v-if="addError"
+                            type="error"
+                            variant="tonal"
+                            density="compact"
+                            class="mb-4"
+                        >
                             {{ addError }}
                         </v-alert>
 
                         <div class="req-f">
-                            <label class="req-lb" for="req-name">Name <span class="req-required">*</span></label>
+                            <label class="req-lb" for="req-name"
+                                >Name <span class="req-required">*</span></label
+                            >
                             <v-text-field
                                 id="req-name"
                                 ref="addNameField"
@@ -363,11 +401,15 @@
                                 class="req-in"
                                 @update:model-value="onAddNameInput"
                             />
-                            <div v-if="addFieldErrors.name" class="req-error">{{ addFieldErrors.name }}</div>
+                            <div v-if="addFieldErrors.name" class="req-error">
+                                {{ addFieldErrors.name }}
+                            </div>
                         </div>
 
                         <div class="req-f">
-                            <label class="req-lb" for="req-code">Code <span class="req-required">*</span></label>
+                            <label class="req-lb" for="req-code"
+                                >Code <span class="req-required">*</span></label
+                            >
                             <v-text-field
                                 id="req-code"
                                 ref="addCodeField"
@@ -383,14 +425,20 @@
                                 class="req-in req-in-mono"
                                 @update:model-value="onAddCodeInput"
                             />
-                            <div v-if="addFieldErrors.code" class="req-error">{{ addFieldErrors.code }}</div>
-                            <div v-else class="req-help">Type the system code manually in snake_case.</div>
+                            <div v-if="addFieldErrors.code" class="req-error">
+                                {{ addFieldErrors.code }}
+                            </div>
+                            <div v-else class="req-help">
+                                Type the system code manually in snake_case.
+                            </div>
                         </div>
 
                         <div class="req-f">
                             <label class="req-lb" for="req-remarks">
                                 Remarks
-                                <span class="req-opt">(instructions for workers)</span>
+                                <span class="req-opt"
+                                    >(instructions for workers)</span
+                                >
                             </label>
                             <v-textarea
                                 id="req-remarks"
@@ -409,7 +457,9 @@
 
                             <div class="req-rule">
                                 <span class="req-rule-ic">
-                                    <v-icon size="20">mdi-checkbox-marked-outline</v-icon>
+                                    <v-icon size="20"
+                                        >mdi-checkbox-marked-outline</v-icon
+                                    >
                                 </span>
                                 <div class="req-rule-copy">
                                     <b>Required item</b>
@@ -425,9 +475,14 @@
                                     class="req-tg"
                                     type="button"
                                     role="switch"
-                                    :aria-checked="addForm.is_required ? 'true' : 'false'"
+                                    :aria-checked="
+                                        addForm.is_required ? 'true' : 'false'
+                                    "
                                     aria-label="Required item"
-                                    @click="addForm.is_required = !addForm.is_required"
+                                    @click="
+                                        addForm.is_required =
+                                            !addForm.is_required
+                                    "
                                 ></button>
                             </div>
 
@@ -449,9 +504,16 @@
                                     class="req-tg"
                                     type="button"
                                     role="switch"
-                                    :aria-checked="addForm.is_upload_required ? 'true' : 'false'"
+                                    :aria-checked="
+                                        addForm.is_upload_required
+                                            ? 'true'
+                                            : 'false'
+                                    "
                                     aria-label="Upload required"
-                                    @click="addForm.is_upload_required = !addForm.is_upload_required"
+                                    @click="
+                                        addForm.is_upload_required =
+                                            !addForm.is_upload_required
+                                    "
                                 ></button>
                             </div>
                         </section>
@@ -462,18 +524,34 @@
                                 <span class="req-preview-ck"></span>
                                 <div class="req-preview-body">
                                     <div class="req-preview-name">
-                                        <span>{{ addForm.name?.trim() || "Requirement name" }}</span>
+                                        <span>{{
+                                            addForm.name?.trim() ||
+                                            "Requirement name"
+                                        }}</span>
                                         <span
                                             class="req-tag"
-                                            :class="{ 'req-tag-optional': !addForm.is_required }"
+                                            :class="{
+                                                'req-tag-optional':
+                                                    !addForm.is_required,
+                                            }"
                                         >
-                                            {{ addForm.is_required ? "Required" : "Optional" }}
+                                            {{
+                                                addForm.is_required
+                                                    ? "Required"
+                                                    : "Optional"
+                                            }}
                                         </span>
                                     </div>
-                                    <p v-if="addForm.description?.trim()" class="req-preview-remark">
+                                    <p
+                                        v-if="addForm.description?.trim()"
+                                        class="req-preview-remark"
+                                    >
                                         {{ addForm.description.trim() }}
                                     </p>
-                                    <span v-if="addForm.is_upload_required" class="req-preview-attach">
+                                    <span
+                                        v-if="addForm.is_upload_required"
+                                        class="req-preview-attach"
+                                    >
                                         <v-icon size="16">mdi-upload</v-icon>
                                         Attach file
                                     </span>
@@ -484,7 +562,13 @@
 
                     <v-divider />
                     <v-card-actions class="req-ft">
-                        <v-btn type="button" variant="outlined" rounded="lg" class="req-b" @click="addDialog = false">
+                        <v-btn
+                            type="button"
+                            variant="outlined"
+                            rounded="lg"
+                            class="req-b"
+                            @click="addDialog = false"
+                        >
                             Cancel
                         </v-btn>
                         <v-btn
@@ -509,12 +593,21 @@
         >
             <v-card rounded="xl" class="req-card">
                 <v-card-title class="req-hd">
-                    <v-avatar color="primary" variant="tonal" rounded="lg" size="44" class="req-badge">
+                    <v-avatar
+                        color="primary"
+                        variant="tonal"
+                        rounded="lg"
+                        size="44"
+                        class="req-badge"
+                    >
                         <v-icon>mdi-pencil-outline</v-icon>
                     </v-avatar>
                     <div class="req-hd-t">
                         <div class="req-title">Edit requirement</div>
-                        <div class="req-sub">Change the requirement name. Its code and rules stay unchanged.</div>
+                        <div class="req-sub">
+                            Change the requirement name. Its code and rules stay
+                            unchanged.
+                        </div>
                     </div>
                     <v-btn
                         icon="mdi-close"
@@ -528,12 +621,20 @@
 
                 <form class="req-form" novalidate @submit.prevent="saveEdit">
                     <v-card-text class="req-bd">
-                        <v-alert v-if="editError" type="error" variant="tonal" density="compact" class="mb-4">
+                        <v-alert
+                            v-if="editError"
+                            type="error"
+                            variant="tonal"
+                            density="compact"
+                            class="mb-4"
+                        >
                             {{ editError }}
                         </v-alert>
 
                         <div class="req-f">
-                            <label class="req-lb" for="req-edit-name">Name <span class="req-required">*</span></label>
+                            <label class="req-lb" for="req-edit-name"
+                                >Name <span class="req-required">*</span></label
+                            >
                             <v-text-field
                                 id="req-edit-name"
                                 ref="editNameField"
@@ -547,19 +648,30 @@
                                 class="req-in"
                                 @update:model-value="editNameError = ''"
                             />
-                            <div v-if="editNameError" class="req-error">{{ editNameError }}</div>
+                            <div v-if="editNameError" class="req-error">
+                                {{ editNameError }}
+                            </div>
                         </div>
 
                         <div class="req-code-ro">
                             <span>Code</span>
                             <code>{{ editCode || "—" }}</code>
                         </div>
-                        <div class="req-help">The system code and requirement rules are not changed here.</div>
+                        <div class="req-help">
+                            The system code and requirement rules are not
+                            changed here.
+                        </div>
                     </v-card-text>
 
                     <v-divider />
                     <v-card-actions class="req-ft">
-                        <v-btn type="button" variant="outlined" rounded="lg" class="req-b" @click="editDialog = false">
+                        <v-btn
+                            type="button"
+                            variant="outlined"
+                            rounded="lg"
+                            class="req-b"
+                            @click="editDialog = false"
+                        >
                             Cancel
                         </v-btn>
                         <v-btn
@@ -579,36 +691,49 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useStepRequirements } from "@/composables/useStepRequirements";
 import { useToast } from "@/composables/useToast";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
-import StagingSaveBar from '@/components/StagingSaveBar.vue';
+import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
+import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
 
 const route = useRoute();
 const router = useRouter();
 const { api } = useApi();
 
 const returnTypeId = ref(null);
+const defVersion = ref(null);
+const defStatus = ref("");
+const defIsLive = ref(false);
 
 function goBack() {
     const qType = Number(route.query.type);
-    const target = Number.isFinite(qType) && qType > 0 ? qType : Number(returnTypeId.value);
-    if (target > 0) router.push({ path: "/admin/workflows", query: { type: target } });
+    const target =
+        Number.isFinite(qType) && qType > 0
+            ? qType
+            : Number(returnTypeId.value);
+    if (target > 0)
+        router.push({ path: "/admin/workflows", query: { type: target } });
     else router.push("/admin/workflows");
 }
 
 const workflowDefinitionId = computed(() => Number(route.params.workflowId));
 const stepIdFromUrl = computed(() => Number(route.params.stepId));
 
-const {
-    items: requirements,
-    fetchAll: fetchReqs,
-} = useRequirementDefinitions();
+const { items: requirements, fetchAll: fetchReqs } =
+    useRequirementDefinitions();
 const { assigned, loading, fetchAssigned } = useStepRequirements();
 const staging = useWorkflowStaging();
 const { success: toastSuccess } = useToast();
@@ -653,18 +778,30 @@ const stepTrigger = ref(null);
 const stepOptionEls = ref([]);
 
 const selectedStep = computed(
-    () => steps.value.find((step) => Number(step.id) === Number(selectedStepId.value)) || null,
+    () =>
+        steps.value.find(
+            (step) => Number(step.id) === Number(selectedStepId.value),
+        ) || null,
 );
 
 const showLoader = computed(
-    () => stepsLoading.value || !ready.value || (!!selectedStepId.value && loading.value),
+    () =>
+        stepsLoading.value ||
+        !ready.value ||
+        (!!selectedStepId.value && loading.value),
 );
 
 function stepRequirementCount(id) {
-    if (Number(id) === Number(selectedStepId.value) && ready.value && !loading.value) {
+    if (
+        Number(id) === Number(selectedStepId.value) &&
+        ready.value &&
+        !loading.value
+    ) {
         return assignmentRows.value.length;
     }
-    const bucket = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
+    const bucket = typeId.value
+        ? staging.buckets.get(String(typeId.value))
+        : null;
     const staged = bucket?.bindings?.[String(id)];
     if (staged) return staged.length;
     const step = steps.value.find((row) => Number(row.id) === Number(id));
@@ -688,7 +825,8 @@ function countLabel(count) {
 const cardSubtitle = computed(() => {
     if (stepsLoading.value) return "Loading steps…";
     if (!steps.value.length) return "No steps available.";
-    if (!selectedStepId.value) return "Select a step to manage its requirements.";
+    if (!selectedStepId.value)
+        return "Select a step to manage its requirements.";
     if (loading.value) return "Loading requirements…";
     if (error.value) return "Couldn't load requirements.";
     const count = assignmentRows.value.length;
@@ -698,13 +836,15 @@ const cardSubtitle = computed(() => {
 
 const noItemTitle = computed(() => {
     if (error.value && !selectedStepId.value) return "Couldn't load steps";
-    if (!selectedStepId.value) return steps.value.length ? "Select a step" : "No steps available";
+    if (!selectedStepId.value)
+        return steps.value.length ? "Select a step" : "No steps available";
     if (error.value) return "Couldn't load requirements";
     return "No requirements yet";
 });
 
 const noItemText = computed(() => {
-    if (error.value && !selectedStepId.value) return "Check the error above, then try again.";
+    if (error.value && !selectedStepId.value)
+        return "Check the error above, then try again.";
     if (!selectedStepId.value) {
         return steps.value.length
             ? "Choose a step above to manage its requirements."
@@ -720,7 +860,9 @@ const noItemAction = computed(() => {
     return "add";
 });
 
-const ghostRowCount = computed(() => Math.max(0, 5 - assignmentRows.value.length));
+const ghostRowCount = computed(() =>
+    Math.max(0, 5 - assignmentRows.value.length),
+);
 
 function isSelectedStep(id) {
     return Number(id) === Number(selectedStepId.value);
@@ -753,7 +895,9 @@ function toggleStepMenu() {
         closeStepMenu();
         return;
     }
-    const index = stepOptions.value.findIndex((option) => isSelectedStep(option.id));
+    const index = stepOptions.value.findIndex((option) =>
+        isSelectedStep(option.id),
+    );
     openStepMenu(index >= 0 ? index : 0);
 }
 
@@ -780,7 +924,10 @@ function onStepOptionKeydown(event, index) {
 }
 
 function onStepMenuFocusOut(event) {
-    if (stepMenuOpen.value && !stepMenuRef.value?.contains(event.relatedTarget)) {
+    if (
+        stepMenuOpen.value &&
+        !stepMenuRef.value?.contains(event.relatedTarget)
+    ) {
         stepMenuOpen.value = false;
     }
 }
@@ -818,7 +965,13 @@ const editNameField = ref(null);
 const addDialog = ref(false);
 const adding = ref(false);
 const addError = ref("");
-const addForm = ref({ name: "", code: "", description: "", is_required: true, is_upload_required: true });
+const addForm = ref({
+    name: "",
+    code: "",
+    description: "",
+    is_required: true,
+    is_upload_required: true,
+});
 const addFieldErrors = ref({ name: "", code: "" });
 const addNameField = ref(null);
 const addCodeField = ref(null);
@@ -844,7 +997,8 @@ function validateAddForm() {
     if (!code) {
         errors.code = "Enter a code in snake_case (for example signed_pr_pdf).";
     } else if (!/^[a-z][a-z0-9_]*$/.test(code)) {
-        errors.code = "Use snake_case, starting with a letter (for example signed_pr_pdf).";
+        errors.code =
+            "Use snake_case, starting with a letter (for example signed_pr_pdf).";
     }
 
     addFieldErrors.value = errors;
@@ -891,7 +1045,8 @@ function saveEdit() {
         return;
     }
     if (!typeId.value) {
-        editError.value = "Resolve the transaction type first (open this page from Workflows).";
+        editError.value =
+            "Resolve the transaction type first (open this page from Workflows).";
         return;
     }
 
@@ -920,7 +1075,9 @@ function saveEdit() {
         }
         staging.upsertReqDef(typeId.value, patch);
         assignmentRows.value = assignmentRows.value.map((item) =>
-            String(item.requirement_definition_id) === String(key) ? { ...item, name } : item,
+            String(item.requirement_definition_id) === String(key)
+                ? { ...item, name }
+                : item,
         );
         stageBindings();
         editDialog.value = false;
@@ -935,7 +1092,13 @@ function saveEdit() {
 function openAdd() {
     addError.value = "";
     addFieldErrors.value = { name: "", code: "" };
-    addForm.value = { name: "", code: "", description: "", is_required: true, is_upload_required: true };
+    addForm.value = {
+        name: "",
+        code: "",
+        description: "",
+        is_required: true,
+        is_upload_required: true,
+    };
     addDialog.value = true;
 }
 
@@ -966,7 +1129,8 @@ function addRequirement() {
     if (adding.value) return;
     if (!validateAddForm()) return;
     if (!typeId.value) {
-        addError.value = "Resolve the transaction type first (open this page from Workflows).";
+        addError.value =
+            "Resolve the transaction type first (open this page from Workflows).";
         return;
     }
     adding.value = true;
@@ -1016,17 +1180,25 @@ async function loadSteps() {
     try {
         const wid = workflowDefinitionId.value;
         try {
-            const defRes = await api.get(`/api/admin/workflow-definitions/${wid}`);
+            const defRes = await api.get(
+                `/api/admin/workflow-definitions/${wid}`,
+            );
             const def = defRes.data?.data ?? defRes.data;
             const tid = Number(def?.transaction_type_id);
             if (Number.isFinite(tid) && tid > 0) returnTypeId.value = tid;
+            defVersion.value = def?.version ?? null;
+            defStatus.value = def?.status ?? "";
+            defIsLive.value = !!def?.is_live;
         } catch {
-            /* type id for Back is best-effort */
+            /* type id and version metadata are best-effort */
         }
-        const res = await api.get(`/api/admin/workflow-definitions/${wid}/steps`);
+        const res = await api.get(
+            `/api/admin/workflow-definitions/${wid}/steps`,
+        );
         steps.value = res.data.data ?? res.data;
     } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Failed to load steps.";
+        error.value =
+            e?.response?.data?.message || e?.message || "Failed to load steps.";
     } finally {
         stepsLoading.value = false;
     }
@@ -1037,7 +1209,9 @@ function enrichStagedRow(r, idx) {
     // catalog, then whatever the row itself carries.
     const key = String(r.req_key ?? r.requirement_definition_id ?? r.id);
     const b = typeId.value ? staging.buckets.get(String(typeId.value)) : null;
-    const staged = (b?.reqDefs || []).find((d) => String(d.client_id ?? d.id) === key);
+    const staged = (b?.reqDefs || []).find(
+        (d) => String(d.client_id ?? d.id) === key,
+    );
     const cat = (requirements.value || []).find((d) => String(d.id) === key);
     const src = staged || cat || {};
     return {
@@ -1064,7 +1238,10 @@ async function loadAssigned() {
     ready.value = false;
     error.value = "";
     try {
-        await fetchAssigned(workflowDefinitionId.value, Number(selectedStepId.value));
+        await fetchAssigned(
+            workflowDefinitionId.value,
+            Number(selectedStepId.value),
+        );
         if (token !== loadAssignedToken) return;
         const sid = Number(selectedStepId.value);
         // Prefer already-staged rows so revisit never shows stale server
@@ -1073,7 +1250,9 @@ async function loadAssigned() {
             ? staging.buckets.get(String(typeId.value))?.bindings?.[String(sid)]
             : null;
         if (staged) {
-            assignmentRows.value = staged.map((r, idx) => enrichStagedRow(r, idx));
+            assignmentRows.value = staged.map((r, idx) =>
+                enrichStagedRow(r, idx),
+            );
             return;
         }
         assignmentRows.value = (assigned.value || []).map((a) => ({
@@ -1084,7 +1263,10 @@ async function loadAssigned() {
             description: a.description ?? "",
             display_order: a.pivot_meta?.display_order ?? 0,
             is_required: a.pivot_meta?.is_required ?? true,
-            is_upload_required: a.pivot_meta?.is_upload_required ?? a.pivot_meta?.is_required ?? true,
+            is_upload_required:
+                a.pivot_meta?.is_upload_required ??
+                a.pivot_meta?.is_required ??
+                true,
         }));
         // Seed the staging slice (skipped when staged edits exist).
         if (typeId.value) {
@@ -1097,7 +1279,9 @@ async function loadAssigned() {
         }
     } catch (e) {
         if (token === loadAssignedToken) {
-            error.value = e?.response?.data?.message || "Failed to load assigned requirements.";
+            error.value =
+                e?.response?.data?.message ||
+                "Failed to load assigned requirements.";
         }
     } finally {
         if (token === loadAssignedToken) ready.value = true;
@@ -1106,7 +1290,10 @@ async function loadAssigned() {
 
 function selectInitialStep() {
     const sid = stepIdFromUrl.value;
-    if (Number.isFinite(sid) && steps.value.some((step) => Number(step.id) === sid)) {
+    if (
+        Number.isFinite(sid) &&
+        steps.value.some((step) => Number(step.id) === sid)
+    ) {
         selectedStepId.value = sid;
     } else if (steps.value.length) {
         selectedStepId.value = steps.value[0].id;
@@ -1115,7 +1302,12 @@ function selectInitialStep() {
 
 async function retrySteps() {
     await loadSteps();
-    if (!selectedStepId.value || !steps.value.some((step) => Number(step.id) === Number(selectedStepId.value))) {
+    if (
+        !selectedStepId.value ||
+        !steps.value.some(
+            (step) => Number(step.id) === Number(selectedStepId.value),
+        )
+    ) {
         selectInitialStep();
     }
 }
@@ -1142,7 +1334,10 @@ onMounted(async () => {
     document.addEventListener("keydown", onDocumentKeydown);
 
     // Requirement catalog and step list are independent: fetch in parallel.
-    await Promise.allSettled([fetchReqs(workflowDefinitionId.value), loadSteps()]);
+    await Promise.allSettled([
+        fetchReqs(workflowDefinitionId.value),
+        loadSteps(),
+    ]);
     selectInitialStep();
     if (!selectedStepId.value) ready.value = true;
 });
@@ -1174,79 +1369,6 @@ onBeforeUnmount(() => {
     border-radius: 0;
 }
 
-.sr-top {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 18px;
-}
-
-.sr-badge {
-    display: grid;
-    flex: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 0;
-    background: rgb(var(--v-theme-primary));
-    color: rgb(var(--v-theme-on-primary));
-    place-items: center;
-}
-
-.sr-title {
-    min-width: 0;
-}
-
-.sr-title h1 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    line-height: 1.15;
-}
-
-.sr-title p {
-    margin: 2px 0 0;
-    color: rgb(var(--v-theme-secondary));
-    font-size: 14px;
-    line-height: 1.3;
-}
-
-.sr-head-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-left: auto;
-}
-
-.sr-head-actions .sr-back {
-    margin-left: 0;
-}
-
-.sr-back {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-    gap: 8px;
-    height: 42px;
-    margin-left: auto;
-    padding: 0 16px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 0;
-    background: rgb(var(--v-theme-surface));
-    color: rgb(var(--v-theme-on-surface));
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.sr-back:hover {
-    background: var(--sr-hover);
-}
-
-.sr-back:focus-visible,
 .sr-add:focus-visible,
 .sr-trigger:focus-visible,
 .sr-option:focus-visible,
@@ -1308,7 +1430,9 @@ onBeforeUnmount(() => {
     color: rgb(var(--v-theme-on-surface));
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
 .sr-trigger:hover:not(:disabled) {
@@ -1515,7 +1639,8 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 12px;
     padding: 18px 20px;
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-bottom: 1px solid
+        rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .sr-card-hd h2 {
@@ -1548,7 +1673,9 @@ onBeforeUnmount(() => {
     font-size: 14.5px;
     font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
+    transition:
+        background 0.15s,
+        opacity 0.15s;
 }
 
 .sr-add:hover:not(:disabled) {
@@ -1582,7 +1709,8 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 12px;
     padding: 14px 20px;
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-bottom: 1px solid
+        rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .sr-row:last-child {
@@ -1706,7 +1834,9 @@ onBeforeUnmount(() => {
     color: rgb(var(--v-theme-on-surface));
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12.5px;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
 .sr-code-in:focus {
@@ -1741,26 +1871,34 @@ onBeforeUnmount(() => {
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: #98a2b8;
+    background: #8b95aa;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.26);
     cursor: pointer;
-    transition: background 0.2s;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s;
 }
 
 .sr-tg::after {
     position: absolute;
     top: 3px;
     left: 3px;
+    box-sizing: border-box;
     width: 20px;
     height: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
     border-radius: 0;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: #f3f4f6;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
     content: "";
     transition: transform 0.2s;
 }
 
 .sr-tg[aria-checked="true"] {
     background: #1b7a3d;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .sr-tg[aria-checked="true"]::after {
@@ -1778,26 +1916,35 @@ onBeforeUnmount(() => {
     width: 40px;
     height: 40px;
     padding: 0;
-    border: 0;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 0;
     background: transparent;
+    color: rgb(var(--v-theme-secondary));
     cursor: pointer;
     place-items: center;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        color 0.15s;
 }
 
 .sr-ib-edit {
+    border-color: rgba(184, 110, 0, 0.35);
     color: #b86e00;
 }
 
 .sr-ib-edit:hover {
+    border-color: rgba(184, 110, 0, 0.52);
     background: rgba(184, 110, 0, 0.12);
 }
 
 .sr-ib-delete {
+    border-color: rgba(198, 40, 40, 0.28);
     color: #c62828;
 }
 
 .sr-ib-delete:hover {
+    border-color: rgba(198, 40, 40, 0.45);
     background: rgba(198, 40, 40, 0.1);
 }
 
@@ -1827,26 +1974,26 @@ html.dark .sr-on {
 }
 
 html.dark .sr-ib-edit {
+    border-color: rgba(255, 191, 71, 0.4);
     color: #ffbf47;
 }
 
 html.dark .sr-ib-edit:hover {
+    border-color: rgba(255, 191, 71, 0.65);
     background: rgba(255, 191, 71, 0.12);
 }
 
 html.dark .sr-ib-delete {
+    border-color: rgba(255, 138, 128, 0.35);
     color: #ff8a80;
 }
 
 html.dark .sr-ib-delete:hover {
+    border-color: rgba(255, 138, 128, 0.6);
     background: rgba(255, 138, 128, 0.12);
 }
 
 @media (min-width: 1200px) {
-    .sr-title h1 {
-        font-size: 26px;
-    }
-
     .sr-card-hd {
         padding: 20px 28px;
     }
@@ -1869,14 +2016,6 @@ html.dark .sr-ib-delete:hover {
 }
 
 @media (max-width: 720px) {
-    .sr-back {
-        padding: 0 12px;
-    }
-
-    .sr-back span {
-        display: none;
-    }
-
     .sr-card-hd {
         flex-wrap: wrap;
     }
@@ -1931,15 +2070,6 @@ html.dark .sr-ib-delete:hover {
 }
 
 @media (max-width: 520px) {
-    .sr-title h1 {
-        font-size: 22px;
-    }
-
-    .sr-badge {
-        width: 44px;
-        height: 44px;
-    }
-
     .sr-step-tx b {
         font-size: 15px;
     }
@@ -2186,26 +2316,34 @@ html.dark .sr-ib-delete:hover {
     padding: 0;
     border: 0;
     border-radius: 99px;
-    background: #98a2b8;
+    background: #8b95aa;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.26);
     cursor: pointer;
-    transition: background 0.2s;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s;
 }
 
 .req-tg::after {
     position: absolute;
     top: 3px;
     left: 3px;
+    box-sizing: border-box;
     width: 22px;
     height: 22px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
     border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: #f3f4f6;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
     content: "";
     transition: transform 0.2s;
 }
 
 .req-tg[aria-checked="true"] {
     background: #1b7a3d;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .req-tg[aria-checked="true"]::after {

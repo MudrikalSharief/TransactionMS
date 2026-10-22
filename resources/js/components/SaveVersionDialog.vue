@@ -306,7 +306,7 @@ const bucket = computed(() =>
 const stagedChangeDetails = computed(() =>
     props.typeId != null
         ? staging.changedDetails(props.typeId)
-        : { steps: [], routes: [], requirements: [], checklists: [], fields: [] },
+        : { steps: [], routes: [], requirements: [], checklists: [], fields: [], stepData: [] },
 );
 
 const stagedCounts = computed(() => {
@@ -314,6 +314,12 @@ const stagedCounts = computed(() => {
     return [
         { key: "steps", label: "Steps", count: details.steps.length, items: details.steps },
         { key: "routes", label: "Routes", count: details.routes.length, items: details.routes },
+        {
+            key: "stepData",
+            label: "Step data",
+            count: details.stepData.length,
+            items: details.stepData,
+        },
         {
             key: "requirements",
             label: "Requirements",
@@ -341,6 +347,9 @@ const stagedChangeTotal = computed(() =>
 
 const stepNameById = computed(() => {
     const map = new Map();
+    for (const [key, label] of Object.entries(bucket.value?.stepLabels || {})) {
+        if (key && label) map.set(String(key), label);
+    }
     for (const step of [
         ...(bucket.value?.sourceSteps || []),
         ...(bucket.value?.steps || []),
@@ -436,6 +445,7 @@ function changeValueTitle(change, value) {
             "condition_expression",
             "description",
             "name",
+            "display_name",
             "label",
             "code",
             "route_group",

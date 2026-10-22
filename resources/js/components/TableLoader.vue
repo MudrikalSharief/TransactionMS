@@ -79,7 +79,7 @@ onUnmounted(() => {
 <style scoped>
 .table-loader {
     width: 100%;
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 /* Anatomy spacers: transparent reserves matching the loaded table's

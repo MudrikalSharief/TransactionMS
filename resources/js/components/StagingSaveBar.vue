@@ -53,7 +53,7 @@ function onDiscard() {
 }
 
 function onSaved(payload) {
-    emit("saved", payload?.meta ?? payload);
+    emit("saved", payload);
 }
 
 defineExpose({ openSaveDialog, discard: onDiscard });

@@ -312,7 +312,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
   box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.5);
   transform: translateY(14px) scale(0.98);
   transition: transform 0.22s;
-  font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 .ntx-scrim.show .ntx-dlg {
   transform: none;

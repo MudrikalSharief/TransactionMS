@@ -84,7 +84,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     overflow-y: auto;
 }
 

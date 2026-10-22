@@ -1,30 +1,47 @@
 <template>
     <div class="sd-page">
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-4">
+        <v-alert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+        >
             {{ error }}
         </v-alert>
 
-        <header class="sd-top">
-            <div class="sd-badge">
-                <v-icon size="24">mdi-text-box-outline</v-icon>
-            </div>
-            <div class="sd-title">
-                <h1>Step Data</h1>
-                <p>Choose a step and manage the values collected at Proceed.</p>
-            </div>
-            <button type="button" class="sd-back" @click="goBack">
-                <v-icon size="18">mdi-arrow-left</v-icon>
-                <span>Back</span>
-            </button>
-        </header>
+        <WorkflowPageHeader
+            icon="mdi-text-box-outline"
+            title="Step Data"
+            subtitle="Choose a step and manage the values collected at Proceed."
+            :version="defVersion"
+            :status="defStatus"
+            :is-live="defIsLive"
+            :dirty="stagingDirty"
+            :save-disabled="!stagingDirty"
+            @back="goBack"
+            @discard="discardStaged"
+            @save="openSaveDialog"
+        />
 
         <div class="sd-info">
-            <v-icon size="20" class="sd-info-ic">mdi-information-outline</v-icon>
+            <v-icon size="20" class="sd-info-ic"
+                >mdi-information-outline</v-icon
+            >
             <span>
-                <b>Template for this step.</b>
-                Text values collected at Proceed (for example, a receipt number). Values keep history per visit.
+                <b>Staged step data.</b>
+                Edits stay local until you press Save version.
             </span>
         </div>
+
+        <StagingSaveBar
+            ref="saveBarRef"
+            :type-id="typeId"
+            :def-id="workflowDefinitionId"
+            :inline-actions="false"
+            @saved="afterSaved"
+            @discarded="afterStagingChange"
+        />
 
         <p class="sd-lbl">Select step</p>
 
@@ -42,15 +59,26 @@
                 @keydown="onTriggerKeydown"
             >
                 <span class="sd-sr-only">Select step</span>
-                <span class="sd-step-n">{{ selectedStep?.order_number ?? "–" }}</span>
+                <span class="sd-step-n">{{
+                    selectedStep?.order_number ?? "–"
+                }}</span>
                 <span class="sd-step-tx">
-                    <b>{{ selectedStep?.name || (stepsLoading ? "Loading steps…" : "Select a step") }}</b>
-                    <small>{{ selectedStep?.code || "No step selected" }}</small>
+                    <b>{{
+                        selectedStep?.name ||
+                        (stepsLoading ? "Loading steps…" : "Select a step")
+                    }}</b>
+                    <small>{{
+                        selectedStep?.code || "No step selected"
+                    }}</small>
                 </span>
                 <span v-if="selectedStep" class="sd-count">
                     {{ countLabel(stepFieldCount(selectedStep.id)) }}
                 </span>
-                <v-icon class="sd-chev" :class="{ 'sd-chev-open': stepMenuOpen }" size="20">
+                <v-icon
+                    class="sd-chev"
+                    :class="{ 'sd-chev-open': stepMenuOpen }"
+                    size="20"
+                >
                     mdi-chevron-down
                 </v-icon>
             </button>
@@ -70,7 +98,9 @@
                     class="sd-option"
                     :class="{ 'sd-option-selected': isSelectedStep(option.id) }"
                     role="option"
-                    :aria-selected="isSelectedStep(option.id) ? 'true' : 'false'"
+                    :aria-selected="
+                        isSelectedStep(option.id) ? 'true' : 'false'
+                    "
                     @click="selectStep(option.id)"
                     @keydown="onStepOptionKeydown($event, index)"
                 >
@@ -82,14 +112,18 @@
                     <span class="sd-count">{{ countLabel(option.count) }}</span>
                     <v-icon
                         class="sd-option-ck"
-                        :class="{ 'sd-option-ck-on': isSelectedStep(option.id) }"
+                        :class="{
+                            'sd-option-ck-on': isSelectedStep(option.id),
+                        }"
                         size="20"
                         aria-hidden="true"
                     >
                         mdi-check
                     </v-icon>
                 </button>
-                <div v-if="!stepOptions.length" class="sd-option-empty">No steps available.</div>
+                <div v-if="!stepOptions.length" class="sd-option-empty">
+                    No steps available.
+                </div>
             </div>
         </div>
 
@@ -111,7 +145,11 @@
             </div>
 
             <div v-if="loading || stepsLoading" class="sd-loading">
-                <TableLoader compact label="step data" icon="mdi-text-box-outline" />
+                <TableLoader
+                    compact
+                    label="step data"
+                    icon="mdi-text-box-outline"
+                />
             </div>
 
             <div v-else class="sd-rows" role="table" aria-label="Data fields">
@@ -122,12 +160,19 @@
                     <div role="columnheader"></div>
                 </div>
 
-                <div v-for="item in sortedItems" :key="item.id" class="sd-row sd-row-item" role="row">
+                <div
+                    v-for="item in sortedItems"
+                    :key="item.id"
+                    class="sd-row sd-row-item"
+                    role="row"
+                >
                     <div class="sd-field" role="cell">
                         <b>{{ item.display_name }}</b>
                         <div class="sd-field-meta">
                             <span class="sd-code">{{ item.code }}</span>
-                            <span v-if="formatLimit(item)" class="sd-limit">{{ formatLimit(item) }}</span>
+                            <span v-if="formatLimit(item)" class="sd-limit">{{
+                                formatLimit(item)
+                            }}</span>
                         </div>
                     </div>
 
@@ -137,7 +182,6 @@
                             class="sd-tg"
                             role="switch"
                             :aria-checked="item.is_required ? 'true' : 'false'"
-                            :disabled="requiredSaving.has(String(item.id))"
                             :aria-label="`Toggle required for ${item.display_name}`"
                             @click="toggleRequired(item)"
                         ></button>
@@ -147,7 +191,9 @@
                     </div>
 
                     <div class="sd-order-cell" role="cell">
-                        <span class="sd-order">{{ item.display_order ?? 0 }}</span>
+                        <span class="sd-order">{{
+                            item.display_order ?? 0
+                        }}</span>
                     </div>
 
                     <div class="sd-actions" role="cell">
@@ -158,7 +204,7 @@
                             :aria-label="`Edit ${item.display_name}`"
                             @click="openEdit(item)"
                         >
-                            <v-icon size="19">mdi-pencil-outline</v-icon>
+                            <v-icon size="18">mdi-pencil</v-icon>
                         </button>
                         <button
                             type="button"
@@ -167,7 +213,7 @@
                             :aria-label="`Delete ${item.display_name}`"
                             @click="removeRow(item)"
                         >
-                            <v-icon size="19">mdi-trash-can-outline</v-icon>
+                            <v-icon size="18">mdi-delete</v-icon>
                         </button>
                     </div>
                 </div>
@@ -186,7 +232,11 @@
                     </div>
 
                     <div class="sd-row sd-row-noitem" role="row">
-                        <div class="sd-noitem-cell" role="cell" aria-colspan="4">
+                        <div
+                            class="sd-noitem-cell"
+                            role="cell"
+                            aria-colspan="4"
+                        >
                             <div class="sd-noitem-copy">
                                 <b>{{ noItemTitle }}</b>
                                 <span>{{ noItemText }}</span>
@@ -259,7 +309,9 @@
         >
             <v-card rounded="xl" class="df-card">
                 <v-card-title class="df-hd">
-                    <div class="df-title">{{ isEditing ? "Edit data field" : "Add data field" }}</div>
+                    <div class="df-title">
+                        {{ isEditing ? "Edit data field" : "Add data field" }}
+                    </div>
                     <v-btn
                         icon="mdi-close"
                         variant="text"
@@ -273,7 +325,13 @@
 
                 <form class="df-form" novalidate @submit.prevent="saveForm">
                     <v-card-text class="df-bd">
-                        <v-alert v-if="formError" type="error" variant="tonal" density="compact" class="mb-4">
+                        <v-alert
+                            v-if="formError"
+                            type="error"
+                            variant="tonal"
+                            density="compact"
+                            class="mb-4"
+                        >
                             {{ formError }}
                         </v-alert>
 
@@ -295,7 +353,10 @@
                                 class="df-in"
                                 @update:model-value="onDisplayNameInput"
                             />
-                            <div v-if="fieldErrors.display_name" class="df-error">
+                            <div
+                                v-if="fieldErrors.display_name"
+                                class="df-error"
+                            >
                                 {{ fieldErrors.display_name }}
                             </div>
                         </div>
@@ -319,9 +380,12 @@
                                 class="df-in df-in-mono"
                                 @update:model-value="onCodeInput"
                             />
-                            <div v-if="fieldErrors.code" class="df-error">{{ fieldErrors.code }}</div>
+                            <div v-if="fieldErrors.code" class="df-error">
+                                {{ fieldErrors.code }}
+                            </div>
                             <div v-else class="df-help">
-                                Type the field's system code manually in snake_case.
+                                Type the field's system code manually in
+                                snake_case.
                             </div>
                         </div>
 
@@ -340,7 +404,9 @@
                                 class="df-tg"
                                 type="button"
                                 role="switch"
-                                :aria-checked="form.is_required ? 'true' : 'false'"
+                                :aria-checked="
+                                    form.is_required ? 'true' : 'false'
+                                "
                                 aria-label="Required"
                                 @click="form.is_required = !form.is_required"
                             ></button>
@@ -348,7 +414,9 @@
 
                         <div class="df-g3">
                             <div class="df-f">
-                                <label class="df-lb" for="df-order">Order</label>
+                                <label class="df-lb" for="df-order"
+                                    >Order</label
+                                >
                                 <v-text-field
                                     id="df-order"
                                     v-model.number="form.display_order"
@@ -400,7 +468,10 @@
                                 />
                             </div>
                         </div>
-                        <div v-if="fieldErrors.lengths" class="df-error df-length-error">
+                        <div
+                            v-if="fieldErrors.lengths"
+                            class="df-error df-length-error"
+                        >
                             {{ fieldErrors.lengths }}
                         </div>
                         <div v-else class="df-help df-length-help">
@@ -411,8 +482,15 @@
                             <div class="df-sec-t">Preview</div>
                             <div class="df-preview">
                                 <div class="df-preview-label">
-                                    {{ form.display_name?.trim() || "Field name" }}
-                                    <span v-if="form.is_required" class="df-required">*</span>
+                                    {{
+                                        form.display_name?.trim() ||
+                                        "Field name"
+                                    }}
+                                    <span
+                                        v-if="form.is_required"
+                                        class="df-required"
+                                        >*</span
+                                    >
                                 </div>
                                 <div class="df-preview-input">
                                     <span>Text input</span>
@@ -451,31 +529,72 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { confirm } from "@/composables/useConfirm";
 import { useStepData } from "@/composables/useStepData";
 import { useToast } from "@/composables/useToast";
+import { tmpKey, useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
+import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
 
 const route = useRoute();
 const router = useRouter();
 const { api } = useApi();
-const { items, loading, fetchAll, create, update, remove } = useStepData();
-const { success: toastSuccess, error: toastError } = useToast();
+const { items, loading, fetchAll } = useStepData();
+const { success: toastSuccess } = useToast();
+const staging = useWorkflowStaging();
 
 const returnTypeId = ref(null);
+const defVersion = ref(null);
+const defStatus = ref("");
+const defIsLive = ref(false);
+const defUpdatedAt = ref(null);
 
 function goBack() {
     const qType = Number(route.query.type);
-    const target = Number.isFinite(qType) && qType > 0 ? qType : Number(returnTypeId.value);
-    if (target > 0) router.push({ path: "/admin/workflows", query: { type: target } });
+    const target =
+        Number.isFinite(qType) && qType > 0
+            ? qType
+            : Number(returnTypeId.value);
+    if (target > 0)
+        router.push({ path: "/admin/workflows", query: { type: target } });
     else router.push("/admin/workflows");
 }
 
 const workflowDefinitionId = computed(() => Number(route.params.workflowId));
 const stepIdFromUrl = computed(() => Number(route.params.stepId));
+
+// Staging is keyed by transaction type: prefer the explicit query param,
+// fall back to the type resolved from the loaded definition.
+const typeId = computed(() => {
+    const q = Number(route.query.type);
+    if (Number.isFinite(q) && q > 0) return q;
+    const t = Number(returnTypeId.value);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
+
+const saveBarRef = ref(null);
+const stagingDirty = computed(() =>
+    typeId.value ? staging.isDirty(typeId.value) : false,
+);
+
+function openSaveDialog() {
+    saveBarRef.value?.openSaveDialog?.();
+}
+
+function discardStaged() {
+    saveBarRef.value?.discard?.();
+}
 
 const error = ref("");
 const steps = ref([]);
@@ -488,12 +607,14 @@ const stepMenuRef = ref(null);
 const stepTrigger = ref(null);
 const stepOptionEls = ref([]);
 
-const requiredSaving = ref(new Set());
 const deletingIds = ref(new Set());
 let itemsRequest = 0;
 
 const selectedStep = computed(
-    () => steps.value.find((s) => String(s.id) === String(selectedStepId.value)) ?? null,
+    () =>
+        steps.value.find(
+            (s) => String(s.id) === String(selectedStepId.value),
+        ) ?? null,
 );
 
 const stepOptions = computed(() =>
@@ -510,7 +631,7 @@ const sortedItems = computed(() =>
     [...(items.value || [])].sort(
         (a, b) =>
             Number(a.display_order ?? 0) - Number(b.display_order ?? 0) ||
-            Number(a.id) - Number(b.id),
+            String(a.id).localeCompare(String(b.id)),
     ),
 );
 
@@ -530,13 +651,15 @@ const cardSubtitle = computed(() => {
 
 const noItemTitle = computed(() => {
     if (error.value && !selectedStepId.value) return "Couldn't load steps";
-    if (!selectedStepId.value) return steps.value.length ? "Select a step" : "No steps available";
+    if (!selectedStepId.value)
+        return steps.value.length ? "Select a step" : "No steps available";
     if (error.value) return "Couldn't load data fields";
     return "No data fields yet";
 });
 
 const noItemText = computed(() => {
-    if (error.value && !selectedStepId.value) return "Check the error above, then try again.";
+    if (error.value && !selectedStepId.value)
+        return "Check the error above, then try again.";
     if (!selectedStepId.value) {
         return steps.value.length
             ? "Choose a step above to manage its data fields."
@@ -556,9 +679,16 @@ const ghostRowCount = computed(() => Math.max(0, 5 - sortedItems.value.length));
 
 function stepFieldCount(id) {
     const key = String(id);
+    if (typeId.value) {
+        const staged = staging.buckets.get(String(typeId.value))?.stepData?.[
+            key
+        ];
+        if (staged) return staged.length;
+    }
     const value = stepCounts.value[key];
     if (value !== undefined && value !== null) return Number(value) || 0;
-    if (String(id) === String(selectedStepId.value)) return (items.value || []).length;
+    if (String(id) === String(selectedStepId.value))
+        return (items.value || []).length;
     return 0;
 }
 
@@ -567,6 +697,26 @@ function setStepCount(id, count) {
         ...stepCounts.value,
         [String(id)]: Math.max(0, Number(count) || 0),
     };
+}
+
+function stagedRowsFor(stepId) {
+    if (!typeId.value) return null;
+    const rows = staging.buckets.get(String(typeId.value))?.stepData?.[
+        String(stepId)
+    ];
+    return Array.isArray(rows) ? rows : null;
+}
+
+function stageStepData(rows = items.value) {
+    if (!typeId.value || !selectedStepId.value) return false;
+    const result = staging.setStepData(
+        typeId.value,
+        Number(selectedStepId.value),
+        (rows || []).map((row) => ({ ...row })),
+    );
+    if (result?.rows) items.value = result.rows.map((row) => ({ ...row }));
+    setStepCount(selectedStepId.value, items.value.length);
+    return !!result?.changed;
 }
 
 function countLabel(count) {
@@ -606,7 +756,9 @@ function toggleStepMenu() {
         return;
     }
 
-    const index = stepOptions.value.findIndex((option) => isSelectedStep(option.id));
+    const index = stepOptions.value.findIndex((option) =>
+        isSelectedStep(option.id),
+    );
     openStepMenu(index >= 0 ? index : 0);
 }
 
@@ -633,7 +785,10 @@ function onStepOptionKeydown(event, index) {
 }
 
 function onStepMenuFocusOut(event) {
-    if (stepMenuOpen.value && !stepMenuRef.value?.contains(event.relatedTarget)) {
+    if (
+        stepMenuOpen.value &&
+        !stepMenuRef.value?.contains(event.relatedTarget)
+    ) {
         stepMenuOpen.value = false;
     }
 }
@@ -668,25 +823,11 @@ function formatLimit(item) {
     return parts.join(" · ");
 }
 
-async function toggleRequired(item) {
-    const id = String(item.id);
-    if (requiredSaving.value.has(id)) return;
+function toggleRequired(item) {
+    if (!typeId.value) return;
 
-    const previous = item.is_required;
-    const next = !previous;
-    item.is_required = next;
-    requiredSaving.value.add(id);
-
-    try {
-        await update(workflowDefinitionId.value, Number(selectedStepId.value), item.id, {
-            is_required: next,
-        });
-    } catch (e) {
-        item.is_required = previous;
-        toastError(e?.response?.data?.message || "Could not update required status.");
-    } finally {
-        requiredSaving.value.delete(id);
-    }
+    item.is_required = !item.is_required;
+    stageStepData();
 }
 
 async function removeRow(item) {
@@ -702,14 +843,14 @@ async function removeRow(item) {
     });
     if (!ok) return;
 
-    const remainingCount = Math.max(0, stepFieldCount(stepId) - 1);
     deletingIds.value.add(id);
     try {
-        await remove(workflowDefinitionId.value, stepId, item.id);
-        setStepCount(stepId, remainingCount);
-        toastSuccess(`Field "${item.display_name}" deleted.`);
-    } catch (e) {
-        toastError(e?.response?.data?.message || "Delete failed.");
+        items.value = (items.value || []).filter(
+            (row) => String(row.id) !== id,
+        );
+        stageStepData(items.value);
+        setStepCount(stepId, items.value.length);
+        toastSuccess(`Field "${item.display_name}" removed.`);
     } finally {
         deletingIds.value.delete(id);
     }
@@ -719,7 +860,14 @@ const dialog = ref(false);
 const editingId = ref(null);
 const formSaving = ref(false);
 const formError = ref("");
-const form = ref({ display_name: "", code: "", is_required: false, display_order: 0, min_length: null, max_length: null });
+const form = ref({
+    display_name: "",
+    code: "",
+    is_required: false,
+    display_order: 0,
+    min_length: null,
+    max_length: null,
+});
 const fieldErrors = ref({ display_name: "", code: "", lengths: "" });
 const nameField = ref(null);
 const codeField = ref(null);
@@ -778,13 +926,14 @@ function validateForm() {
     if (!code) {
         errors.code = "Enter a code in snake_case (starting with a letter).";
     } else if (!/^[a-z][a-z0-9_]*$/.test(code)) {
-        errors.code = "Use snake_case, starting with a letter (for example receipt_number).";
+        errors.code =
+            "Use snake_case, starting with a letter (for example receipt_number).";
     } else if (code.length > 100) {
         errors.code = "Keep the code to 100 characters or fewer.";
     } else {
         const duplicate = (items.value || []).some(
             (item) =>
-                Number(item.id) !== Number(editingId.value) &&
+                String(item.id) !== String(editingId.value) &&
                 String(item.code || "").toLowerCase() === code.toLowerCase(),
         );
         if (duplicate) {
@@ -802,7 +951,9 @@ function validateForm() {
 
     form.value.code = code;
     const order = Number(form.value.display_order);
-    form.value.display_order = Number.isFinite(order) ? Math.max(0, Math.floor(order)) : 0;
+    form.value.display_order = Number.isFinite(order)
+        ? Math.max(0, Math.floor(order))
+        : 0;
     fieldErrors.value = errors;
 
     if (errors.display_name) {
@@ -863,37 +1014,49 @@ function cleanPayload() {
     };
 }
 
-async function saveForm() {
+function saveForm() {
     if (formSaving.value) return;
     if (!selectedStepId.value) {
         formError.value = "Pick a step first.";
+        return;
+    }
+    if (!typeId.value) {
+        formError.value =
+            "Resolve the transaction type first (open this page from Workflows).";
         return;
     }
     if (!validateForm()) return;
 
     formError.value = "";
     const wasEditing = !!editingId.value;
-    const stepId = Number(selectedStepId.value);
-    formSaving.value = true;
-    try {
-        const payload = cleanPayload();
-        if (wasEditing) {
-            await update(workflowDefinitionId.value, stepId, editingId.value, payload);
-        } else {
-            await create(workflowDefinitionId.value, stepId, payload);
-        }
-        setStepCount(stepId, items.value.length);
-        dialog.value = false;
-        toastSuccess(
-            wasEditing
-                ? `Field "${payload.display_name}" updated.`
-                : `Field "${payload.display_name}" added.`,
+    const payload = cleanPayload();
+    if (wasEditing) {
+        items.value = (items.value || []).map((row) =>
+            String(row.id) === String(editingId.value)
+                ? { ...row, ...payload }
+                : row,
         );
-    } catch (e) {
-        formError.value = e?.response?.data?.message || "Save failed.";
-    } finally {
-        formSaving.value = false;
+    } else {
+        const key = tmpKey();
+        items.value = [
+            ...(items.value || []),
+            {
+                id: key,
+                client_id: key,
+                source_id: null,
+                original_code: null,
+                type: "text",
+                ...payload,
+            },
+        ];
     }
+    stageStepData();
+    dialog.value = false;
+    toastSuccess(
+        wasEditing
+            ? `Field "${payload.display_name}" updated.`
+            : `Field "${payload.display_name}" added.`,
+    );
 }
 
 async function loadSteps() {
@@ -902,16 +1065,25 @@ async function loadSteps() {
     try {
         const wid = workflowDefinitionId.value;
         try {
-            const defRes = await api.get(`/api/admin/workflow-definitions/${wid}`);
+            const defRes = await api.get(
+                `/api/admin/workflow-definitions/${wid}`,
+            );
             const def = defRes.data?.data ?? defRes.data;
             const tid = Number(def?.transaction_type_id);
             if (Number.isFinite(tid) && tid > 0) returnTypeId.value = tid;
+            defVersion.value = def?.version ?? null;
+            defStatus.value = def?.status ?? "";
+            defIsLive.value = !!def?.is_live;
+            defUpdatedAt.value = def?.updated_at ?? null;
         } catch {
-            /* type id for Back is best-effort */
+            /* type id and version metadata are best-effort */
         }
 
-        const res = await api.get(`/api/admin/workflow-definitions/${wid}/steps`);
+        const res = await api.get(
+            `/api/admin/workflow-definitions/${wid}/steps`,
+        );
         steps.value = res.data.data ?? res.data ?? [];
+        if (typeId.value) staging.setStepLabels(typeId.value, steps.value);
 
         const counts = {};
         for (const step of steps.value) {
@@ -919,7 +1091,8 @@ async function loadSteps() {
         }
         stepCounts.value = counts;
     } catch (e) {
-        error.value = e?.response?.data?.message || e?.message || "Failed to load steps.";
+        error.value =
+            e?.response?.data?.message || e?.message || "Failed to load steps.";
     } finally {
         stepsLoading.value = false;
     }
@@ -932,12 +1105,42 @@ async function loadItems() {
     const request = ++itemsRequest;
     error.value = "";
 
+    if (typeId.value) {
+        staging.ensureStepDataVersion(
+            typeId.value,
+            workflowDefinitionId.value,
+            defUpdatedAt.value,
+        );
+    }
+
+    const staged = stagedRowsFor(stepId);
+    if (staged) {
+        items.value = staged.map((row) => ({ ...row }));
+        setStepCount(stepId, items.value.length);
+        return;
+    }
+
     try {
         await fetchAll(workflowDefinitionId.value, stepId);
-        if (request !== itemsRequest || Number(selectedStepId.value) !== stepId) return;
+        if (request !== itemsRequest || Number(selectedStepId.value) !== stepId)
+            return;
+
+        const serverRows = (items.value || []).map((row) => ({ ...row }));
+        if (typeId.value) {
+            staging.seedStepData(
+                typeId.value,
+                workflowDefinitionId.value,
+                defUpdatedAt.value,
+                stepId,
+                serverRows,
+            );
+        }
+        const seeded = stagedRowsFor(stepId);
+        items.value = (seeded || serverRows).map((row) => ({ ...row }));
         setStepCount(stepId, items.value.length);
     } catch (e) {
-        if (request !== itemsRequest || Number(selectedStepId.value) !== stepId) return;
+        if (request !== itemsRequest || Number(selectedStepId.value) !== stepId)
+            return;
         error.value = e?.response?.data?.message || "Failed to load step data.";
     }
 }
@@ -955,7 +1158,10 @@ watch(selectedStepId, async (id, previous) => {
 
 function selectInitialStep() {
     const sid = stepIdFromUrl.value;
-    if (Number.isFinite(sid) && steps.value.some((step) => Number(step.id) === sid)) {
+    if (
+        Number.isFinite(sid) &&
+        steps.value.some((step) => Number(step.id) === sid)
+    ) {
         selectedStepId.value = sid;
     } else if (steps.value.length) {
         selectedStepId.value = steps.value[0].id;
@@ -965,6 +1171,56 @@ function selectInitialStep() {
 async function retrySteps() {
     await loadSteps();
     if (!selectedStepId.value) selectInitialStep();
+}
+
+async function afterSaved(payload) {
+    const saved = payload?.data ?? null;
+    const savedId = Number(saved?.id);
+    // Overwriting the live version (or creating a new one) publishes a new
+    // definition. Stay on this page, but follow the saved definition and
+    // match this step by its stable code so the saved rows are visible.
+    if (savedId > 0 && savedId !== Number(workflowDefinitionId.value)) {
+        const selected = selectedStep.value;
+        const savedSteps = saved?.steps ?? [];
+        const targetStep =
+            savedSteps.find(
+                (step) => step.code && step.code === selected?.code,
+            ) ??
+            savedSteps.find(
+                (step) => step.name && step.name === selected?.name,
+            ) ??
+            savedSteps.find(
+                (step) =>
+                    Number(step.order_number) ===
+                    Number(selected?.order_number),
+            ) ??
+            savedSteps[0];
+        if (targetStep?.id) {
+            const target = router.resolve({
+                name: "admin.step-data",
+                params: { workflowId: savedId, stepId: targetStep.id },
+                query: typeId.value ? { type: typeId.value } : {},
+            }).href;
+            window.location.assign(target);
+            return;
+        }
+    }
+    await afterStagingChange();
+}
+
+async function afterStagingChange() {
+    // Save/discard drops the staged bucket; reload both the step counts and
+    // the visible rows so the page reflects the server's saved state.
+    await loadSteps();
+    const stillExists = steps.value.some(
+        (step) => String(step.id) === String(selectedStepId.value),
+    );
+    if (!stillExists) {
+        selectInitialStep();
+        if (!selectedStepId.value) items.value = [];
+        return;
+    }
+    await loadItems();
 }
 
 onMounted(async () => {
@@ -1010,66 +1266,6 @@ onBeforeUnmount(() => {
     border: 0;
 }
 
-.sd-top {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 18px;
-}
-
-.sd-badge {
-    display: grid;
-    flex: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 0;
-    background: rgb(var(--v-theme-primary));
-    color: rgb(var(--v-theme-on-primary));
-    place-items: center;
-}
-
-.sd-title {
-    min-width: 0;
-}
-
-.sd-title h1 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    line-height: 1.2;
-}
-
-.sd-title p {
-    margin: 2px 0 0;
-    font-size: 14px;
-    line-height: 1.2;
-    color: rgb(var(--v-theme-secondary));
-}
-
-.sd-back {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-    gap: 8px;
-    height: 42px;
-    margin-left: auto;
-    padding: 0 16px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 0;
-    background: rgb(var(--v-theme-surface));
-    color: rgb(var(--v-theme-on-surface));
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.sd-back:hover {
-    background: var(--sd-hover);
-}
-
-.sd-back:focus-visible,
 .sd-add:focus-visible,
 .sd-trigger:focus-visible,
 .sd-option:focus-visible,
@@ -1130,7 +1326,9 @@ onBeforeUnmount(() => {
     color: rgb(var(--v-theme-on-surface));
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
 .sd-trigger:hover:not(:disabled) {
@@ -1326,7 +1524,8 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 12px;
     padding: 18px 20px;
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-bottom: 1px solid
+        rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .sd-card-hd h2 {
@@ -1359,7 +1558,9 @@ onBeforeUnmount(() => {
     font-size: 14.5px;
     font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
+    transition:
+        background 0.15s,
+        opacity 0.15s;
 }
 
 .sd-add:hover:not(:disabled) {
@@ -1394,7 +1595,8 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 12px;
     padding: 14px 20px;
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-bottom: 1px solid
+        rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .sd-row:last-child {
@@ -1524,26 +1726,35 @@ onBeforeUnmount(() => {
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: #98a2b8;
+    background: #8b95aa;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.26);
     cursor: pointer;
-    transition: background 0.2s, opacity 0.2s;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s,
+        opacity 0.2s;
 }
 
 .sd-tg::after {
     position: absolute;
     top: 3px;
     left: 3px;
+    box-sizing: border-box;
     width: 20px;
     height: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
     border-radius: 0;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: #f3f4f6;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
     content: "";
     transition: transform 0.2s;
 }
 
 .sd-tg[aria-checked="true"] {
     background: #1b7a3d;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .sd-tg[aria-checked="true"]::after {
@@ -1583,12 +1794,17 @@ onBeforeUnmount(() => {
     width: 40px;
     height: 40px;
     padding: 0;
-    border: 0;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 0;
     background: none;
+    color: rgb(var(--v-theme-secondary));
     cursor: pointer;
     place-items: center;
-    transition: background 0.15s, opacity 0.15s;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        color 0.15s,
+        opacity 0.15s;
 }
 
 .sd-ib:disabled {
@@ -1597,19 +1813,23 @@ onBeforeUnmount(() => {
 }
 
 .sd-ib-edit {
-    color: rgb(var(--v-theme-warning));
+    border-color: rgba(184, 110, 0, 0.35);
+    color: #b86e00;
 }
 
 .sd-ib-edit:hover:not(:disabled) {
-    background: rgba(var(--v-theme-warning), 0.12);
+    border-color: rgba(184, 110, 0, 0.52);
+    background: rgba(184, 110, 0, 0.12);
 }
 
 .sd-ib-delete {
-    color: rgb(var(--v-theme-error));
+    border-color: rgba(198, 40, 40, 0.28);
+    color: #c62828;
 }
 
 .sd-ib-delete:hover:not(:disabled) {
-    background: rgba(var(--v-theme-error), 0.1);
+    border-color: rgba(198, 40, 40, 0.45);
+    background: rgba(198, 40, 40, 0.1);
 }
 
 /* ---- Add / Edit data field modal ---- */
@@ -1745,26 +1965,34 @@ onBeforeUnmount(() => {
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: #98a2b8;
+    background: #8b95aa;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.26);
     cursor: pointer;
-    transition: background 0.2s;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s;
 }
 
 .df-tg::after {
     position: absolute;
     top: 3px;
     left: 3px;
+    box-sizing: border-box;
     width: 22px;
     height: 22px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
     border-radius: 0;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: #f3f4f6;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
     content: "";
     transition: transform 0.2s;
 }
 
 .df-tg[aria-checked="true"] {
     background: #1b7a3d;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .df-tg[aria-checked="true"]::after {
@@ -1901,6 +2129,26 @@ html.dark .sd-on {
     color: #3fbf6f;
 }
 
+html.dark .sd-ib-edit {
+    border-color: rgba(255, 191, 71, 0.4);
+    color: #ffbf47;
+}
+
+html.dark .sd-ib-edit:hover:not(:disabled) {
+    border-color: rgba(255, 191, 71, 0.65);
+    background: rgba(255, 191, 71, 0.12);
+}
+
+html.dark .sd-ib-delete {
+    border-color: rgba(255, 138, 128, 0.35);
+    color: #ff8a80;
+}
+
+html.dark .sd-ib-delete:hover:not(:disabled) {
+    border-color: rgba(255, 138, 128, 0.6);
+    background: rgba(255, 138, 128, 0.12);
+}
+
 html.dark .df-in :deep(.v-field) {
     background: #232b45;
 }
@@ -1919,10 +2167,6 @@ html.dark .df-preview-input span:first-child {
 }
 
 @media (min-width: 1200px) {
-    .sd-title h1 {
-        font-size: 26px;
-    }
-
     .sd-card-hd {
         padding: 20px 28px;
     }
@@ -1952,14 +2196,6 @@ html.dark .df-preview-input span:first-child {
     :global(.df-dialog-content .df-card) {
         max-height: 94vh;
         border-radius: 24px 24px 0 0 !important;
-    }
-
-    .sd-back {
-        padding: 0 12px;
-    }
-
-    .sd-back span {
-        display: none;
     }
 
     .sd-card-hd {
@@ -2023,15 +2259,6 @@ html.dark .df-preview-input span:first-child {
 }
 
 @media (max-width: 520px) {
-    .sd-top h1 {
-        font-size: 22px;
-    }
-
-    .sd-badge {
-        width: 44px;
-        height: 44px;
-    }
-
     .sd-step-tx b {
         font-size: 15px;
     }

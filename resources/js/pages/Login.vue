@@ -213,7 +213,7 @@ async function submit() {
     overflow: auto;
     background: #ffffff;
     color: #14213d;
-    font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }

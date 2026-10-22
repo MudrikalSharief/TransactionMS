@@ -42,6 +42,7 @@ class WorkflowStagingService
             'routes_created' => 0, 'routes_updated' => 0, 'routes_deleted' => 0,
             'requirements_created' => 0, 'requirements_updated' => 0, 'requirements_deleted' => 0,
             'steps_bound' => 0, 'steps_checklisted' => 0, 'steps_resynced' => 0, 'steps_fields_synced' => 0,
+            'step_data_saved' => 0,
         ];
 
         $draft = null;
@@ -357,6 +358,98 @@ class WorkflowStagingService
                 }
                 $step->fieldDefinitions()->sync($payload);
                 $applied['steps_fields_synced']++;
+            }
+
+            // ---- per-step text data definitions (full replace) ----
+            foreach ($data['step_data'] ?? [] as $stepKey => $rows) {
+                $step = $resolveStepOrFail($stepKey);
+                $existingRows = $step->stepDataDefinitions()->withTrashed()->get();
+                $existingById = $existingRows->keyBy('id');
+                $existingByCode = [];
+                foreach ($existingRows as $existingRow) {
+                    $existingByCode[strtolower($existingRow->code)] = $existingRow;
+                }
+
+                $updates = [];
+                $creates = [];
+                $keepIds = [];
+                $seenCodes = [];
+                $seenRows = [];
+                foreach ((array) $rows as $i => $r) {
+                    $code = trim((string) ($r['code'] ?? ''));
+                    if ($code === '') {
+                        abort(422, 'Step data code is required.');
+                    }
+                    $codeKey = strtolower($code);
+                    if (isset($seenCodes[$codeKey])) {
+                        abort(422, "Duplicate step data code '{$code}' in one step.");
+                    }
+                    $seenCodes[$codeKey] = true;
+
+                    $sourceId = $r['source_id'] ?? null;
+                    $originalCode = trim((string) ($r['original_code'] ?? ''));
+                    $row = null;
+                    if (is_numeric($sourceId)) {
+                        $row = $existingById->get((int) $sourceId);
+                    }
+                    if (!$row && $originalCode !== '') {
+                        $row = $existingByCode[strtolower($originalCode)] ?? null;
+                    }
+                    if (!$row) {
+                        $row = $existingByCode[$codeKey] ?? null;
+                    }
+
+                    $payload = [
+                        'code' => $code,
+                        'display_name' => (string) ($r['display_name'] ?? ''),
+                        'type' => $r['type'] ?? 'text',
+                        'is_required' => (bool) ($r['is_required'] ?? false),
+                        'display_order' => (int) ($r['display_order'] ?? $i),
+                        'min_length' => array_key_exists('min_length', $r) ? $r['min_length'] : null,
+                        'max_length' => array_key_exists('max_length', $r) ? $r['max_length'] : null,
+                    ];
+
+                    if ($row) {
+                        if (isset($seenRows[$row->id])) {
+                            abort(422, 'Two step data rows refer to the same saved field.');
+                        }
+                        $seenRows[$row->id] = true;
+                        $updates[] = [$row, $payload];
+                        $keepIds[] = $row->id;
+                    } else {
+                        $creates[] = $payload;
+                    }
+                }
+
+                // Free codes that would block a final code before applying
+                // them, so a code swap or delete/re-add cannot trip the
+                // per-step unique index. Rows whose codes are not being
+                // reused are left alone, preserving deleted-row history.
+                foreach ($existingRows as $existingRow) {
+                    $kept = in_array($existingRow->id, $keepIds, true);
+                    $blocksFinalCode = isset($seenCodes[strtolower($existingRow->code)]);
+                    if (!$kept && !$blocksFinalCode) {
+                        continue;
+                    }
+                    if ($kept && $existingRow->trashed()) {
+                        $existingRow->restore();
+                    }
+                    $existingRow->update([
+                        'code' => '__sd_tmp_' . $existingRow->id . '_' . substr(sha1(uniqid('', true)), 0, 8),
+                    ]);
+                }
+                foreach ($existingRows as $existingRow) {
+                    if (!in_array($existingRow->id, $keepIds, true) && !$existingRow->trashed()) {
+                        $existingRow->delete();
+                    }
+                }
+                foreach ($updates as [$row, $rowPayload]) {
+                    $row->update($rowPayload);
+                }
+                foreach ($creates as $rowPayload) {
+                    $step->stepDataDefinitions()->create($rowPayload);
+                }
+                $applied['step_data_saved'] += count($updates) + count($creates);
             }
 
             // ---- name/notes ----

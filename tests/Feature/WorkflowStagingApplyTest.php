@@ -7,6 +7,7 @@ use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
+use App\Models\WorkflowStepData;
 use App\Services\WorkflowVersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -110,6 +111,144 @@ class WorkflowStagingApplyTest extends TestCase
         $this->assertSame('Still draft', $draft->name);
 
         $this->assertTrue((bool) $this->live->fresh()->is_live);
+    }
+
+    public function test_step_data_is_matched_by_original_code_after_cloning(): void
+    {
+        $user = $this->superadmin();
+        Sanctum::actingAs($user);
+
+        $alpha = WorkflowStepData::create([
+            'workflow_step_id' => $this->start->id,
+            'code' => 'alpha',
+            'display_name' => 'Alpha',
+            'type' => 'text',
+            'is_required' => true,
+            'display_order' => 0,
+        ]);
+        $removed = WorkflowStepData::create([
+            'workflow_step_id' => $this->start->id,
+            'code' => 'remove_me',
+            'display_name' => 'Remove me',
+            'type' => 'text',
+            'is_required' => false,
+            'display_order' => 1,
+        ]);
+
+        $draft = app(WorkflowVersioningService::class)
+            ->createDraft(['transaction_type_id' => $this->type->id], $user->id);
+
+        $draftStart = $draft->steps()->where('code', 'start')->firstOrFail();
+        $draftAlpha = $draftStart->stepDataDefinitions()->where('code', 'alpha')->firstOrFail();
+        $draftRemoved = $draftStart->stepDataDefinitions()->where('code', 'remove_me')->firstOrFail();
+        $this->assertNotSame($alpha->id, $draftAlpha->id);
+
+        // Live page sends the live row's id; the clone has a new id, so the
+        // backend must fall back to original_code.
+        $this->postJson("/api/admin/workflow-definitions/{$draft->id}/apply-staged", [
+            'mode' => 'overwrite',
+            'step_data' => [
+                (string) $this->start->id => [
+                    [
+                        'key' => $alpha->id,
+                        'source_id' => $alpha->id,
+                        'original_code' => 'alpha',
+                        'code' => 'alpha',
+                        'display_name' => 'Alpha renamed',
+                        'type' => 'text',
+                        'is_required' => false,
+                        'display_order' => 0,
+                        'min_length' => null,
+                        'max_length' => null,
+                    ],
+                    [
+                        'key' => 'new-beta',
+                        'source_id' => null,
+                        'original_code' => null,
+                        'code' => 'beta',
+                        'display_name' => 'Beta',
+                        'type' => 'text',
+                        'is_required' => true,
+                        'display_order' => 1,
+                        'min_length' => null,
+                        'max_length' => null,
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('Alpha renamed', $draftAlpha->fresh()->display_name);
+        $this->assertFalse((bool) $draftAlpha->fresh()->is_required);
+        $this->assertTrue(
+            $draftStart->stepDataDefinitions()->where('code', 'beta')->exists()
+        );
+        $this->assertNotNull(
+            WorkflowStepData::withTrashed()->findOrFail($draftRemoved->id)->deleted_at
+        );
+        // The source live version must remain untouched.
+        $this->assertSame('Alpha', $alpha->fresh()->display_name);
+        $this->assertTrue((bool) $alpha->fresh()->is_required);
+        $this->assertNull($removed->fresh()->deleted_at);
+    }
+
+    public function test_step_data_codes_can_be_swapped(): void
+    {
+        $user = $this->superadmin();
+        Sanctum::actingAs($user);
+
+        $alpha = WorkflowStepData::create([
+            'workflow_step_id' => $this->start->id,
+            'code' => 'alpha',
+            'display_name' => 'Alpha',
+            'type' => 'text',
+            'is_required' => false,
+            'display_order' => 0,
+        ]);
+        $beta = WorkflowStepData::create([
+            'workflow_step_id' => $this->start->id,
+            'code' => 'beta',
+            'display_name' => 'Beta',
+            'type' => 'text',
+            'is_required' => false,
+            'display_order' => 1,
+        ]);
+
+        $draft = app(WorkflowVersioningService::class)
+            ->createDraft(['transaction_type_id' => $this->type->id], $user->id);
+        $draftStart = $draft->steps()->where('code', 'start')->firstOrFail();
+        $draftAlpha = $draftStart->stepDataDefinitions()->where('code', 'alpha')->firstOrFail();
+        $draftBeta = $draftStart->stepDataDefinitions()->where('code', 'beta')->firstOrFail();
+
+        $this->postJson("/api/admin/workflow-definitions/{$draft->id}/apply-staged", [
+            'mode' => 'overwrite',
+            'step_data' => [
+                (string) $this->start->id => [
+                    [
+                        'source_id' => $alpha->id,
+                        'original_code' => 'alpha',
+                        'code' => 'beta',
+                        'display_name' => 'Alpha',
+                        'type' => 'text',
+                        'is_required' => false,
+                        'display_order' => 0,
+                    ],
+                    [
+                        'source_id' => $beta->id,
+                        'original_code' => 'beta',
+                        'code' => 'alpha',
+                        'display_name' => 'Beta',
+                        'type' => 'text',
+                        'is_required' => false,
+                        'display_order' => 1,
+                    ],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('beta', $draftAlpha->fresh()->code);
+        $this->assertSame('alpha', $draftBeta->fresh()->code);
+        $this->assertSame('alpha', $alpha->fresh()->code);
+        $this->assertSame('beta', $beta->fresh()->code);
     }
 
     private function stepPayload(): array

@@ -58,6 +58,7 @@ function bucket(typeId) {
             sourceBindings: {},
             sourceChecklist: {},
             sourceFields: {},
+            sourceStepData: {},
             steps: [],
             routes: [],
             reqDefs: [],
@@ -65,6 +66,8 @@ function bucket(typeId) {
             checklist: {},
             resyncSteps: [],
             fields: {},
+            stepData: {},
+            stepLabels: {},
             removedStepIds: [],
             removedRouteIds: [],
             removedReqIds: [],
@@ -175,6 +178,36 @@ function fieldKey(r) {
     return id == null ? null : `field:${id}`
 }
 
+function stepDataKey(r, idx) {
+    const key = r?.client_id ?? r?.id
+    return key == null ? `step-data:${idx}` : `step-data:${key}`
+}
+
+// Step data rows must keep a link back to the row they came from. A live
+// workflow is cloned into a draft on save, so server ids change; the
+// original code is the stable fallback the backend uses to match rows.
+function normalizeStepDataRows(rows, previous = []) {
+    const prevByKey = new Map(
+        (previous || []).map((row) => [String(row.client_id ?? row.id), row]),
+    )
+    return cloneRows(rows).map((row, idx) => {
+        const key = String(row.client_id ?? row.id ?? `row-${idx}`)
+        const prev = prevByKey.get(key)
+        const sourceId =
+            row.source_id ??
+            prev?.source_id ??
+            (typeof row.id === 'number' ? row.id : null)
+        return {
+            ...row,
+            source_id: sourceId,
+            original_code:
+                row.original_code ??
+                prev?.original_code ??
+                (sourceId != null ? row.code ?? null : null),
+        }
+    })
+}
+
 function stepLabel(step) {
     return step?.name || (step?.id != null ? `Step #${step.id}` : 'Untitled step')
 }
@@ -200,6 +233,12 @@ const STEP_SPECS = [
     { key: 'sla_minutes', label: 'SLA', get: (s) => s?.sla_minutes, normalize: (v) => Number(v ?? 0) },
     { key: 'is_start', label: 'Start step', get: (s) => s?.is_start, normalize: (v) => !!v },
     { key: 'is_end', label: 'End step', get: (s) => s?.is_end, normalize: (v) => !!v },
+    {
+        key: 'is_end_user',
+        label: 'End user',
+        get: (s) => s?.is_end_user,
+        normalize: (v) => !!v,
+    },
     {
         key: 'roles',
         label: 'Roles',
@@ -314,19 +353,55 @@ const FIELD_SPECS = [
     },
 ]
 
+const STEP_DATA_SPECS = [
+    { key: 'code', label: 'Code', get: (r) => r?.code, normalize: textOrNull },
+    {
+        key: 'display_name',
+        label: 'Display name',
+        get: (r) => r?.display_name,
+        normalize: (v) => String(v ?? ''),
+    },
+    { key: 'type', label: 'Type', get: (r) => r?.type, normalize: (v) => String(v ?? 'text') },
+    {
+        key: 'is_required',
+        label: 'Required',
+        get: (r) => r?.is_required,
+        normalize: (v) => !!v,
+    },
+    {
+        key: 'display_order',
+        label: 'Order',
+        get: (r) => r?.display_order,
+        normalize: (v) => Number(v ?? 0),
+    },
+    {
+        key: 'min_length',
+        label: 'Min length',
+        get: (r) => r?.min_length,
+        normalize: numberOrNull,
+    },
+    {
+        key: 'max_length',
+        label: 'Max length',
+        get: (r) => r?.max_length,
+        normalize: numberOrNull,
+    },
+]
+
 // What this save actually changes. Deletions are explicit for
 // steps/routes/req defs; checklist/field/binding removals are diffs against
 // the per-step baseline.
 function collectChanges(typeId) {
     const b = buckets.get(String(typeId))
-    const details = { steps: [], routes: [], requirements: [], checklists: [], fields: [] }
+    const details = { steps: [], routes: [], requirements: [], checklists: [], fields: [], stepData: [] }
     if (!b) return details
 
     const sourceSteps = b.sourceSteps || []
     const workingSteps = b.steps || []
-    const stepLabels = new Map()
+    const stepLabels = new Map(Object.entries(b.stepLabels || {}))
     for (const step of [...sourceSteps, ...workingSteps]) {
         if (step?.id != null) stepLabels.set(String(step.id), stepLabel(step))
+        if (step?.client_id != null) stepLabels.set(String(step.client_id), stepLabel(step))
     }
     const stepName = (id) => {
         if (id == null) return 'Unknown step'
@@ -514,7 +589,57 @@ function collectChanges(typeId) {
         }
     }
 
+    const stepDataSteps = new Set([
+        ...Object.keys(b.sourceStepData || {}),
+        ...Object.keys(b.stepData || {}),
+    ])
+    for (const sk of stepDataSteps) {
+        if (removedStepIds.has(String(sk))) continue
+        if (!hasStepRows(b.stepData, sk)) continue
+        const items = collectListChanges(
+            b.sourceStepData?.[sk] || [],
+            b.stepData?.[sk] || [],
+            stepDataKey,
+            STEP_DATA_SPECS,
+        )
+        for (const item of items) {
+            const name =
+                textOrNull(item.row?.display_name) ||
+                textOrNull(item.row?.code) ||
+                'Step data field'
+            details.stepData.push({
+                kind: item.kind,
+                label: `${stepName(sk)}: ${name}`,
+                changes: item.changes,
+            })
+        }
+    }
+
     return details
+}
+
+// Dirty state is always a net comparison against the source snapshot.
+// Mutating a row twice (for example, a toggle flipped off and back on) must
+// not leave Save version enabled when the working copy matches the source.
+function refreshDirty(b) {
+    const details = collectChanges(b.typeId)
+    b.dirty = Object.values(details).some((list) => list.length > 0)
+    b.stepsDirty = details.steps.length > 0
+    b.routesDirty = details.routes.length > 0
+    return details
+}
+
+function sourceRowFor(rows, row) {
+    const keys = new Set(
+        [row?.client_id, row?.id]
+            .filter((value) => value != null)
+            .map((value) => String(value)),
+    )
+    return (rows || []).find((candidate) => {
+        if (candidate?.id != null && keys.has(String(candidate.id))) return true
+        if (candidate?.client_id != null && keys.has(String(candidate.client_id))) return true
+        return false
+    })
 }
 
 export function changedCounts(typeId) {
@@ -525,6 +650,7 @@ export function changedCounts(typeId) {
         requirements: details.requirements.length,
         checklists: details.checklists.length,
         fields: details.fields.length,
+        stepData: details.stepData.length,
     }
 }
 
@@ -543,7 +669,7 @@ export function useWorkflowStaging() {
     const anyDirty = computed(() => [...buckets.values()].some((b) => b.dirty))
 
     function touch(b) {
-        b.dirty = true
+        refreshDirty(b)
     }
 
     // ---- seeding (from last server state) ----
@@ -560,12 +686,14 @@ export function useWorkflowStaging() {
             b.sourceBindings = {}
             b.sourceChecklist = {}
             b.sourceFields = {}
+            b.sourceStepData = {}
             // Clean version switch: drop sub-page slices from the old
             // definition so they are not mistaken for new staged rows.
             b.reqDefs = []
             b.bindings = {}
             b.checklist = {}
             b.fields = {}
+            b.stepData = {}
             b.resyncSteps = []
         }
         captureRows(b, 'sourceSteps', steps)
@@ -610,6 +738,51 @@ export function useWorkflowStaging() {
         b.fields[String(stepKey)] = cloneRows(rows)
     }
 
+    function ensureStepDataVersion(typeId, sourceDefId, sourceUpdatedAt) {
+        const b = bucket(typeId)
+        const nextDefId = sourceDefId != null ? Number(sourceDefId) : null
+        // Step Data can be the first staged page opened, so this slice owns
+        // the version context too. A clean version switch must not diff
+        // against the previous version's step-data rows.
+        if (!b.dirty && b.sourceDefId !== nextDefId) {
+            b.sourceStepData = {}
+            b.stepData = {}
+            b.sourceDefId = nextDefId
+            b.sourceUpdatedAt = sourceUpdatedAt ?? null
+        }
+        if (b.sourceDefId == null) {
+            b.sourceDefId = nextDefId
+            b.sourceUpdatedAt = sourceUpdatedAt ?? null
+        }
+        return b
+    }
+
+    function seedStepData(typeId, sourceDefId, sourceUpdatedAt, stepKey, rows) {
+        const b = ensureStepDataVersion(typeId, sourceDefId, sourceUpdatedAt)
+        const k = String(stepKey)
+        const normalized = normalizeStepDataRows(rows)
+        if (!hasStepRows(b.sourceStepData, k)) {
+            b.sourceStepData[k] = cloneRows(normalized)
+        }
+        // Seed only this step; a dirty bucket may already hold edits for
+        // other steps, and those must never be clobbered by a refetch.
+        if (!hasStepRows(b.stepData, k)) {
+            b.stepData[k] = cloneRows(normalized)
+        }
+        return b.stepData[k]
+    }
+
+    function setStepLabels(typeId, steps) {
+        const b = bucket(typeId)
+        const labels = {}
+        for (const step of steps || []) {
+            const label = stepLabel(step)
+            if (step?.id != null) labels[String(step.id)] = label
+            if (step?.client_id != null) labels[String(step.client_id)] = label
+        }
+        b.stepLabels = labels
+    }
+
     function markResync(typeId, stepKey) {
         const b = bucket(typeId)
         const k = String(stepKey)
@@ -642,9 +815,10 @@ export function useWorkflowStaging() {
         } else {
             b.steps.push(next)
         }
-        touch(b)
-        b.stepsDirty = true
-        return { row: next, changed: true }
+        const source = sourceRowFor(b.sourceSteps, next)
+        const changed = !source || diffRow(source, next, STEP_SPECS).length > 0
+        refreshDirty(b)
+        return { row: next, changed }
     }
 
     function removeStep(typeId, key) {
@@ -663,11 +837,11 @@ export function useWorkflowStaging() {
         delete b.bindings[k]
         delete b.checklist[k]
         delete b.fields[k]
+        delete b.stepData[k]
+        delete b.sourceStepData[k]
         b.resyncSteps = b.resyncSteps.filter((s) => s !== k)
-        touch(b)
         // Removing a step also prunes its staged routes above.
-        b.stepsDirty = true
-        b.routesDirty = true
+        refreshDirty(b)
     }
 
     function upsertRoute(typeId, row) {
@@ -686,9 +860,10 @@ export function useWorkflowStaging() {
         } else {
             b.routes.push(next)
         }
-        touch(b)
-        b.routesDirty = true
-        return { row: next, changed: true }
+        const source = sourceRowFor(b.sourceRoutes, next)
+        const changed = !source || diffRow(source, next, ROUTE_SPECS).length > 0
+        refreshDirty(b)
+        return { row: next, changed }
     }
 
     function removeRoute(typeId, key) {
@@ -698,8 +873,7 @@ export function useWorkflowStaging() {
         if (idx === -1) return
         const [gone] = b.routes.splice(idx, 1)
         if (typeof gone?.id === 'number') b.removedRouteIds.push(gone.id)
-        touch(b)
-        b.routesDirty = true
+        refreshDirty(b)
     }
 
     function upsertReqDef(typeId, row) {
@@ -757,6 +931,26 @@ export function useWorkflowStaging() {
         const b = bucket(typeId)
         b.fields[String(stepKey)] = (rows || []).map((r) => ({ ...r }))
         touch(b)
+    }
+
+    function setStepData(typeId, stepKey, rows) {
+        const b = bucket(typeId)
+        const k = String(stepKey)
+        const current = b.stepData[k]
+        const previous = current || b.sourceStepData[k] || []
+        const next = normalizeStepDataRows(rows, previous)
+
+        if (current) {
+            if (!collectListChanges(current, next, stepDataKey, STEP_DATA_SPECS).length) {
+                return { rows: current, changed: false }
+            }
+        }
+
+        b.stepData[k] = next
+        // A staged add followed by a delete (or a toggle flipped twice) has
+        // no net diff; keep Save version disabled when nothing is really staged.
+        refreshDirty(b)
+        return { rows: next, changed: b.dirty }
     }
 
     function discard(typeId) {
@@ -842,6 +1036,21 @@ export function useWorkflowStaging() {
                 required_override: r.required_override ?? null,
             }))
         }
+        const step_data = {}
+        for (const [sk, rows] of Object.entries(b.stepData)) {
+            step_data[sk] = (rows || []).map((r, idx) => ({
+                key: r.client_id ?? r.id ?? null,
+                source_id: r.source_id ?? null,
+                original_code: r.original_code ?? null,
+                code: r.code ?? null,
+                display_name: r.display_name ?? '',
+                type: r.type ?? 'text',
+                is_required: !!r.is_required,
+                display_order: Number(r.display_order ?? idx),
+                min_length: r.min_length ?? null,
+                max_length: r.max_length ?? null,
+            }))
+        }
         return {
             steps_upsert,
             steps_delete: b.removedStepIds.map((id) => ({ id })),
@@ -853,6 +1062,7 @@ export function useWorkflowStaging() {
             step_checklist,
             resync_checklist_steps: [...b.resyncSteps],
             step_fields,
+            step_data,
             source_updated_at: b.sourceUpdatedAt,
         }
     }
@@ -888,6 +1098,9 @@ export function useWorkflowStaging() {
         seedBindings,
         seedChecklist,
         seedFields,
+        seedStepData,
+        ensureStepDataVersion,
+        setStepLabels,
         markResync,
         upsertStep,
         removeStep,
@@ -898,6 +1111,7 @@ export function useWorkflowStaging() {
         setBindings,
         setChecklist,
         setFields,
+        setStepData,
         changedCounts,
         changedDetails,
         discard,
