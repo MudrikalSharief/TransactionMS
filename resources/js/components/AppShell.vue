@@ -385,16 +385,16 @@ const navGroups = computed(() => {
     }
     if (kind.value === "staff") {
         const work = [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }];
-        // Clerks (anyone who may approve; end users can't) get their
-        // approvals list, with the number of transactions waiting on them.
+        // Clerks (anyone who may approve; end users can't) get their Task
+        // list, with the number of transactions waiting on them.
         if (showApprovals.value) {
             const n = pendingTransactions.value;
             work.push({
-                title: "Approvals",
+                title: "Task",
                 icon: "mdi-clipboard-check-multiple-outline",
                 to: "/portal/approvals",
                 badge: n,
-                badgeLabel: `${n} transaction${n === 1 ? "" : "s"} waiting for your approval`,
+                badgeLabel: `${n} task${n === 1 ? "" : "s"} waiting for you`,
             });
         }
         return [
@@ -521,7 +521,7 @@ const searchPages = computed(() => {
             { title: "Home", subtitle: "Page", icon: "mdi-home-city-outline", to: "/portal" },
             { title: "Transactions", subtitle: "Page", icon: "mdi-file-document-multiple", to: "/portal/transactions" },
             ...(showApprovals.value
-                ? [{ title: "Approvals", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
+                ? [{ title: "Task", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
                 : []),
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));

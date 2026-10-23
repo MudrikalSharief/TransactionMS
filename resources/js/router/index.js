@@ -84,7 +84,7 @@ export function createRouter() {
                 path: "/portal/approvals",
                 name: "portal.approvals",
                 component: PortalApprovals,
-                meta: { requiresAuth: true, title: "Approvals", kind: "staff" },
+                meta: { requiresAuth: true, title: "Task", kind: "staff" },
             },
             {
                 // Short opening animation for viewers; `bare` hides the app chrome.
