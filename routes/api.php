@@ -247,13 +247,11 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // their roles at their office; office admins see rows parked at
         // their office; superadmin sees all. Creating is open to any user
         // with an office (non-superadmin creations are forced to their own
-        // office); delete/reassign stay superadmin-only.
+        // office); reassign stays superadmin-only.
         Route::get('/transactions', [TransactionController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
             ->middleware(EnsureTransactionOffice::class);
-        Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy'])
-            ->middleware(EnsureRole::class.':superadmin');
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice'])
             ->middleware(EnsureRole::class.':superadmin');
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction'])

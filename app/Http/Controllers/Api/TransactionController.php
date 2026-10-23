@@ -216,18 +216,6 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function destroy(Transaction $transaction, Request $request, AuditService $audit)
-    {
-        $audit->log($request, 'transactions.delete', $transaction, [
-            'reference_number' => $transaction->reference_number,
-            'transaction_type_id' => $transaction->transaction_type_id,
-        ]);
-
-        $transaction->delete();
-
-        return response()->json(['message' => 'Deleted']);
-    }
-
     public function executeAction(
         Transaction $transaction,
         ExecuteActionRequest $request,

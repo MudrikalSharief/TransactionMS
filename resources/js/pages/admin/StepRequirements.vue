@@ -9,6 +9,15 @@
         >
             {{ error }}
         </v-alert>
+        <v-alert
+            v-if="continuationCheckError"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+        >
+            {{ continuationCheckError }}
+        </v-alert>
 
         <WorkflowPageHeader
             icon="mdi-clipboard-check-outline"
@@ -133,15 +142,34 @@
                     <h2>Requirements for this step</h2>
                     <p>{{ cardSubtitle }}</p>
                 </div>
-                <button
-                    type="button"
-                    class="sr-add"
-                    :disabled="!selectedStepId || showLoader"
-                    @click="openAdd"
-                >
-                    <v-icon size="18">mdi-plus</v-icon>
-                    <span>Add requirement</span>
-                </button>
+                <div class="sr-hd-actions">
+                    <button
+                        type="button"
+                        class="sr-overview"
+                        @click="openOverview"
+                    >
+                        <v-icon size="18">mdi-eye-outline</v-icon>
+                        Requirement Overview
+                    </button>
+                    <button
+                        type="button"
+                        class="sr-previous"
+                        :disabled="!previousStep || showLoader"
+                        @click="openPreviousRequirements"
+                    >
+                        <v-icon size="18">mdi-content-copy</v-icon>
+                        <span>Previous requirement</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sr-add"
+                        :disabled="!selectedStepId || showLoader"
+                        @click="openAdd"
+                    >
+                        <v-icon size="18">mdi-plus</v-icon>
+                        <span>Add requirement</span>
+                    </button>
+                </div>
             </div>
 
             <div v-if="showLoader" class="sr-loading">
@@ -165,10 +193,19 @@
                     v-for="item in assignmentRows"
                     :key="String(item.requirement_definition_id)"
                     class="sr-row sr-row-item"
+                    :class="{ 'is-unsaved': isNewRequirement(item) }"
                     role="row"
                 >
                     <div class="sr-name" role="cell">
-                        <b>{{ item.name }}</b>
+                        <div class="sr-name-title">
+                            <b>{{ item.name }}</b>
+                            <span
+                                v-if="isNewRequirement(item)"
+                                class="sr-unsaved-chip"
+                            >
+                                UNSAVED
+                            </span>
+                        </div>
                         <span v-if="item.description">{{
                             item.description
                         }}</span>
@@ -176,10 +213,7 @@
 
                     <div class="sr-code-cell" role="cell">
                         <input
-                            v-if="
-                                typeof item.requirement_definition_id !==
-                                'number'
-                            "
+                            v-if="isRequirementCodeEditable(item)"
                             v-model="item.code"
                             type="text"
                             class="sr-code-in"
@@ -188,7 +222,7 @@
                             autocomplete="off"
                             spellcheck="false"
                             :aria-label="`Code for ${item.name}`"
-                            @update:model-value="stageBindings"
+                            @update:model-value="onRequirementCodeInput(item)"
                         />
                         <code v-else class="sr-code">{{
                             item.code || "—"
@@ -518,43 +552,43 @@
                             </div>
                         </section>
 
-                        <section class="req-sec req-sec-preview">
-                            <div class="req-sec-t">Preview</div>
-                            <div class="req-preview">
-                                <span class="req-preview-ck"></span>
-                                <div class="req-preview-body">
-                                    <div class="req-preview-name">
-                                        <span>{{
-                                            addForm.name?.trim() ||
-                                            "Requirement name"
-                                        }}</span>
-                                        <span
-                                            class="req-tag"
-                                            :class="{
-                                                'req-tag-optional':
-                                                    !addForm.is_required,
-                                            }"
-                                        >
-                                            {{
-                                                addForm.is_required
-                                                    ? "Required"
-                                                    : "Optional"
-                                            }}
-                                        </span>
-                                    </div>
-                                    <p
-                                        v-if="addForm.description?.trim()"
-                                        class="req-preview-remark"
-                                    >
-                                        {{ addForm.description.trim() }}
-                                    </p>
-                                    <span
-                                        v-if="addForm.is_upload_required"
-                                        class="req-preview-attach"
-                                    >
-                                        <v-icon size="16">mdi-upload</v-icon>
-                                        Attach file
-                                    </span>
+                        <section class="req-sec req-carry-sec">
+                            <v-checkbox
+                                v-model="addForm.carry_to_steps"
+                                label="Carry this Requirement in steps"
+                                color="primary"
+                                density="compact"
+                                hide-details
+                            />
+                            <div v-if="addForm.carry_to_steps">
+                                <div class="req-carry-selects">
+                                    <v-select
+                                        :model-value="selectedStepId"
+                                        :items="carryStepOptions"
+                                        item-title="label"
+                                        item-value="id"
+                                        label="Starting step"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        class="req-in"
+                                        disabled
+                                        hide-details
+                                    />
+                                    <v-select
+                                        v-model="addForm.carry_to_step_id"
+                                        :items="carryStepOptions"
+                                        item-title="label"
+                                        item-value="id"
+                                        label="Ending step"
+                                        variant="outlined"
+                                        density="comfortable"
+                                        class="req-in"
+                                        hide-details
+                                    />
+                                </div>
+                                <div class="req-help">
+                                    The requirement will be added to every step
+                                    in this range, without skipping steps.
                                 </div>
                             </div>
                         </section>
@@ -687,6 +721,99 @@
                 </form>
             </v-card>
         </v-dialog>
+
+        <v-dialog v-model="previousDialog" max-width="620">
+            <v-card rounded="xl" class="req-card">
+                <v-card-title class="req-hd">
+                    <v-avatar
+                        color="primary"
+                        variant="tonal"
+                        rounded="lg"
+                        size="44"
+                        class="req-badge"
+                    >
+                        <v-icon>mdi-content-copy</v-icon>
+                    </v-avatar>
+                    <div class="req-hd-t">
+                        <div class="req-title">Previous requirements</div>
+                        <div class="req-sub">
+                            Select a requirement from
+                            {{ previousStep?.name || "the previous step" }} to
+                            reuse it in {{ selectedStep?.name || "this step" }}.
+                        </div>
+                    </div>
+                    <v-btn
+                        icon="mdi-close"
+                        variant="text"
+                        size="small"
+                        class="req-x"
+                        aria-label="Close previous requirements"
+                        @click="previousDialog = false"
+                    />
+                </v-card-title>
+
+                <v-divider />
+                <v-card-text class="req-bd">
+                    <v-alert
+                        v-if="previousError"
+                        type="error"
+                        variant="tonal"
+                        density="compact"
+                        class="mb-4"
+                    >
+                        {{ previousError }}
+                    </v-alert>
+                    <div v-if="previousLoading" class="sr-loading">
+                        <TableLoader
+                            compact
+                            label="previous requirements"
+                            icon="mdi-clipboard-list-outline"
+                        />
+                    </div>
+                    <div
+                        v-else-if="previousRequirements.length"
+                        class="sr-previous-list"
+                    >
+                        <div
+                            v-for="item in previousRequirements"
+                            :key="String(item.requirement_definition_id)"
+                            class="sr-previous-item"
+                        >
+                            <div class="sr-name">
+                                <b>{{ item.name }}</b>
+                                <span>{{ item.code || "No code" }}</span>
+                                <span v-if="item.description">{{
+                                    item.description
+                                }}</span>
+                            </div>
+                            <button
+                                type="button"
+                                class="sr-previous-add"
+                                :disabled="isRequirementAssigned(item)"
+                                @click="addPreviousRequirement(item)"
+                            >
+                                <v-icon size="16">
+                                    {{
+                                        isRequirementAssigned(item)
+                                            ? "mdi-check"
+                                            : "mdi-plus"
+                                    }}
+                                </v-icon>
+                                {{
+                                    isRequirementAssigned(item)
+                                        ? "Added"
+                                        : "Add to step"
+                                }}
+                            </button>
+                        </div>
+                    </div>
+                    <div v-else class="sr-previous-empty">
+                        {{ previousStep?.name || "The previous step" }} has no
+                        requirements to reuse.
+                    </div>
+                </v-card-text>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
@@ -705,6 +832,7 @@ import { useRequirementDefinitions } from "@/composables/useRequirementDefinitio
 import { useStepRequirements } from "@/composables/useStepRequirements";
 import { useToast } from "@/composables/useToast";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import { confirm } from "@/composables/useConfirm";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
@@ -748,6 +876,7 @@ const typeId = computed(() => {
 });
 
 const error = ref("");
+const continuationCheckError = ref("");
 
 const saveBarRef = ref(null);
 const stagingDirty = computed(() =>
@@ -768,6 +897,7 @@ const selectedStepId = ref(null);
 
 // Working rows for the current step: pivots joined with definitions.
 const assignmentRows = ref([]);
+const continuedRequirementIds = ref(new Set());
 // First-load gate: rows only map after a fetch settles, so keep the veil up
 // until then (loading alone clears on warm cache before rows exist).
 const ready = ref(false);
@@ -783,6 +913,61 @@ const selectedStep = computed(
             (step) => Number(step.id) === Number(selectedStepId.value),
         ) || null,
 );
+
+const orderedSteps = computed(() =>
+    [...steps.value].sort((a, b) => {
+        const order = Number(a.order_number ?? 0) - Number(b.order_number ?? 0);
+        return order || Number(a.id ?? 0) - Number(b.id ?? 0);
+    }),
+);
+
+const selectedStepIndex = computed(() =>
+    orderedSteps.value.findIndex(
+        (step) => Number(step.id) === Number(selectedStepId.value),
+    ),
+);
+
+const previousStep = computed(() =>
+    selectedStepIndex.value > 0
+        ? orderedSteps.value[selectedStepIndex.value - 1]
+        : null,
+);
+
+const carryStepOptions = computed(() =>
+    selectedStepIndex.value < 0
+        ? []
+        : orderedSteps.value
+              .slice(selectedStepIndex.value)
+              .map((step) => ({
+                  id: step.id,
+                  label: `Step ${step.order_number}: ${step.name}`,
+              })),
+);
+
+function openOverview() {
+    const wid = workflowDefinitionId.value;
+    if (!Number.isFinite(wid) || wid <= 0) return;
+
+    const selected = Number(selectedStepId.value);
+    const fallback = stepIdFromUrl.value;
+    const sid =
+        Number.isFinite(selected) && selected > 0 ? selected : fallback;
+
+    if (!Number.isFinite(sid) || sid <= 0) {
+        router.push({
+            name: "admin.workflow-requirements",
+            params: { workflowId: wid },
+            query: route.query,
+        });
+        return;
+    }
+
+    router.push({
+        name: "admin.step-requirements-overview",
+        params: { workflowId: wid, stepId: sid },
+        query: route.query,
+    });
+}
 
 const showLoader = computed(
     () =>
@@ -971,10 +1156,17 @@ const addForm = ref({
     description: "",
     is_required: true,
     is_upload_required: true,
+    carry_to_steps: false,
+    carry_to_step_id: null,
 });
 const addFieldErrors = ref({ name: "", code: "" });
 const addNameField = ref(null);
 const addCodeField = ref(null);
+const previousDialog = ref(false);
+const previousLoading = ref(false);
+const previousError = ref("");
+const previousRequirements = ref([]);
+let previousLoadToken = 0;
 
 function onAddNameInput() {
     if (addFieldErrors.value.name) addFieldErrors.value.name = "";
@@ -1092,12 +1284,15 @@ function saveEdit() {
 function openAdd() {
     addError.value = "";
     addFieldErrors.value = { name: "", code: "" };
+    const lastStep = orderedSteps.value[orderedSteps.value.length - 1];
     addForm.value = {
         name: "",
         code: "",
         description: "",
         is_required: true,
         is_upload_required: true,
+        carry_to_steps: false,
+        carry_to_step_id: lastStep?.id ?? selectedStepId.value,
     };
     addDialog.value = true;
 }
@@ -1114,6 +1309,55 @@ function storeRow(r, idx) {
     };
 }
 
+function isRequirementCodeEditable(item) {
+    return (
+        typeof item.requirement_definition_id !== "number" &&
+        !continuedRequirementIds.value.has(
+            String(item.requirement_definition_id),
+        )
+    );
+}
+
+function isNewRequirement(item) {
+    return typeof item.requirement_definition_id !== "number";
+}
+
+function onRequirementCodeInput(item) {
+    if (!isRequirementCodeEditable(item) || !typeId.value) return;
+
+    const key = item.requirement_definition_id;
+    staging.upsertReqDef(typeId.value, {
+        client_id: key,
+        code: item.code,
+    });
+
+    const bucket = staging.buckets.get(String(typeId.value));
+    for (const step of orderedSteps.value.slice(selectedStepIndex.value + 1)) {
+        const rows = bucket?.bindings?.[String(step.id)];
+        if (!Array.isArray(rows)) break;
+
+        const hasRequirement = rows.some(
+            (row) =>
+                String(row.requirement_definition_id ?? row.req_key ?? row.id) ===
+                String(key),
+        );
+        if (!hasRequirement) break;
+
+        staging.setBindings(
+            typeId.value,
+            step.id,
+            rows.map((row) =>
+                String(
+                    row.requirement_definition_id ?? row.req_key ?? row.id,
+                ) === String(key)
+                    ? { ...row, code: item.code }
+                    : row,
+            ),
+        );
+    }
+    stageBindings();
+}
+
 // Write the visible rows into the staging store (no network). Called by
 // every inline edit/add/remove; Save version persists everything at once.
 function stageBindings() {
@@ -1125,7 +1369,7 @@ function stageBindings() {
     );
 }
 
-function addRequirement() {
+async function addRequirement() {
     if (adding.value) return;
     if (!validateAddForm()) return;
     if (!typeId.value) {
@@ -1133,32 +1377,116 @@ function addRequirement() {
             "Resolve the transaction type first (open this page from Workflows).";
         return;
     }
+    if (!selectedStep.value) {
+        addError.value = "Select a step before adding a requirement.";
+        return;
+    }
     adding.value = true;
     addError.value = "";
     try {
+        let rangeSteps = [selectedStep.value];
+        if (addForm.value.carry_to_steps) {
+            const startIndex = selectedStepIndex.value;
+            const endIndex = orderedSteps.value.findIndex(
+                (step) =>
+                    String(step.id) ===
+                    String(addForm.value.carry_to_step_id),
+            );
+            if (startIndex < 0 || endIndex < startIndex) {
+                throw new Error("Choose a valid ending step for this range.");
+            }
+            rangeSteps = orderedSteps.value.slice(startIndex, endIndex + 1);
+        }
+
+        const rowsByStep = new Map();
+        for (const step of rangeSteps) {
+            if (Number(step.id) === Number(selectedStepId.value)) continue;
+
+            const staged =
+                staging.buckets
+                    .get(String(typeId.value))
+                    ?.bindings?.[String(step.id)];
+            if (Array.isArray(staged)) {
+                rowsByStep.set(
+                    String(step.id),
+                    staged.map(normalizePreviousRequirement),
+                );
+                continue;
+            }
+
+            const response = await api.get(
+                `/api/admin/workflow-definitions/${workflowDefinitionId.value}/steps/${step.id}/requirements`,
+            );
+            const rows = response.data?.data ?? response.data;
+            if (!Array.isArray(rows)) {
+                throw new Error(
+                    `Requirements for step "${step.name}" were invalid.`,
+                );
+            }
+            const normalized = rows.map(normalizePreviousRequirement);
+            staging.seedBindings(
+                typeId.value,
+                step.id,
+                normalized.map((row, index) => storeRow(row, index)),
+            );
+            rowsByStep.set(String(step.id), normalized);
+        }
+
         // Staged requirement definition (server mints the id on save).
         const { row: created } = staging.upsertReqDef(typeId.value, {
             name: addForm.value.name.trim(),
             code: addForm.value.code.trim(),
             description: addForm.value.description?.trim() || null,
         });
-        // Attach to the current step immediately with the chosen required flag.
-        assignmentRows.value = [
-            ...assignmentRows.value,
-            {
-                requirement_definition_id: created.client_id ?? created.id,
-                code: created.code,
-                name: created.name,
-                label: created.label,
-                description: created.description,
-                display_order: assignmentRows.value.length,
-                is_required: !!addForm.value.is_required,
-                is_upload_required: !!addForm.value.is_upload_required,
-            },
-        ];
+        const requirementKey = created.client_id ?? created.id;
+        const requirement = {
+            requirement_definition_id: requirementKey,
+            code: created.code,
+            name: created.name,
+            label: created.label,
+            description: created.description,
+            is_required: !!addForm.value.is_required,
+            is_upload_required: !!addForm.value.is_upload_required,
+        };
+
+        for (const step of rangeSteps) {
+            const isSelected = Number(step.id) === Number(selectedStepId.value);
+            const rows = isSelected
+                ? assignmentRows.value
+                : rowsByStep.get(String(step.id)) || [];
+            if (
+                rows.some(
+                    (item) =>
+                        String(item.requirement_definition_id) ===
+                        String(requirementKey),
+                )
+            ) {
+                continue;
+            }
+            const nextRows = [
+                ...rows,
+                {
+                    ...requirement,
+                    display_order: rows.length,
+                },
+            ];
+            if (isSelected) {
+                assignmentRows.value = nextRows;
+            } else {
+                staging.setBindings(
+                    typeId.value,
+                    step.id,
+                    nextRows.map((item, index) => storeRow(item, index)),
+                );
+            }
+        }
         addDialog.value = false;
         stageBindings();
-        toastSuccess(`Requirement "${created.name}" added to this step.`);
+        toastSuccess(
+            addForm.value.carry_to_steps && rangeSteps.length > 1
+                ? `Requirement "${created.name}" added to ${rangeSteps.length} steps.`
+                : `Requirement "${created.name}" added to this step.`,
+        );
     } catch (e) {
         addError.value = e?.message || "Failed to add requirement.";
     } finally {
@@ -1166,12 +1494,193 @@ function addRequirement() {
     }
 }
 
-function removeRow(item) {
+async function removeRow(item) {
+    const stepIndex = selectedStepIndex.value;
+    if (stepIndex < 0 || !selectedStep.value) return;
+
+    const removingStepId = Number(selectedStepId.value);
+    const requirementId = String(item.requirement_definition_id);
+    const affectedSteps = [selectedStep.value];
+    const rowsByAffectedStep = new Map();
+
+    try {
+        for (const step of orderedSteps.value.slice(stepIndex + 1)) {
+            const bucket = typeId.value
+                ? staging.buckets.get(String(typeId.value))
+                : null;
+            const staged = bucket?.bindings?.[String(step.id)];
+            let rows;
+
+            if (Array.isArray(staged)) {
+                rows = staged;
+            } else {
+                const response = await api.get(
+                    `/api/admin/workflow-definitions/${workflowDefinitionId.value}/steps/${step.id}/requirements`,
+                );
+                rows = response.data?.data ?? response.data;
+                if (!Array.isArray(rows)) {
+                    throw new Error(
+                        `Requirements for step "${step.name}" were invalid.`,
+                    );
+                }
+            }
+
+            const continues = rows.some(
+                (row) =>
+                    String(
+                        row.requirement_definition_id ??
+                            row.req_key ??
+                            row.id,
+                    ) === requirementId,
+            );
+            if (!continues) break;
+
+            const normalizedRows = rows.map(normalizePreviousRequirement);
+            rowsByAffectedStep.set(String(step.id), normalizedRows);
+            affectedSteps.push(step);
+        }
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message ||
+            e?.message ||
+            "Failed to check whether this requirement continues to later steps.";
+        return;
+    }
+
+    if (Number(selectedStepId.value) !== removingStepId) return;
+
+    if (affectedSteps.length > 1) {
+        const stepList = affectedSteps
+            .map((step) => `• Step ${step.order_number}: ${step.name}`)
+            .join("\n");
+        const ok = await confirm({
+            title: "Remove continued requirement?",
+            message: `This removes the requirement from ${affectedSteps.length} steps to keep the chain continuous:\n${stepList}`,
+            confirmLabel: "Remove from all listed steps",
+            tone: "danger",
+        });
+        if (!ok) return;
+    }
+
+    if (Number(selectedStepId.value) !== removingStepId) return;
+
     assignmentRows.value = assignmentRows.value.filter(
-        (r) => r.requirement_definition_id !== item.requirement_definition_id,
+        (row) =>
+            String(row.requirement_definition_id) !== requirementId,
     );
-    // Staged removal (undo via Discard on the save bar).
     stageBindings();
+
+    for (const step of affectedSteps.slice(1)) {
+        const rows = rowsByAffectedStep.get(String(step.id)) || [];
+        const storedRows = rows.map((row, index) => storeRow(row, index));
+        staging.seedBindings(typeId.value, step.id, storedRows);
+        staging.setBindings(
+            typeId.value,
+            step.id,
+            storedRows.filter(
+                (row) =>
+                    String(
+                        row.requirement_definition_id ??
+                            row.req_key ??
+                            row.id,
+                    ) !== requirementId,
+            ),
+        );
+    }
+}
+
+function normalizePreviousRequirement(row, index) {
+    return {
+        requirement_definition_id:
+            row.requirement_definition_id ?? row.req_key ?? row.id,
+        code: row.code ?? "",
+        name: row.name ?? "",
+        label: row.label ?? "",
+        description: row.description ?? "",
+        display_order: Number(row.display_order ?? index),
+        is_required:
+            row.is_required ?? row.pivot_meta?.is_required ?? true,
+        is_upload_required:
+            row.is_upload_required ??
+            row.pivot_meta?.is_upload_required ??
+            row.is_required ??
+            row.pivot_meta?.is_required ??
+            true,
+    };
+}
+
+async function openPreviousRequirements() {
+    const sourceStep = previousStep.value;
+    if (!sourceStep || !selectedStepId.value) return;
+
+    const token = ++previousLoadToken;
+    previousDialog.value = true;
+    previousLoading.value = true;
+    previousError.value = "";
+    previousRequirements.value = [];
+
+    try {
+        const bucket = typeId.value
+            ? staging.buckets.get(String(typeId.value))
+            : null;
+        const staged = bucket?.bindings?.[String(sourceStep.id)];
+        let rows;
+
+        if (Array.isArray(staged)) {
+            rows = staged;
+        } else {
+            const response = await api.get(
+                `/api/admin/workflow-definitions/${workflowDefinitionId.value}/steps/${sourceStep.id}/requirements`,
+            );
+            rows = response.data?.data ?? response.data;
+            if (!Array.isArray(rows)) {
+                throw new Error("Previous step requirements were invalid.");
+            }
+            if (typeId.value) {
+                staging.seedBindings(
+                    typeId.value,
+                    sourceStep.id,
+                    rows.map((row, index) =>
+                        storeRow(normalizePreviousRequirement(row, index), index),
+                    ),
+                );
+            }
+        }
+
+        if (token !== previousLoadToken) return;
+        previousRequirements.value = rows.map(normalizePreviousRequirement);
+    } catch (e) {
+        if (token === previousLoadToken) {
+            previousError.value =
+                e?.response?.data?.message ||
+                e?.message ||
+                "Failed to load previous step requirements.";
+        }
+    } finally {
+        if (token === previousLoadToken) previousLoading.value = false;
+    }
+}
+
+function isRequirementAssigned(item) {
+    return assignmentRows.value.some(
+        (row) =>
+            String(row.requirement_definition_id) ===
+            String(item.requirement_definition_id),
+    );
+}
+
+function addPreviousRequirement(item) {
+    if (isRequirementAssigned(item)) return;
+
+    assignmentRows.value = [
+        ...assignmentRows.value,
+        {
+            ...item,
+            display_order: assignmentRows.value.length,
+        },
+    ];
+    stageBindings();
+    toastSuccess(`Requirement "${item.name}" added to this step.`);
 }
 
 async function loadSteps() {
@@ -1232,11 +1741,15 @@ async function loadAssigned() {
     const token = ++loadAssignedToken;
     if (!selectedStepId.value) {
         assignmentRows.value = [];
+        continuedRequirementIds.value = new Set();
         ready.value = true;
         return;
     }
     ready.value = false;
     error.value = "";
+    continuationCheckError.value = "";
+    continuedRequirementIds.value = new Set();
+    let currentRequirementsLoaded = false;
     try {
         await fetchAssigned(
             workflowDefinitionId.value,
@@ -1253,35 +1766,91 @@ async function loadAssigned() {
             assignmentRows.value = staged.map((r, idx) =>
                 enrichStagedRow(r, idx),
             );
-            return;
+        } else {
+            assignmentRows.value = (assigned.value || []).map((a) => ({
+                requirement_definition_id: a.id,
+                code: a.code ?? "",
+                name: a.name,
+                label: a.label ?? "",
+                description: a.description ?? "",
+                display_order: a.pivot_meta?.display_order ?? 0,
+                is_required: a.pivot_meta?.is_required ?? true,
+                is_upload_required:
+                    a.pivot_meta?.is_upload_required ??
+                    a.pivot_meta?.is_required ??
+                    true,
+            }));
+            // Seed the staging slice (skipped when staged edits exist).
+            if (typeId.value) {
+                staging.seedBindings(
+                    typeId.value,
+                    sid,
+                    assignmentRows.value.map((r, idx) => storeRow(r, idx)),
+                );
+                staging.seedReqDefs(typeId.value, requirements.value || []);
+            }
         }
-        assignmentRows.value = (assigned.value || []).map((a) => ({
-            requirement_definition_id: a.id,
-            code: a.code ?? "",
-            name: a.name,
-            label: a.label ?? "",
-            description: a.description ?? "",
-            display_order: a.pivot_meta?.display_order ?? 0,
-            is_required: a.pivot_meta?.is_required ?? true,
-            is_upload_required:
-                a.pivot_meta?.is_upload_required ??
-                a.pivot_meta?.is_required ??
-                true,
-        }));
-        // Seed the staging slice (skipped when staged edits exist).
-        if (typeId.value) {
-            staging.seedBindings(
-                typeId.value,
-                sid,
-                assignmentRows.value.map((r, idx) => storeRow(r, idx)),
+        currentRequirementsLoaded = true;
+
+        if (previousStep.value) {
+            const bucket = typeId.value
+                ? staging.buckets.get(String(typeId.value))
+                : null;
+            const previousStaged =
+                bucket?.bindings?.[String(previousStep.value.id)];
+            let previousRows;
+            if (Array.isArray(previousStaged)) {
+                previousRows = previousStaged;
+            } else {
+                const response = await api.get(
+                    `/api/admin/workflow-definitions/${workflowDefinitionId.value}/steps/${previousStep.value.id}/requirements`,
+                );
+                previousRows = response.data?.data ?? response.data;
+                if (!Array.isArray(previousRows)) {
+                    throw new Error(
+                        "Previous step requirements were invalid.",
+                    );
+                }
+                if (typeId.value) {
+                    staging.seedBindings(
+                        typeId.value,
+                        previousStep.value.id,
+                        previousRows.map((row, index) =>
+                            storeRow(
+                                normalizePreviousRequirement(row, index),
+                                index,
+                            ),
+                        ),
+                    );
+                }
+            }
+            if (token !== loadAssignedToken) return;
+            continuedRequirementIds.value = new Set(
+                previousRows.map((row) =>
+                    String(
+                        row.requirement_definition_id ??
+                            row.req_key ??
+                            row.id,
+                    ),
+                ),
             );
-            staging.seedReqDefs(typeId.value, requirements.value || []);
         }
     } catch (e) {
         if (token === loadAssignedToken) {
-            error.value =
-                e?.response?.data?.message ||
-                "Failed to load assigned requirements.";
+            if (currentRequirementsLoaded) {
+                continuedRequirementIds.value = new Set(
+                    assignmentRows.value.map((row) =>
+                        String(row.requirement_definition_id),
+                    ),
+                );
+                continuationCheckError.value =
+                    e?.response?.data?.message ||
+                    "Couldn't check the previous step. Code editing is disabled until it can be checked.";
+            } else {
+                error.value =
+                    e?.response?.data?.message ||
+                    "Failed to load assigned requirements.";
+            }
         }
     } finally {
         if (token === loadAssignedToken) ready.value = true;
@@ -1312,14 +1881,47 @@ async function retrySteps() {
     }
 }
 
-async function afterBulkSaved() {
+async function afterBulkSaved(payload) {
+    const saved = payload?.data ?? null;
+    const savedId = Number(saved?.id);
+    if (savedId > 0 && savedId !== Number(workflowDefinitionId.value)) {
+        const selected = selectedStep.value;
+        const savedSteps = saved?.steps ?? [];
+        const targetStep =
+            savedSteps.find(
+                (step) => step.code && step.code === selected?.code,
+            ) ??
+            savedSteps.find(
+                (step) => step.name && step.name === selected?.name,
+            ) ??
+            savedSteps.find(
+                (step) =>
+                    Number(step.order_number) ===
+                    Number(selected?.order_number),
+            ) ??
+            savedSteps[0];
+
+        if (targetStep?.id) {
+            const target = router.resolve({
+                name: "admin.step-requirements",
+                params: { workflowId: savedId, stepId: targetStep.id },
+                query: typeId.value ? { type: typeId.value } : {},
+            }).href;
+            window.location.assign(target);
+            return;
+        }
+    }
+
     // Bucket was dropped by the save: reload fresh (reseeds staging).
     await fetchReqs(workflowDefinitionId.value);
     await loadAssigned();
 }
 
 watch(selectedStepId, async () => {
+    previousLoadToken++;
     editDialog.value = false;
+    previousDialog.value = false;
+    previousRequirements.value = [];
     assigned.value = [];
     assignmentRows.value = [];
     if (!selectedStepId.value) {
@@ -1369,6 +1971,8 @@ onBeforeUnmount(() => {
     border-radius: 0;
 }
 
+.sr-previous:focus-visible,
+.sr-overview:focus-visible,
 .sr-add:focus-visible,
 .sr-trigger:focus-visible,
 .sr-option:focus-visible,
@@ -1657,6 +2261,70 @@ onBeforeUnmount(() => {
     line-height: 1.2;
 }
 
+.sr-hd-actions {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.sr-overview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 8px;
+    height: 44px;
+    padding: 0 18px;
+    border: 1.5px solid rgba(var(--v-theme-primary), 0.42);
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
+}
+
+.sr-overview:hover {
+    border-color: rgba(var(--v-theme-primary), 0.65);
+    background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.sr-previous {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    border: 1.5px solid rgba(var(--v-theme-primary), 0.42);
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        opacity 0.15s;
+}
+
+.sr-previous:hover:not(:disabled) {
+    border-color: rgba(var(--v-theme-primary), 0.65);
+    background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.sr-previous:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .sr-add {
     display: inline-flex;
     align-items: center;
@@ -1664,7 +2332,6 @@ onBeforeUnmount(() => {
     flex: none;
     gap: 8px;
     height: 44px;
-    margin-left: auto;
     padding: 0 18px;
     border: 0;
     border-radius: 0;
@@ -1692,6 +2359,55 @@ onBeforeUnmount(() => {
     align-items: center;
     min-height: 404px;
     padding: 12px 0;
+}
+
+.sr-previous-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sr-previous-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+
+.sr-previous-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 6px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid rgba(var(--v-theme-primary), 0.42);
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.sr-previous-add:hover:not(:disabled) {
+    background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.sr-previous-add:disabled {
+    opacity: 0.65;
+    cursor: default;
+}
+
+.sr-previous-empty {
+    padding: 22px 12px;
+    color: rgb(var(--v-theme-secondary));
+    text-align: center;
 }
 
 .sr-rows {
@@ -1780,6 +2496,34 @@ onBeforeUnmount(() => {
 
 .sr-row-item:hover {
     background: var(--sr-hover);
+}
+
+.sr-row-item.is-unsaved {
+    background: #eaf5ff;
+    box-shadow: inset 4px 0 #1670b7;
+}
+
+.sr-row-item.is-unsaved:hover {
+    background: #dceeff;
+}
+
+.sr-name-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sr-unsaved-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 7px;
+    background: #cfe7fa;
+    color: #124d7a;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
 }
 
 .sr-name {
@@ -1953,6 +2697,20 @@ html.dark .sr-page {
     --sr-hover: #1d2745;
 }
 
+html.dark .sr-row-item.is-unsaved {
+    background: #182d40;
+    box-shadow: inset 4px 0 #6db8f0;
+}
+
+html.dark .sr-row-item.is-unsaved:hover {
+    background: #203a50;
+}
+
+html.dark .sr-unsaved-chip {
+    background: #244966;
+    color: #c8e7ff;
+}
+
 html.dark .sr-card {
     box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
 }
@@ -2020,9 +2778,22 @@ html.dark .sr-ib-delete:hover {
         flex-wrap: wrap;
     }
 
+    .sr-hd-actions {
+        width: 100%;
+        margin-left: 0;
+        flex-direction: column;
+    }
+
+    .sr-previous,
+    .sr-overview,
     .sr-add {
         width: 100%;
         margin-left: 0;
+    }
+
+    .sr-previous-item {
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .sr-loading {
@@ -2123,6 +2894,7 @@ html.dark .sr-ib-delete:hover {
 }
 
 .req-hd-t {
+    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -2137,6 +2909,8 @@ html.dark .sr-ib-delete:hover {
     margin-top: 3px;
     font-size: 14px;
     color: rgb(var(--v-theme-secondary));
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .req-x {
@@ -2355,80 +3129,24 @@ html.dark .sr-ib-delete:hover {
     outline-offset: 2px;
 }
 
-.req-sec-preview {
-    margin: 0 0 6px;
-}
-
-.req-preview {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px;
-    border: 1.5px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+.req-carry-sec {
+    padding: 12px 14px;
+    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 14px;
 }
 
-.req-preview-ck {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    margin-top: 1px;
-    border: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 7px;
+.req-carry-sec :deep(.v-checkbox) {
+    margin-bottom: 8px;
 }
 
-.req-preview-body {
-    flex: 1;
-    min-width: 0;
+.req-carry-selects {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
-.req-preview-name {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    font-size: 14.5px;
-    font-weight: 700;
-    word-break: break-word;
-}
-
-.req-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 9px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 800;
-    color: rgb(var(--v-theme-error));
-    background: rgba(var(--v-theme-error), 0.12);
-}
-
-.req-tag-optional {
-    color: rgb(var(--v-theme-secondary));
-    background: rgba(var(--v-border-color), 0.08);
-}
-
-.req-preview-remark {
-    margin: 4px 0 0;
-    font-size: 13px;
-    line-height: 1.45;
-    color: rgb(var(--v-theme-secondary));
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-.req-preview-attach {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 34px;
-    margin-top: 10px;
-    padding: 0 12px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 700;
-    color: rgb(var(--v-theme-primary));
+.req-carry-sec .req-help {
+    margin-top: 8px;
 }
 
 .req-ft {

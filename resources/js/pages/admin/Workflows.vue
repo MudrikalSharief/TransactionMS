@@ -403,6 +403,7 @@
                                     :items="flatStepRows"
                                     :headers="stepHeaders"
                                     item-key="id"
+                                    :row-props="stepRowProps"
                                     density="compact"
                                     :items-per-page="STEP_PAGE_SIZE"
                                     :items-per-page-options="[STEP_PAGE_SIZE]"
@@ -439,6 +440,13 @@
                                                 :title="item.name"
                                                 >{{ item.name }}</span
                                             >
+                                            <v-chip
+                                                v-if="isTmpRow(item)"
+                                                size="x-small"
+                                                class="wf-step-unsaved-chip"
+                                            >
+                                                UNSAVED
+                                            </v-chip>
                                         </div>
                                         <div
                                             v-if="item.parent_name"
@@ -1983,6 +1991,9 @@ const routesDirty = computed(() => !!stagingBucket.value?.routesDirty);
 const wfTab = ref(0);
 // Tmp rows (unsaved) carry string ids — no sub-page configuration yet.
 const isTmpRow = (item) => typeof item?.id === "string";
+const stepRowProps = ({ item }) => ({
+    class: isTmpRow(item) ? "wf-step-unsaved-row" : "",
+});
 
 function discardStaged() {
     if (!selectedTypeId.value) return;
@@ -2066,9 +2077,27 @@ const guideSections = [
 const roleOptions = computed(
     () =>
         (roles.value || [])
-            .filter((r) => r.code !== "end_user")
+            .filter(
+                (r) =>
+                    !["end_user", "admin", "superadmin"].includes(r.code),
+            )
             .map((r) => ({ id: r.id, label: `${r.name}` })), // use ${r.code} to show Role Code
 );
+
+const nonSelectableStepRoleIds = computed(
+    () =>
+        new Set(
+            (roles.value || [])
+                .filter((r) => ["admin", "superadmin"].includes(r.code))
+                .map((r) => Number(r.id)),
+        ),
+);
+
+function selectableStepRoleIds(roleIds) {
+    return (roleIds || [])
+        .map(Number)
+        .filter((id) => !nonSelectableStepRoleIds.value.has(id));
+}
 
 // UI-only value for the explicit User's Office row. The stored step office
 // stays null so every existing rule keeps treating blank as the origin office.
@@ -2414,19 +2443,19 @@ const parentStepItems = computed(() => [
 
 const stepHeaders = [
     { title: "#", key: "order_number", width: "4%" },
-    { title: "Name", key: "name", width: "24%" },
-    { title: "Stage", key: "stage", width: "11%" },
+    { title: "Name", key: "name", width: "22%" },
+    { title: "Stage", key: "stage", width: "10%" },
     { title: "SLA", key: "sla_minutes", width: "4.5%" },
     {
         title: "Assigned office",
         key: "office_id",
         sortable: false,
-        width: "16%",
+        width: "15%",
     },
     { title: "End user", key: "is_end_user", sortable: false, width: "8%" },
-    { title: "Roles", key: "role_ids", sortable: false, width: "10.5%" },
-    { title: "Flags", key: "flags", sortable: false, width: "6%" },
-    { title: "", key: "actions", sortable: false, width: "16%", align: "end" },
+    { title: "Roles", key: "role_ids", sortable: false, width: "9.5%" },
+    { title: "Flags", key: "flags", sortable: false, width: "8%" },
+    { title: "", key: "actions", sortable: false, width: "19%", align: "end" },
 ];
 
 const routeHeaders = [
@@ -3223,9 +3252,9 @@ function openStepDialog(step = null) {
             is_start: !!step.is_start,
             is_end: !!step.is_end,
             is_end_user: !!step.is_end_user,
-            role_ids: [
-                ...(step.role_ids ?? step.roles?.map?.((r) => r.id) ?? []),
-            ],
+            role_ids: selectableStepRoleIds(
+                step.role_ids ?? step.roles?.map?.((r) => r.id) ?? [],
+            ),
         };
     } else {
         const topLevel = (tableSteps.value || []).filter((s) => !s.parent_id);
@@ -3282,7 +3311,7 @@ function saveStep() {
         is_start: !!stepForm.value.is_start,
         is_end: !!stepForm.value.is_end,
         is_end_user: !!stepForm.value.is_end_user,
-        role_ids: (stepForm.value.role_ids || []).map(Number),
+        role_ids: selectableStepRoleIds(stepForm.value.role_ids),
     });
     stepDialog.value = false;
     if (staged.changed) {
@@ -3564,6 +3593,10 @@ onMounted(async () => {
     --wf-blue-bg: #e8eeff;
     --wf-ok: #1b7a3d;
     --wf-ok-bg: #e3f5ea;
+    --wf-new-bg: #eaf5ff;
+    --wf-new-accent: #1670b7;
+    --wf-new-chip-bg: #cfe7fa;
+    --wf-new-chip-ink: #124d7a;
     --wf-amber: #b86e00;
     --wf-amber-bg: #fff1d6;
     --wf-err: rgb(var(--v-theme-error));
@@ -3581,6 +3614,10 @@ html.dark .wf-page {
     --wf-blue-bg: #25306a;
     --wf-ok: #3fbf6f;
     --wf-ok-bg: #16382a;
+    --wf-new-bg: #182d40;
+    --wf-new-accent: #6db8f0;
+    --wf-new-chip-bg: #244966;
+    --wf-new-chip-ink: #c8e7ff;
     --wf-amber: #ffbf47;
     --wf-amber-bg: #4a3510;
     --wf-err-bg: #4a1f22;
@@ -3878,7 +3915,7 @@ html.dark .wf-page {
 }
 .wf-page .wf-table {
     --v-table-header-height: 40px;
-    --v-table-row-height: 54px;
+    --v-table-row-height: 74px;
 }
 .wf-table :deep(.v-table__wrapper) {
     min-height: 410px;
@@ -3928,8 +3965,8 @@ html.dark .wf-page {
     text-align: right;
 }
 .wf-table :deep(tbody tr td) {
-    height: 54px;
-    padding: 12px;
+    height: 74px;
+    padding: 14px 12px;
     border-bottom: 1px solid var(--wf-line) !important;
     color: var(--wf-ink);
     font-size: 14px;
@@ -3940,6 +3977,18 @@ html.dark .wf-page {
 }
 .wf-table :deep(tbody tr) {
     transition: background 0.12s;
+}
+
+.wf-table :deep(tbody tr.wf-step-unsaved-row > td) {
+    background: var(--wf-new-bg);
+}
+
+.wf-table :deep(tbody tr.wf-step-unsaved-row:hover > td) {
+    background: color-mix(in srgb, var(--wf-new-bg) 76%, var(--wf-new-accent)) !important;
+}
+
+.wf-table :deep(tbody tr.wf-step-unsaved-row > td:first-child) {
+    box-shadow: inset 4px 0 var(--wf-new-accent);
 }
 
 /* ---- Steps cells ---- */
@@ -3972,6 +4021,15 @@ html.dark .wf-page {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.wf-step-unsaved-chip {
+    height: 20px;
+    flex: none;
+    margin-left: 8px;
+    background: var(--wf-new-chip-bg);
+    color: var(--wf-new-chip-ink);
+    font-size: 10px;
+    font-weight: 800;
 }
 .wf-parent-note {
     margin-top: 3px;
@@ -4125,6 +4183,8 @@ html.dark .wf-page {
 }
 .wf-actions {
     display: flex;
+    flex-wrap: nowrap;
+    min-width: max-content;
     justify-content: flex-end;
     gap: 4px;
 }

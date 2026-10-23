@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Role;
+use App\Models\RequirementDefinition;
 use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowDefinition;
@@ -89,6 +90,43 @@ class WorkflowStagingApplyTest extends TestCase
         $step = $live->steps()->where('code', 'start')->firstOrFail();
         $this->assertTrue((bool) $step->is_end_user);
         $this->assertTrue($step->roles()->where('roles.id', $this->endUserRole->id)->exists());
+    }
+
+    public function test_overwriting_live_version_can_remove_a_step_requirement(): void
+    {
+        Sanctum::actingAs($this->superadmin());
+
+        $requirement = RequirementDefinition::create([
+            'workflow_definition_id' => $this->live->id,
+            'order_number' => 1,
+            'code' => 'proof',
+            'name' => 'Proof',
+        ]);
+        $this->start->requirementDefinitions()->attach($requirement->id, [
+            'display_order' => 0,
+            'is_required' => true,
+            'is_upload_required' => true,
+        ]);
+
+        $this->postJson("/api/admin/workflow-definitions/{$this->live->id}/apply-staged", [
+            'mode' => 'overwrite',
+            'steps_upsert' => $this->stepPayload(),
+            'step_requirements' => [
+                (string) $this->start->id => [],
+            ],
+        ])->assertCreated()->assertJsonPath('meta.published', true);
+
+        $saved = WorkflowDefinition::where('transaction_type_id', $this->type->id)
+            ->where('is_live', true)
+            ->firstOrFail();
+        $savedStart = $saved->steps()->where('code', 'start')->firstOrFail();
+
+        $this->assertFalse(
+            $savedStart->requirementDefinitions()->whereKey($requirement->id)->exists()
+        );
+        $this->assertTrue(
+            $this->start->requirementDefinitions()->whereKey($requirement->id)->exists()
+        );
     }
 
     public function test_overwriting_open_draft_stays_draft(): void
