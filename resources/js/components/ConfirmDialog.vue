@@ -8,7 +8,7 @@
                 <span class="text-h6 font-weight-bold">{{ dialog.title }}</span>
             </v-card-title>
             <v-divider />
-            <v-card-text class="pa-5 text-body-2">
+            <v-card-text class="pa-5 text-body-2 confirm-message">
                 {{ dialog.message }}
             </v-card-text>
             <v-divider />
@@ -29,3 +29,9 @@ import { useConfirmDialog } from "@/composables/useConfirm";
 
 const { dialog, confirm, cancel } = useConfirmDialog();
 </script>
+
+<style scoped>
+.confirm-message {
+    white-space: pre-line;
+}
+</style>

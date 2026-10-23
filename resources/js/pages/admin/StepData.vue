@@ -164,10 +164,19 @@
                     v-for="item in sortedItems"
                     :key="item.id"
                     class="sd-row sd-row-item"
+                    :class="{ 'is-unsaved': isNewStepData(item) }"
                     role="row"
                 >
                     <div class="sd-field" role="cell">
-                        <b>{{ item.display_name }}</b>
+                        <div class="sd-field-title">
+                            <b>{{ item.display_name }}</b>
+                            <span
+                                v-if="isNewStepData(item)"
+                                class="sd-unsaved-chip"
+                            >
+                                UNSAVED
+                            </span>
+                        </div>
                         <div class="sd-field-meta">
                             <span class="sd-code">{{ item.code }}</span>
                             <span v-if="formatLimit(item)" class="sd-limit">{{
@@ -634,6 +643,10 @@ const sortedItems = computed(() =>
             String(a.id).localeCompare(String(b.id)),
     ),
 );
+
+function isNewStepData(item) {
+    return typeof item?.id === "string";
+}
 
 const cardSubtitle = computed(() => {
     if (stepsLoading.value) return "Loading steps…";
@@ -1668,6 +1681,15 @@ onBeforeUnmount(() => {
     background: var(--sd-hover);
 }
 
+.sd-row-item.is-unsaved {
+    background: #eaf5ff;
+    box-shadow: inset 4px 0 #1670b7;
+}
+
+.sd-row-item.is-unsaved:hover {
+    background: #dceeff;
+}
+
 .sd-field {
     min-width: 0;
 }
@@ -1678,6 +1700,25 @@ onBeforeUnmount(() => {
     font-weight: 700;
     line-height: 1.2;
     word-break: break-word;
+}
+
+.sd-field-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sd-unsaved-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 7px;
+    background: #cfe7fa;
+    color: #124d7a;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
 }
 
 .sd-field-meta {
@@ -2106,6 +2147,20 @@ onBeforeUnmount(() => {
 html.dark .sd-page {
     --sd-field: #1c2645;
     --sd-hover: #1d2745;
+}
+
+html.dark .sd-row-item.is-unsaved {
+    background: #182d40;
+    box-shadow: inset 4px 0 #6db8f0;
+}
+
+html.dark .sd-row-item.is-unsaved:hover {
+    background: #203a50;
+}
+
+html.dark .sd-unsaved-chip {
+    background: #244966;
+    color: #c8e7ff;
 }
 
 html.dark .sd-card {

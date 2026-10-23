@@ -136,6 +136,19 @@
                             class="tt-office is-specific"
                             :title="o.name"
                         >
+                            <img
+                                v-if="officeIcon(o)"
+                                class="tt-office-icon"
+                                :src="officeIcon(o)"
+                                :alt="`${o.name} icon`"
+                            />
+                            <span
+                                v-else
+                                class="tt-office-icon-placeholder"
+                                aria-label="No office icon"
+                            >
+                                ?
+                            </span>
                             {{ o.name }}
                         </span>
                     </div>
@@ -144,6 +157,11 @@
                         class="tt-office"
                         title="Available to every office"
                     >
+                        <img
+                            class="tt-office-icon"
+                            :src="anyOfficeIcon"
+                            alt="Zamboanga City seal"
+                        />
                         Any Office
                     </span>
                 </template>
@@ -487,7 +505,8 @@
                     <v-select
                         v-if="isSuperadmin"
                         id="ntt-offices"
-                        v-model="form.office_ids"
+                        :model-value="form.office_ids[0] ?? ALL_OFFICES"
+                        @update:model-value="setSelectedOffice"
                         :items="officeOptions"
                         item-title="title"
                         item-value="id"
@@ -497,20 +516,45 @@
                         density="comfortable"
                         hide-details="auto"
                         persistent-placeholder
-                        multiple
-                        chips
-                        closable-chips
                         :error-messages="fieldErrors.office_ids"
                         class="ntt-in ntt-offices"
                     >
-                        <template #chip="{ item, props: chipProps }">
-                            <v-chip
-                                v-bind="chipProps"
-                                color="primary"
-                                variant="tonal"
-                                rounded="lg"
-                                >{{ item.title }}</v-chip
-                            >
+                        <template #selection="{ item }">
+                            <span class="ntt-office-selection">
+                                <img
+                                    v-if="item.raw.icon"
+                                    class="ntt-office-chip-icon"
+                                    :src="item.raw.icon"
+                                    :alt="item.title === 'Any Office' ? 'Zamboanga City seal' : `${item.raw.subtitle} icon`"
+                                />
+                                <span
+                                    v-else
+                                    class="ntt-office-chip-icon-placeholder"
+                                    aria-label="No office icon"
+                                >
+                                    ?
+                                </span>
+                                <span>{{ item.title }}</span>
+                            </span>
+                        </template>
+                        <template #item="{ props: itemProps, item }">
+                            <v-list-item v-bind="itemProps">
+                                <template #prepend>
+                                    <img
+                                        v-if="item.raw.icon"
+                                        class="ntt-office-option-icon"
+                                        :src="item.raw.icon"
+                                        :alt="`${item.raw.subtitle} icon`"
+                                    />
+                                    <span
+                                        v-else
+                                        class="ntt-office-option-icon-placeholder"
+                                        aria-label="No office icon"
+                                    >
+                                        ?
+                                    </span>
+                                </template>
+                            </v-list-item>
                         </template>
                     </v-select>
                     <v-alert
@@ -539,7 +583,7 @@
 
                 <div class="ntt-sw">
                     <div>
-                        <div class="ntt-sw-t">Active</div>
+                        <div class="ntt-sw-t">{{ form.is_active ? "Active" : "Inactive" }}</div>
                         <div class="ntt-sw-d">
                             {{
                                 form.is_active
@@ -629,6 +673,7 @@ import {
     wfStatusLabel,
 } from "@/utils/workflowStatus";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import { anyOfficeIcon, officeIcon } from "@/utils/officeIcons";
 
 const router = useRouter();
 const auth = useAuth();
@@ -659,11 +704,13 @@ const officeOptions = computed(() => [
         id: ALL_OFFICES,
         title: "Any Office",
         subtitle: "Available to every office",
+        icon: anyOfficeIcon,
     },
     ...(offices.value || []).map((o) => ({
         id: o.id,
         title: o.code || o.name,
         subtitle: o.name,
+        icon: officeIcon(o),
     })),
 ]);
 // Only `subtitle` is injected — Vuetify keeps item-title as the row title.
@@ -871,25 +918,10 @@ function clearFieldError(key) {
     fieldErrors.value = next;
 }
 
-// Any Office and specific offices are mutually exclusive, and Any is the
-// fallback so the field is never blank: picking ALL wins over a selection,
-// picking a real office while ALL is on drops ALL, and clearing the last
-// chip snaps back to ALL.
-watch(
-    () => form.value.office_ids,
-    (val, old) => {
-        const list = Array.isArray(val) ? val : [];
-        if (list.length === 0) {
-            form.value.office_ids = [ALL_OFFICES];
-            return;
-        }
-        if (!list.includes(ALL_OFFICES) || list.length <= 1) return;
-        const hadAll = (old || []).includes(ALL_OFFICES);
-        form.value.office_ids = hadAll
-            ? list.filter((v) => v !== ALL_OFFICES)
-            : [ALL_OFFICES];
-    },
-);
+function setSelectedOffice(value) {
+    form.value.office_ids = [value ?? ALL_OFFICES];
+    clearFieldError("office_ids");
+}
 
 // Stored office ids, or the ALL sentinel when the type has none.
 function officeIdsOf(item) {
@@ -1349,8 +1381,11 @@ html.dark .tt-page {
     min-width: 0;
 }
 .tt-office {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     max-width: 100%;
+    min-width: 0;
     overflow: hidden;
     padding: 5px 10px;
     background: var(--tt-field);
@@ -1359,6 +1394,28 @@ html.dark .tt-page {
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.tt-office-icon {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    object-fit: contain;
+}
+.tt-office-icon-placeholder {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
 }
 .tt-office.is-specific {
     background: var(--tt-blue-bg);
@@ -1610,6 +1667,62 @@ html.dark .tt-page {
 .ntt-offices :deep(.v-list-item-subtitle) {
     font-size: 12.5px;
     white-space: normal;
+}
+.ntt-office-chip-icon {
+    width: 22px;
+    height: 22px;
+    margin-inline-end: 8px;
+    object-fit: contain;
+}
+.ntt-office-selection {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+.ntt-office-selection > span:last-child {
+    font-size: 15px;
+    font-weight: 600;
+}
+.ntt-office-chip-icon-placeholder {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    margin-inline-end: 8px;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+}
+.ntt-office-option-icon {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-inline-end: 10px;
+    object-fit: contain;
+}
+.ntt-office-option-icon-placeholder {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-inline-end: 10px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* Active: bordered row, subtitle tracks the switch. */

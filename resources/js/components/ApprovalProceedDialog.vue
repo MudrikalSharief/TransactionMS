@@ -70,6 +70,7 @@
                             remarks-placeholder="Explain what you changed or fixed"
                             attachments-title="Additional files"
                             @toggle-requirement="onRequirementToggle"
+                            @return-missing="returnForMissing"
                             @toggle-checklist="onChecklistToggle"
                             @requirement-uploaded="refreshTxPreservingForm"
                             @attachment-deleted="onAttachmentDeleted"
@@ -118,7 +119,7 @@ const emit = defineEmits(["proceeded", "changed"]);
 
 const router = useRouter();
 const { api } = useApi();
-const { getOne, execute } = useMyTransactions();
+const { getOne, execute, gotoStation } = useMyTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
@@ -218,7 +219,7 @@ const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 
 const missingRequiredUploadLabels = computed(() =>
     (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
+        .filter((r) => r?.pivot?.is_required || r?.pivot?.is_upload_required)
         .filter((r) => {
             const existing = (r.attachments || []).length;
             const staged = wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0;
@@ -237,7 +238,7 @@ const missingRequiredChecklistLabels = computed(() => {
 });
 
 // Every required requirement (tick-only AND upload rows like AR/Payroll)
-// must be ticked: the top tick unlocks the upload card below.
+// must be ticked as physically verified; uploads are gated separately.
 const missingRequiredTickLabels = computed(() =>
     (tx.value?.current_step_requirements ?? [])
         .filter((r) => r?.pivot?.is_required)
@@ -423,6 +424,27 @@ async function executeSelected() {
         emit("proceeded", res.tx);
     } catch (e) {
         executeError.value = formatApiError(e, "Proceed failed.");
+    } finally {
+        saving.value = false;
+    }
+}
+
+// Wizard "Return to Step N": the previous station's items were missing.
+// The item leaves this approver's queue, so it counts as proceeded.
+async function returnForMissing({ toStepId, remarks }) {
+    if (saving.value) return;
+    saving.value = true;
+    executeError.value = "";
+    try {
+        const res = await gotoStation(props.txId, {
+            to_step_id: toStepId,
+            remarks,
+            reason: "missing_requirements",
+        });
+        open.value = false;
+        emit("proceeded", res.tx);
+    } catch (e) {
+        executeError.value = formatApiError(e, "Return failed.");
     } finally {
         saving.value = false;
     }

@@ -40,7 +40,7 @@
         :items-per-page="7"
         :items-per-page-options="[7]"
         hover
-        class="lgu-table table-pages"
+        class="lgu-table table-pages table-fixed-cols"
       >
         <template v-slot:[`item.code`]="{ item }">
           <span class="cell-truncate" :title="item.code">{{ item.code }}</span>
@@ -51,7 +51,7 @@
         </template>
 
         <template v-slot:[`item.description`]="{ item }">
-          <span class="cell-truncate text-medium-emphasis" :title="item.description || ''">{{ item.description || '—' }}</span>
+          <span class="desc-wrap text-medium-emphasis">{{ item.description || '—' }}</span>
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
@@ -106,11 +106,14 @@ import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } = useRoles()
 
+// Fixed widths (table-fixed-cols): a long description wraps onto more
+// lines inside its column instead of pushing the edit/delete buttons off
+// screen.
 const headers = [
-  { title: 'Code', key: 'code' },
-  { title: 'Name', key: 'name' },
+  { title: 'Code', key: 'code', width: 180 },
+  { title: 'Name', key: 'name', width: 200 },
   { title: 'Description', key: 'description' },
-  { title: '', key: 'actions', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: 120, align: 'end' },
 ]
 
 const dialog = ref(false)
@@ -216,6 +219,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full description, wrapped within its column; the row grows to fit. */
+.desc-wrap {
+  display: block;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  padding: 10px 0;
+}
 /* Hide the table's internal scrollbar; drawer expand can never create a
    visible horizontal bar — overflow is clipped, not scrolled. */
 .lgu-table {

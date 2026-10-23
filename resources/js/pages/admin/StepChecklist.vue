@@ -158,7 +158,7 @@
                         persistent-hint
                     />
                     <v-textarea v-model="addForm.description" label="Remarks" rows="3" />
-                    <v-switch v-model="addForm.is_required" color="grey-darken-3" label="Required" />
+                    <v-switch v-model="addForm.is_required" color="success" label="Required" />
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">

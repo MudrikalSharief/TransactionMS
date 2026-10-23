@@ -401,7 +401,7 @@
             </template>
         </v-row>
         <SummaryDetailDialog
-            v-if="isSuperadmin"
+            v-if="canSeeSummary"
             v-model:open="detail.open"
             :category="detail.category"
             :process-id="detail.processId"
@@ -419,6 +419,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
+import { summaryApiBase } from '@/composables/useSummaryRows'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
@@ -446,19 +447,21 @@ const isSuperadmin = computed(() => {
     return roles.some((r) => r.code === 'superadmin')
 })
 
-const canViewSummary = computed(() => isSuperadmin.value || isOfficeAdminUser(auth.user.value))
+// Office admins get the Transaction Summary for their own office's scope.
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
 // Standard users (role-based staff) get an action-first dashboard: no
 // analytics, queue tightened to what is actually waiting on them, and an
 // in-transit card showing where their office's papers currently sit.
-const isStaff = computed(() => !canViewSummary.value)
+const isStaff = computed(() => !canSeeSummary.value)
 
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
 // Default order; Transaction Summary is superadmin / office admin only,
 // and the staff layout swaps the graph + Get Started hero for the queue.
 const cardIds = computed(() => {
-    if (canViewSummary.value) {
+    if (canSeeSummary.value) {
         return ['summary', 'graph', 'start', 'recent', 'action']
     }
     return ['action', 'intransit', 'recent', 'start']
@@ -815,27 +818,29 @@ const summaryError = ref('')
 
 // Same scope as the graph, but independent of the graph's Month and
 // Process filters. No office assigned: the backend aggregates all offices.
+// Office admins send no office: the server forces their office's full scope
+// (filed by it or passing through it), which an office_code would narrow.
 const summaryQuery = computed(() => ({
     month: summaryPeriod.value === 'this_week' ? undefined : summaryPeriod.value,
-    ...(scopeCode.value ? { office_code: scopeCode.value } : {}),
+    ...(isSuperadmin.value && scopeCode.value ? { office_code: scopeCode.value } : {}),
     ...(officeFilter.value?.length ? { offices: [...officeFilter.value].sort((a, b) => a - b) } : {}),
 }))
 
 let summaryRequest = 0
 async function loadSummary() {
-    if (!canViewSummary.value) return
+    if (!canSeeSummary.value) return
     const mine = ++summaryRequest
     // Instant illusion: last summary for this period/office paints at once
     // (template already dims stale tiles via .summary-stale), then the
     // network refreshes silently. Spinner only shows with zero cached data.
-    const cacheKey = `${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`
+    const cacheKey = scopedKey(`${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`, auth.user.value?.id)
     const cached = readCache(cacheKey)
     if (cached != null && mine === summaryRequest) summary.value = cached
     const quiet = cached != null
     if (!quiet) summaryLoading.value = true
     summaryError.value = ''
     try {
-        const res = await api.get('/api/admin/dashboard/summary', { params: summaryQuery.value })
+        const res = await api.get(summaryApiBase(), { params: summaryQuery.value })
         if (mine === summaryRequest) {
             summary.value = res.data
             writeCache(cacheKey, res.data)
@@ -945,8 +950,19 @@ const startLinks = computed(() => {
         { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#16307C', go: goToHelp },
         isSuperadmin.value
             ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue }
-            : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue },
+            : isOfficeAdmin.value
+              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue }
+              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue },
     ]
+    if (isOfficeAdmin.value) {
+        links.push({
+            title: 'Office users',
+            subtitle: 'People and roles in your office',
+            icon: 'mdi-account-group',
+            color: '#1E40AF',
+            go: () => router.push('/office/users'),
+        })
+    }
     if (isSuperadmin.value) {
         links.push({
             title: 'Manage offices',
@@ -1028,8 +1044,10 @@ onMounted(async () => {
 useSmartPoll(async () => {
     const opts = { silent: true }
     try {
+        // Everyone reads the shared Transactions list now (My Transactions
+        // was retired); the summary is for superadmins and office admins.
         await txStore.fetchAll(opts)
-        if (isSuperadmin.value) loadSummary()
+        if (canSeeSummary.value) loadSummary()
         refreshedAt.value = new Date()
     } catch {
         /* next tick retries */

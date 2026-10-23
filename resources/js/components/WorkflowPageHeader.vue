@@ -31,7 +31,7 @@
                 Back
             </v-btn>
             <v-btn
-                v-if="dirty"
+                v-if="dirty && !readOnly"
                 class="wsh-tool wsh-danger"
                 variant="outlined"
                 prepend-icon="mdi-undo"
@@ -43,6 +43,7 @@
                 Discard
             </v-btn>
             <v-btn
+                v-if="!readOnly"
                 class="wsh-save"
                 variant="flat"
                 prepend-icon="mdi-content-save-plus-outline"
@@ -73,6 +74,7 @@ const props = defineProps({
     isLive: { type: Boolean, default: false },
     dirty: { type: Boolean, default: false },
     saveDisabled: { type: Boolean, default: false },
+    readOnly: { type: Boolean, default: false },
 });
 
 defineEmits(["back", "discard", "save"]);
@@ -246,11 +248,16 @@ html.dark .wsh {
     display: inline-flex;
     margin-left: 8px;
     padding: 3px 7px;
-    background: rgba(var(--v-theme-warning), 0.18);
-    color: var(--wsh-amber);
+    background: #fff1d6;
+    color: #704000;
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.04em;
+}
+
+html.dark .wsh-unsaved {
+    background: #4a3510;
+    color: #ffdf85;
 }
 
 .wsh :deep(.v-btn:focus-visible) {

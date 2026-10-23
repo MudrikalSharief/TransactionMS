@@ -131,11 +131,6 @@ export function useTransactions() {
     }
   }
 
-  async function destroy(id) {
-    await api.delete(`/api/admin/transactions/${id}`)
-    invalidateCache(key())
-  }
-
   async function uploadAttachment(id, file, requirementId = null) {
     const fd = new FormData()
     fd.append('file', file)
@@ -144,5 +139,5 @@ export function useTransactions() {
     return res.data.data ?? res.data
   }
 
-  return { items, loading, meta, fetchAll, create, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, destroy, uploadAttachment }
+  return { items, loading, meta, fetchAll, create, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, uploadAttachment }
 }

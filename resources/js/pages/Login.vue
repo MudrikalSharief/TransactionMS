@@ -4,23 +4,37 @@
         :class="{ 'hide-cursor': loading && pointer.seen }"
     >
         <section class="side">
+            <!-- Lockup: the emblem, a gold rule like its inner ring, and the
+                 name in the emblem's own navy and gold, with its ribbon motto. -->
             <header class="brand">
-                <img
-                    class="seal"
-                    :src="'/zamboanga-seal.png'"
-                    alt="City Government of Zamboanga seal"
-                    width="64"
-                    height="64"
-                />
-                <div>
-                    <h1>TransactionMF</h1>
-                    <p>City Government of Zamboanga</p>
+                <span class="brand-mark">
+                    <img
+                        class="seal"
+                        :src="'/tms-logo-128.png'"
+                        alt="Transaction Management System emblem, Local Government of Zamboanga City"
+                        width="76"
+                        height="79"
+                    />
+                </span>
+                <span class="brand-rule" aria-hidden="true"></span>
+                <div class="brand-text">
+                    <p class="brand-city">City Government of Zamboanga</p>
+                    <h1 class="brand-name">Transaction<span>MS</span></h1>
+                    <p class="brand-motto">
+                        <span class="brand-link" aria-hidden="true"><i></i></span>
+                        E-Service &amp; Efficient
+                    </p>
                 </div>
             </header>
 
-            <main class="panel">
+            <main v-if="mode === 'signin'" class="panel">
                 <h2>Sign in</h2>
                 <p class="sub">Use your city government account to continue.</p>
+
+                <div v-if="notice" class="notice" role="status" aria-live="polite">
+                    <v-icon aria-hidden="true">mdi-check-circle-outline</v-icon>
+                    <span>{{ notice }}</span>
+                </div>
 
                 <div v-if="error" :key="errorKey" class="error" role="alert" aria-live="assertive">
                     <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
@@ -88,6 +102,168 @@
                         <span>{{ loading ? "Signing in…" : "Sign in" }}</span>
                     </button>
                 </form>
+
+                <button
+                    class="btn btn-guest"
+                    :class="{ loading: guestLoading }"
+                    type="button"
+                    :disabled="loading || guestLoading"
+                    @click="guestLogin"
+                >
+                    <span v-if="guestLoading" class="spin spin-dark" aria-hidden="true"></span>
+                    <v-icon v-else aria-hidden="true">mdi-file-search-outline</v-icon>
+                    <span>{{ guestLoading ? "Opening tracker…" : "Track your Document Process" }}</span>
+                </button>
+                <p class="guest-note">View-only. No account or sign-in needed.</p>
+
+                <p class="help">
+                    Need an account?
+                    <button type="button" class="link" @click="openRegister">Create an account</button>
+                </p>
+            </main>
+
+            <!-- Create an account: the same details a superadmin enters for a
+                 new user, plus a contact number. It waits for approval. -->
+            <main v-else class="panel">
+                <h2>Create an account</h2>
+                <p class="sub">An administrator reviews new accounts. You can sign in once yours is approved.</p>
+
+                <div v-if="regError" :key="errorKey" class="error" role="alert" aria-live="assertive">
+                    <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
+                    <span>{{ regError }}</span>
+                </div>
+
+                <form novalidate :aria-busy="registering ? 'true' : 'false'" @submit.prevent="register">
+                    <div class="field">
+                        <label for="reg-name">Full name</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-account-outline</v-icon>
+                            <input
+                                id="reg-name"
+                                v-model.trim="reg.name"
+                                type="text"
+                                autocomplete="name"
+                                placeholder="Juan Dela Cruz"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.name ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-email">Email</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-email-outline</v-icon>
+                            <input
+                                id="reg-email"
+                                v-model.trim="reg.email"
+                                type="email"
+                                autocomplete="email"
+                                autocapitalize="none"
+                                spellcheck="false"
+                                placeholder="name@zamboanga.gov.ph"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.email ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-contact">Contact number</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-phone-outline</v-icon>
+                            <input
+                                id="reg-contact"
+                                v-model.trim="reg.contact_number"
+                                type="tel"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                placeholder="09171234567"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.contact_number ? 'true' : 'false'"
+                                required
+                            />
+                        </div>
+                        <p v-if="fieldErrors.contact_number" class="field-error">{{ fieldErrors.contact_number }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-password">Password</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-lock-outline</v-icon>
+                            <input
+                                id="reg-password"
+                                v-model="reg.password"
+                                :type="showPassword ? 'text' : 'password'"
+                                autocomplete="new-password"
+                                placeholder="At least 8 characters"
+                                :disabled="registering"
+                                :aria-invalid="fieldErrors.password ? 'true' : 'false'"
+                                required
+                            />
+                            <button
+                                type="button"
+                                class="toggle"
+                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                :aria-pressed="showPassword ? 'true' : 'false'"
+                                @click="showPassword = !showPassword"
+                            >
+                                <v-icon>{{ showPassword ? "mdi-eye-off-outline" : "mdi-eye-outline" }}</v-icon>
+                            </button>
+                        </div>
+                        <p v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-office">Office</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-office-building-outline</v-icon>
+                            <select
+                                id="reg-office"
+                                v-model="reg.office_id"
+                                :disabled="registering || !options.offices.length"
+                                :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
+                                required
+                            >
+                                <option :value="null" disabled>Choose your office</option>
+                                <option v-for="o in options.offices" :key="o.id" :value="o.id">{{ o.name }}</option>
+                            </select>
+                        </div>
+                        <p v-if="fieldErrors.office_id" class="field-error">{{ fieldErrors.office_id }}</p>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-role">Role</label>
+                        <div class="control">
+                            <v-icon class="ic" aria-hidden="true">mdi-badge-account-horizontal-outline</v-icon>
+                            <select
+                                id="reg-role"
+                                v-model="reg.role_id"
+                                :disabled="registering || !options.roles.length"
+                                :aria-invalid="fieldErrors.role_ids ? 'true' : 'false'"
+                                required
+                            >
+                                <option :value="null" disabled>Choose your role</option>
+                                <option v-for="r in options.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                            </select>
+                        </div>
+                        <p v-if="fieldErrors.role_ids" class="field-error">{{ fieldErrors.role_ids }}</p>
+                    </div>
+
+                    <button class="btn" :class="{ loading: registering }" type="submit" :disabled="!canRegister">
+                        <span v-if="registering" class="spin" aria-hidden="true"></span>
+                        <span>{{ registering ? "Creating account…" : "Create account" }}</span>
+                    </button>
+                </form>
+
+                <p class="help">
+                    Already have an account?
+                    <button type="button" class="link" @click="openSignIn">Sign in</button>
+                </p>
             </main>
 
             <footer>
@@ -140,10 +316,16 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
+import { useApi } from "@/composables/useApi";
 
 const router = useRouter();
 const auth = useAuth();
+const { api, csrf } = useApi();
+
+// "signin" or "register" (Create an account), in the same panel.
+const mode = ref("signin");
+const notice = ref("");
 
 const email = ref("");
 const password = ref("");
@@ -151,6 +333,7 @@ const showPassword = ref(false);
 const remember = ref(false);
 
 const loading = ref(false);
+const guestLoading = ref(false);
 const error = ref("");
 const errorKey = ref(0);
 
@@ -173,13 +356,14 @@ watch(loading, (busy) => {
 });
 
 const canSubmit = computed(
-    () => !loading.value && email.value.trim().length > 0 && password.value.length > 0,
+    () => !loading.value && !guestLoading.value && email.value.trim().length > 0 && password.value.length > 0,
 );
 
 async function submit() {
     if (!canSubmit.value) return;
     loading.value = true;
     error.value = "";
+    notice.value = "";
 
     try {
         await auth.login({
@@ -200,6 +384,103 @@ async function submit() {
         errorKey.value += 1;
     } finally {
         loading.value = false;
+    }
+}
+
+// ---- Create an account ----------------------------------------------------
+
+const emptyReg = () => ({ name: "", email: "", contact_number: "", password: "", office_id: null, role_id: null });
+const reg = ref(emptyReg());
+const options = ref({ offices: [], roles: [] });
+const registering = ref(false);
+const regError = ref("");
+const fieldErrors = ref({});
+
+const canRegister = computed(
+    () =>
+        !registering.value &&
+        reg.value.name &&
+        reg.value.email &&
+        reg.value.contact_number &&
+        reg.value.password.length >= 8 &&
+        reg.value.office_id != null &&
+        reg.value.role_id != null,
+);
+
+async function openRegister() {
+    mode.value = "register";
+    error.value = "";
+    notice.value = "";
+    regError.value = "";
+    fieldErrors.value = {};
+    if (options.value.offices.length) return;
+    try {
+        const res = await api.get("/api/auth/register/options");
+        options.value = { offices: res.data.offices ?? [], roles: res.data.roles ?? [] };
+    } catch {
+        regError.value = "Could not load offices and roles. Check your connection and try again.";
+        errorKey.value += 1;
+    }
+}
+
+function openSignIn() {
+    mode.value = "signin";
+    regError.value = "";
+}
+
+async function register() {
+    if (!canRegister.value) return;
+    registering.value = true;
+    regError.value = "";
+    fieldErrors.value = {};
+
+    try {
+        await csrf();
+        const res = await api.post("/api/auth/register", {
+            name: reg.value.name,
+            email: reg.value.email,
+            contact_number: reg.value.contact_number,
+            password: reg.value.password,
+            office_id: reg.value.office_id,
+            role_ids: [reg.value.role_id],
+        });
+        // Back to sign in, email filled in, with what happens next.
+        email.value = reg.value.email;
+        password.value = "";
+        reg.value = emptyReg();
+        notice.value = res.data?.message || "Account created. You can sign in once an administrator approves it.";
+        mode.value = "signin";
+    } catch (e) {
+        const errs = e?.response?.data?.errors || {};
+        fieldErrors.value = Object.fromEntries(
+            Object.entries(errs).map(([k, v]) => [k.replace(/\.\d+$/, ""), Array.isArray(v) ? v[0] : v]),
+        );
+        regError.value = Object.keys(errs).length
+            ? "Check the highlighted fields."
+            : e?.response?.data?.message || "Could not create the account. Please try again.";
+        errorKey.value += 1;
+    } finally {
+        registering.value = false;
+    }
+}
+
+// Guest = the read-only viewer account: signs in without a password and
+// goes straight to the viewer (tracking) page.
+async function guestLogin() {
+    if (loading.value || guestLoading.value) return;
+    guestLoading.value = true;
+    error.value = "";
+
+    try {
+        const u = await auth.loginAsGuest();
+        // Guests are viewers: open with the welcome animation.
+        await router.push(userKind(u) === "viewer" ? "/track/welcome" : homePathFor(u));
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message || "Document tracking is not available right now.";
+        errorKey.value += 1;
+    } finally {
+        guestLoading.value = false;
     }
 }
 </script>
@@ -259,31 +540,134 @@ async function submit() {
     min-width: 0;
 }
 
+/* ---- Brand lockup (colours taken from the emblem) ---- */
 .brand {
+    --emblem-navy: #16307c;
+    --emblem-gold: #b8891b;
+    --emblem-gold-text: #8a6612; /* darker gold: readable at small sizes */
     display: flex;
     align-items: center;
     gap: 16px;
 }
+.brand-mark {
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 84px;
+    height: 84px;
+    animation: brand-settle 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Faint dotted gold ring behind the emblem, like its engraved rim. */
+.brand-mark::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px dashed rgba(184, 137, 27, 0.45);
+}
 .seal {
-    width: 64px;
-    height: 64px;
+    position: relative;
+    width: 76px;
+    height: 79px;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 10px rgba(22, 48, 124, 0.22));
+}
+/* Gold rule between emblem and name, drawn top to bottom. */
+.brand-rule {
+    flex: none;
+    width: 1.5px;
+    height: 62px;
+    background: linear-gradient(180deg, transparent, var(--emblem-gold) 18%, var(--emblem-gold) 82%, transparent);
+    transform-origin: top center;
+    animation: brand-rule 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+}
+.brand-text {
+    min-width: 0;
+    animation: brand-text 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s both;
+}
+.brand-city {
+    margin: 0 0 3px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--emblem-gold-text);
+}
+.brand-name {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--emblem-navy);
+}
+.brand-name span {
+    color: var(--emblem-gold);
+}
+/* The ribbon's motto, led by the same lozenge-and-line link as the
+   welcome screen. */
+.brand-motto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 0;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 13.5px;
+    font-style: italic;
+    color: #4a5670;
+}
+.brand-link {
+    position: relative;
+    width: 26px;
+    height: 7px;
     flex: none;
 }
-.brand h1 {
-    margin: 0;
-    font-size: 26px;
-    line-height: 1.1;
-    font-weight: 800;
-    color: #16307C;
-    letter-spacing: -0.01em;
+.brand-link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 3px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--emblem-gold) 40%);
 }
-.brand p {
-    margin: 4px 0 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: #5b6780;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+.brand-link i {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 7px;
+    height: 7px;
+    background: var(--emblem-gold);
+    transform: rotate(45deg) scale(0.8);
+}
+@keyframes brand-settle {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@keyframes brand-rule {
+    from {
+        transform: scaleY(0);
+    }
+    to {
+        transform: none;
+    }
+}
+@keyframes brand-text {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .panel {
@@ -481,6 +865,29 @@ async function submit() {
     outline-offset: 2px;
 }
 
+.btn-guest {
+    margin-top: 22px;
+    background: #ffffff;
+    color: #1E40AF;
+    border: 1.5px solid #1E40AF;
+}
+.btn-guest:hover:not(:disabled) {
+    background: #eef2ff;
+}
+.btn-guest .v-icon {
+    font-size: 22px;
+}
+.guest-note {
+    margin: 10px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: #5b6780;
+}
+.spin-dark {
+    border-color: rgba(30, 64, 175, 0.25);
+    border-top-color: #1E40AF;
+}
+
 .spin {
     width: 18px;
     height: 18px;
@@ -493,6 +900,88 @@ async function submit() {
     to {
         transform: rotate(360deg);
     }
+}
+
+.help {
+    margin: 20px 0 0;
+    text-align: center;
+    font-size: 14px;
+    color: #5b6780;
+}
+
+/* ---- Create an account ---- */
+.link {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: #1E40AF;
+    cursor: pointer;
+}
+.link:hover {
+    text-decoration: underline;
+}
+.link:focus-visible {
+    outline: 3px solid rgba(30, 64, 175, 0.28);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e7f5ec;
+    color: #1d6b3c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 18px;
+}
+.notice .v-icon {
+    font-size: 20px;
+    flex: none;
+}
+/* Selects match the text inputs, with their own chevron. */
+.control select {
+    width: 100%;
+    height: 52px;
+    border: 1.5px solid #d5dbe8;
+    border-radius: 12px;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6780' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+            no-repeat right 18px center,
+        #f3f5fb;
+    color: #14213d;
+    font: inherit;
+    font-size: 16px;
+    padding: 0 44px 0 46px;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.control select:hover:not(:disabled) {
+    border-color: #aab4cc;
+}
+.control select:focus {
+    outline: none;
+    border-color: #1E40AF;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.22);
+}
+.control select:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+.control input[aria-invalid="true"],
+.control select[aria-invalid="true"] {
+    border-color: #b42318;
+}
+.field-error {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #b42318;
 }
 
 footer {
@@ -595,11 +1084,44 @@ footer {
     }
 }
 
+/* Phones: a tighter lockup so the city line never reaches the edge. */
+@media (max-width: 440px) {
+    .brand {
+        gap: 12px;
+    }
+    .brand-mark {
+        width: 68px;
+        height: 68px;
+    }
+    .seal {
+        width: 60px;
+        height: 62px;
+    }
+    .brand-rule {
+        height: 52px;
+    }
+    .brand-city {
+        font-size: 9.5px;
+        letter-spacing: 0.12em;
+    }
+    .brand-name {
+        font-size: 24px;
+    }
+    .brand-motto {
+        font-size: 12.5px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .control input,
     .toggle,
     .btn {
         transition: none !important;
+    }
+    .brand-mark,
+    .brand-rule,
+    .brand-text {
+        animation: none;
     }
 }
 </style>

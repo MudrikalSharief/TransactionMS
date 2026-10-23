@@ -302,7 +302,7 @@
                             <div class="d-flex align-center ga-2">
                                 <v-switch
                                     v-model="bindOverrides[String(item.workflow_step_id)].is_upload_required"
-                                    color="grey-darken-3"
+                                    color="success"
                                     inset
                                     density="compact"
                                     hide-details
@@ -366,7 +366,7 @@
                         persistent-hint
                         rows="3"
                     />
-                    <v-switch v-model="form.is_active" label="Active" />
+                    <v-switch v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
                 </v-card-text>
                 <v-divider />
                 <v-card-actions class="justify-end">

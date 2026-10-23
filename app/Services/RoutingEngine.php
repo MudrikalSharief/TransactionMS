@@ -9,7 +9,8 @@ use App\Models\WorkflowRoute;
 class RoutingEngine
 {
     public function __construct(
-        private readonly JsonLogicEvaluator $evaluator
+        private readonly JsonLogicEvaluator $evaluator,
+        private readonly OfficeScope $officeScope
     ) {}
 
     public function availableActions(Transaction $tx, User $user): array
@@ -140,6 +141,18 @@ class RoutingEngine
         }
     }
 
+    /**
+     * Viewing is wider than acting: superadmins see everything and office
+     * admins see every transaction in their office's scope (finalized ones
+     * too). Everyone else may only open what they can act on right now.
+     */
+    public function assertUserCanView(Transaction $tx, User $user): void
+    {
+        if ($user->isSuperadmin() || $this->officeScope->covers($tx, $user)) return;
+
+        $this->assertUserCanExecute($tx, $user);
+    }
+
     public function assertRouteExecutable(Transaction $tx, int $routeId, User $user): WorkflowRoute
     {
         $this->assertUserCanExecute($tx, $user);
@@ -206,7 +219,7 @@ class RoutingEngine
 
         $reqs = $step->requirementDefinitions()
             ->get()
-            ->filter(fn ($r) => (bool) ($r->pivot?->is_upload_required ?? $r->pivot?->is_required ?? true))
+            ->filter(fn ($r) => \App\Models\RequirementDefinition::pivotNeedsUpload($r->pivot))
             ->values();
 
         if ($reqs->isEmpty()) return;
@@ -229,8 +242,8 @@ class RoutingEngine
 
     /**
      * Required requirements (tick-only AND upload rows like AR/Payroll)
-     * block Proceed until ticked. The top tick unlocks the upload card
-     * below. Optional rows never block.
+     * block Proceed until their physical copy is ticked as verified.
+     * Uploads are checked separately. Optional rows never block.
      */
     private function assertRequiredHardCopyTicks(Transaction $tx, int $stepId): void
     {

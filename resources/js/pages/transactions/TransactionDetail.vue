@@ -7,8 +7,11 @@
                     <v-icon color="#16307C">mdi-file-document</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">
-                    Transaction: <b>{{ tx?.reference_number }}</b>
-                    <span v-if="tx?.title"> — {{ tx.title }}</span>
+                    <template v-if="tx">
+                        Transaction: <b>{{ tx.reference_number }}</b>
+                        <span v-if="tx.title"> — {{ tx.title }}</span>
+                    </template>
+                    <template v-else>Transaction</template>
                 </span>
                 <v-spacer />
                 <v-btn variant="text" @click="$router.push('/transactions')"
@@ -531,6 +534,7 @@
                         remarks-placeholder="Explain what you changed or fixed"
                         attachments-title="Additional files"
                         @toggle-requirement="onWizardToggle"
+                        @return-missing="returnForMissing"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
                         @attachment-deleted="removeAttachment"
@@ -1323,7 +1327,7 @@ const flatStationItems = computed(() => {
 const missingRequiredUploadLabels = computed(() => {
     if (isReturnSelected.value || isReturnMode.value) return [];
     return (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_upload_required ?? r?.pivot?.is_required)
+        .filter((r) => r?.pivot?.is_required || r?.pivot?.is_upload_required)
         .filter((r) => {
             const existing = (r.attachments || []).length;
             const staged = (stagedReqFileCount(r) || 0);
@@ -1336,7 +1340,7 @@ const missingRequiredUploadLabels = computed(() => {
 const missingRequiredTickLabels = computed(() => {
     if (isReturnSelected.value || isReturnMode.value) return [];
     // Every required requirement (tick-only AND upload rows like AR/Payroll)
-    // must be ticked: the top tick unlocks the upload card below.
+    // must be ticked as physically verified; uploads are gated separately.
     return (tx.value?.current_step_requirements ?? [])
         .filter((r) => r?.pivot?.is_required)
         .filter((r) => !r.checked)
@@ -1442,7 +1446,17 @@ async function load() {
         );
         if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load transaction.";
+        // Plain-language messages instead of the server's raw text
+        // ("Forbidden.", "No query results for model ...").
+        const status = e?.response?.status;
+        if (status === 404) {
+            error.value = "This transaction was not found. It may have been deleted.";
+        } else if (status === 403) {
+            error.value =
+                "You don't have access to this transaction. It isn't at a step for your role and office.";
+        } else {
+            error.value = e?.response?.data?.message || "Failed to load transaction.";
+        }
     } finally {
         loading.value = false;
     }
@@ -1740,6 +1754,30 @@ async function gotoStation(payload) {
         hydrateStepDataForm();
     } catch (e) {
         error.value = formatApiError(e, "Jump failed.");
+    } finally {
+        saving.value = false;
+    }
+}
+// Proceed modal → "Return to Step N": the previous station's items were
+// missing, so send it back there with remarks (goto, reason recorded).
+async function returnForMissing({ toStepId, remarks }) {
+    if (saving.value) return;
+    saving.value = true;
+    executeError.value = "";
+    try {
+        const res = await gotoStationApi(route.params.id, {
+            to_step_id: toStepId,
+            remarks,
+            reason: "missing_requirements",
+        });
+        tx.value = res.tx;
+        availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        selectedRouteId.value = null;
+        hydrateForm();
+        remarksDialog.value = false;
+    } catch (e) {
+        executeError.value = formatApiError(e, "Return failed.");
     } finally {
         saving.value = false;
     }

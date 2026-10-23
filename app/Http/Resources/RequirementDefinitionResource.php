@@ -25,7 +25,7 @@ class RequirementDefinitionResource extends JsonResource
                             'pivot_meta' => [
                                 'display_order' => (int) ($s->pivot?->display_order ?? 0),
                                 'is_required' => (bool) ($s->pivot?->is_required ?? true),
-                                'is_upload_required' => (bool) ($s->pivot?->is_upload_required ?? $s->pivot?->is_required ?? true),
+                                'is_upload_required' => \App\Models\RequirementDefinition::pivotNeedsUpload($s->pivot),
                             ],
                         ]
                     );

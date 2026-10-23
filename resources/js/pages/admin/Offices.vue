@@ -45,7 +45,22 @@
         </template>
 
         <template v-slot:[`item.name`]="{ item }">
-          <span class="cell-truncate font-weight-bold" :title="item.name">{{ item.name }}</span>
+          <div class="office-name-cell" :title="item.name">
+            <img
+              v-if="officeIcon(item)"
+              class="office-icon"
+              :src="officeIcon(item)"
+              :alt="`${item.name} icon`"
+            />
+            <span
+              v-else
+              class="office-icon office-icon-placeholder"
+              aria-label="No office icon"
+            >
+              <span class="office-icon-placeholder-mark">?</span>
+            </span>
+            <span class="cell-truncate font-weight-bold">{{ item.name }}</span>
+          </div>
         </template>
 
         <template v-slot:[`item.description`]="{ item }">
@@ -92,7 +107,7 @@
         <v-text-field v-model="form.code" label="Code (snake_case)" />
         <v-text-field v-model="form.name" label="Name" />
         <v-textarea v-model="form.description" label="Description" rows="3" />
-        <v-switch v-model="form.is_active" label="Active" />
+        <v-switch v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
       </v-card-text>
       <v-divider />
       <v-card-actions class="justify-end">
@@ -107,6 +122,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useOffices } from '@/composables/useOffices'
+import { officeIcon } from '@/utils/officeIcons'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 
 const auth = useAuth()
@@ -246,6 +262,39 @@ onUnmounted(() => {
 }
 .lgu-table :deep(table) {
   width: 100%;
+}
+.office-name-cell {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.office-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  object-fit: contain;
+}
+.office-icon-placeholder {
+  display: flex !important;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #7b8495;
+  border-radius: 50%;
+  background: #f3f5f8;
+  color: #596579;
+}
+.office-icon-placeholder-mark {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+}
+.office-name-cell .cell-truncate {
+  min-width: 0;
 }
 
 /* Pin the "Items per page" footer to the bottom of the stage so it

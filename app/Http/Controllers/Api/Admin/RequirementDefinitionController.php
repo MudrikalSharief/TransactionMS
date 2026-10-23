@@ -87,6 +87,8 @@ class RequirementDefinitionController extends Controller
                     ? (bool) $row['is_upload_required']
                     : (array_key_exists('is_required', $row) ? (bool) $row['is_required'] : true),
             ];
+            // Required implies upload: a verified physical copy also needs its file.
+            $sync[$sid]['is_upload_required'] = $sync[$sid]['is_upload_required'] || $sync[$sid]['is_required'];
         }
 
         if (!empty($sync)) {

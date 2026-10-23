@@ -1,5 +1,12 @@
 import { fmtDateTime } from '@/utils/dates'
 import { readCache, writeCache, CacheKeys } from '@/composables/useCache'
+import { useAuth, isSuperadminUser } from '@/composables/useAuth'
+
+// Superadmins read the summary from /api/admin; office admins from
+// /api/office, where the server forces their own office's scope.
+export function summaryApiBase() {
+    return isSuperadminUser(useAuth().user.value) ? '/api/admin/dashboard/summary' : '/api/office/dashboard/summary'
+}
 
 // Shared by the Transaction Summary popover (compact) and full-list window:
 // category wording/colors and how each row reads.
@@ -130,7 +137,9 @@ const TTL_MS = 60_000
 export async function fetchSummaryRows(api, category, query, processId, { silentRefresh = true } = {}) {
     const params = { ...query }
     if (category === 'process') params.process_id = processId
-    const key = `${category}|${JSON.stringify(params)}`
+    const base = summaryApiBase()
+    // Per user: an office admin's rows differ by office.
+    const key = `${useAuth().user.value?.id ?? ''}|${category}|${JSON.stringify(params)}`
     const hit = cache.get(key)
     if (hit && Date.now() - hit.at < TTL_MS) return hit.data
     const storeKey = `${CacheKeys.summary}:rows:${key}`
@@ -140,7 +149,7 @@ export async function fetchSummaryRows(api, category, query, processId, { silent
         // Revalidate in the background when the stored copy is stale; the
         // caller already painted, so don't make it wait.
         if (silentRefresh) {
-            api.get(`/api/admin/dashboard/summary/${category}`, { params })
+            api.get(`${base}/${category}`, { params })
                 .then((res) => {
                     const fresh = { rows: res.data.rows || [], count: res.data.count ?? (res.data.rows || []).length }
                     cache.set(key, { at: Date.now(), data: fresh })
@@ -150,7 +159,7 @@ export async function fetchSummaryRows(api, category, query, processId, { silent
         }
         return stored
     }
-    const res = await api.get(`/api/admin/dashboard/summary/${category}`, { params })
+    const res = await api.get(`${base}/${category}`, { params })
     const data = { rows: res.data.rows || [], count: res.data.count ?? (res.data.rows || []).length }
     cache.set(key, { at: Date.now(), data })
     writeCache(storeKey, data)

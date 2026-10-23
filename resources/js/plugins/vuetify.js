@@ -23,6 +23,12 @@ export function createVuetifyInstance() {
   return createVuetify({
     components,
     directives,
+    // Switches: a clear "on" colour everywhere (green track vs grey when
+    // off) and the rounded inset style. Without a colour, on and off drew
+    // the same grey track, so toggles looked like they did nothing.
+    defaults: {
+      VSwitch: { color: 'success', inset: true },
+    },
     icons: {
       defaultSet: 'mdi',
       aliases: {

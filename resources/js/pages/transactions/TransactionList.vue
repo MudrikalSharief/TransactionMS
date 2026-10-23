@@ -77,20 +77,6 @@
               </div>
             </div>
           </template>
-          <template v-slot:[`item.actions`]="{ item }">
-            <div class="row-actions">
-              <v-btn
-                v-if="isSuperadmin"
-                icon="mdi-delete"
-                v-tooltip="'Delete transaction'"
-                size="small"
-                variant="outlined"
-                color="error"
-                @click.stop="askRemove(item)"
-              />
-            </div>
-          </template>
-
           <template v-slot:[`item.reference_number`]="{ item }">
             <v-chip color="primary" variant="tonal" rounded="0" size="small" class="font-weight-bold">
               {{ item.reference_number || `#${item.id}` }}
@@ -170,21 +156,6 @@
       @submit="createTx"
     />
 
-    <v-dialog v-model="confirmDialog" max-width="500">
-      <v-card rounded="xl" style="overflow: hidden">
-        <v-card-title>Delete transaction?</v-card-title>
-        <v-divider />
-        <v-card-text>
-          Delete <b>{{ removeTarget?.reference_number || `#${removeTarget?.id}` }}</b><span v-if="removeTarget?.title"> — {{ removeTarget.title }}</span>?
-          This removes it from the list (kept as soft-deleted history).
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="justify-end">
-          <v-btn variant="text" @click="confirmDialog=false">Cancel</v-btn>
-          <v-btn color="error" rounded="0" :loading="removing" @click="removeTx">Delete</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
@@ -201,7 +172,7 @@ import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 
 const router = useRouter()
-const { items, loading, meta, fetchAll, create, destroy } = useTransactions()
+const { items, loading, meta, fetchAll, create } = useTransactions()
 const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
@@ -214,9 +185,6 @@ const isSuperadmin = computed(() =>
 const canManage = computed(() => isSuperadmin.value || auth.user.value?.office != null)
 
 const dialog = ref(false)
-const confirmDialog = ref(false)
-const removeTarget = ref(null)
-const removing = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
@@ -260,11 +228,7 @@ const baseHeaders = [
   { title: 'Created', key: 'created_at' },
 ]
 
-const headers = computed(() =>
-  isSuperadmin.value
-    ? [{ title: '', key: 'actions', sortable: false }, ...baseHeaders]
-    : baseHeaders
-)
+const headers = baseHeaders
 
 // Server-filtered: the API already applies ?q= (ref/title) and paginates to
 // 25 slim rows, so the table renders one light page instead of filtering
@@ -390,28 +354,6 @@ async function createTx(payload) {
   }
 }
 
-function askRemove(item) {
-  error.value = ''
-  removeTarget.value = item
-  confirmDialog.value = true
-}
-
-async function removeTx() {
-  if (!removeTarget.value) return
-  removing.value = true
-  error.value = ''
-  try {
-    await destroy(removeTarget.value.id)
-    confirmDialog.value = false
-    removeTarget.value = null
-    await fetchAll({ q: search.value, page: page.value })
-  } catch (e) {
-    error.value = e?.response?.data?.message || 'Delete failed.'
-  } finally {
-    removing.value = false
-  }
-}
-
 onMounted(() => {
   // Full scroll lock for this tab: no bars and no scrolling anywhere.
   document.documentElement.classList.add('lock-scroll')
@@ -453,8 +395,8 @@ onUnmounted(() => {
 // Silent 20s smart-poll: refresh rows in place without loader flash,
 // page reload, or losing search/sort/pagination/scroll.
 useSmartPoll(async () => {
-  // Skip while creating/deleting to avoid clobbering the dialogs.
-  if (saving.value || removing.value || dialog.value || confirmDialog.value) return
+  // Skip while creating to avoid clobbering the dialog.
+  if (saving.value || dialog.value) return
   try {
     await fetchAll({ silent: true, q: search.value, page: page.value })
   } catch {
