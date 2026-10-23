@@ -1,5 +1,9 @@
 <template>
-    <div class="ro-page">
+    <div
+        class="ro-page"
+        :class="{ 'has-minimap': !fits && overview.columns.length }"
+        :style="{ '--ro-minimap-height': `${minimapHeight}px` }"
+    >
         <v-alert
             v-if="error"
             type="error"
@@ -95,6 +99,8 @@
                     tabindex="0"
                     aria-label="Requirements by step. Scroll sideways to see all steps."
                     @scroll.passive="updateViewport"
+                    @wheel.passive="stopGlide"
+                    @touchstart.passive="stopGlide"
                 >
                     <div ref="colsEl" class="ro-cols">
                         <svg
@@ -185,42 +191,48 @@
                     </div>
                 </div>
 
-                <div
-                    v-show="!fits && overview.columns.length"
-                    class="ro-mm"
-                >
-                    <div class="ro-mm-h">
+            </template>
+        </div>
+
+        <Teleport to="body">
+            <div
+                v-if="!loading && !fits && overview.columns.length"
+                ref="miniPanelEl"
+                class="ro-mm"
+            >
+                <div class="ro-mm-h">
+                    <div class="ro-mm-title">
                         <span>Minimap</span>
                         <small>{{ minimapText }}</small>
                     </div>
-                    <div
-                        ref="miniEl"
-                        class="ro-mm-b"
-                        :class="{ 'is-drag': dragging }"
-                        role="scrollbar"
-                        aria-controls="ro-board"
-                        aria-orientation="horizontal"
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        :aria-valuenow="scrollPercent"
-                        aria-label="Board position. Drag or use the arrow keys to move."
-                        tabindex="0"
-                        @pointerdown="onMiniPointerDown"
-                        @pointermove="onMiniPointerMove"
-                        @pointerup="onMiniPointerUp"
-                        @pointercancel="onMiniPointerUp"
-                        @keydown="onMiniKeydown"
-                    >
-                        <svg
-                            ref="miniSvgEl"
-                            class="ro-mm-svg"
-                            aria-hidden="true"
-                        ></svg>
-                        <div ref="viewportEl" class="ro-vp"></div>
-                    </div>
                 </div>
-            </template>
-        </div>
+                <div
+                    ref="miniEl"
+                    class="ro-mm-b"
+                    :class="{ 'is-drag': dragging }"
+                    role="scrollbar"
+                    aria-controls="ro-board"
+                    aria-orientation="horizontal"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    :aria-valuenow="scrollPercent"
+                    aria-label="Board position. Drag or use the arrow keys to move."
+                    tabindex="0"
+                    @pointerdown="onMiniPointerDown"
+                    @pointermove="onMiniPointerMove"
+                    @pointerup="onMiniPointerUp"
+                    @pointercancel="onMiniPointerUp"
+                    @keydown="onMiniKeydown"
+                >
+                    <svg
+                        ref="miniSvgEl"
+                        class="ro-mm-svg"
+                        aria-hidden="true"
+                    ></svg>
+                    <div ref="viewportEl" class="ro-vp"></div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
@@ -467,18 +479,27 @@ const overview = computed(() => {
 const boardEl = ref(null);
 const colsEl = ref(null);
 const linesEl = ref(null);
+const miniPanelEl = ref(null);
 const miniEl = ref(null);
 const miniSvgEl = ref(null);
 const viewportEl = ref(null);
 
 const fits = ref(true);
 const dragging = ref(false);
+const minimapHeight = ref(0);
 const minimapText = ref("");
 const scrollPercent = ref(0);
 
 let disposed = false;
 let loadToken = 0;
 let refreshFrame = 0;
+let glideFrame = 0;
+let scrollTarget = 0;
+let scrollTargetY = 0;
+let dragStartPointerX = 0;
+let dragStartPointerY = 0;
+let dragStartScrollX = 0;
+let dragStartScrollY = 0;
 let resizeObserver = null;
 
 function apiError(reason, fallback) {
@@ -587,6 +608,9 @@ async function refreshOverview() {
     fits.value = !overflows;
     await nextTick();
     if (disposed) return;
+    minimapHeight.value = overflows
+        ? (miniPanelEl.value?.offsetHeight ?? 0)
+        : 0;
 
     drawConnectors();
     if (!overflows) return;
@@ -642,25 +666,26 @@ function drawMinimap() {
     const mh = mini.clientHeight;
     if (!W || !H || !mw || !mh) return;
 
+    const scale = Math.min(mw / W, mh / H);
+    const offsetX = (mw - W * scale) / 2;
+    const offsetY = (mh - H * scale) / 2;
     const base = board.getBoundingClientRect();
-    const sx = mw / W;
-    const sy = mh / H;
     const pos = (el) => {
         const r = el.getBoundingClientRect();
         return {
-            x: (r.left - base.left + board.scrollLeft) * sx,
-            y: (r.top - base.top + board.scrollTop) * sy,
-            w: r.width * sx,
-            h: r.height * sy,
+            x: r.left - base.left + board.scrollLeft,
+            y: r.top - base.top + board.scrollTop,
+            w: r.width,
+            h: r.height,
         };
     };
 
-    let out = "";
+    let out = `<g id="ro-mini-content" transform="translate(${offsetX} ${offsetY}) scale(${scale})">`;
     cols.querySelectorAll(".ro-step").forEach((step, index) => {
         const p = pos(step);
-        out += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" style="fill:var(--ro-panel);stroke:var(--ro-line)" stroke-width="1"/>`;
-        if (p.w > 16) {
-            out += `<text x="${p.x + p.w / 2}" y="${p.y + 10}" text-anchor="middle" font-size="9" font-weight="800" style="fill:var(--ro-muted)">${index + 1}</text>`;
+        out += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" style="fill:var(--ro-panel);stroke:var(--ro-line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+        if (p.w * scale > 16) {
+            out += `<text x="${p.x + p.w / 2}" y="${p.y + 12 / scale}" text-anchor="middle" font-size="${10 / scale}" font-weight="800" style="fill:var(--ro-muted)">${index + 1}</text>`;
         }
     });
 
@@ -668,7 +693,7 @@ function drawMinimap() {
         const p = pos(req);
         const color =
             req.style.getPropertyValue("--ro-cc").trim() || "var(--ro-line)";
-        out += `<rect x="${p.x + 1}" y="${p.y}" width="${Math.max(1, p.w - 2)}" height="${Math.max(1.5, p.h)}" style="fill:${color}" opacity=".9"/>`;
+        out += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" style="fill:${color}" opacity=".85"/>`;
     });
 
     for (const link of overview.value.links) {
@@ -688,7 +713,7 @@ function drawMinimap() {
     }
 
     svg.setAttribute("viewBox", `0 0 ${mw} ${mh}`);
-    svg.innerHTML = out;
+    svg.innerHTML = `${out}</g>`;
 }
 
 function updateViewport() {
@@ -699,16 +724,33 @@ function updateViewport() {
     if (!board || !mini || !vp) return;
 
     const W = board.scrollWidth;
+    const H = board.scrollHeight;
     const mw = mini.clientWidth;
-
-    if (!fits.value && W > 0 && mw > 0) {
-        vp.style.width = `${Math.min(mw, (board.clientWidth / W) * mw)}px`;
-        vp.style.left = `${(board.scrollLeft / W) * mw}px`;
-    } else {
+    const mh = mini.clientHeight;
+    if (fits.value || !W || !H || !mw || !mh) {
         vp.style.width = "0px";
+        vp.style.height = "0px";
+        return;
     }
 
+    const scale = Math.min(mw / W, mh / H);
+    const offsetX = (mw - W * scale) / 2;
+    const offsetY = (mh - H * scale) / 2;
     const boardRect = board.getBoundingClientRect();
+    const viewportHeight = Math.max(
+        0,
+        window.innerHeight - (miniPanelEl.value?.offsetHeight || 0),
+    );
+    const visibleTop = Math.max(0, Math.min(H, -boardRect.top));
+    const visibleBottom = Math.max(
+        visibleTop,
+        Math.min(H, viewportHeight - boardRect.top),
+    );
+    vp.style.left = `${board.scrollLeft * scale + offsetX}px`;
+    vp.style.top = `${visibleTop * scale + offsetY}px`;
+    vp.style.width = `${board.clientWidth * scale}px`;
+    vp.style.height = `${(visibleBottom - visibleTop) * scale}px`;
+
     const visible = [];
     if (cols) {
         cols.querySelectorAll(".ro-step").forEach((step, index) => {
@@ -734,32 +776,146 @@ function updateViewport() {
         max > 0 ? Math.round((board.scrollLeft / max) * 100) : 0;
 }
 
-function jumpToPointer(clientX) {
+function stopGlide() {
+    if (glideFrame) cancelAnimationFrame(glideFrame);
+    glideFrame = 0;
+    if (boardEl.value) scrollTarget = boardEl.value.scrollLeft;
+    scrollTargetY = window.scrollY;
+}
+
+function glideToTarget() {
+    const board = boardEl.value;
+    if (!board) {
+        glideFrame = 0;
+        return;
+    }
+
+    const distance = scrollTarget - board.scrollLeft;
+    const distanceY = scrollTargetY - window.scrollY;
+    const doneX = Math.abs(distance) < 2;
+    const doneY = Math.abs(distanceY) < 2;
+    board.scrollLeft = doneX
+        ? scrollTarget
+        : board.scrollLeft + distance * 0.1;
+    window.scrollTo(
+        0,
+        doneY ? scrollTargetY : window.scrollY + distanceY * 0.1,
+    );
+    if (doneX && doneY) {
+        glideFrame = 0;
+        return;
+    }
+    glideFrame = requestAnimationFrame(glideToTarget);
+}
+
+function minimapMetrics() {
     const board = boardEl.value;
     const mini = miniEl.value;
-    if (!board || !mini) return;
+    if (!board || !mini) return null;
 
     const rect = mini.getBoundingClientRect();
-    if (!rect.width) return;
+    if (!rect.width || !rect.height) return null;
+    const scale = Math.min(
+        rect.width / board.scrollWidth,
+        rect.height / board.scrollHeight,
+    );
+    return {
+        board,
+        rect,
+        scale,
+        offsetX: (rect.width - board.scrollWidth * scale) / 2,
+        offsetY: (rect.height - board.scrollHeight * scale) / 2,
+    };
+}
 
-    const max = Math.max(0, board.scrollWidth - board.clientWidth);
-    const target =
-        ((clientX - rect.left) / rect.width) * board.scrollWidth -
-        board.clientWidth / 2;
-    board.scrollLeft = Math.max(0, Math.min(max, target));
+function jumpToPointer(clientX, clientY) {
+    const metrics = minimapMetrics();
+    if (!metrics) return;
+    const { board, rect, scale, offsetX, offsetY } = metrics;
+    const miniPanelHeight = miniPanelEl.value?.offsetHeight || 0;
+    const visibleHeight = Math.max(0, window.innerHeight - miniPanelHeight);
+    const worldX = (clientX - rect.left - offsetX) / scale;
+    const worldY = (clientY - rect.top - offsetY) / scale;
+    scrollTarget = Math.max(
+        0,
+        Math.min(
+            board.scrollWidth - board.clientWidth,
+            worldX - board.clientWidth / 2,
+        ),
+    );
+    const boardDocumentTop =
+        board.getBoundingClientRect().top + window.scrollY;
+    scrollTargetY = Math.max(
+        0,
+        Math.min(
+            document.documentElement.scrollHeight - window.innerHeight,
+            boardDocumentTop + worldY - visibleHeight / 2,
+        ),
+    );
+    if (scrollBehavior() === "auto") {
+        stopGlide();
+        board.scrollLeft = scrollTarget;
+        window.scrollTo(0, scrollTargetY);
+        return;
+    }
+    if (!glideFrame) glideFrame = requestAnimationFrame(glideToTarget);
 }
 
 function onMiniPointerDown(event) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    stopGlide();
+    const mini = miniEl.value;
+    const viewport = viewportEl.value;
+    const board = boardEl.value;
+    if (!mini || !viewport || !board) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const withinViewport =
+        event.clientX >= viewportRect.left &&
+        event.clientX <= viewportRect.right &&
+        event.clientY >= viewportRect.top &&
+        event.clientY <= viewportRect.bottom;
     dragging.value = true;
-    miniEl.value?.setPointerCapture?.(event.pointerId);
-    miniEl.value?.focus?.();
-    jumpToPointer(event.clientX);
+    mini.setPointerCapture?.(event.pointerId);
+    mini.focus?.();
+    dragStartPointerX = event.clientX;
+    dragStartPointerY = event.clientY;
+    if (withinViewport) {
+        dragStartScrollX = board.scrollLeft;
+        dragStartScrollY = window.scrollY;
+    } else {
+        jumpToPointer(event.clientX, event.clientY);
+        dragStartScrollX = scrollTarget;
+        dragStartScrollY = scrollTargetY;
+    }
 }
 
 function onMiniPointerMove(event) {
     if (!dragging.value) return;
-    jumpToPointer(event.clientX);
+    const metrics = minimapMetrics();
+    if (!metrics) return;
+    const { board, scale } = metrics;
+    scrollTarget = Math.max(
+        0,
+        Math.min(
+            board.scrollWidth - board.clientWidth,
+            dragStartScrollX + (event.clientX - dragStartPointerX) / scale,
+        ),
+    );
+    scrollTargetY = Math.max(
+        0,
+        Math.min(
+            document.documentElement.scrollHeight - window.innerHeight,
+            dragStartScrollY + (event.clientY - dragStartPointerY) / scale,
+        ),
+    );
+    if (scrollBehavior() === "auto") {
+        stopGlide();
+        board.scrollLeft = scrollTarget;
+        window.scrollTo(0, scrollTargetY);
+    } else if (!glideFrame) {
+        glideFrame = requestAnimationFrame(glideToTarget);
+    }
 }
 
 function onMiniPointerUp(event) {
@@ -826,6 +982,9 @@ watch(workflowDefinitionId, () => {
 
 onMounted(async () => {
     window.addEventListener("resize", scheduleRefresh);
+    window.addEventListener("scroll", updateViewport, { passive: true });
+    window.addEventListener("wheel", stopGlide, { passive: true });
+    window.addEventListener("touchstart", stopGlide, { passive: true });
     document.fonts?.ready?.then(scheduleRefresh).catch(() => {});
     await loadPage();
 });
@@ -834,7 +993,11 @@ onBeforeUnmount(() => {
     disposed = true;
     loadToken += 1;
     window.removeEventListener("resize", scheduleRefresh);
+    window.removeEventListener("scroll", updateViewport);
+    window.removeEventListener("wheel", stopGlide);
+    window.removeEventListener("touchstart", stopGlide);
     if (refreshFrame) cancelAnimationFrame(refreshFrame);
+    stopGlide();
     resizeObserver?.disconnect();
     resizeObserver = null;
 });
@@ -868,6 +1031,13 @@ onBeforeUnmount(() => {
     background: var(--ro-bg);
     color: var(--ro-ink);
     font-variant-numeric: tabular-nums;
+}
+
+.ro-page.has-minimap {
+    padding-bottom: calc(
+        var(--ro-minimap-height, 0px) +
+            max(32px, env(safe-area-inset-bottom, 0px))
+    );
 }
 
 .ro-page :deep(.v-alert) {
@@ -947,17 +1117,43 @@ onBeforeUnmount(() => {
 }
 
 .ro-mm {
-    padding: 14px 28px 16px;
+    --ro-panel: #fff;
+    --ro-muted: #5b6780;
+    --ro-line: #d5dbe8;
+    --ro-field: #f4f6fb;
+    --ro-blue: #1d3fae;
+    --ro-ring: rgba(29, 63, 174, 0.28);
+    --ro-c0: #1d3fae;
+    --ro-c1: #c77700;
+    --ro-c2: #1b7a3d;
+    --ro-c3: #a6288f;
+    --ro-c4: #0e7490;
+    --ro-c5: #b42318;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 11;
+    padding: 10px clamp(12px, 2.5vw, 40px)
+        max(12px, env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--ro-line);
     background: var(--ro-panel);
+    box-shadow: 0 -8px 20px -12px rgba(20, 33, 61, 0.4);
 }
 
 .ro-mm-h {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 10px 16px;
     margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.ro-mm-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .ro-mm-h span {
@@ -976,7 +1172,7 @@ onBeforeUnmount(() => {
 
 .ro-mm-b {
     position: relative;
-    height: 88px;
+    height: 96px;
     overflow: hidden;
     border: 1.5px solid var(--ro-line);
     background: var(--ro-field);
@@ -995,14 +1191,16 @@ onBeforeUnmount(() => {
     display: block;
     width: 100%;
     height: 100%;
+    overflow: hidden;
 }
 
 .ro-vp {
     position: absolute;
     top: 0;
-    bottom: 0;
     left: 0;
-    width: 0;
+    box-sizing: border-box;
+    min-width: 6px;
+    min-height: 6px;
     border: 2px solid var(--ro-blue);
     background: color-mix(in srgb, var(--ro-blue) 16%, transparent);
     pointer-events: none;
@@ -1290,6 +1488,21 @@ html.dark .ro-req-unsaved {
     color: #c8e7ff;
 }
 
+html.dark .ro-mm {
+    --ro-panel: #161e36;
+    --ro-muted: #9aa7c4;
+    --ro-line: #2b3558;
+    --ro-field: #1c2645;
+    --ro-blue: #6f8cff;
+    --ro-ring: rgba(138, 161, 255, 0.38);
+    --ro-c0: #7f9bff;
+    --ro-c1: #ffb347;
+    --ro-c2: #4cd080;
+    --ro-c3: #e27bd0;
+    --ro-c4: #4cc3dd;
+    --ro-c5: #ff8a80;
+}
+
 html.dark .ro-shell {
     box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
 }
@@ -1304,7 +1517,11 @@ html.dark .ro-shell {
     }
 
     .ro-mm {
-        padding: 12px 16px 14px;
+        padding: 8px 16px max(10px, env(safe-area-inset-bottom, 0px));
+    }
+
+    .ro-mm-b {
+        height: 72px;
     }
 
     .ro-board {
