@@ -10,6 +10,7 @@ use App\Models\Transaction;
 use App\Models\TransactionAttachment;
 use App\Models\WorkflowStep;
 use App\Services\RoutingEngine;
+use App\Services\StepFileAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -19,8 +20,12 @@ class TransactionAttachmentController extends Controller
     {
         $this->assertCanView($transaction, $request, $routing);
 
+        // Step file rule: non-admins only get the previous step's and their
+        // current step's files (App\Services\StepFileAccess).
+        $allowed = app(StepFileAccess::class)->allowedStepIds($transaction, $request->user());
         $items = TransactionAttachment::query()
             ->where('transaction_id', $transaction->id)
+            ->when($allowed !== null, fn ($q) => $q->whereIn('workflow_step_id', $allowed))
             ->with(['step', 'requirement', 'uploader'])
             ->orderByDesc('created_at')
             ->get();
@@ -97,6 +102,7 @@ class TransactionAttachmentController extends Controller
         if ((int) $attachment->transaction_id !== (int) $transaction->id) {
             abort(404);
         }
+        $this->assertCanOpenFile($transaction, $request, $attachment);
 
         $disk = $attachment->disk ?: 'local';
         if (!Storage::disk($disk)->exists($attachment->stored_path)) {
@@ -116,6 +122,7 @@ class TransactionAttachmentController extends Controller
         if ((int) $attachment->transaction_id !== (int) $transaction->id) {
             abort(404);
         }
+        $this->assertCanOpenFile($transaction, $request, $attachment);
 
         $disk = $attachment->disk ?: 'local';
         if (!Storage::disk($disk)->exists($attachment->stored_path)) {
@@ -335,6 +342,14 @@ class TransactionAttachmentController extends Controller
             ->where('workflow_definition_id', $transaction->workflow_definition_id)
             ->where('order_number', $currentOrder - 1)
             ->value('id');
+    }
+
+    /** Step file rule: only the previous step's and current step's files. */
+    private function assertCanOpenFile(Transaction $transaction, Request $request, TransactionAttachment $attachment): void
+    {
+        if (!app(StepFileAccess::class)->canOpen($transaction, $request->user(), $attachment)) {
+            abort(403, 'You can only open files from the previous step.');
+        }
     }
 
     private function assertCanView(Transaction $transaction, Request $request, RoutingEngine $routing): void

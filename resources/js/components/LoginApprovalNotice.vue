@@ -40,7 +40,7 @@
                 <div class="paper-head">
                     <p id="tray-greet" class="paper-greet">{{ greeting }}, {{ user?.name }}.</p>
                     <h2 id="tray-summary" class="paper-summary">
-                        {{ total }} pending {{ total === 1 ? "approval" : "approvals" }} in office {{ officeCode }}.
+                        {{ total }} {{ total === 1 ? "Pending Task" : "Pending Tasks" }} in office {{ officeCode }}.
                     </h2>
                     <p class="paper-office">{{ officeName }}</p>
                     <ul v-if="tally.length" class="tally">
@@ -102,7 +102,7 @@
 
                 <div class="paper-foot">
                     <v-btn variant="text" rounded="0" color="grey-darken-3" @click="open = false">Remind me later</v-btn>
-                    <v-btn variant="flat" rounded="0" color="primary" class="paper-cta" @click="openApprovals">Open approvals</v-btn>
+                    <v-btn variant="flat" rounded="0" color="primary" class="paper-cta" @click="openApprovals">Open tasks</v-btn>
                 </div>
             </div>
         </div>

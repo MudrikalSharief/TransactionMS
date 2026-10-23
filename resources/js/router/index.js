@@ -33,6 +33,7 @@ const Help = () => import("@/pages/Help.vue");
 const PortalHome = () => import("@/pages/portal/PortalHome.vue");
 const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
 const PortalApprovals = () => import("@/pages/portal/PortalApprovals.vue");
+const MyProfile = () => import("@/pages/portal/PortalProfile.vue");
 const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
 const TrackList = () => import("@/pages/track/TrackList.vue");
 const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
@@ -80,11 +81,19 @@ export function createRouter() {
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
             },
             {
+                // My Profile: every signed-in account (viewers are sent back
+                // to tracking by the guard below).
+                path: "/profile",
+                name: "profile",
+                component: MyProfile,
+                meta: { requiresAuth: true, title: "My Profile" },
+            },
+            {
                 // Clerk approvals list (same access rule as /approvals).
                 path: "/portal/approvals",
                 name: "portal.approvals",
                 component: PortalApprovals,
-                meta: { requiresAuth: true, title: "Approvals", kind: "staff" },
+                meta: { requiresAuth: true, title: "Task", kind: "staff" },
             },
             {
                 // Short opening animation for viewers; `bare` hides the app chrome.
