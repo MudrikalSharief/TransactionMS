@@ -1,7 +1,9 @@
 <template>
     <div
         class="ro-page"
-        :class="{ 'has-minimap': !fits && overview.columns.length }"
+        :class="{
+            'has-minimap': !loading && !fits && overview.columns.length,
+        }"
         :style="{ '--ro-minimap-height': `${minimapHeight}px` }"
     >
         <v-alert
@@ -59,9 +61,6 @@
                         </span>
                         <span class="ro-tag ro-tag-r">Required</span>
                         <span class="ro-tag ro-tag-u">
-                            <v-icon size="12" aria-hidden="true"
-                                >mdi-paperclip</v-icon
-                            >
                             Upload required
                         </span>
                     </div>
@@ -199,6 +198,7 @@
                 v-if="!loading && !fits && overview.columns.length"
                 ref="miniPanelEl"
                 class="ro-mm"
+                :style="{ left: `${minimapLeft}px` }"
             >
                 <div class="ro-mm-h">
                     <div class="ro-mm-title">
@@ -487,6 +487,7 @@ const viewportEl = ref(null);
 const fits = ref(true);
 const dragging = ref(false);
 const minimapHeight = ref(0);
+const minimapLeft = ref(0);
 const minimapText = ref("");
 const scrollPercent = ref(0);
 
@@ -501,6 +502,8 @@ let dragStartPointerY = 0;
 let dragStartScrollX = 0;
 let dragStartScrollY = 0;
 let resizeObserver = null;
+let miniResizeObserver = null;
+let layoutObserver = null;
 
 function apiError(reason, fallback) {
     return (
@@ -524,6 +527,7 @@ async function loadPage() {
     error.value = "";
     fits.value = true;
     dragging.value = false;
+    minimapHeight.value = 0;
     minimapText.value = "";
     scrollPercent.value = 0;
     steps.value = [];
@@ -586,6 +590,46 @@ function observeCols() {
     resizeObserver.observe(colsEl.value);
 }
 
+function syncMinimapLeft() {
+    const main = document.querySelector(".v-main");
+    const next = main
+        ? parseFloat(getComputedStyle(main).paddingLeft) || 0
+        : 0;
+    if (next !== minimapLeft.value) minimapLeft.value = next;
+}
+
+function observeLayout() {
+    syncMinimapLeft();
+    if (layoutObserver || !("ResizeObserver" in window)) return;
+
+    const main = document.querySelector(".v-main");
+    if (!main) return;
+    layoutObserver = new ResizeObserver(() => {
+        syncMinimapLeft();
+        scheduleRefresh();
+    });
+    layoutObserver.observe(main);
+}
+
+function syncMinimapHeight() {
+    const next = miniPanelEl.value?.offsetHeight ?? 0;
+    if (next !== minimapHeight.value) minimapHeight.value = next;
+}
+
+function observeMiniPanel() {
+    if (miniResizeObserver) {
+        miniResizeObserver.disconnect();
+        miniResizeObserver = null;
+    }
+    if (!miniPanelEl.value || !("ResizeObserver" in window)) {
+        syncMinimapHeight();
+        return;
+    }
+    miniResizeObserver = new ResizeObserver(syncMinimapHeight);
+    miniResizeObserver.observe(miniPanelEl.value);
+    syncMinimapHeight();
+}
+
 function scheduleRefresh() {
     if (disposed || refreshFrame) return;
     refreshFrame = requestAnimationFrame(() => {
@@ -604,14 +648,13 @@ async function refreshOverview() {
         return;
     }
 
+    syncMinimapLeft();
     const overflows = board.scrollWidth > board.clientWidth + 1;
     fits.value = !overflows;
     await nextTick();
     if (disposed) return;
-    minimapHeight.value = overflows
-        ? (miniPanelEl.value?.offsetHeight ?? 0)
-        : 0;
 
+    observeMiniPanel();
     drawConnectors();
     if (!overflows) return;
 
@@ -709,7 +752,7 @@ function drawMinimap() {
         const y2 = pb.y + pb.h / 2;
         const dx = (x2 - x1) / 2;
 
-        out += `<path d="M${x1} ${y1} C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}" fill="none" stroke-width="1.5" style="stroke:var(--ro-c${link.colorIndex})"/>`;
+        out += `<path d="M${x1} ${y1} C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}" fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke" style="stroke:var(--ro-c${link.colorIndex})"/>`;
     }
 
     svg.setAttribute("viewBox", `0 0 ${mw} ${mh}`);
@@ -796,10 +839,10 @@ function glideToTarget() {
     const doneY = Math.abs(distanceY) < 2;
     board.scrollLeft = doneX
         ? scrollTarget
-        : board.scrollLeft + distance * 0.1;
+        : board.scrollLeft + distance * 0.22;
     window.scrollTo(
         0,
-        doneY ? scrollTargetY : window.scrollY + distanceY * 0.1,
+        doneY ? scrollTargetY : window.scrollY + distanceY * 0.22,
     );
     if (doneX && doneY) {
         glideFrame = 0;
@@ -814,17 +857,19 @@ function minimapMetrics() {
     if (!board || !mini) return null;
 
     const rect = mini.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
+    const width = mini.clientWidth;
+    const height = mini.clientHeight;
+    if (!rect.width || !rect.height || !width || !height) return null;
     const scale = Math.min(
-        rect.width / board.scrollWidth,
-        rect.height / board.scrollHeight,
+        width / board.scrollWidth,
+        height / board.scrollHeight,
     );
     return {
         board,
         rect,
         scale,
-        offsetX: (rect.width - board.scrollWidth * scale) / 2,
-        offsetY: (rect.height - board.scrollHeight * scale) / 2,
+        offsetX: (width - board.scrollWidth * scale) / 2,
+        offsetY: (height - board.scrollHeight * scale) / 2,
     };
 }
 
@@ -937,6 +982,7 @@ function onMiniKeydown(event) {
     const board = boardEl.value;
     if (!board) return;
 
+    stopGlide();
     const behavior = scrollBehavior();
     if (event.key === "ArrowRight") {
         event.preventDefault();
@@ -985,6 +1031,7 @@ onMounted(async () => {
     window.addEventListener("scroll", updateViewport, { passive: true });
     window.addEventListener("wheel", stopGlide, { passive: true });
     window.addEventListener("touchstart", stopGlide, { passive: true });
+    observeLayout();
     document.fonts?.ready?.then(scheduleRefresh).catch(() => {});
     await loadPage();
 });
@@ -1000,6 +1047,10 @@ onBeforeUnmount(() => {
     stopGlide();
     resizeObserver?.disconnect();
     resizeObserver = null;
+    miniResizeObserver?.disconnect();
+    miniResizeObserver = null;
+    layoutObserver?.disconnect();
+    layoutObserver = null;
 });
 </script>
 
@@ -1144,6 +1195,7 @@ onBeforeUnmount(() => {
 .ro-mm-h {
     display: flex;
     align-items: baseline;
+    justify-content: space-between;
     gap: 10px 16px;
     margin-bottom: 8px;
     flex-wrap: wrap;

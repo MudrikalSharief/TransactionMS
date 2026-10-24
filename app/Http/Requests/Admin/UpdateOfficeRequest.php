@@ -17,7 +17,7 @@ class UpdateOfficeRequest extends FormRequest
         $officeId = $this->route('office')?->id;
 
         return [
-            'code' => ['required', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/', Rule::unique('offices', 'code')->withoutTrashed()->ignore($officeId)],
+            'code' => ['required', 'string', 'max:50', 'regex:/^[A-Z][A-Z0-9_]*$/', Rule::unique('offices', 'code')->withoutTrashed()->ignore($officeId)],
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
