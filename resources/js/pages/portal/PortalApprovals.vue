@@ -7,7 +7,7 @@
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
                     <v-icon color="#16307C">mdi-clipboard-check-multiple-outline</v-icon>
                 </v-avatar>
-                <span class="text-h6 font-weight-bold">Approvals</span>
+                <span class="text-h6 font-weight-bold">Task</span>
                 <v-chip
                     v-if="!loading"
                     size="small"
@@ -76,7 +76,7 @@
                     >
                         <template #no-data>
                             <div class="pa-6 text-medium-emphasis">
-                                {{ search ? "No approvals match your search." : "Nothing is waiting for your approval." }}
+                                {{ search ? "No tasks match your search." : "You have no pending tasks." }}
                             </div>
                         </template>
                         <template v-slot:[`item.reference_number`]="{ item }">
@@ -121,7 +121,7 @@
                     <div v-if="pageCount > 1" class="d-flex justify-center py-3">
                         <v-pagination v-model="page" :length="pageCount" :total-visible="5" density="compact" />
                     </div>
-                    <TableLoader v-if="loading && !rows.length" label="approvals" icon="mdi-clipboard-check-multiple-outline" style="flex: 1 1 auto" />
+                    <TableLoader v-if="loading && !rows.length" label="tasks" icon="mdi-clipboard-check-multiple-outline" style="flex: 1 1 auto" />
                 </div>
             </v-card-text>
         </v-card>
@@ -192,7 +192,7 @@ async function fetchAll({ silent = false } = {}) {
         approvalBadge.pendingTransactions.value = all.length;
         error.value = "";
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load approvals.";
+        error.value = e?.response?.data?.message || "Failed to load tasks.";
     } finally {
         loading.value = false;
     }

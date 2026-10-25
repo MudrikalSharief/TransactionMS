@@ -9,8 +9,8 @@
                 </v-tab>
                 <v-tab :value="1">
                     <v-icon start>mdi-paperclip</v-icon>
-                    All transaction files
-                    <v-chip size="x-small" variant="tonal" class="ml-2">{{ (attachments || []).length }}</v-chip>
+                    Previous Transaction files
+                    <v-chip size="x-small" variant="tonal" class="ml-2">{{ previousFiles.length }}</v-chip>
                 </v-tab>
             </v-tabs>
         </v-card-title>
@@ -34,7 +34,7 @@
                 </div>
                 <div v-else class="pa-4">
                     <AttachmentList
-                        :items="attachments || []"
+                        :items="previousFiles"
                         :tx-id="txId"
                         :is-admin="isAdmin"
                         :current-step-id="currentStepId"
@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import TransactionHistory from '@/components/history/TransactionHistory.vue'
 import AttachmentList from '@/components/AttachmentList.vue'
 
@@ -74,6 +74,15 @@ const props = defineProps({
 const emit = defineEmits(['deleted'])
 
 const tab = ref(0)
+
+// Previous Transaction files: files of the steps before the current one.
+// The server already limits non-admins to the previous step (step file
+// rule), so here only the current step's own uploads are left out.
+const previousFiles = computed(() =>
+    (props.attachments || []).filter(
+        (a) => props.currentStepId == null || String(a.workflow_step_id) !== String(props.currentStepId),
+    ),
+)
 </script>
 
 <style scoped>

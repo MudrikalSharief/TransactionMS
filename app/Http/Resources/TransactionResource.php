@@ -10,6 +10,12 @@ class TransactionResource extends JsonResource
     {
         $state = $this->whenLoaded('state');
 
+        // Step file rule (App\Services\StepFileAccess): non-admins only get
+        // the files of the previous step and their current step. Counts and
+        // "done" states stay complete; only the file entries are withheld.
+        $allowedStepIds = app(\App\Services\StepFileAccess::class)->allowedStepIds($this->resource, $request?->user());
+        $canOpen = fn ($a) => $allowedStepIds === null || in_array((int) $a->workflow_step_id, $allowedStepIds, true);
+
         $currentStepFields = [];
         $currentStep = $state?->currentStep;
 
@@ -266,7 +272,7 @@ class TransactionResource extends JsonResource
                     'prev_checked' => (bool) $prevReqCheck,
                     'prev_checked_by' => $prevReqCheck?->checker?->only(['id', 'name']),
                     'prev_step' => $sourceStep && $item->requirement_definition_id ? $sourceStep->only(['id', 'name', 'order_number']) : null,
-                    'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->map(fn ($a) => [
+                    'attachments' => ($sourceStep ? $sourceAtts : $itemAtts)->filter($canOpen)->values()->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
                         'label' => $a->label,
@@ -357,7 +363,7 @@ class TransactionResource extends JsonResource
                         'checked_at' => $check?->checked_at?->toISOString(),
                         'checked_by' => $check?->checker?->only(['id', 'name']),
                         'attachment_count' => $reqAtts->count(),
-                        'attachments' => $reqAtts->map(fn ($a) => [
+                        'attachments' => $reqAtts->filter($canOpen)->values()->map(fn ($a) => [
                             'id' => $a->id,
                             'original_name' => $a->original_name,
                         'label' => $a->label,
@@ -385,7 +391,9 @@ class TransactionResource extends JsonResource
                     // Proceed-level files for this station (uploaded in the
                     // Proceed modal, not tied to one checklist item) so the
                     // station hover card can list every uploaded file.
-                    'attachments' => $allAtts->get(((int) $s->id) . ':0', collect())->values()->map(fn ($a) => [
+                    // False when this station's files are not open to the user.
+                    'files_visible' => $allowedStepIds === null || in_array((int) $s->id, $allowedStepIds, true),
+                    'attachments' => $allAtts->get(((int) $s->id) . ':0', collect())->filter($canOpen)->values()->map(fn ($a) => [
                         'id' => $a->id,
                         'original_name' => $a->original_name,
                         'label' => $a->label,
@@ -458,11 +466,16 @@ class TransactionResource extends JsonResource
 
             'station_checklist' => $stationChecklist,
 
-            'attachments' => TransactionAttachmentResource::collection($this->whenLoaded('attachments')),
+            'attachments' => TransactionAttachmentResource::collection(
+                $this->whenLoaded('attachments', fn () => $this->attachments->filter($canOpen)->values())
+            ),
 
-            'runs' => $this->whenLoaded('runs', fn () => $this->runs->map(
-                fn ($run) => (new TransactionStepRunResource($run))->forTransaction($this->resource)
-            )->values()),
+            'runs' => $this->whenLoaded('runs', fn () => $this->runs->map(function ($run) use ($canOpen) {
+                if ($run->relationLoaded('attachments')) {
+                    $run->setRelation('attachments', $run->attachments->filter($canOpen)->values());
+                }
+                return (new TransactionStepRunResource($run))->forTransaction($this->resource);
+            })->values()),
 
             'pending_receipt' => $this->when(
                 $this->relationLoaded('runs'),
