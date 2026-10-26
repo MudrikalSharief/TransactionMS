@@ -81,6 +81,12 @@
                 </div>
             </v-col>
 
+            <!-- Weekly transactions per process, limited to the account's
+                 office and role (needs an office to have anything to show). -->
+            <v-col v-if="user?.office" cols="12" class="d-flex">
+                <ProcessGraphCard />
+            </v-col>
+
             <!-- Waiting on my role: end users only. Clerks have the Approvals
                  page for this, so it would be a duplicate there. -->
             <v-col v-if="!hasApprovals" cols="12" lg="6" class="d-flex">
@@ -141,6 +147,7 @@ import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import TxMiniList from "@/components/portal/TxMiniList.vue";
+import ProcessGraphCard from "@/components/portal/ProcessGraphCard.vue";
 
 const router = useRouter();
 const { api } = useApi();

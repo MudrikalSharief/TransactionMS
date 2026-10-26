@@ -82,7 +82,6 @@
             </div>
 
             <div class="d-flex align-center" style="flex: 0 0 auto">
-                <ScopeChip class="mr-2 d-none d-lg-inline-flex" />
                 <v-chip
                     variant="flat"
                     class="mr-2 font-weight-medium nav-chip"
@@ -111,6 +110,9 @@
                     v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : userTooltip"
                 >
                     <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
+                    <!-- Office scope sits inside the profile pill, right of the icon. -->
+                    <span v-if="officeScope" class="nav-scope d-none d-lg-inline">{{ officeScope.label }}</span>
+                    <span v-if="primaryRole !== 'No role'" class="nav-scope-badge d-none d-lg-inline">{{ primaryRole }}</span>
                 </v-chip>
 
                 <!-- Viewers never signed in themselves (Track your Document
@@ -329,7 +331,7 @@ import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
-import ScopeChip from "@/components/ScopeChip.vue";
+import { useOfficeScope } from "@/composables/useOfficeScope";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -341,6 +343,7 @@ import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 const router = useRouter();
 const route = useRoute();
 const auth = useAuth();
+const officeScope = useOfficeScope();
 const { mobile } = useDisplay();
 
 // ---- Collapsible sidebar (starts collapsed) ----
@@ -899,6 +902,29 @@ onUnmounted(() => {
 }
 .nav-chip:hover {
     background: rgba(255, 255, 255, 0.2) !important;
+}
+.nav-scope {
+    margin-left: 6px;
+    line-height: 1;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nav-scope-badge {
+    margin-left: 8px;
+    /* Letter-spacing also trails the last letter; pull it back so the
+       pill's right padding matches the left. */
+    margin-right: -0.08em;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #c7d7ff;
+    /* Sit on the label's optical center, not its baseline. */
+    align-self: center;
+    padding-top: 1px;
 }
 .nav-logout {
     color: #e8eefc !important;

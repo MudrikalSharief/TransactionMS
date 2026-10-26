@@ -113,10 +113,20 @@
                         clearable
                         class="fb-date"
                     />
-                    <v-btn-toggle v-model="filters.order" mandatory rounded="0" density="compact" variant="outlined" divided color="primary" class="fb-order">
-                        <v-btn value="desc" prepend-icon="mdi-sort-calendar-descending">Newest first</v-btn>
-                        <v-btn value="asc" prepend-icon="mdi-sort-calendar-ascending">Oldest first</v-btn>
-                    </v-btn-toggle>
+                    <!-- One box: click to switch between newest and oldest first. -->
+                    <v-btn
+                        variant="tonal"
+                        rounded="0"
+                        color="primary"
+                        height="40"
+                        class="fb-order"
+                        :prepend-icon="filters.order === 'asc' ? 'mdi-sort-calendar-ascending' : 'mdi-sort-calendar-descending'"
+                        :aria-label="`Sorted ${filters.order === 'asc' ? 'oldest' : 'newest'} first. Click to switch`"
+                        v-tooltip="'Click to switch the order'"
+                        @click="filters.order = filters.order === 'asc' ? 'desc' : 'asc'"
+                    >
+                        {{ filters.order === 'asc' ? 'Oldest first' : 'Newest first' }}
+                    </v-btn>
                     <v-btn v-if="filtersActive" variant="text" rounded="0" color="grey-darken-3" prepend-icon="mdi-filter-remove-outline" @click="clearFilters">
                         Clear
                     </v-btn>
@@ -478,9 +488,10 @@ useSmartPoll(() => {
     flex: 1 1 210px;
     max-width: 240px;
 }
-.fb-order :deep(.v-btn) {
+.fb-order {
     text-transform: none;
     font-weight: 600;
+    min-width: 150px;
 }
 /* Boxed table header: dark-blue fill, white text (same as the admin tables). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
