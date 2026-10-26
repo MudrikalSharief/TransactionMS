@@ -284,7 +284,7 @@
             autofocus
             :error-messages="fieldErrors.name"
             class="ofc-in"
-            @update:model-value="onNameInput"
+            @update:model-value="clearFieldError('name')"
           />
         </div>
 
@@ -308,7 +308,7 @@
             @update:model-value="onCodeInput"
           />
           <div v-if="!fieldErrors.code" class="ofc-help">
-            Auto-generated from the name. Uppercase letters, numbers and underscores only.
+            Enter the code manually. Uppercase letters, numbers and underscores only.
           </div>
         </div>
 
@@ -424,7 +424,6 @@ const error = ref('')
 const search = ref('')
 const fieldErrors = ref({})
 const dialogError = ref('')
-const codeTouched = ref(false)
 const nameField = ref(null)
 const codeField = ref(null)
 const descField = ref(null)
@@ -525,31 +524,9 @@ function clearFieldError(key) {
   fieldErrors.value = next
 }
 
-// Uppercase snake case, capped at the backend's 50-character limit.
-function slugCode(value) {
-  return String(value ?? '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 50)
-    .replace(/_+$/g, '')
-}
-
-function onNameInput(value) {
-  form.value.name = value
-  if (!form.value.id && !codeTouched.value) {
-    form.value.code = slugCode(value)
-    clearFieldError('code')
-  }
-  clearFieldError('name')
-}
-
 function onCodeInput(value) {
   const next = String(value ?? '').toUpperCase()
   form.value.code = next
-  codeTouched.value = next.length > 0
   clearFieldError('code')
 }
 
@@ -571,7 +548,6 @@ function openCreate() {
   error.value = ''
   fieldErrors.value = {}
   dialogError.value = ''
-  codeTouched.value = false
   form.value = { id: null, code: '', name: '', description: '', is_active: true }
   dialog.value = true
   focusField('name')
@@ -581,7 +557,6 @@ function openEdit(item) {
   error.value = ''
   fieldErrors.value = {}
   dialogError.value = ''
-  codeTouched.value = true
   form.value = {
     id: item.id,
     code: String(item.code ?? '').toUpperCase(),
@@ -637,8 +612,7 @@ async function save() {
   fieldErrors.value = {}
 
   const name = String(form.value.name ?? '').trim()
-  let code = String(form.value.code ?? '').trim().toUpperCase()
-  if (!code && name && !form.value.id) code = slugCode(name)
+  const code = String(form.value.code ?? '').trim().toUpperCase()
   form.value.name = name
   form.value.code = code
 
