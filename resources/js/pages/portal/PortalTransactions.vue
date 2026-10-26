@@ -92,20 +92,9 @@
                         class="fb-type"
                     />
                     <v-text-field
-                        v-model="filters.from"
-                        type="datetime-local"
-                        label="Created from"
-                        variant="outlined"
-                        density="compact"
-                        rounded="0"
-                        hide-details
-                        clearable
-                        class="fb-date"
-                    />
-                    <v-text-field
-                        v-model="filters.to"
-                        type="datetime-local"
-                        label="Created to"
+                        v-model="filters.date"
+                        type="date"
+                        label="Created on"
                         variant="outlined"
                         density="compact"
                         rounded="0"
@@ -299,10 +288,10 @@ const error = ref("");
 const search = ref("");
 const page = ref(1);
 
-// Filters: transaction type, created date + time range, newest/oldest.
-const emptyFilters = () => ({ type: null, from: null, to: null, order: "desc" });
+// Filters: transaction type, the day it was created, newest/oldest.
+const emptyFilters = () => ({ type: null, date: null, order: "desc" });
 const filters = ref(emptyFilters());
-const filtersActive = computed(() => !!(filters.value.type || filters.value.from || filters.value.to));
+const filtersActive = computed(() => !!(filters.value.type || filters.value.date));
 function clearFilters() {
     filters.value = { ...emptyFilters(), order: filters.value.order };
 }
@@ -311,15 +300,20 @@ const typeFilterOptions = computed(() => [...new Set(items.value.map(typeName).f
 
 const shown = computed(() => {
     const q = String(search.value || "").trim().toLowerCase();
-    const from = filters.value.from ? new Date(filters.value.from).getTime() : null;
-    const to = filters.value.to ? new Date(filters.value.to).getTime() : null;
+    // "YYYY-MM-DD" -> that whole local day (built from parts: new Date("YYYY-MM-DD") is UTC).
+    let from = null;
+    let to = null;
+    if (filters.value.date) {
+        const [y, m, d] = filters.value.date.split("-").map(Number);
+        from = new Date(y, m - 1, d).getTime();
+        to = new Date(y, m - 1, d + 1).getTime();
+    }
     const dir = filters.value.order === "asc" ? 1 : -1;
     return items.value
         .filter((t) => {
             if (filters.value.type && typeName(t) !== filters.value.type) return false;
             const at = new Date(t.created_at).getTime();
-            if (from != null && at < from) return false;
-            if (to != null && at > to) return false;
+            if (from != null && (at < from || at >= to)) return false;
             if (!q) return true;
             return [t.reference_number, t.title, typeName(t), t.office?.name, t.current_step?.name]
                 .some((v) => String(v || "").toLowerCase().includes(q));
@@ -485,8 +479,8 @@ useSmartPoll(() => {
     max-width: 260px;
 }
 .fb-date {
-    flex: 1 1 210px;
-    max-width: 240px;
+    flex: 1 1 170px;
+    max-width: 200px;
 }
 .fb-order {
     text-transform: none;
