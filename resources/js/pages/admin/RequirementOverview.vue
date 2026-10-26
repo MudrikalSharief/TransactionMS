@@ -662,6 +662,12 @@ async function refreshOverview() {
     updateViewport();
 }
 
+// Carry-over connectors are straight diagonals from the source chip to
+// the target chip: clean in every geometry, and they match the minimap.
+function connectorPath(x1, y1, x2, y2) {
+    return `M${x1} ${y1} L${x2} ${y2}`;
+}
+
 function drawConnectors() {
     const cols = colsEl.value;
     const svg = linesEl.value;
@@ -686,10 +692,10 @@ function drawConnectors() {
         const y1 = ar.top + ar.height / 2 - base.top;
         const x2 = br.left - base.left;
         const y2 = br.top + br.height / 2 - base.top;
-        const dx = (x2 - x1) / 2;
         const color = `var(--ro-c${link.colorIndex})`;
+        const d = connectorPath(x1, y1, x2, y2);
 
-        out += `<path d="M${x1} ${y1} C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}" style="stroke:${color}"/>`;
+        out += `<path d="${d}" style="stroke:${color}"/>`;
         out += `<rect x="${x1 - 4}" y="${y1 - 4}" width="8" height="8" style="fill:${color}"/>`;
         out += `<rect x="${x2 - 4}" y="${y2 - 4}" width="8" height="8" style="fill:${color}"/>`;
     }
@@ -750,9 +756,9 @@ function drawMinimap() {
         const y1 = pa.y + pa.h / 2;
         const x2 = pb.x;
         const y2 = pb.y + pb.h / 2;
-        const dx = (x2 - x1) / 2;
+        const d = connectorPath(x1, y1, x2, y2);
 
-        out += `<path d="M${x1} ${y1} C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}" fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke" style="stroke:var(--ro-c${link.colorIndex})"/>`;
+        out += `<path d="${d}" fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke" style="stroke:var(--ro-c${link.colorIndex})"/>`;
     }
 
     svg.setAttribute("viewBox", `0 0 ${mw} ${mh}`);

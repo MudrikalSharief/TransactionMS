@@ -352,6 +352,69 @@
             class="ofc-sw-tg"
           />
         </div>
+
+        <div class="ofc-f">
+          <span id="ofc-icon-label" class="ofc-lb">
+            Icon <span class="ofc-opt">(optional)</span>
+          </span>
+          <div
+            class="ofc-icon-box"
+            :class="{ 'is-drag': iconDragging, 'is-bad': !!fieldErrors.icon }"
+            role="group"
+            aria-labelledby="ofc-icon-label"
+            @dragenter.prevent="onIconDragEnter"
+            @dragover.prevent="onIconDragOver"
+            @dragleave.prevent="onIconDragLeave"
+            @drop.prevent="onIconDrop"
+          >
+            <span class="ofc-icon-prev" aria-hidden="true">
+              <img
+                v-if="iconPreview"
+                class="ofc-icon-img"
+                :src="iconPreview"
+                alt=""
+              />
+              <v-icon v-else size="30">mdi-image-outline</v-icon>
+            </span>
+            <div class="ofc-icon-main">
+              <div class="ofc-icon-actions">
+                <button
+                  type="button"
+                  class="ofc-icon-choose"
+                  :disabled="saving"
+                  @click="pickIcon"
+                >
+                  <v-icon size="18">mdi-upload</v-icon>
+                  <span>{{ iconChooseText }}</span>
+                </button>
+                <button
+                  v-if="hasCustomIcon"
+                  type="button"
+                  class="ofc-icon-remove"
+                  :disabled="saving"
+                  @click="removeIconImage"
+                >
+                  Remove
+                </button>
+              </div>
+              <p class="ofc-icon-note">{{ iconNote }}</p>
+              <p v-if="!fieldErrors.icon" class="ofc-icon-hint">
+                PNG, JPG or WebP. Up to 2 MB. Square images look best.
+              </p>
+            </div>
+            <input
+              ref="iconInput"
+              class="ofc-file"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              tabindex="-1"
+              @change="onIconPicked"
+            />
+          </div>
+          <p v-if="fieldErrors.icon" class="ofc-icon-err" role="alert">
+            {{ fieldErrors.icon }}
+          </p>
+        </div>
       </v-card-text>
       <v-divider />
       <v-card-actions class="ofc-ft">
@@ -427,6 +490,11 @@ const dialogError = ref('')
 const nameField = ref(null)
 const codeField = ref(null)
 const descField = ref(null)
+const iconInput = ref(null)
+const iconFile = ref(null)
+const iconObjectUrl = ref('')
+const removeIcon = ref(false)
+const iconDragging = ref(false)
 
 // Client-side search: master data is small, filter loaded rows by
 // code / name / description without extra requests.
@@ -514,8 +582,107 @@ watch(
   }
 )
 
-const form = ref({ id: null, code: '', name: '', description: '', is_active: true })
+const form = ref({ id: null, code: '', name: '', description: '', icon_url: '', is_active: true })
 const descriptionLength = computed(() => String(form.value.description || '').length)
+const iconPreview = computed(() => iconObjectUrl.value || officeIcon(form.value))
+const hasCustomIcon = computed(() => !!iconFile.value || (!!form.value.icon_url && !removeIcon.value))
+const iconChooseText = computed(() => (hasCustomIcon.value ? 'Replace image' : 'Choose image'))
+const iconNote = computed(() =>
+  iconFile.value
+    ? `${iconFile.value.name} · ${formatFileSize(iconFile.value.size)}`
+    : 'or drag and drop it here'
+)
+
+function revokeIconPreview() {
+  if (!iconObjectUrl.value) return
+  URL.revokeObjectURL(iconObjectUrl.value)
+  iconObjectUrl.value = ''
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function resetIconState() {
+  revokeIconPreview()
+  iconFile.value = null
+  removeIcon.value = false
+  iconDragging.value = false
+  if (iconInput.value) iconInput.value.value = ''
+}
+
+function pickIcon() {
+  if (saving.value) return
+  iconInput.value?.click?.()
+}
+
+function applyIconFile(file) {
+  if (!file) return
+
+  const allowedMime = ['image/png', 'image/jpeg', 'image/webp'].includes(file.type)
+  const allowedExt = /\.(png|jpe?g|webp)$/i.test(file.name)
+  if (!allowedMime && !allowedExt) {
+    fieldErrors.value = { ...fieldErrors.value, icon: 'Choose a PNG, JPG or WebP image.' }
+    return
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    fieldErrors.value = {
+      ...fieldErrors.value,
+      icon: `That image is ${formatFileSize(file.size)}. Choose one up to 2 MB.`,
+    }
+    return
+  }
+
+  clearFieldError('icon')
+  revokeIconPreview()
+  iconFile.value = file
+  iconObjectUrl.value = URL.createObjectURL(file)
+  removeIcon.value = false
+  iconDragging.value = false
+}
+
+function onIconPicked(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (file) applyIconFile(file)
+}
+
+function onIconDragEnter() {
+  if (!saving.value) iconDragging.value = true
+}
+
+function onIconDragOver() {
+  if (!saving.value) iconDragging.value = true
+}
+
+function onIconDragLeave(event) {
+  const box = event.currentTarget
+  if (!box?.contains(event.relatedTarget)) iconDragging.value = false
+}
+
+function onIconDrop(event) {
+  iconDragging.value = false
+  if (saving.value) return
+  applyIconFile(event.dataTransfer?.files?.[0])
+}
+
+function removeIconImage() {
+  const hadCustomIcon = !!form.value.icon_url
+  resetIconState()
+  if (hadCustomIcon) {
+    removeIcon.value = true
+    form.value.icon_url = ''
+  }
+  clearFieldError('icon')
+}
+
+watch(dialog, (open) => {
+  if (!open) resetIconState()
+})
 
 function clearFieldError(key) {
   if (!fieldErrors.value[key]) return
@@ -548,7 +715,8 @@ function openCreate() {
   error.value = ''
   fieldErrors.value = {}
   dialogError.value = ''
-  form.value = { id: null, code: '', name: '', description: '', is_active: true }
+  resetIconState()
+  form.value = { id: null, code: '', name: '', description: '', icon_url: '', is_active: true }
   dialog.value = true
   focusField('name')
 }
@@ -557,11 +725,13 @@ function openEdit(item) {
   error.value = ''
   fieldErrors.value = {}
   dialogError.value = ''
+  resetIconState()
   form.value = {
     id: item.id,
     code: String(item.code ?? '').toUpperCase(),
     name: item.name ?? '',
     description: item.description ?? '',
+    icon_url: item.icon_url ?? '',
     is_active: !!item.is_active,
   }
   dialog.value = true
@@ -625,11 +795,25 @@ async function save() {
 
   saving.value = true
   try {
-    const payload = {
-      code,
-      name,
-      description: form.value.description ?? '',
-      is_active: !!form.value.is_active,
+    let payload
+
+    // Multipart is only needed when an icon is attached or cleared. Plain
+    // edits keep the existing JSON request.
+    if (iconFile.value || removeIcon.value) {
+      payload = new FormData()
+      payload.append('code', code)
+      payload.append('name', name)
+      payload.append('description', form.value.description ?? '')
+      payload.append('is_active', form.value.is_active ? '1' : '0')
+      if (iconFile.value) payload.append('icon', iconFile.value)
+      if (removeIcon.value && !iconFile.value) payload.append('remove_icon', '1')
+    } else {
+      payload = {
+        code,
+        name,
+        description: form.value.description ?? '',
+        is_active: !!form.value.is_active,
+      }
     }
 
     if (form.value.id) await update(form.value.id, payload)
@@ -1341,6 +1525,136 @@ html.dark .ofp-page {
   font-size: 12.5px;
   color: rgb(var(--v-theme-secondary));
 }
+.ofc-icon-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1.5px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 16px;
+  background: #f4f6fb;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.ofc-icon-box:hover {
+  border-color: #aab4cc;
+}
+.ofc-icon-box.is-drag {
+  border-color: #1d3fae;
+  background: #e8eeff;
+}
+.ofc-icon-box.is-bad {
+  border-color: rgb(var(--v-theme-error));
+}
+.ofc-icon-prev {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  flex: none;
+  overflow: hidden;
+  border: 1.5px solid rgba(29, 63, 174, 0.2);
+  border-radius: 16px;
+  background: #e8eeff;
+  color: #1d3fae;
+}
+.ofc-icon-prev :deep(.v-icon) {
+  color: currentColor;
+}
+.ofc-icon-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ofc-icon-main {
+  flex: 1;
+  min-width: 0;
+}
+.ofc-icon-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ofc-icon-choose,
+.ofc-icon-remove {
+  height: 40px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ofc-icon-choose {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1.5px solid #1d3fae;
+  background: rgb(var(--v-theme-surface));
+  color: #1d3fae;
+  white-space: nowrap;
+}
+.ofc-icon-choose :deep(.v-icon) {
+  color: currentColor;
+}
+.ofc-icon-choose:hover {
+  background: #e8eeff;
+}
+.ofc-icon-remove {
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: rgb(var(--v-theme-secondary));
+}
+.ofc-icon-remove:hover {
+  background: #fde8e8;
+  color: rgb(var(--v-theme-error));
+}
+.ofc-icon-choose:disabled,
+.ofc-icon-remove:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ofc-icon-choose:focus-visible,
+.ofc-icon-remove:focus-visible {
+  outline: 3px solid rgba(22, 48, 124, 0.28);
+  outline-offset: 2px;
+}
+.ofc-icon-note {
+  margin: 9px 0 0;
+  overflow: hidden;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ofc-icon-hint {
+  margin: 2px 0 0;
+  color: rgb(var(--v-theme-secondary));
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.ofc-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.ofc-icon-err {
+  margin: 7px 2px 0;
+  color: rgb(var(--v-theme-error));
+  font-size: 12.5px;
+  font-weight: 600;
+}
 
 /* Fields: 48px tall, radius 12, tinted fill, soft focus ring. */
 .ofc-in :deep(.v-field) {
@@ -1369,7 +1683,7 @@ html.dark .ofp-page {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 6px;
+  margin-bottom: 18px;
   padding: 12px 14px;
   border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 14px;
@@ -1413,6 +1727,54 @@ html.dark .ofc-in :deep(.v-field--focused) {
 }
 html.dark .ofc-sw {
   border-color: rgba(255, 255, 255, 0.16);
+}
+html.dark .ofc-icon-box {
+  background: #1c2645;
+  border-color: #2b3558;
+}
+html.dark .ofc-icon-box:hover {
+  border-color: #3a456b;
+}
+html.dark .ofc-icon-box.is-drag {
+  background: #25306a;
+  border-color: #6f8cff;
+}
+html.dark .ofc-icon-box.is-bad {
+  border-color: rgb(var(--v-theme-error));
+}
+html.dark .ofc-icon-prev {
+  background: #25306a;
+  border-color: rgba(111, 140, 255, 0.24);
+  color: #a9bdff;
+}
+html.dark .ofc-icon-choose {
+  background: #161e36;
+  border-color: #6f8cff;
+  color: #6f8cff;
+}
+html.dark .ofc-icon-choose:hover {
+  background: #25306a;
+}
+html.dark .ofc-icon-remove {
+  color: #9aa7c4;
+}
+html.dark .ofc-icon-remove:hover {
+  background: #4a1f22;
+  color: #ff8a80;
+}
+html.dark .ofc-icon-choose:focus-visible,
+html.dark .ofc-icon-remove:focus-visible {
+  outline-color: rgba(147, 197, 253, 0.38);
+}
+
+@media (max-width: 420px) {
+  .ofc-icon-box {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ofc-icon-main {
+    width: 100%;
+  }
 }
 
 @media (max-width: 520px) {

@@ -26,5 +26,7 @@ const officeIcons = {
 export const anyOfficeIcon = "/images/offices/zamboanga-city-seal.png";
 
 export function officeIcon(office) {
+    const custom = String(office?.icon_url || "").trim();
+    if (custom) return custom;
     return officeIcons[String(office?.code || "").toUpperCase()] || "";
 }

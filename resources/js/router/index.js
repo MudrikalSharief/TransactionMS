@@ -20,6 +20,8 @@ const AdminStepRequirements = () => import("@/pages/admin/StepRequirements.vue")
 const AdminRequirementOverview = () =>
     import("@/pages/admin/RequirementOverview.vue");
 const AdminStepData = () => import("@/pages/admin/StepData.vue");
+const AdminStepDataOverview = () =>
+    import("@/pages/admin/StepDataOverview.vue");
 const AdminStepChecklist = () => import("@/pages/admin/StepChecklist.vue");
 const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue");
 
@@ -200,6 +202,16 @@ export function createRouter() {
                 name: "admin.step-data",
                 component: AdminStepData,
                 meta: { requiresAuth: true, superadmin: true },
+            },
+            {
+                path: "/admin/workflows/:workflowId/steps/:stepId/step-data/overview",
+                name: "admin.step-data-overview",
+                component: AdminStepDataOverview,
+                meta: {
+                    requiresAuth: true,
+                    superadmin: true,
+                    title: "Step Data Overview",
+                },
             },
 
             {

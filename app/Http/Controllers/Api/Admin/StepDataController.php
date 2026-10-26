@@ -21,6 +21,40 @@ class StepDataController extends Controller
         );
     }
 
+    // Step Data Overview board: every step's step-data rows in one response,
+    // ordered by step order then display_order.
+    public function overview(WorkflowDefinition $workflowDefinition)
+    {
+        $steps = $workflowDefinition->steps()
+            ->with('stepDataDefinitions')
+            ->orderBy('order_number')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json(
+            $steps->map(function (WorkflowStep $step) {
+                return [
+                    'step_id' => (int) $step->id,
+                    'order_number' => $step->order_number,
+                    'name' => $step->name,
+                    'code' => $step->code,
+                    'rows' => $step->stepDataDefinitions->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'code' => $row->code,
+                            'name' => $row->display_name,
+                            'type' => $row->type,
+                            'is_required' => (bool) $row->is_required,
+                            'display_order' => (int) $row->display_order,
+                            'min_length' => $row->min_length,
+                            'max_length' => $row->max_length,
+                        ];
+                    })->values()->all(),
+                ];
+            })->all()
+        );
+    }
+
     public function store(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep)
     {
         if ((int) $workflowStep->workflow_definition_id !== (int) $workflowDefinition->id) {

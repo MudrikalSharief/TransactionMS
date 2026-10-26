@@ -229,6 +229,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
             Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/checklist/resync', [StepChecklistController::class, 'resync']);
 
             // Step data - per-step text data (receipt number, etc.), history per visit
+            Route::get('workflow-definitions/{workflowDefinition}/step-data', [StepDataController::class, 'overview']);
             Route::get('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'index']);
             Route::post('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data', [StepDataController::class, 'store']);
             Route::put('workflow-definitions/{workflowDefinition}/steps/{workflowStep}/step-data/{stepData}', [StepDataController::class, 'update']);

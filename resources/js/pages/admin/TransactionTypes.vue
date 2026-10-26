@@ -83,7 +83,7 @@
                 </template>
 
                 <template v-slot:[`item.name`]="{ item }">
-                    <span class="tt-name" :title="item.name">{{
+                    <span class="tt-name" v-tooltip="item.name">{{
                         item.name
                     }}</span>
                 </template>
@@ -134,7 +134,8 @@
                             v-for="o in item.offices"
                             :key="o.id"
                             class="tt-office is-specific"
-                            :title="o.name"
+                            v-tooltip="o.name"
+                            :aria-label="o.name"
                         >
                             <img
                                 v-if="officeIcon(o)"
@@ -149,20 +150,20 @@
                             >
                                 ?
                             </span>
-                            {{ o.name }}
+                            <span class="tt-office-text">{{ o.code }}</span>
                         </span>
                     </div>
                     <span
                         v-else
                         class="tt-office"
-                        title="Available to every office"
+                        v-tooltip="'Available to every office'"
                     >
                         <img
                             class="tt-office-icon"
                             :src="anyOfficeIcon"
                             alt="Zamboanga City seal"
                         />
-                        Any Office
+                        <span class="tt-office-text">Any Office</span>
                     </span>
                 </template>
 
@@ -1382,24 +1383,29 @@ html.dark .tt-page {
 }
 .tt-office {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
     padding: 5px 10px;
     background: var(--tt-field);
     color: var(--tt-muted);
     font-size: 13px;
     font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: left;
 }
 .tt-office-icon {
     width: 24px;
     height: 24px;
     flex: none;
+    margin-top: 2px;
     object-fit: contain;
+}
+.tt-office-text {
+    min-width: 0;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 .tt-office-icon-placeholder {
     display: inline-flex;

@@ -13,6 +13,7 @@ class Office extends Model
         'code',
         'name',
         'description',
+        'icon_path',
         'is_active',
     ];
 
