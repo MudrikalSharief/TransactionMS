@@ -162,33 +162,37 @@
                         :exact="!!item.exact"
                         :prepend-icon="item.badge == null ? item.icon : undefined"
                         rounded="lg"
-                        v-tooltip:end="rail ? (item.badge ? `${item.title} · ${item.badgeLabel}` : item.title) : undefined"
+                        v-tooltip:end="rail ? (item.badge ? `${item.title} ${item.badge}` : item.title) : undefined"
                     >
-                        <!-- Items with a count (clerk Approvals): small red badge on
-                             the icon in the rail, a red chip when the menu is open. -->
+                        <!-- Items with a count (clerk Task): small red badge on the
+                             icon in the rail; "TASK 9" (count right after the
+                             title) when the menu is open. -->
                         <template v-if="item.badge != null" #prepend>
+                            <!-- Badge only exists while collapsed, so the open row's
+                                 text reads "TASK 9", not "9TASK 9". -->
                             <v-badge
-                                :model-value="rail && item.badge > 0"
+                                v-if="rail && item.badge > 0"
                                 :content="item.badge > 99 ? '99+' : item.badge"
                                 color="error"
                                 class="approvals-badge"
                             >
                                 <v-icon>{{ item.icon }}</v-icon>
                             </v-badge>
+                            <v-icon v-else>{{ item.icon }}</v-icon>
                         </template>
-                        <v-list-item-title>{{ item.title.toUpperCase() }}</v-list-item-title>
-                        <template v-if="item.badge != null" #append>
+                        <v-list-item-title class="d-flex align-center">
+                            {{ item.title.toUpperCase() }}
                             <v-chip
-                                v-if="!rail && item.badge > 0"
+                                v-if="item.badge != null && !rail && item.badge > 0"
                                 size="x-small"
                                 color="error"
                                 variant="flat"
-                                class="font-weight-bold"
-                                v-tooltip="item.badgeLabel"
+                                class="font-weight-bold ml-2"
+                                v-tooltip="`${item.title} ${item.badge}`"
                             >
                                 {{ item.badge > 99 ? "99+" : item.badge }}
                             </v-chip>
-                        </template>
+                        </v-list-item-title>
                     </v-list-item>
                 </template>
                 <v-list-item
@@ -406,7 +410,6 @@ const navGroups = computed(() => {
                 icon: "mdi-clipboard-check-multiple-outline",
                 to: "/portal/approvals",
                 badge: n,
-                badgeLabel: `${n} task${n === 1 ? "" : "s"} waiting for you`,
             });
         }
         return [
