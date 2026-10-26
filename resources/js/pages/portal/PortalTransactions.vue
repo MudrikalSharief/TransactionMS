@@ -78,10 +78,55 @@
                     style="max-width: 420px"
                 />
 
+                <!-- Filters: type, created date + time range, and order. -->
+                <div class="filter-bar mb-3">
+                    <v-select
+                        v-model="filters.type"
+                        :items="typeFilterOptions"
+                        label="Transaction type"
+                        variant="outlined"
+                        density="compact"
+                        rounded="0"
+                        hide-details
+                        clearable
+                        class="fb-type"
+                    />
+                    <v-text-field
+                        v-model="filters.from"
+                        type="datetime-local"
+                        label="Created from"
+                        variant="outlined"
+                        density="compact"
+                        rounded="0"
+                        hide-details
+                        clearable
+                        class="fb-date"
+                    />
+                    <v-text-field
+                        v-model="filters.to"
+                        type="datetime-local"
+                        label="Created to"
+                        variant="outlined"
+                        density="compact"
+                        rounded="0"
+                        hide-details
+                        clearable
+                        class="fb-date"
+                    />
+                    <v-btn-toggle v-model="filters.order" mandatory rounded="0" density="compact" variant="outlined" divided color="primary" class="fb-order">
+                        <v-btn value="desc" prepend-icon="mdi-sort-calendar-descending">Newest first</v-btn>
+                        <v-btn value="asc" prepend-icon="mdi-sort-calendar-ascending">Oldest first</v-btn>
+                    </v-btn-toggle>
+                    <v-btn v-if="filtersActive" variant="text" rounded="0" color="grey-darken-3" prepend-icon="mdi-filter-remove-outline" @click="clearFilters">
+                        Clear
+                    </v-btn>
+                </div>
+
                 <div class="d-flex flex-column" style="min-height: 458px">
                     <v-data-table
                         v-show="!loading"
-                        :items="items"
+                        v-model:page="page"
+                        :items="shown"
                         :headers="headers"
                         item-key="id"
                         density="compact"
@@ -89,14 +134,17 @@
                         fixed-header
                         :items-per-page="PER_PAGE"
                         hide-default-footer
-                        :sort-by="[{ key: 'created_at', order: 'desc' }]"
                         hover
                         class="lgu-table table-search"
                         @click:row="(_, row) => open(row.item)"
                     >
                         <template #no-data>
                             <div class="pa-6 text-medium-emphasis">
-                                {{ tab === "action" ? "Nothing is waiting on your role right now." : "No transactions in your office yet." }}
+                                {{
+                                    items.length && (filtersActive || search)
+                                        ? "No transactions match your search or filters."
+                                        : tab === "action" ? "Nothing is waiting on your role right now." : "No transactions in your office yet."
+                                }}
                             </div>
                         </template>
                         <template v-slot:[`item.reference_number`]="{ item }">
@@ -150,12 +198,12 @@
                             </v-menu>
                         </template>
                         <template v-slot:[`item.created_at`]="{ item }">
-                            <div class="font-weight-bold">{{ fmtDate(item.created_at) }}</div>
-                            <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
+                            <div class="font-weight-bold text-no-wrap">{{ fmtDate(item.created_at) }}</div>
+                            <div class="text-caption text-medium-emphasis">{{ fmtTime(item.created_at) }} ({{ timeAgo(item.created_at) }})</div>
                         </template>
                     </v-data-table>
-                    <div v-if="meta.lastPage > 1 && !loading" class="d-flex justify-center py-3">
-                        <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
+                    <div v-if="pageCount > 1 && !loading" class="d-flex justify-center py-3">
+                        <v-pagination v-model="page" :length="pageCount" :total-visible="5" density="compact" />
                     </div>
                     <TableLoader v-if="loading" label="transactions" icon="mdi-file-document-multiple" style="flex: 1 1 auto" />
                 </div>
@@ -225,8 +273,8 @@ const { user } = useAuth();
 const typeStore = useTransactionTypes();
 const { xs } = useDisplay();
 
-// 7 rows per page, like the admin tables; the server pages them and the
-// pager under the table moves between pages.
+// 7 rows per page, like the admin tables. The whole list is loaded once so
+// search, filters and ordering cover every row, then paged here.
 const PER_PAGE = 7;
 
 // "action" = rows waiting on my role (opens the working page);
@@ -240,17 +288,47 @@ const loading = ref(true);
 const error = ref("");
 const search = ref("");
 const page = ref(1);
-const meta = ref({ total: 0, lastPage: 1 });
+
+// Filters: transaction type, created date + time range, newest/oldest.
+const emptyFilters = () => ({ type: null, from: null, to: null, order: "desc" });
+const filters = ref(emptyFilters());
+const filtersActive = computed(() => !!(filters.value.type || filters.value.from || filters.value.to));
+function clearFilters() {
+    filters.value = { ...emptyFilters(), order: filters.value.order };
+}
+const typeName = (t) => t.transaction_type?.name || t.transaction_type_name || "";
+const typeFilterOptions = computed(() => [...new Set(items.value.map(typeName).filter(Boolean))].sort());
+
+const shown = computed(() => {
+    const q = String(search.value || "").trim().toLowerCase();
+    const from = filters.value.from ? new Date(filters.value.from).getTime() : null;
+    const to = filters.value.to ? new Date(filters.value.to).getTime() : null;
+    const dir = filters.value.order === "asc" ? 1 : -1;
+    return items.value
+        .filter((t) => {
+            if (filters.value.type && typeName(t) !== filters.value.type) return false;
+            const at = new Date(t.created_at).getTime();
+            if (from != null && at < from) return false;
+            if (to != null && at > to) return false;
+            if (!q) return true;
+            return [t.reference_number, t.title, typeName(t), t.office?.name, t.current_step?.name]
+                .some((v) => String(v || "").toLowerCase().includes(q));
+        })
+        .sort((a, b) => dir * (new Date(a.created_at) - new Date(b.created_at) || a.id - b.id));
+});
+const pageCount = computed(() => Math.max(1, Math.ceil(shown.value.length / PER_PAGE)));
+watch([search, filters], () => { page.value = 1; }, { deep: true });
+watch(pageCount, (n) => { if (page.value > n) page.value = n; });
 
 const canCreate = computed(() => user.value?.office != null);
 
 const headers = [
-    { title: "Reference", key: "reference_number" },
-    { title: "Title", key: "title" },
+    { title: "Reference", key: "reference_number", sortable: false },
+    { title: "Title", key: "title", sortable: false },
     { title: "Transaction Type", key: "type", sortable: false },
     { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
-    { title: "Created At", key: "created_at" },
+    { title: "Created At", key: "created_at", sortable: false, width: 170 },
 ];
 
 const endpoint = () => (tab.value === "action" ? "/api/transactions" : "/api/admin/transactions");
@@ -258,14 +336,16 @@ const endpoint = () => (tab.value === "action" ? "/api/transactions" : "/api/adm
 async function fetchRows({ silent = false } = {}) {
     if (!silent) loading.value = true;
     try {
-        const params = { page: page.value, per_page: PER_PAGE };
-        if (search.value && search.value.trim()) params.q = search.value.trim();
-        const res = await api.get(endpoint(), { params });
-        items.value = res.data?.data ?? [];
-        meta.value = {
-            total: res.data?.meta?.total ?? items.value.length,
-            lastPage: res.data?.meta?.last_page ?? 1,
-        };
+        const all = [];
+        let p = 1;
+        let last = 1;
+        do {
+            const res = await api.get(endpoint(), { params: { page: p, per_page: 100 } });
+            all.push(...(res.data?.data ?? []));
+            last = res.data?.meta?.last_page ?? 1;
+            p += 1;
+        } while (p <= last && p <= 20);
+        items.value = all;
         error.value = "";
     } catch (e) {
         error.value = e?.response?.data?.message || "Failed to load transactions.";
@@ -281,20 +361,6 @@ function onTab() {
     router.replace({ query: { ...route.query, tab: tab.value, new: undefined } });
     fetchRows();
 }
-
-function goToPage(p) {
-    page.value = p;
-    fetchRows();
-}
-
-let searchTimer = null;
-watch(search, () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-        page.value = 1;
-        fetchRows({ silent: true });
-    }, 400);
-});
 
 function open(tx) {
     router.push(tab.value === "action" ? `/my/transactions/${tx.id}` : `/transactions/${tx.id}`);
@@ -312,6 +378,11 @@ function stepIcon(step) {
     if (step.is_end) return "mdi-flag-checkered";
     if (step.is_start) return "mdi-play";
     return "mdi-dots-horizontal-circle-outline";
+}
+
+function fmtTime(iso) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
 }
 
 function fmtDate(iso) {
@@ -392,6 +463,25 @@ useSmartPoll(() => {
 </script>
 
 <style scoped>
+/* Filter bar: wraps onto more lines on small screens. */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.fb-type {
+    flex: 1 1 200px;
+    max-width: 260px;
+}
+.fb-date {
+    flex: 1 1 210px;
+    max-width: 240px;
+}
+.fb-order :deep(.v-btn) {
+    text-transform: none;
+    font-weight: 600;
+}
 /* Boxed table header: dark-blue fill, white text (same as the admin tables). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
     background-color: #0e1f52 !important;

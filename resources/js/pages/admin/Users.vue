@@ -268,6 +268,30 @@
             </div>
           </div>
 
+          <div class="nu-field" :class="{ 'is-bad': errors.contact_number }">
+            <label class="nu-label" for="nu-contact">
+              Contact number <span class="nu-opt">(optional)</span>
+            </label>
+            <input
+              id="nu-contact"
+              ref="contactInput"
+              v-model="form.contact_number"
+              class="nu-input"
+              type="tel"
+              maxlength="20"
+              placeholder="09171234567"
+              autocomplete="off"
+              inputmode="tel"
+              :aria-invalid="!!errors.contact_number"
+              :aria-describedby="errors.contact_number ? 'nu-contact-err' : undefined"
+              :disabled="saving"
+              @input="clearError('contact_number')"
+            />
+            <div v-if="errors.contact_number" id="nu-contact-err" class="nu-err">
+              {{ errors.contact_number }}
+            </div>
+          </div>
+
           <div class="nu-field nu-pw" :class="{ 'is-bad': errors.password }">
             <label class="nu-label" for="nu-password">
               {{ isEdit ? 'New password' : 'Password' }}
@@ -335,9 +359,11 @@
             </div>
           </div>
 
-          <div class="nu-switch">
+          <!-- New users start active; accounts waiting for approval stay
+               inactive until approved, so the switch is only for others. -->
+          <div v-if="isEdit && !form.pending_approval" class="nu-switch">
             <div class="nu-switch-copy">
-              <b id="nu-active-label">Active</b>
+              <b id="nu-active-label">{{ form.is_active ? 'Active' : 'Inactive' }}</b>
               <span id="nu-active-desc">
                 {{
                   form.is_active
@@ -399,7 +425,15 @@
             </div>
           </div>
 
+          <div v-if="officeMode" class="nu-field nu-field-last">
+            <span class="nu-label">Office</span>
+            <div class="nu-help">
+              {{ isEdit ? 'Stays in' : 'Joins' }} <b>{{ myOffice?.name || 'your office' }}</b>.
+              Admin and superadmin roles are given by a superadmin.
+            </div>
+          </div>
           <div
+            v-else
             class="nu-field nu-field-last"
             :class="{ 'is-bad': errors.office_id }"
           >
@@ -470,60 +504,11 @@
         </div>
       </v-card>
     </form>
-  <v-dialog v-model="dialog" max-width="700">
-    <v-card rounded="xl" style="overflow: hidden">
-      <v-card-title>{{ form.id ? 'Edit User' : 'New User' }}</v-card-title>
-      <v-divider />
-      <v-card-text>
-        <v-text-field v-model="form.name" label="Name" />
-        <v-text-field v-model="form.email" label="Email" type="email" />
-        <v-text-field v-model="form.contact_number" label="Contact number" type="tel" placeholder="09171234567" />
-
-        <v-text-field
-          v-model="form.password"
-          :label="form.id ? 'New Password (optional)' : 'Password'"
-          type="password"
-        />
-
-        <!-- New users start active; the switch is only for existing ones
-             (e.g. turning a deactivated account back on). -->
-        <v-switch v-if="form.id && !form.pending_approval" v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
-
-        <v-select
-          v-model="form.role_ids"
-          :items="roleOptions"
-          item-title="label"
-          item-value="id"
-          label="Roles"
-          multiple
-          chips
-        />
-
-        <v-select
-          v-if="!officeMode"
-          v-model="form.office_id"
-          :items="officeOptions"
-          item-title="label"
-          item-value="id"
-          label="Office"
-          clearable
-        />
-        <v-alert v-else type="info" variant="tonal" density="compact" rounded="0">
-          {{ form.id ? 'Stays in' : 'Joins' }} <b>{{ myOffice?.name || 'your office' }}</b>.
-          Admin and superadmin roles are given by a superadmin.
-        </v-alert>
-      </v-card-text>
-      <v-divider />
-      <v-card-actions class="justify-end">
-        <v-btn variant="text" @click="dialog = false">Cancel</v-btn>
-        <v-btn color="grey-darken-3" rounded="0" :loading="saving" @click="save">Save</v-btn>
-      </v-card-actions>
-    </v-card>
   </v-dialog>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
@@ -540,8 +525,8 @@ const { api } = useApi()
 const officeMode = !!useRoute().meta.officeScope
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser } =
   useAdminUsers({ office: officeMode })
-const { roles: allRoles, fetchRoles: fetchAllRoles } = useRoles()
-const { items: offices, fetchAll: fetchOffices } = useOffices()
+const { roles: allRoles, loading: allRolesLoading, fetchRoles: fetchAllRoles } = useRoles()
+const { items: offices, loading: officesLoading, fetchAll: fetchOffices } = useOffices()
 
 // Superadmins manage everyone; office admins manage their own office (/office/users).
 const canManage = computed(() => officeMode || (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
@@ -550,11 +535,18 @@ const myOffice = computed(() => auth.user.value?.office ?? null)
 
 // Office admins may only give out roles below admin (server list).
 const officeRoles = ref([])
+const officeRolesLoading = ref(false)
 const roles = computed(() => (officeMode ? officeRoles.value : allRoles.value))
+const rolesLoading = computed(() => (officeMode ? officeRolesLoading.value : !!allRolesLoading.value))
 async function fetchRoles() {
   if (!officeMode) return fetchAllRoles()
-  const res = await api.get('/api/office/roles')
-  officeRoles.value = res.data.data ?? res.data
+  officeRolesLoading.value = true
+  try {
+    const res = await api.get('/api/office/roles')
+    officeRoles.value = res.data.data ?? res.data
+  } finally {
+    officeRolesLoading.value = false
+  }
 }
 
 // Admins, superadmins and your own account stay with a superadmin.
@@ -656,20 +648,65 @@ async function reject(item) {
   }
 }
 
-const form = ref({
-  id: null,
-  name: '',
-  email: '',
-  contact_number: '',
-  password: '',
-  is_active: true,
-  pending_approval: false,
-  role_ids: [],
-  office_id: null,
+// ---- New / Edit User dialog (redesigned form with validation) ----
+const formError = ref('')
+const errors = ref(blankErrors())
+const nameInput = ref(null)
+const emailInput = ref(null)
+const contactInput = ref(null)
+const passwordInput = ref(null)
+const roleGroup = ref(null)
+const officeInput = ref(null)
+const formErrorBanner = ref(null)
+const passwordVisible = ref(false)
+
+function blankForm() {
+  return {
+    id: null,
+    name: '',
+    email: '',
+    contact_number: '',
+    password: '',
+    is_active: true,
+    pending_approval: false,
+    role_ids: [],
+    office_id: null,
+  }
+}
+
+function blankErrors() {
+  return {
+    name: '',
+    email: '',
+    contact_number: '',
+    password: '',
+    role_ids: '',
+    office_id: '',
+  }
+}
+
+const form = ref(blankForm())
+const isEdit = computed(() => !!form.value.id)
+
+const passwordStrength = computed(() => {
+  const password = form.value.password || ''
+  if (!password) return { score: 0, label: '' }
+
+  let score = 0
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score++
+  else if ((/\d/.test(password) || /[^A-Za-z0-9]/.test(password)) && password.length >= 10) score++
+
+  if (password.length < 8) return { score: 1, label: 'Weak' }
+
+  const level = Math.max(1, Math.min(4, score))
+  return { score: level, label: ['', 'Weak', 'Fair', 'Good', 'Strong'][level] }
 })
 
 const roleOptions = computed(() =>
-  (roles.value || []).map((r) => ({ id: r.id, label: `${r.name}` })) // use ${r.code} to show Role Code
+   (roles.value || []).map(r => ({ id: r.id, label: `${r.name}` })) // use ${r.code} to show Role Code
 )
 
 const officeOptions = computed(() =>
@@ -684,17 +721,10 @@ const officeNameById = computed(() => {
 
 function openCreate() {
   error.value = ''
-  form.value = {
-    id: null,
-    name: '',
-    email: '',
-    contact_number: '',
-    password: '',
-    is_active: true,
-    pending_approval: false,
-    role_ids: [],
-    office_id: null,
-  }
+  formError.value = ''
+  errors.value = blankErrors()
+  passwordVisible.value = false
+  form.value = blankForm()
   dialog.value = true
 }
 
@@ -705,14 +735,19 @@ function openEdit(item) {
   passwordVisible.value = false
   form.value = {
     id: item.id,
-    name: item.name,
-    email: item.email,
+    name: item.name || '',
+    email: item.email || '',
     contact_number: item.contact_number || '',
     password: '',
     is_active: !!item.is_active,
     pending_approval: !!item.pending_approval,
-    role_ids: (item.roles || []).map(r => r.id),
-    office_id: item.office_id ?? item.office?.id ?? null,
+    role_ids: (item.roles || []).map((r) => Number(r.id)),
+    office_id:
+      item.office_id != null
+        ? Number(item.office_id)
+        : item.office?.id != null
+          ? Number(item.office.id)
+          : null,
   }
   dialog.value = true
 }
@@ -756,12 +791,17 @@ function validate() {
   const next = blankErrors()
   const name = form.value.name.trim()
   const email = form.value.email.trim()
+  const contact = String(form.value.contact_number || '').trim()
   const password = form.value.password || ''
 
   if (!name) next.name = 'Enter the user’s name.'
 
   if (!email) next.email = 'Enter an email address.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.'
+
+  if (contact && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(contact)) {
+    next.contact_number = 'Enter a valid contact number, for example 09171234567.'
+  }
 
   if ((!isEdit.value || password) && password.length < 8) {
     next.password = 'Password must be at least 8 characters.'
@@ -784,6 +824,10 @@ async function focusFirstError() {
   }
   if (errors.value.email) {
     emailInput.value?.focus()
+    return
+  }
+  if (errors.value.contact_number) {
+    contactInput.value?.focus()
     return
   }
   if (errors.value.password) {
@@ -841,15 +885,20 @@ async function save() {
 
   try {
     const payload = {
-      name: form.value.name,
-      email: form.value.email,
-      contact_number: form.value.contact_number || null,
-      role_ids: form.value.role_ids,
+      name: form.value.name.trim(),
+      email: form.value.email.trim(),
+      contact_number: String(form.value.contact_number || '').trim() || null,
+      role_ids: form.value.role_ids.map((id) => Number(id)),
     }
-    // Pending accounts stay inactive until approved.
-    if (!form.value.pending_approval) payload.is_active = form.value.is_active
+    // Accounts waiting for approval stay inactive until approved.
+    if (!form.value.pending_approval) payload.is_active = !!form.value.is_active
     // Office mode: the server always uses the admin's own office.
-    if (!officeMode) payload.office_id = form.value.office_id ?? null
+    if (!officeMode) {
+      payload.office_id =
+        form.value.office_id == null || form.value.office_id === ''
+          ? null
+          : Number(form.value.office_id)
+    }
     if (form.value.password) payload.password = form.value.password
 
     if (isEdit.value) {

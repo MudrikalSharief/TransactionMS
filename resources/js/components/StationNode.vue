@@ -104,6 +104,9 @@
                     </div>
                 </div>
                 <div v-else class="hover-muted">No checklist items.</div>
+                <div v-if="filesHidden" class="hover-muted">
+                    Files from this step are not shown. You can only open files from the previous step.
+                </div>
                 <template v-if="moveLevelFiles.length">
                     <div class="hover-files-label">Files</div>
                     <div class="hover-chips">
@@ -249,6 +252,13 @@ const doneCount = computed(() => checklistRows.value.filter((r) => r.done).lengt
 const totalCount = computed(() => checklistRows.value.length);
 
 const moveLevelFiles = computed(() => (props.detail?.attachments || []).map(toFileChip));
+// Step file rule: the server leaves out files of steps the user may not
+// open (only the previous step). Say so when this step has files at all.
+const filesHidden = computed(
+    () =>
+        props.detail?.files_visible === false &&
+        (props.detail?.requirements || []).some((r) => Number(r?.attachment_count || 0) > 0),
+);
 
 const moveFrom = computed(() => {
     const s = props.move?.from_step;

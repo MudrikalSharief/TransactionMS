@@ -101,11 +101,14 @@
                     {{ temperature }} · Zamboanga
                 </v-chip>
 
+                <!-- Profile icon: opens My Profile (the shared guest viewer has none). -->
                 <v-chip
                     v-if="auth.user.value"
                     variant="flat"
                     class="mr-2 font-weight-medium nav-chip d-none d-md-flex"
-                    v-tooltip="userTooltip"
+                    :to="hasProfile ? '/profile' : undefined"
+                    :aria-label="hasProfile ? 'My Profile' : undefined"
+                    v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : userTooltip"
                 >
                     <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
                 </v-chip>
@@ -225,8 +228,12 @@
                 <div
                     v-if="auth.user.value"
                     class="nav-profile"
-                    :class="{ 'nav-profile--rail': rail }"
+                    :class="{ 'nav-profile--rail': rail, 'nav-profile--link': hasProfile }"
+                    :role="hasProfile ? 'link' : undefined"
+                    :tabindex="hasProfile ? 0 : undefined"
                     v-tooltip:end="rail ? userTooltip : undefined"
+                    @click="hasProfile && router.push('/profile')"
+                    @keydown.enter="hasProfile && router.push('/profile')"
                 >
                     <div class="nav-profile__avatar">{{ userInitials }}</div>
                     <div v-if="!rail" class="nav-profile__text">
@@ -373,6 +380,8 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
+// My Profile: every signed-in account except the shared guest viewer.
+const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
 
@@ -385,16 +394,16 @@ const navGroups = computed(() => {
     }
     if (kind.value === "staff") {
         const work = [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }];
-        // Clerks (anyone who may approve; end users can't) get their
-        // approvals list, with the number of transactions waiting on them.
+        // Clerks (anyone who may approve; end users can't) get their Task
+        // list, with the number of transactions waiting on them.
         if (showApprovals.value) {
             const n = pendingTransactions.value;
             work.push({
-                title: "Approvals",
+                title: "Task",
                 icon: "mdi-clipboard-check-multiple-outline",
                 to: "/portal/approvals",
                 badge: n,
-                badgeLabel: `${n} transaction${n === 1 ? "" : "s"} waiting for your approval`,
+                badgeLabel: `${n} task${n === 1 ? "" : "s"} waiting for you`,
             });
         }
         return [
@@ -521,7 +530,7 @@ const searchPages = computed(() => {
             { title: "Home", subtitle: "Page", icon: "mdi-home-city-outline", to: "/portal" },
             { title: "Transactions", subtitle: "Page", icon: "mdi-file-document-multiple", to: "/portal/transactions" },
             ...(showApprovals.value
-                ? [{ title: "Approvals", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
+                ? [{ title: "Task", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
                 : []),
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
@@ -1053,6 +1062,15 @@ onUnmounted(() => {
 .nav-profile--rail {
     justify-content: center;
     padding: 10px 0;
+}
+/* Clickable: opens My Profile. */
+.nav-profile--link {
+    cursor: pointer;
+}
+.nav-profile--link:hover,
+.nav-profile--link:focus-visible {
+    background: rgba(22, 48, 124, 0.06);
+    outline: none;
 }
 .nav-profile__avatar {
     flex: 0 0 36px;

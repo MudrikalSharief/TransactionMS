@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\BlockViewer;
 use App\Http\Middleware\EnsureOfficeAdmin;
 use App\Http\Middleware\EnsureViewer;
@@ -51,6 +52,13 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [RegistrationController::class, 'register'])->middleware(['guest', 'throttle:6,1']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+});
+
+// "My Profile" for every signed-in account (the shared guest viewer is refused).
+Route::middleware(['auth:sanctum', BlockViewer::class])->prefix('profile')->group(function () {
+    Route::get('/', [ProfileController::class, 'show']);
+    Route::put('/', [ProfileController::class, 'update'])->middleware('throttle:20,1');
+    Route::put('/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:10,1');
 });
 
 // Public: current weather in Zamboanga City (proxied via Open-Meteo, no key needed)
