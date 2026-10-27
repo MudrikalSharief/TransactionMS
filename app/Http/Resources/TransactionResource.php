@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Office;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TransactionResource extends JsonResource
@@ -433,7 +434,7 @@ class TransactionResource extends JsonResource
             'is_done' => (bool) $this->is_done,
 
             'transaction_type' => $this->type?->only(['id','code','name']),
-            'office' => $this->office?->only(['id','code','name']),
+            'office' => Office::mini($this->office),
             // Office's own 1-2-3 steps, only when the office steps were
             // eager-loaded (detail views). Lists leave this null.
             'office_steps' => ($this->office && $this->office->relationLoaded('steps'))
@@ -545,7 +546,7 @@ class TransactionResource extends JsonResource
                 'id' => $prevStepId,
                 'name' => $fromStep?->name,
                 'order_number' => $fromStep?->order_number,
-                'office' => ($fromStep ? $this->displayStepOffice($fromStep) : null)?->only(['id', 'code', 'name']),
+                'office' => Office::mini($fromStep ? $this->displayStepOffice($fromStep) : null),
             ],
             'run' => [
                 'remarks' => $lastRun->remarks,
@@ -598,7 +599,7 @@ class TransactionResource extends JsonResource
 
         return [
             'office_id' => $office?->id,
-            'office' => $office?->only(['id', 'code', 'name']),
+            'office' => Office::mini($office),
         ];
     }
 }

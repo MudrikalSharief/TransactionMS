@@ -39,7 +39,7 @@ class ApprovalController extends Controller
     }
 
     /**
-     * Sidebar badge: unchecked required items across the inbox — missing
+     * Sidebar badge: unchecked required items across the inbox â€” missing
      * required uploads plus unvalidated required checklist items. Same rules
      * that block Proceed.
      */
@@ -47,7 +47,7 @@ class ApprovalController extends Controller
     {
         $this->ensureApprovalsAllowed($request->user());
 
-        // Badge totals need the whole inbox, not one page — but the badge now
+        // Badge totals need the whole inbox, not one page â€” but the badge now
         // polls every 1-5min (AppShell) so a 60s server cache is safe and
         // keeps weak devices / bad networks from rescanning on every poll.
         $userId = $request->user()->id;
@@ -151,7 +151,7 @@ class ApprovalController extends Controller
             // Step 1 -> 2 is requirements-only: the checklist isn't enforced there.
             // Read-only (itemsFor, no sync): checklist rows are synced on write
             // paths (requirements/routes/checklist admins + transitions), so
-            // GETs never WRITE — faster lists + safe on bad networks/retries.
+            // GETs never WRITE â€” faster lists + safe on bad networks/retries.
             // Visible rows are transaction-specific (only requirements ticked
             // at the predecessor), so cache the step config + owner map and
             // filter per transaction below.
@@ -211,8 +211,8 @@ class ApprovalController extends Controller
             // 25 rows on this page don't fan out to N*5 lazy queries.
             ->with([
                 'type:id,code,name',
-                'office:id,code,name',
-                'workflow.steps.office:id,code,name',
+                'office:id,code,name,icon_path',
+                'workflow.steps.office:id,code,name,icon_path',
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep.office',

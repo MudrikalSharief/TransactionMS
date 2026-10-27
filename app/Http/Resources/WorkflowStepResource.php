@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Office;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class WorkflowStepResource extends JsonResource
@@ -17,11 +18,7 @@ class WorkflowStepResource extends JsonResource
             'name' => $this->name,
             'stage' => $this->stage,
             'office_id' => $this->office_id,
-            'office' => $this->whenLoaded('office', fn () => $this->office ? [
-                'id' => $this->office->id,
-                'code' => $this->office->code,
-                'name' => $this->office->name,
-            ] : null),
+            'office' => $this->whenLoaded('office', fn () => Office::mini($this->office)),
             'sla_minutes' => $this->sla_minutes,
             'step_data_count' => $this->whenCounted('stepDataDefinitions'),
             'step_requirements_count' => $this->whenCounted('requirementDefinitions'),

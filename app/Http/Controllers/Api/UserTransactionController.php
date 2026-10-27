@@ -88,10 +88,10 @@ class UserTransactionController extends Controller
         $query = Transaction::query()
             ->with([
                 'type:id,code,name',
-                'office:id,code,name',
-                'workflow.steps.office:id,code,name',
+                'office:id,code,name,icon_path',
+                'workflow.steps.office:id,code,name,icon_path',
                 'workflow.stepRoles.role',
-                'state.currentStep.office:id,code,name',
+                'state.currentStep.office:id,code,name,icon_path',
                 'creator:id,name,email',
             ])
             ->latest();
@@ -145,7 +145,7 @@ class UserTransactionController extends Controller
         $page = $query->paginate($perPage);
 
         // Final in-memory guard preserves exact RoutingEngine semantics
-        // (e.g. rows with no current step) for the 25 rows on this page —
+        // (e.g. rows with no current step) for the 25 rows on this page â€”
         // cheap, unlike filtering the whole table.
         $page->setCollection(
             $page->getCollection()->filter(

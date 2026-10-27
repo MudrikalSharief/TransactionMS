@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Office;
 use App\Models\Transaction;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -83,11 +84,11 @@ class TransactionStepRunResource extends JsonResource
                 $this->transaction->stepIsEndUser($this->toStep)
                 || $this->toStep->office_id === null
             ) {
-                return $this->transaction->office?->only(['id', 'code', 'name']);
+                return Office::mini($this->transaction->office);
             }
         }
 
-        return $this->receivedOffice?->only(['id', 'code', 'name']);
+        return Office::mini($this->receivedOffice);
     }
 
     /**
@@ -100,10 +101,9 @@ class TransactionStepRunResource extends JsonResource
 
         $office = null;
         if ($this->transaction) {
-            $office = $this->transaction->displayStepOffice($step)?->only(['id', 'code', 'name']);
+            $office = Office::mini($this->transaction->displayStepOffice($step));
         } elseif ($step->relationLoaded('office') || $step->office_id) {
-            $o = $step->office;
-            $office = $o ? ['id' => $o->id, 'code' => $o->code, 'name' => $o->name] : null;
+            $office = Office::mini($step->office);
         }
 
         $roles = [];

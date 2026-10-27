@@ -31,10 +31,10 @@ class TransactionController extends Controller
             // No fieldValues/checks/attachments/runs on lists (detail only).
             ->with([
                 'type:id,code,name',
-                'office:id,code,name',
-                'workflow.steps.office:id,code,name',
+                'office:id,code,name,icon_path',
+                'workflow.steps.office:id,code,name,icon_path',
                 'workflow.stepRoles.role',
-                'state.currentStep.office:id,code,name',
+                'state.currentStep.office:id,code,name,icon_path',
                 'creator:id,name,email',
             ])
             ->latest();

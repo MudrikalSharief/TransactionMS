@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Office;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 
@@ -12,7 +13,7 @@ class PortalController extends Controller
     public function summary(Request $request)
     {
         $user = $request->user();
-        $user->loadMissing(['roles', 'office:id,code,name']);
+        $user->loadMissing(['roles', 'office:id,code,name,icon_path']);
 
         $office = Transaction::query()
             ->when(
@@ -22,7 +23,7 @@ class PortalController extends Controller
             );
 
         return response()->json([
-            'office' => $user->office?->only(['id', 'code', 'name']),
+            'office' => Office::mini($user->office),
             'office_total' => (clone $office)->count(),
             'in_process' => (clone $office)->where('is_done', false)->count(),
             'completed' => (clone $office)->where('is_done', true)->count(),
