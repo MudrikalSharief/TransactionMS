@@ -889,7 +889,6 @@ onUnmounted(() => {
    blending into a white header. Thin gold rule nods to the city seal. */
 .app-bar {
     background: linear-gradient(90deg, #1A1F2B 0%, #005EED 100%) !important;
-    border-bottom: 2px solid #d9ab3c;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
 }
 .brand-title {
