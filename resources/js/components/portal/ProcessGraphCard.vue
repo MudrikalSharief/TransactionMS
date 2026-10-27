@@ -5,7 +5,7 @@
     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
         <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 graph-head">
             <v-avatar color="white" rounded="0" size="40" class="mr-3 graph-avatar">
-                <v-icon color="#1E40AF" size="24">mdi-chart-bar</v-icon>
+                <v-icon color="#005EED" size="24">mdi-chart-bar</v-icon>
             </v-avatar>
             <span class="text-subtitle-1 font-weight-bold">{{ title }}</span>
             <v-spacer />
@@ -223,6 +223,7 @@ const ariaLabel = computed(() =>
 .graph-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .graph-avatar {
     border: 2px solid rgb(var(--v-theme-primary));

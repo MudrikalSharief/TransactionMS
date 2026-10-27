@@ -7,7 +7,7 @@
         v-model="open"
         max-width="620"
         transition="tray-pull"
-        scrim="#0E1F52"
+        scrim="#1A1F2B"
         class="tray-dialog"
         @after-leave="markSeen"
     >
@@ -264,8 +264,8 @@ function openApprovals() {
     opacity: 0.6;
 }
 .tray {
-    --navy: #16307c;
-    --deep: #0e1f52;
+    --navy: #005EED;
+    --deep: #1A1F2B;
     --gold: #d9ab3c;
     --rule: #d6e0f2;
     --margin: #e8a3a3;

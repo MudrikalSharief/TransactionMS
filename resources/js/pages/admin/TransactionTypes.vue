@@ -1038,7 +1038,7 @@ onMounted(() => {
     --tt-panel: rgb(var(--v-theme-surface));
     --tt-field: #f4f6fb;
     --tt-hover: #f3f6fc;
-    --tt-blue: #1d3fae;
+    --tt-blue: #005EED;
     --tt-blue-bg: #e8eeff;
     --tt-ok: #1b7a3d;
     --tt-ok-bg: #e3f5ea;
@@ -1657,7 +1657,7 @@ html.dark .tt-page {
 }
 .ntt-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 .ntt-mono :deep(input) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

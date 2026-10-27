@@ -547,7 +547,7 @@ onMounted(() => {
     --ro-panel: rgb(var(--v-theme-surface));
     --ro-field: #f4f6fb;
     --ro-hover: #f3f6fc;
-    --ro-blue: #1d3fae;
+    --ro-blue: #005EED;
     --ro-blue-bg: #e8eeff;
     --ro-amber: #b86e00;
     --ro-amber-bg: #fff1d6;
@@ -1045,7 +1045,7 @@ html.dark .ro-page {
 }
 .nro-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 .nro-mono :deep(input) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

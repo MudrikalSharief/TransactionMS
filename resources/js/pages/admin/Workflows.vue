@@ -59,7 +59,7 @@
                                     size="40"
                                     class="mr-3 lgu-head-avatar"
                                 >
-                                    <v-icon color="#16307C"
+                                    <v-icon color="#005EED"
                                         >mdi-source-branch</v-icon
                                     >
                                 </v-avatar>
@@ -1837,7 +1837,7 @@
                         size="40"
                         class="mr-3 lgu-head-avatar"
                     >
-                        <v-icon color="#16307C">mdi-swap-horizontal</v-icon>
+                        <v-icon color="#005EED">mdi-swap-horizontal</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold"
                         >SWITCH LIVE VERSION?</span
@@ -1933,7 +1933,7 @@
         <!-- End-of-workflow footer: same deep-blue bar as the dashboard foot. -->
         <v-sheet
             v-if="selectedTypeId"
-            color="#0E1F52"
+            color="#1A1F2B"
             rounded="0"
             class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center"
         >
@@ -1943,7 +1943,7 @@
                 size="52"
                 class="lgu-head-avatar"
             >
-                <v-icon color="#16307C" size="32">mdi-flag-checkered</v-icon>
+                <v-icon color="#005EED" size="32">mdi-flag-checkered</v-icon>
             </v-avatar>
             <v-divider
                 vertical
@@ -3649,7 +3649,7 @@ onMounted(async () => {
     --wf-line: rgba(var(--v-border-color), var(--v-border-opacity));
     --wf-field: #f4f6fb;
     --wf-hover: #f3f6fc;
-    --wf-blue: #1d3fae;
+    --wf-blue: #005EED;
     --wf-blue-bg: #e8eeff;
     --wf-ok: #1b7a3d;
     --wf-ok-bg: #e3f5ea;
@@ -4684,7 +4684,7 @@ html.dark .wf-page {
 }
 .stp-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 
 /* Assigned Office picker: icon + text, mirroring the transaction types

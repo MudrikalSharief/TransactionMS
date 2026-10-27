@@ -483,7 +483,7 @@ useSmartPoll(async () => {
     --tl-panel: rgb(var(--v-theme-surface));
     --tl-field: #f4f6fb;
     --tl-hover: #f3f6fc;
-    --tl-blue: #1d3fae;
+    --tl-blue: #005EED;
     --tl-blue-bg: #e8eeff;
     --tl-ring: rgba(29, 63, 174, 0.28);
     overflow: hidden;

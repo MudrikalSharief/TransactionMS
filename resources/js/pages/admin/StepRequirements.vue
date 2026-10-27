@@ -3139,7 +3139,7 @@ html.dark .sr-ib-delete:hover {
 
 .req-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 
 .req-in :deep(.v-field--error) {

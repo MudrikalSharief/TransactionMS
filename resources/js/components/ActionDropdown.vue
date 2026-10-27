@@ -191,7 +191,7 @@ function onKeydown(e) {
 .axn-trigger:focus-visible,
 .axn-trigger.is-open {
     outline: none;
-    border-color: #1d3fae;
+    border-color: #005EED;
     box-shadow: 0 0 0 4px rgba(29, 63, 174, 0.28);
 }
 .axn-trigger:disabled {
@@ -216,7 +216,7 @@ function onKeydown(e) {
     width: 40px;
     height: 40px;
 }
-.tone-blue { background: #e8eeff; color: #1d3fae; }
+.tone-blue { background: #e8eeff; color: #005EED; }
 .tone-amber { background: #fff1d6; color: #b86e00; }
 .tone-red { background: #fde8e8; color: #c62828; }
 .tone-purple { background: #ede9fe; color: #6d28d9; }
@@ -293,7 +293,7 @@ function onKeydown(e) {
 }
 .axn-chk {
     margin-left: auto;
-    color: #1d3fae;
+    color: #005EED;
     flex: none;
 }
 .axn-opt.is-selected::before {
@@ -304,7 +304,7 @@ function onKeydown(e) {
     bottom: 12px;
     width: 4px;
     border-radius: 0 4px 4px 0;
-    background: #1d3fae;
+    background: #005EED;
 }
 
 /* ---- dark theme (html.dark is toggled by AppShell) ---- */

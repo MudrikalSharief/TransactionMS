@@ -28,7 +28,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#16307C" size="24">mdi-chart-bar</v-icon>
+                                <v-icon color="#005EED" size="24">mdi-chart-bar</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">{{ scopeProcessTitle }}</span>
                             <v-spacer />
@@ -80,7 +80,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#16307C" size="24">mdi-rocket-launch-outline</v-icon>
+                                <v-icon color="#005EED" size="24">mdi-rocket-launch-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Get Started</span>
                         </v-card-title>
@@ -109,7 +109,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card summary-card">
                         <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#16307C" size="24">mdi-clipboard-text-clock-outline</v-icon>
+                                <v-icon color="#005EED" size="24">mdi-clipboard-text-clock-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
                             <v-spacer />
@@ -226,7 +226,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#16307C" size="24">mdi-history</v-icon>
+                                <v-icon color="#005EED" size="24">mdi-history</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
                             <v-spacer />
@@ -285,7 +285,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#16307C" size="24">mdi-tray-full</v-icon>
+                                <v-icon color="#005EED" size="24">mdi-tray-full</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
                             <v-spacer />
@@ -352,7 +352,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 dash-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#16307C" size="24">mdi-truck-fast-outline</v-icon>
+                                <v-icon color="#005EED" size="24">mdi-truck-fast-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">In Transit</span>
                             <v-spacer />
@@ -943,23 +943,23 @@ const startLinks = computed(() => {
     // Get Started shrinks to Help. The full card is the empty state.
     if (isStaff.value && scopeSource.value.length) {
         return [
-            { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#16307C', go: goToHelp },
+            { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', go: goToHelp },
         ]
     }
     const links = [
-        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#16307C', go: goToHelp },
+        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', go: goToHelp },
         isSuperadmin.value
-            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue }
+            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#005EED', go: goToQueue }
             : isOfficeAdmin.value
-              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue }
-              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#16307C', go: goToQueue },
+              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#005EED', go: goToQueue }
+              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', go: goToQueue },
     ]
     if (isOfficeAdmin.value) {
         links.push({
             title: 'Office users',
             subtitle: 'People and roles in your office',
             icon: 'mdi-account-group',
-            color: '#1E40AF',
+            color: '#005EED',
             go: () => router.push('/office/users'),
         })
     }
@@ -968,7 +968,7 @@ const startLinks = computed(() => {
             title: 'Manage offices',
             subtitle: 'Offices, steps, and assignments',
             icon: 'mdi-office-building-outline',
-            color: '#16307C',
+            color: '#005EED',
             go: () => router.push('/admin/offices'),
         })
     }
@@ -1085,7 +1085,7 @@ onUnmounted(() => {
     cursor: grabbing;
 }
 .dash-dragging > .v-card {
-    box-shadow: 0 16px 36px rgba(22, 48, 124, 0.35);
+    box-shadow: 0 16px 36px rgba(0, 94, 237, 0.35);
     outline: 2px solid rgb(var(--v-theme-primary));
     outline-offset: 2px;
 }
@@ -1157,6 +1157,7 @@ onUnmounted(() => {
 .dash-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .dash-head + .v-divider {
     display: none;

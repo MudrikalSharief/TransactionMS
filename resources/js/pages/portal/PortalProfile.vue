@@ -3,7 +3,7 @@
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
-                    <v-icon color="#16307C">mdi-account-circle-outline</v-icon>
+                    <v-icon color="#005EED">mdi-account-circle-outline</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">My Profile</span>
             </v-card-title>

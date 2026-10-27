@@ -21,7 +21,7 @@ const scope = useOfficeScope()
     height: 28px;
     padding: 0 10px 0 8px;
     border: 1px solid rgba(30, 64, 175, 0.28);
-    border-left: 3px solid #1E40AF;
+    border-left: 3px solid #005EED;
     background: #f1f5f9;
     color: #1E293B;
     font-size: 0.78rem;
@@ -31,7 +31,7 @@ const scope = useOfficeScope()
     animation: scope-in 0.35s cubic-bezier(.2, .9, .25, 1) both;
 }
 .scope-chip__icon {
-    color: #1E40AF;
+    color: #005EED;
 }
 .scope-chip__label {
     overflow: hidden;
@@ -42,7 +42,7 @@ const scope = useOfficeScope()
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 2px 6px;
-    background: #1E3A8A;
+    background: #1A1F2B;
     color: #fff;
 }
 .scope-chip--all {

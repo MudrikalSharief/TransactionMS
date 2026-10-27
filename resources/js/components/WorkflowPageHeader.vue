@@ -101,7 +101,7 @@ const versionTitle = computed(() =>
     --wsh-muted: rgb(var(--v-theme-secondary));
     --wsh-line: rgba(var(--v-border-color), var(--v-border-opacity));
     --wsh-hover: #f3f6fc;
-    --wsh-blue: #1d3fae;
+    --wsh-blue: #005EED;
     --wsh-field: #f4f6fb;
     --wsh-ok: #1b7a3d;
     --wsh-amber: #b86e00;

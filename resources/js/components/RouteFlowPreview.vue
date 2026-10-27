@@ -287,7 +287,7 @@ const ariaLabel = computed(() => {
 
 .flow-ring.is-current {
     border-color: rgb(var(--v-theme-primary)) !important;
-    box-shadow: 0 0 0 3px rgba(22, 48, 124, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.15);
 }
 
 .flow-ring.is-dest-forward {
@@ -399,7 +399,7 @@ const ariaLabel = computed(() => {
 }
 
 .flow-link.is-animated.is-forward {
-    color: #16307c;
+    color: #005EED;
 }
 
 .flow-link.is-animated.is-return {

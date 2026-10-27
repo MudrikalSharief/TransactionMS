@@ -1126,7 +1126,7 @@ onMounted(() => {
     --us-panel: rgb(var(--v-theme-surface));
     --us-field: #f4f6fb;
     --us-hover: #f3f6fc;
-    --us-blue: #1d3fae;
+    --us-blue: #005EED;
     --us-blue-bg: #e8eeff;
     --us-amber: #b86e00;
     --us-amber-bg: #fff1d6;
@@ -1684,7 +1684,7 @@ html.dark .us-page {
   --nu-line: #d5dbe8;
   --nu-field: #f4f6fb;
   --nu-hover: #f3f6fc;
-  --nu-blue: #1d3fae;
+  --nu-blue: #005EED;
   --nu-blue-d: #142d82;
   --nu-blue-bg: #e8eeff;
   --nu-err: #c62828;

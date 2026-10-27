@@ -10,6 +10,23 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+/* ---- Brand gradient: black -> blue (#1A1F2B -> #005EED) ----
+   One source for every filled "base colour" surface (primary buttons, active
+   nav item, header rules). Flat uses of the blue read from the theme's
+   primary (#005EED). */
+:root {
+    --tms-grad: linear-gradient(135deg, #1A1F2B 0%, #005EED 100%);
+    --tms-grad-h: linear-gradient(90deg, #1A1F2B 0%, #005EED 100%);
+}
+
+.v-btn.bg-primary,
+.v-chip.bg-primary {
+    background-image: var(--tms-grad) !important;
+}
+.v-btn.bg-primary:hover {
+    filter: brightness(1.12);
+}
+
 /* Inter across the app (loaded non-blocking from app.blade.php). */
 body,
 .v-application {
@@ -50,7 +67,7 @@ html.dark .help-title-orange { color: #FFAB91; }
    hide/lock utilities (login, dashboard, users tab) are untouched. */
 * {
     scrollbar-width: thin;
-    scrollbar-color: #0e1f52 transparent;
+    scrollbar-color: #1A1F2B transparent;
 }
 
 *::-webkit-scrollbar {
@@ -63,14 +80,14 @@ html.dark .help-title-orange { color: #FFAB91; }
 }
 
 *::-webkit-scrollbar-thumb {
-    background-color: #0e1f52;
+    background-color: #1A1F2B;
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background-color: #16307c;
+    background-color: #005EED;
     border: 2px solid transparent;
     background-clip: padding-box;
 }
@@ -101,6 +118,7 @@ html.dark *::-webkit-scrollbar-thumb:hover {
 .lgu-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .lgu-head + .v-divider {
     display: none;
@@ -123,7 +141,7 @@ html.dark *::-webkit-scrollbar-thumb:hover {
     border-radius: 24px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #16307C transparent;
+    scrollbar-color: #005EED transparent;
     font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -136,7 +154,7 @@ html.dark *::-webkit-scrollbar-thumb:hover {
 }
 
 .search-menu .v-list::-webkit-scrollbar-thumb {
-    background-color: #16307C;
+    background-color: #005EED;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -437,7 +455,7 @@ html.nav-open .row-actions {
 .lgu-table :deep(.v-table__wrapper),
 .lgu-table .v-table__wrapper {
     scrollbar-width: thin;
-    scrollbar-color: #16307C transparent;
+    scrollbar-color: #005EED transparent;
     transition: none;
 }
 
@@ -458,7 +476,7 @@ html.nav-open .row-actions {
 
 .lgu-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb),
 .lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
-    background-color: #16307C;
+    background-color: #005EED;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -550,7 +568,7 @@ html.dark .v-btn--variant-outlined.text-grey-darken-3 {
 
 /* Icon backlights (header avatars) turn blue in dark mode */
 html.dark .v-avatar.bg-grey-darken-3 {
-    background-color: #16307C !important;
+    background-color: #005EED !important;
 }
 
 /* Scrollbar tracks */

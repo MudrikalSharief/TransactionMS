@@ -990,12 +990,12 @@ onBeforeUnmount(() => {
     --ro-line: #d5dbe8;
     --ro-field: #f4f6fb;
     --ro-hover: #f3f6fc;
-    --ro-blue: #1d3fae;
+    --ro-blue: #005EED;
     --ro-blue-d: #142d82;
     --ro-blue-bg: #e8eeff;
     --ro-err: #c62828;
     --ro-err-bg: #fde8e8;
-    --ro-c0: #1d3fae;
+    --ro-c0: #005EED;
     --ro-c1: #c77700;
     --ro-c2: #1b7a3d;
     --ro-c3: #a6288f;
@@ -1099,9 +1099,9 @@ onBeforeUnmount(() => {
     --ro-muted: #5b6780;
     --ro-line: #d5dbe8;
     --ro-field: #f4f6fb;
-    --ro-blue: #1d3fae;
+    --ro-blue: #005EED;
     --ro-ring: rgba(29, 63, 174, 0.28);
-    --ro-c0: #1d3fae;
+    --ro-c0: #005EED;
     --ro-c1: #c77700;
     --ro-c2: #1b7a3d;
     --ro-c3: #a6288f;

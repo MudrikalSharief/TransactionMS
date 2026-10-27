@@ -145,7 +145,7 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
-            style="border-right: 2px solid #16307C"
+            style="border-right: 2px solid #005EED"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
@@ -304,7 +304,7 @@
             <v-card rounded="0">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#16307C">mdi-logout</v-icon>
+                        <v-icon color="#005EED">mdi-logout</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold">LOG OUT?</span>
                     <v-spacer />
@@ -887,7 +887,7 @@ onUnmounted(() => {
    dashboard foot bar) so the clock/weather/user/logout controls stop
    blending into a white header. Thin gold rule nods to the city seal. */
 .app-bar {
-    background: linear-gradient(90deg, #0e1f52 0%, #16307c 100%) !important;
+    background: linear-gradient(90deg, #1A1F2B 0%, #005EED 100%) !important;
     border-bottom: 2px solid #d9ab3c;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
 }
@@ -1007,7 +1007,7 @@ onUnmounted(() => {
     transition: background-color 0.18s ease, color 0.18s ease;
 }
 .nav-groups :deep(.v-list-item:not(.v-list-item--active):hover .v-icon) {
-    color: #1E40AF;
+    color: #005EED;
 }
 /* Page change: a short ease-in so the switch reads as one smooth move. */
 /* backwards, not both: once the move ends no transform is left on the
@@ -1028,7 +1028,7 @@ onUnmounted(() => {
 /* Active nav item: solid dark fill instead of the faint primary tint,
    with a light inner accent so the current page reads at a glance. */
 :deep(.v-navigation-drawer .v-list-item--active) {
-    background-color: #0E1F52 !important;
+    background: var(--tms-grad-h) !important;
     color: #ffffff !important;
     box-shadow: inset 3px 0 0 #93C5FD;
 }
@@ -1098,7 +1098,7 @@ onUnmounted(() => {
 }
 .nav-profile--link:hover,
 .nav-profile--link:focus-visible {
-    background: rgba(22, 48, 124, 0.06);
+    background: rgba(0, 94, 237, 0.06);
     outline: none;
 }
 .nav-profile__avatar {
@@ -1108,7 +1108,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #1E3A8A;
+    background: #1A1F2B;
     color: #fff;
     font-size: 0.8rem;
     font-weight: 800;
@@ -1158,10 +1158,10 @@ onUnmounted(() => {
     padding-bottom: 4px;
 }
 .search-pixiv :deep(.v-field--focused) {
-    box-shadow: 0 0 0 2px #16307C;
+    box-shadow: 0 0 0 2px #005EED;
 }
 .search-pixiv :deep(.v-field__prepend-inner .v-icon) {
-    color: #16307C;
+    color: #005EED;
     opacity: 1;
 }
 .search-pixiv :deep(input),
@@ -1183,7 +1183,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #0E1F52;
+    background: var(--tms-grad-h);
     padding: 16px 24px;
     margin-top: 24px;
 }

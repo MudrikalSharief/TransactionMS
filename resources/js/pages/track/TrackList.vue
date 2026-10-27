@@ -64,7 +64,7 @@
                 <v-card rounded="0" elevation="1" class="lgu-card">
                     <v-card-title class="d-flex align-center pa-4 results-head">
                         <v-avatar color="white" rounded="0" size="36" class="mr-3 results-avatar">
-                            <v-icon color="#1E40AF" size="22">mdi-map-marker-path</v-icon>
+                            <v-icon color="#005EED" size="22">mdi-map-marker-path</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">
                             {{ loading && !searched ? "Searching…" : resultsLabel }}
@@ -508,6 +508,7 @@ useSmartPoll(() => {
 .results-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .results-avatar {
     border: 2px solid rgb(var(--v-theme-primary));

@@ -6,7 +6,7 @@
                 <v-card rounded="0" elevation="1" class="lgu-card">
                     <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
-                            <v-icon color="#1E40AF" size="24">mdi-home-city-outline</v-icon>
+                            <v-icon color="#005EED" size="24">mdi-home-city-outline</v-icon>
                         </v-avatar>
                         <!-- The header stays one line: on phones the name and office
                              shorten with "…", role chips hide and the button
@@ -93,7 +93,7 @@
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
-                            <v-icon color="#1E40AF" size="24">mdi-tray-full</v-icon>
+                            <v-icon color="#005EED" size="24">mdi-tray-full</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
                         <v-spacer />
@@ -117,7 +117,7 @@
                 <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center pa-4 portal-head">
                         <v-avatar color="white" rounded="0" size="40" class="mr-3 portal-avatar">
-                            <v-icon color="#1E40AF" size="24">mdi-office-building-outline</v-icon>
+                            <v-icon color="#005EED" size="24">mdi-office-building-outline</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">In My Office</span>
                         <v-spacer />
@@ -203,7 +203,7 @@ const tiles = computed(() => [
         hint: "Transactions you started",
         icon: "mdi-account-edit-outline",
         color: "primary",
-        accent: "#1E40AF",
+        accent: "#005EED",
         go: () => openList("office"),
     },
 ].filter(Boolean));
@@ -258,6 +258,7 @@ useSmartPoll(load);
 .portal-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .portal-avatar {
     border: 2px solid rgb(var(--v-theme-primary));

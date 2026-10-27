@@ -252,7 +252,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
   --ntx-line: #d5dbe8;
   --ntx-field: #f4f6fb;
   --ntx-hover: #f3f6fc;
-  --ntx-blue: #1d3fae;
+  --ntx-blue: #005EED;
   --ntx-blue-d: #142d82;
   --ntx-blue-bg: #e8eeff;
   --ntx-err: #c62828;

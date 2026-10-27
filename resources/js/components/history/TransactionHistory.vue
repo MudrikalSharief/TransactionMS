@@ -438,14 +438,14 @@ function slaCaption(run) {
     background: rgba(248, 250, 252, 0.7);
 }
 .history-step-ring {
-    border: 1px solid rgba(22, 48, 124, 0.45);
+    border: 1px solid rgba(0, 94, 237, 0.45);
     color: rgb(var(--v-theme-primary));
 }
 /* Latest row: header-icon language — white fill, primary number + ring. */
 .history-step-latest {
     border: 2px solid rgb(var(--v-theme-primary));
     color: rgb(var(--v-theme-primary));
-    box-shadow: 0 0 0 3px rgba(22, 48, 124, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.12);
 }
 .history-details-cell {
     background: rgba(248, 250, 252, 0.7);

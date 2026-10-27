@@ -866,7 +866,7 @@ onMounted(() => {
   --ofp-panel: rgb(var(--v-theme-surface));
   --ofp-field: #f4f6fb;
   --ofp-hover: #f3f6fc;
-  --ofp-blue: #1d3fae;
+  --ofp-blue: #005EED;
   --ofp-blue-bg: #e8eeff;
   --ofp-ok: #1b7a3d;
   --ofp-ok-bg: #e3f5ea;
@@ -875,7 +875,7 @@ onMounted(() => {
   --ofp-err: rgb(var(--v-theme-error));
   --ofp-err-bg: rgba(var(--v-theme-error), 0.12);
   --ofp-ring: rgba(29, 63, 174, 0.28);
-  --ofp-h0: #1d3fae;
+  --ofp-h0: #005EED;
   --ofp-h1: #1b7a3d;
   --ofp-h2: #c77700;
   --ofp-h3: #8a3ab9;
@@ -1541,7 +1541,7 @@ html.dark .ofp-page {
   border-color: #aab4cc;
 }
 .ofc-icon-box.is-drag {
-  border-color: #1d3fae;
+  border-color: #005EED;
   background: #e8eeff;
 }
 .ofc-icon-box.is-bad {
@@ -1557,7 +1557,7 @@ html.dark .ofp-page {
   border: 1.5px solid rgba(29, 63, 174, 0.2);
   border-radius: 16px;
   background: #e8eeff;
-  color: #1d3fae;
+  color: #005EED;
 }
 .ofc-icon-prev :deep(.v-icon) {
   color: currentColor;
@@ -1592,9 +1592,9 @@ html.dark .ofp-page {
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border: 1.5px solid #1d3fae;
+  border: 1.5px solid #005EED;
   background: rgb(var(--v-theme-surface));
-  color: #1d3fae;
+  color: #005EED;
   white-space: nowrap;
 }
 .ofc-icon-choose :deep(.v-icon) {
@@ -1620,7 +1620,7 @@ html.dark .ofp-page {
 }
 .ofc-icon-choose:focus-visible,
 .ofc-icon-remove:focus-visible {
-  outline: 3px solid rgba(22, 48, 124, 0.28);
+  outline: 3px solid rgba(0, 94, 237, 0.28);
   outline-offset: 2px;
 }
 .ofc-icon-note {
@@ -1667,7 +1667,7 @@ html.dark .ofp-page {
 }
 .ofc-in :deep(.v-field--focused) {
   background: rgb(var(--v-theme-surface));
-  box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+  box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 .ofc-in :deep(textarea) {
   min-height: 96px;

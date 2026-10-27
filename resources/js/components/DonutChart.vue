@@ -92,7 +92,7 @@ const props = defineProps({
 })
 
 const PALETTE = [
-    '#16307C', '#26A69A', '#4CAF50', '#FFB300',
+    '#005EED', '#26A69A', '#4CAF50', '#FFB300',
     '#EC407A', '#5C6BC0', '#FF7043', '#9E9E9E',
 ]
 

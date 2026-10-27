@@ -16,7 +16,7 @@
             <v-card rounded="0" elevation="1" class="lgu-card mb-4">
                 <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 track-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 track-avatar">
-                        <v-icon color="#1E40AF" size="24">mdi-map-marker-path</v-icon>
+                        <v-icon color="#005EED" size="24">mdi-map-marker-path</v-icon>
                     </v-avatar>
                     <div style="min-width: 0">
                         <div class="text-subtitle-1 font-weight-bold">{{ tx.title || tx.reference_number }}</div>
@@ -54,7 +54,7 @@
             <v-card rounded="0" elevation="1" class="lgu-card">
                 <v-card-title class="d-flex align-center pa-4 track-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 track-avatar">
-                        <v-icon color="#1E40AF" size="24">mdi-history</v-icon>
+                        <v-icon color="#005EED" size="24">mdi-history</v-icon>
                     </v-avatar>
                     <span class="text-subtitle-1 font-weight-bold">Movement History</span>
                 </v-card-title>
@@ -177,6 +177,7 @@ useSmartPoll(() => load({ silent: true }));
 .track-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .track-avatar {
     border: 2px solid rgb(var(--v-theme-primary));
