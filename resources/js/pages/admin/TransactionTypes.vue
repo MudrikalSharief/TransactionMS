@@ -345,8 +345,8 @@
         <footer class="tt-pg">
             <div class="tt-per">
                 <span>Items per page</span>
-                <span class="tt-per-box" aria-label="Items per page: 7">
-                    <span>7</span>
+                <span class="tt-per-box" aria-label="Items per page: 8">
+                    <span>8</span>
                     <v-icon size="18" aria-hidden="true"
                         >mdi-chevron-down</v-icon
                     >
@@ -831,7 +831,7 @@ const saving = ref(false);
 const error = ref("");
 const search = ref("");
 const searchInput = ref(null);
-const PER_PAGE = 7;
+const PER_PAGE = 8;
 const page = ref(1);
 
 // Client-side search: master data is small, filter loaded rows by
@@ -1087,7 +1087,7 @@ html.dark .tt-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--tt-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .tt-hd-main {
@@ -1191,7 +1191,7 @@ html.dark .tt-page {
     flex: none;
     border: 1.5px solid var(--tt-blue);
     border-radius: 0;
-    background: var(--tt-blue);
+    background: var(--tms-grad);
     color: #fff;
     font: inherit;
     font-size: 14.5px;
@@ -1214,7 +1214,7 @@ html.dark .tt-page {
     padding: 20px 28px 0;
 }
 .tt-table {
-    --v-table-row-height: 74px;
+    --v-table-row-height: var(--tms-row);
     --v-table-header-height: 44px;
     width: 100%;
     min-width: 0;
@@ -1275,8 +1275,8 @@ html.dark .tt-page {
     padding-left: 8px !important;
 }
 .tt-table :deep(tbody td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--tt-line) !important;
     border-radius: 0 !important;
@@ -1291,12 +1291,12 @@ html.dark .tt-page {
     pointer-events: none;
 }
 .tt-table :deep(tbody tr.tt-ghost td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border-bottom: 1px solid var(--tt-line) !important;
 }
 .tt-table :deep(.v-data-table-rows-no-data td) {
-    height: 74px !important;
+    height: var(--tms-row) !important;
     padding: 0 !important;
     border-bottom: 1px solid var(--tt-line) !important;
 }
@@ -1305,7 +1305,7 @@ html.dark .tt-page {
     align-items: center;
     justify-content: center;
     gap: 5px;
-    min-height: 74px;
+    min-height: var(--tms-row);
     padding: 0 14px;
     color: var(--tt-muted);
     font-size: 14px;

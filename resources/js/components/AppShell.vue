@@ -66,7 +66,7 @@
                     :no-data-text="searchNoDataText"
                     :menu-props="{ contentClass: 'search-menu', offset: 18 }"
                     class="font-weight-bold search-pixiv"
-                    style="width: 100%; max-width: 520px"
+                    style="width: 100%; max-width: 380px"
                     @focus="ensureSearchData"
                     @update:model-value="goToResult"
                 >
@@ -82,62 +82,69 @@
             </div>
 
             <div class="d-flex align-center" style="flex: 0 0 auto">
-                <v-chip
-                    variant="flat"
-                    class="mr-2 font-weight-medium nav-chip"
-                    v-tooltip="'Zamboanga local time'"
-                >
-                    <v-icon start color="#c7d7ff">mdi-clock-outline</v-icon>
-                    {{ clock }}
-                </v-chip>
-
-                <v-chip
-                    variant="flat"
-                    class="mr-2 font-weight-medium nav-chip"
-                    v-tooltip="'Weather in Zamboanga City: ' + weatherLabel"
-                >
-                    <v-icon start color="#c7d7ff">{{ weatherIcon }}</v-icon>
-                    {{ temperature }} · Zamboanga
-                </v-chip>
-
-                <!-- Profile icon: opens My Profile (the shared guest viewer has none). -->
-                <v-chip
-                    v-if="auth.user.value"
-                    variant="flat"
-                    class="mr-2 font-weight-medium nav-chip d-none d-md-flex"
-                    :to="hasProfile ? '/profile' : undefined"
-                    :aria-label="hasProfile ? 'My Profile' : undefined"
-                    v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : false"
-                >
-                    <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
-                    <!-- Office scope sits inside the profile pill, right of the icon. -->
-                    <span v-if="officeScope" class="nav-scope d-none d-lg-inline">{{ officeScope.label }}</span>
-                    <span v-if="primaryRole !== 'No role'" class="nav-scope-badge d-none d-lg-inline">{{ primaryRole }}</span>
-                </v-chip>
-
-                <!-- Viewers never signed in themselves (Track your Document
-                     Process), so leaving is a plain "back", no confirmation. -->
-                <v-btn
-                    v-if="kind === 'viewer'"
-                    variant="outlined"
-                    color="white"
-                    rounded="pill"
-                    class="track-exit font-weight-bold"
-                    :loading="loggingOut"
-                    v-tooltip="'Leave tracking and return to the login page'"
-                    @click="onLogout"
-                >
-                    <v-icon start>mdi-arrow-left</v-icon>
-                    <span class="d-none d-sm-inline">Back to login</span>
-                </v-btn>
-                <v-btn
-                    v-else
-                    icon="mdi-logout"
-                    v-tooltip="'Log out'"
-                    color="white"
-                    class="nav-logout"
-                    @click="confirmLogout = true"
-                />
+                <!-- One pill, three segments split by dividers: time, weather,
+                     profile (opens My Profile; the shared guest viewer has none). -->
+                <div class="nav-group mr-8">
+                    <div class="nav-seg" v-tooltip="'Zamboanga local time'">
+                        <v-icon size="20" color="#c7d7ff">mdi-clock-outline</v-icon>
+                        <span>{{ clock }}</span>
+                    </div>
+                    <span class="nav-sep" aria-hidden="true"></span>
+                    <div class="nav-seg" v-tooltip="'Weather in Zamboanga City: ' + weatherLabel">
+                        <v-icon size="20" color="#c7d7ff">{{ weatherIcon }}</v-icon>
+                        <span>{{ temperature }} · Zamboanga</span>
+                    </div>
+                    <template v-if="auth.user.value">
+                        <span class="nav-sep d-none d-md-block" aria-hidden="true"></span>
+                        <div
+                            class="nav-seg d-none d-md-flex"
+                            :class="{ 'nav-seg--link': hasProfile }"
+                            :role="hasProfile ? 'link' : undefined"
+                            :tabindex="hasProfile ? 0 : undefined"
+                            :aria-label="hasProfile ? 'My Profile' : undefined"
+                            v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : false"
+                            @click="hasProfile && router.push('/profile')"
+                            @keydown.enter="hasProfile && router.push('/profile')"
+                        >
+                            <v-icon size="22" color="#c7d7ff">mdi-account-circle</v-icon>
+                            <!-- One label at a time: office scope and role swap every 10 s.
+                                 Both are stacked in one grid cell, so the pill keeps the
+                                 width of the longer one and nothing shifts. -->
+                            <span v-if="scopeTexts.length" class="nav-swap-box">
+                                <span
+                                    v-for="t in scopeTexts"
+                                    :key="t"
+                                    class="nav-swap-item"
+                                    :class="{ 'is-on': t === scopeLabel?.text }"
+                                >{{ t }}</span>
+                            </span>
+                        </div>
+                    </template>
+                    <span class="nav-sep" aria-hidden="true"></span>
+                    <!-- Viewers never signed in themselves (Track your Document
+                         Process), so leaving is a plain "back", no confirmation. -->
+                    <button
+                        v-if="kind === 'viewer'"
+                        type="button"
+                        class="nav-seg nav-seg--link nav-seg--btn"
+                        :disabled="loggingOut"
+                        v-tooltip="'Leave tracking and return to the login page'"
+                        @click="onLogout"
+                    >
+                        <v-icon size="20" color="#c7d7ff">mdi-arrow-left</v-icon>
+                        <span class="d-none d-sm-inline">Back to login</span>
+                    </button>
+                    <button
+                        v-else
+                        type="button"
+                        class="nav-seg nav-seg--link nav-seg--btn"
+                        aria-label="Log out"
+                        v-tooltip="'Log out'"
+                        @click="confirmLogout = true"
+                    >
+                        <v-icon size="22" color="#c7d7ff">mdi-logout</v-icon>
+                    </button>
+                </div>
             </div>
         </v-app-bar>
 
@@ -145,6 +152,7 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
+            :rail-width="76"
             style="border-right: 2px solid #005EED"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
@@ -241,13 +249,13 @@
                     @click="hasProfile && router.push('/profile')"
                     @keydown.enter="hasProfile && router.push('/profile')"
                 >
-                    <div class="nav-profile__avatar">{{ userInitials }}</div>
+                    <div v-if="rail" class="nav-profile__avatar">{{ userInitials }}</div>
                     <div v-if="!rail" class="nav-profile__text">
-                        <div class="nav-profile__name">{{ auth.user.value.name }}</div>
+                        <span class="nav-profile__name">{{ auth.user.value.name }}</span>
                         <!-- The shared guest viewer shows only its name. -->
-                        <div v-if="hasProfile" class="nav-profile__meta">
+                        <template v-if="hasProfile"><span class="nav-profile__sep" aria-hidden="true">|</span><span class="nav-profile__meta">
                             {{ primaryRole }}<template v-if="auth.user.value.office"> · {{ auth.user.value.office.code || auth.user.value.office.name }}</template>
-                        </div>
+                        </span></template>
                     </div>
                 </div>
                 <v-divider />
@@ -496,6 +504,23 @@ const primaryRole = computed(() => {
     if (top.code === "admin" && isOfficeAdmin.value) return "Office Admin";
     return top.name || top.code;
 });
+
+// The profile pill shows one label at a time: the office scope and the role
+// swap every 10 s (only the role when there is no office scope).
+const showRoleLabel = ref(false);
+const scopeLabel = computed(() => {
+    const office = officeScope.value?.label;
+    const role = primaryRole.value !== "No role" ? primaryRole.value : null;
+    if (office && role) return showRoleLabel.value ? { text: role, isRole: true } : { text: office, isRole: false };
+    if (office) return { text: office, isRole: false };
+    return role ? { text: role, isRole: true } : null;
+});
+const scopeTexts = computed(() => {
+    const office = officeScope.value?.label;
+    const role = primaryRole.value !== "No role" ? primaryRole.value : null;
+    return [office, role].filter(Boolean);
+});
+let scopeTimer = null;
 
 const userInitials = computed(() => {
     const parts = (auth.user.value?.name || "").trim().split(/\s+/).filter(Boolean);
@@ -865,6 +890,7 @@ onMounted(() => {
     weatherTimer = setInterval(() => {
         if (!document.hidden && navigator.onLine) loadTemperature();
     }, (slowNet ? 30 : 10) * 60 * 1000);
+    scopeTimer = setInterval(() => { showRoleLabel.value = !showRoleLabel.value; }, 10000);
     approvalBadgeTimer = setInterval(() => {
         if (!document.hidden && navigator.onLine) refreshApprovalBadge();
     }, (slowNet ? 5 : 1) * 60 * 1000);
@@ -880,6 +906,7 @@ onUnmounted(() => {
     window.removeEventListener("online", loadTemperature);
     document.removeEventListener("visibilitychange", onVisible);
     if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
+    if (scopeTimer) clearInterval(scopeTimer);
 });
 </script>
 
@@ -888,7 +915,7 @@ onUnmounted(() => {
    dashboard foot bar) so the clock/weather/user/logout controls stop
    blending into a white header. Thin gold rule nods to the city seal. */
 .app-bar {
-    background: linear-gradient(90deg, #1A1F2B 0%, #005EED 100%) !important;
+    background: #0B2B66 !important;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
 }
 .brand-title {
@@ -897,37 +924,74 @@ onUnmounted(() => {
 .brand-sub {
     color: rgba(255, 255, 255, 0.62);
 }
-.nav-chip {
-    background: rgba(255, 255, 255, 0.12) !important;
-    color: #e8eefc !important;
+/* Time / weather / profile live in one pill; thin vertical dividers split it. */
+.nav-group {
+    display: flex;
+    align-items: stretch;
+    height: 44px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e8eefc;
     border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.nav-seg {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
     transition: background-color 0.15s ease;
 }
-.nav-chip:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
+.nav-seg--btn {
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 500;
 }
-.nav-scope {
+.nav-seg--link {
+    cursor: pointer;
+}
+.nav-seg--link:hover,
+.nav-seg--link:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    outline: none;
+}
+.nav-sep {
+    align-self: center;
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.28);
+}
+.nav-swap-box {
+    display: inline-grid;
     margin-left: 6px;
-    line-height: 1;
-    max-width: 220px;
+}
+.nav-swap-item {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    max-width: 260px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-.nav-scope-badge {
-    margin-left: 8px;
-    /* Letter-spacing also trails the last letter; pull it back so the
-       pill's right padding matches the left. */
-    margin-right: -0.08em;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 700;
     line-height: 1;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #c7d7ff;
-    /* Sit on the label's optical center, not its baseline. */
-    align-self: center;
-    padding-top: 1px;
+    color: #e8eefc;
+}
+.nav-swap-item.is-on {
+    opacity: 1;
+}
+@media (max-width: 1279px) {
+    .nav-swap-box {
+        display: none;
+    }
 }
 .nav-logout {
     color: #e8eefc !important;
@@ -1116,19 +1180,38 @@ onUnmounted(() => {
     box-shadow: inset 0 -3px 0 #93C5FD;
 }
 .nav-profile__text {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 8px;
     min-width: 0;
     line-height: 1.2;
     animation: nav-label-in 0.25s ease both;
 }
 .nav-profile__name {
     font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.nav-profile__name {
+    flex: 0 1 auto;
+}
+.nav-profile__sep {
+    flex: none;
+    color: rgba(var(--v-theme-on-surface), 0.35);
+    font-weight: 400;
+}
 .nav-profile__meta {
+    flex: 0 1 auto;
+    min-width: 0;
     font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     font-weight: 600;
     color: rgba(var(--v-theme-on-surface), 0.6);
     white-space: nowrap;

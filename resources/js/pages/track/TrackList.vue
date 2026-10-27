@@ -420,7 +420,7 @@ useSmartPoll(() => {
     place-items: center;
     width: 60px;
     flex: none;
-    background: rgb(var(--v-theme-primary));
+    background: var(--tms-grad);
     color: #ffffff;
     cursor: text;
 }
@@ -460,7 +460,7 @@ useSmartPoll(() => {
     min-width: 108px;
     border: 0;
     padding: 0 22px;
-    background: rgb(var(--v-theme-primary));
+    background: var(--tms-grad);
     color: #ffffff;
     font: inherit;
     font-size: 15px;

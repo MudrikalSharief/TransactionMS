@@ -1,11 +1,14 @@
 <template>
   <LoadingVeil :show="loading" label="references" icon="mdi-bank" />
-  <v-card rounded="0" elevation="1" class="lgu-card">
+  <v-card rounded="0" elevation="1" class="lgu-card adm-page">
     <v-card-title class="d-flex align-center pa-5 lgu-head">
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
         <v-icon color="#005EED">mdi-bank</v-icon>
       </v-avatar>
-      <span class="text-h6 font-weight-bold">Government References</span>
+      <div class="adm-hd-main">
+        <h1 class="adm-title">Government References</h1>
+        <p class="adm-sub">The laws and guidelines your transactions are checked against.</p>
+      </div>
       <v-spacer />
       <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
         Add Reference
@@ -23,8 +26,8 @@
         :loading="loading"
         item-key="id"
         density="compact"
-        :items-per-page="7"
-        :items-per-page-options="[7]"
+        :items-per-page="8"
+        :items-per-page-options="[8]"
           hover
           class="lgu-table table-pages table-fixed-cols"
         >
@@ -115,7 +118,7 @@ const headers = [
   { title: 'Code', key: 'code', width: 150 },
   { title: 'Title', key: 'title' },
   { title: 'Source', key: 'source', width: 130 },
-  { title: 'URL', key: 'url', width: 200 },
+  { title: 'URL', key: 'url', width: 140 },
   { title: 'Status', key: 'is_verified', width: 130 },
   { title: '', key: 'actions', sortable: false, width: 110, align: 'end' },
 ]
@@ -228,21 +231,11 @@ onUnmounted(() => {
 
 <style scoped>
 /* Stable paged table: header widths use the full width, drawer
-   expand/collapse can never create a visible horizontal scrollbar —
-   overflow is clipped, not scrolled. */
+   expand/collapse keeps the layout steady; narrow windows scroll sideways
+   (see .adm-page in app.css). */
 .lgu-table {
   min-width: 0;
   width: 100%;
-}
-.lgu-table :deep(.v-table__wrapper) {
-  overflow-x: clip !important;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
-  display: none;
-  width: 0;
-  height: 0;
 }
 /* Row actions stay visible normally. They only duck away (with a quick
    blink) while the left navbar is expanded so the narrower table never
@@ -279,27 +272,5 @@ html.nav-open .row-actions {
 }
 .table-stage :deep(.v-data-table-footer) {
   margin-top: auto;
-}
-/* Boxed table header: dark-blue fill, white text, outer border only —
-   no dividers between header cells (matches Transactions tab). */
-.lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #1A1F2B !important;
-  color: #ffffff !important;
-  border-top: 2px solid #1A1F2B !important;
-  border-bottom: 3px solid #1A1F2B !important;
-  border-left: none !important;
-  border-right: none !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #1A1F2B !important;
-  padding-left: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #1A1F2B !important;
-  padding-right: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
-.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
-  color: #ffffff !important;
 }
 </style>

@@ -64,7 +64,7 @@
           :items="filtered"
           :loading="loading"
           item-key="id"
-          :items-per-page="7"
+          :items-per-page="8"
           :sort-by="[{ key: 'created_at', order: 'desc' }]"
           v-model:page="tablePage"
           :hide-default-footer="true"
@@ -184,8 +184,8 @@
       <footer class="tl-pg">
         <div class="tl-per">
           <span>Items per page</span>
-          <span class="tl-per-box" aria-label="Items per page: 7">
-            <span>7</span>
+          <span class="tl-per-box" aria-label="Items per page: 8">
+            <span>8</span>
             <v-icon size="18" aria-hidden="true">mdi-chevron-down</v-icon>
           </span>
         </div>
@@ -314,10 +314,10 @@ const headers = [
 // template is untouched.
 const filtered = computed(() => items.value || [])
 
-// Client-side page count for the loaded 25-row server chunk at 7/page.
+// Client-side page count for the loaded 25-row server chunk at 8/page.
 // Server jumps use `page`; in-chunk moves use `tablePage`.
 const tablePage = ref(1)
-const clientPages = computed(() => Math.max(1, Math.ceil((filtered.value || []).length / 7)))
+const clientPages = computed(() => Math.max(1, Math.ceil((filtered.value || []).length / 8)))
 
 // The footer drives whichever pager is active: server pages when the API
 // reports more than one, otherwise the in-chunk pages of the loaded rows.
@@ -325,21 +325,21 @@ const currentPage = computed(() => (meta.value.lastPage > 1 ? page.value : table
 const pageCount = computed(() => (meta.value.lastPage > 1 ? meta.value.lastPage : clientPages.value))
 const navDisabled = computed(() => !!loading.value)
 
-// Keep the seven-row rhythm: fill only the remaining slots with ghosts.
+// Keep the eight-row rhythm: fill only the remaining slots with ghosts.
 const ghostRows = computed(() => {
   const n = (filtered.value || []).length
   const used = n
-    ? Math.max(0, Math.min(7, n - (tablePage.value - 1) * 7))
+    ? Math.max(0, Math.min(8, n - (tablePage.value - 1) * 8))
     : 1
-  return Math.max(0, 7 - Math.max(1, used))
+  return Math.max(0, 8 - Math.max(1, used))
 })
 
-// Default-footer style range for the visible chunk: "1–7 of 25".
+// Default-footer style range for the visible chunk: "1–8 of 25".
 const rangeText = computed(() => {
   const n = (filtered.value || []).length
   if (!n) return '0 of 0'
-  const start = (tablePage.value - 1) * 7 + 1
-  return `${start}–${Math.min(tablePage.value * 7, n)} of ${n}`
+  const start = (tablePage.value - 1) * 8 + 1
+  return `${start}–${Math.min(tablePage.value * 8, n)} of ${n}`
 })
 
 function clearSearch() {
@@ -521,7 +521,7 @@ html.dark .tl-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--tl-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .tl-hd-main {
@@ -625,7 +625,7 @@ html.dark .tl-page {
     flex: none;
     border: 1.5px solid var(--tl-blue);
     border-radius: 0;
-    background: var(--tl-blue);
+    background: var(--tms-grad);
     color: #fff;
     font: inherit;
     font-size: 14.5px;
@@ -648,7 +648,7 @@ html.dark .tl-page {
     padding: 20px 28px 0;
 }
 .tl-table {
-    --v-table-row-height: 74px;
+    --v-table-row-height: var(--tms-row);
     --v-table-header-height: 44px;
     width: 100%;
     min-width: 0;
@@ -702,8 +702,8 @@ html.dark .tl-page {
     opacity: 0.65;
 }
 .tl-table :deep(tbody td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--tl-line) !important;
     border-radius: 0 !important;
@@ -722,12 +722,12 @@ html.dark .tl-page {
     pointer-events: none;
 }
 .tl-table :deep(tbody tr.tl-ghost td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border-bottom: 1px solid var(--tl-line) !important;
 }
 .tl-table :deep(.v-data-table-rows-no-data td) {
-    height: 74px !important;
+    height: var(--tms-row) !important;
     padding: 0 !important;
     border-bottom: 1px solid var(--tl-line) !important;
 }
@@ -737,7 +737,7 @@ html.dark .tl-page {
     justify-content: center;
     flex-wrap: wrap;
     gap: 5px;
-    min-height: 74px;
+    min-height: var(--tms-row);
     padding: 0 14px;
     color: var(--tl-muted);
     font-size: 14px;
@@ -750,7 +750,7 @@ html.dark .tl-page {
 
 /* ---- Cells ---- */
 /* Long titles / offices / chip names truncate to one line (full text on
-   hover) so rows hold the 74px rhythm. Full values remain visible on the
+   hover) so rows hold the 56px rhythm. Full values remain visible on the
    detail page. The step chip's icon must not eat the text budget, so the
    text gets its own cap slightly inside the chip's overall cap. */
 .tl-name {

@@ -543,7 +543,7 @@ select.ntx-in {
   z-index: 1;
 }
 .ntx-st:first-child .ntx-n {
-  background: var(--ntx-blue);
+  background: var(--tms-grad);
   color: #fff;
 }
 .ntx-st b {
@@ -626,7 +626,7 @@ select.ntx-in {
   background: var(--ntx-hover);
 }
 .ntx-b.ntx-pri {
-  background: var(--ntx-blue);
+  background: var(--tms-grad);
   color: #fff;
   min-width: 150px;
 }

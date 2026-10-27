@@ -3705,7 +3705,7 @@ html.dark .wf-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--wf-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .wf-hd-main {
@@ -3814,7 +3814,7 @@ html.dark .wf-page {
 }
 .wf-save {
     border: 1.5px solid transparent !important;
-    background: var(--wf-blue) !important;
+    background: var(--tms-grad) !important;
     color: #fff !important;
 }
 .wf-save.v-btn--disabled {
@@ -3912,7 +3912,7 @@ html.dark .wf-page {
     letter-spacing: 0;
 }
 .wf-tabs :deep(.v-tab[aria-selected="true"]) .wf-count {
-    background: var(--wf-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .wf-dirty {
@@ -3952,7 +3952,7 @@ html.dark .wf-page {
     margin-left: auto;
     padding: 0 20px !important;
     border-radius: 0 !important;
-    background: var(--wf-blue) !important;
+    background: var(--tms-grad) !important;
     color: #fff !important;
     font-size: 14px !important;
     font-weight: 700 !important;

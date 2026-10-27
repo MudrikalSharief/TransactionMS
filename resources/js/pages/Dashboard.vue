@@ -597,8 +597,8 @@ const scopeSource = computed(() => txStore.items.value || [])
 // palette, adjacent-pair safe in both modes), light and dark steps.
 // Gray is reserved for the folded "Other processes" bar.
 const SERIES_PALETTE = {
-    light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7'],
-    dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9'],
+    light: ['#005EED', '#F26B21', '#1A1F2B', '#FFA94D', '#4D94FF', '#B84A0F', '#8FBBFF'],
+    dark: ['#4D94FF', '#FF8A4C', '#B9D4FF', '#FFB27A', '#1F6FFF', '#D9622B', '#8FBBFF'],
 }
 const OTHER_PROCESSES = 'Other processes'
 const OTHER_COLOR = { light: '#898781', dark: '#898781' }
@@ -713,7 +713,7 @@ function weekIndexOf(tx) {
 }
 
 function txTypeLabel(tx) {
-    return tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
+    return tx.transaction_type?.name || tx.transaction_type_name
 }
 
 // Visible transactions created in the chosen month (own office, if assigned,
@@ -727,6 +727,7 @@ const processRanking = computed(() => {
     const byName = new Map()
     for (const tx of graphTx.value) {
         const name = txTypeLabel(tx)
+        if (!name) continue
         if (!byName.has(name)) byName.set(name, weekWindows.value.map(() => 0))
         byName.get(name)[weekIndexOf(tx)]++
     }

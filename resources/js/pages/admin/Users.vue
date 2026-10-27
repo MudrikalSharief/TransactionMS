@@ -240,8 +240,8 @@
     <footer class="us-pg">
       <div class="us-per">
         <span>Items per page</span>
-        <span class="us-per-box" aria-label="Items per page: 7">
-          <span>7</span>
+        <span class="us-per-box" aria-label="Items per page: 8">
+          <span>8</span>
           <v-icon size="18" aria-hidden="true">mdi-chevron-down</v-icon>
         </span>
       </div>
@@ -706,7 +706,7 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
-const PER_PAGE = 7
+const PER_PAGE = 8
 const page = ref(1)
 
 const pageCount = computed(() =>
@@ -1175,7 +1175,7 @@ html.dark .us-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--us-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .us-hd-main {
@@ -1285,7 +1285,7 @@ html.dark .us-page {
     flex: none;
     border: 1.5px solid var(--us-blue);
     border-radius: 0;
-    background: var(--us-blue);
+    background: var(--tms-grad);
     color: #fff;
     font: inherit;
     font-size: 14.5px;
@@ -1311,7 +1311,7 @@ html.dark .us-page {
     padding: 20px 28px 0;
 }
 .us-table {
-    --v-table-row-height: 74px;
+    --v-table-row-height: var(--tms-row);
     --v-table-header-height: 44px;
     width: 100%;
     min-width: 0;
@@ -1372,8 +1372,8 @@ html.dark .us-page {
     padding-left: 8px !important;
 }
 .us-table :deep(tbody td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--us-line) !important;
     border-radius: 0 !important;
@@ -1388,12 +1388,12 @@ html.dark .us-page {
     pointer-events: none;
 }
 .us-table :deep(tbody tr.us-ghost td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border-bottom: 1px solid var(--us-line) !important;
 }
 .us-table :deep(.v-data-table-rows-no-data td) {
-    height: 74px !important;
+    height: var(--tms-row) !important;
     padding: 0 !important;
     border-bottom: 1px solid var(--us-line) !important;
 }
@@ -1403,7 +1403,7 @@ html.dark .us-page {
     justify-content: center;
     flex-wrap: wrap;
     gap: 5px;
-    min-height: 74px;
+    min-height: var(--tms-row);
     padding: 0 14px;
     color: var(--us-muted);
     font-size: 14px;
@@ -2211,7 +2211,7 @@ html.dark .nu-card {
 .nu-btn-pri {
   min-width: 130px;
   border-color: var(--nu-blue);
-  background: var(--nu-blue);
+  background: var(--tms-grad);
   color: #ffffff;
 }
 

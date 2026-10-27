@@ -150,8 +150,8 @@
         <footer class="ro-pg">
             <div class="ro-per">
                 <span>Items per page</span>
-                <span class="ro-per-box" aria-label="Items per page: 7">
-                    <span>7</span>
+                <span class="ro-per-box" aria-label="Items per page: 8">
+                    <span>8</span>
                     <v-icon size="18" aria-hidden="true"
                         >mdi-chevron-down</v-icon
                     >
@@ -343,7 +343,7 @@ const saving = ref(false);
 const error = ref("");
 const search = ref("");
 const searchInput = ref(null);
-const PER_PAGE = 7;
+const PER_PAGE = 8;
 const page = ref(1);
 
 // Client-side search: master data is small, filter loaded rows by
@@ -592,7 +592,7 @@ html.dark .ro-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--ro-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .ro-hd-main {
@@ -696,7 +696,7 @@ html.dark .ro-page {
     flex: none;
     border: 1.5px solid var(--ro-blue);
     border-radius: 0;
-    background: var(--ro-blue);
+    background: var(--tms-grad);
     color: #fff;
     font: inherit;
     font-size: 14.5px;
@@ -719,7 +719,7 @@ html.dark .ro-page {
     padding: 20px 28px 0;
 }
 .ro-table {
-    --v-table-row-height: 74px;
+    --v-table-row-height: var(--tms-row);
     --v-table-header-height: 44px;
     width: 100%;
     min-width: 0;
@@ -780,8 +780,8 @@ html.dark .ro-page {
     padding-left: 8px !important;
 }
 .ro-table :deep(tbody td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--ro-line) !important;
     border-radius: 0 !important;
@@ -796,12 +796,12 @@ html.dark .ro-page {
     pointer-events: none;
 }
 .ro-table :deep(tbody tr.ro-ghost td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border-bottom: 1px solid var(--ro-line) !important;
 }
 .ro-table :deep(.v-data-table-rows-no-data td) {
-    height: 74px !important;
+    height: var(--tms-row) !important;
     padding: 0 !important;
     border-bottom: 1px solid var(--ro-line) !important;
 }
@@ -810,7 +810,7 @@ html.dark .ro-page {
     align-items: center;
     justify-content: center;
     gap: 5px;
-    min-height: 74px;
+    min-height: var(--tms-row);
     padding: 0 14px;
     color: var(--ro-muted);
     font-size: 14px;
@@ -846,10 +846,15 @@ html.dark .ro-page {
     white-space: nowrap;
 }
 .ro-desc {
-    display: block;
+    display: -webkit-box;
     max-width: 100%;
     color: var(--ro-muted);
-    white-space: normal; /* wrap: full description is always visible */
+    line-height: 1.35;
+    /* Two lines at most so one long description cannot make the row (and the
+       whole card) taller than the other tabs; the full text is on hover. */
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     overflow-wrap: anywhere;
 }
 .ro-actions {

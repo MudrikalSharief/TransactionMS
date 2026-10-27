@@ -182,7 +182,7 @@
             class="ofp-select"
             aria-label="Items per page"
           >
-            <option :value="7">7</option>
+            <option :value="8">8</option>
             <option :value="10">10</option>
             <option :value="25">25</option>
           </select>
@@ -444,7 +444,7 @@ const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.co
 
 const searchInput = ref(null)
 const page = ref(1)
-const pageSize = ref(7)
+const pageSize = ref(8)
 const sortBy = ref([{ key: 'code', order: 'asc' }])
 
 const compareText = (a, b) =>
@@ -933,7 +933,7 @@ html.dark .ofp-page {
   width: 52px;
   height: 52px;
   flex: none;
-  background: var(--ofp-blue);
+  background: var(--tms-grad);
   color: #fff;
 }
 .ofp-hd-main {
@@ -1038,7 +1038,7 @@ html.dark .ofp-page {
   flex: none;
   border: 1.5px solid var(--ofp-blue);
   border-radius: 0;
-  background: var(--ofp-blue);
+  background: var(--tms-grad);
   color: #fff;
   font: inherit;
   font-size: 14.5px;
@@ -1061,7 +1061,7 @@ html.dark .ofp-page {
   padding: 20px 28px 0;
 }
 .ofp-table {
-  --v-table-row-height: 74px;
+  --v-table-row-height: var(--tms-row);
   --v-table-header-height: 44px;
   width: 100%;
   min-width: 0;
@@ -1140,8 +1140,8 @@ html.dark .ofp-page {
   text-align: right;
 }
 .ofp-table :deep(tbody td) {
-  height: 74px;
-  padding: 14px !important;
+  height: var(--tms-row);
+  padding: 8px 14px !important;
   border: 0 !important;
   border-bottom: 1px solid var(--ofp-line) !important;
   border-radius: 0 !important;
@@ -1160,12 +1160,12 @@ html.dark .ofp-page {
   pointer-events: none;
 }
 .ofp-table :deep(tbody tr.ofp-ghost td) {
-  height: 74px;
-  padding: 14px !important;
+  height: var(--tms-row);
+  padding: 8px 14px !important;
   border-bottom: 1px solid var(--ofp-line) !important;
 }
 .ofp-table :deep(.v-data-table-rows-no-data td) {
-  height: 74px !important;
+  height: var(--tms-row) !important;
   padding: 0 !important;
   border-bottom: 1px solid var(--ofp-line) !important;
 }
@@ -1174,7 +1174,7 @@ html.dark .ofp-page {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 74px;
+  min-height: var(--tms-row);
   padding: 0 14px;
   color: var(--ofp-muted);
   font-size: 14px;

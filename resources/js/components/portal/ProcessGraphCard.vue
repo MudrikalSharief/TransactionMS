@@ -66,8 +66,8 @@ const { user } = useAuth()
 
 // Same palette as the admin dashboard graph; gray is the folded "Other" bar.
 const SERIES_PALETTE = {
-    light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7'],
-    dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9'],
+    light: ['#005EED', '#F26B21', '#1A1F2B', '#FFA94D', '#4D94FF', '#B84A0F', '#8FBBFF'],
+    dark: ['#4D94FF', '#FF8A4C', '#B9D4FF', '#FFB27A', '#1F6FFF', '#D9622B', '#8FBBFF'],
 }
 const OTHER_PROCESSES = 'Other processes'
 const OTHER_COLOR = '#898781'
@@ -165,7 +165,8 @@ const ranking = computed(() => {
     for (const tx of rows.value) {
         const wi = weekIndexOf(tx)
         if (wi < 0) continue
-        const name = tx.transaction_type?.name || tx.transaction_type_name || 'Unclassified'
+        const name = tx.transaction_type?.name || tx.transaction_type_name
+        if (!name) continue
         if (!byName.has(name)) byName.set(name, weeks.value.map(() => 0))
         byName.get(name)[wi]++
     }

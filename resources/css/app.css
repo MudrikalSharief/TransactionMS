@@ -15,8 +15,11 @@
    nav item, header rules). Flat uses of the blue read from the theme's
    primary (#005EED). */
 :root {
-    --tms-grad: linear-gradient(135deg, #1A1F2B 0%, #005EED 100%);
-    --tms-grad-h: linear-gradient(90deg, #1A1F2B 0%, #005EED 100%);
+    --tms-grad: linear-gradient(#2D3139, #2D3139);
+    --tms-grad-h: linear-gradient(#2D3139, #2D3139);
+    /* Table row height: stretches so 7 rows + header + footer fill the window
+       (no page scroll, no dead space), between 56px and 96px. */
+    --tms-row: clamp(56px, calc((100vh - 394px) / 8), 96px);
 }
 
 .v-btn.bg-primary,
@@ -264,7 +267,7 @@ html.lock-scroll body {
    wrap a row taller. NOTE: max-height/overflow on td does nothing in CSS
    table layout (cell height is a minimum) — bounding works only through
    the content, which is why every slot truncates. Full text stays
-   on hover via title. Short states (< 7 rows) are floored by the
+   on hover via title. Short states (< 8 rows) are floored by the
    min-height in the paginated-tables rule below. */
 .table-stage {
     min-height: 510px !important;
@@ -594,4 +597,134 @@ html.dark .lgu-table .v-table__wrapper::-webkit-scrollbar-track {
     font-size: 0.75rem !important;
     white-space: normal;
     line-height: 1.3;
+}
+
+/* ---- Loading skeletons: blue bones with a lighter blue shimmer ---- */
+.v-skeleton-loader .v-skeleton-loader__heading,
+.v-skeleton-loader .v-skeleton-loader__text,
+.v-skeleton-loader .v-skeleton-loader__avatar,
+.v-skeleton-loader .v-skeleton-loader__button,
+.v-skeleton-loader .v-skeleton-loader__chip,
+.v-skeleton-loader .v-skeleton-loader__image,
+.v-skeleton-loader .v-skeleton-loader__ossein {
+    background: rgba(0, 94, 237, 0.16) !important;
+}
+.v-skeleton-loader .v-skeleton-loader__bone::after {
+    background: linear-gradient(90deg, rgba(77, 148, 255, 0), rgba(77, 148, 255, 0.35), rgba(77, 148, 255, 0)) !important;
+}
+
+/* Solid-blue avatars set through the colour prop (inline style) get the gradient too. */
+.v-avatar[style*="005EED"],
+.v-avatar[style*="rgb(0, 94, 237)"] {
+    background-image: var(--tms-grad);
+}
+
+/* ---- Government References / Field Definitions: same card, header and table
+   dimensions as Roles (52px badge, 100px header, 44px th, var(--tms-row) rows, 8 rows). ---- */
+.adm-page > .v-card-title.lgu-head {
+    min-height: 100px;
+    padding: 22px 28px !important;
+    gap: 16px;
+    border-bottom: 3px solid #005EED;
+    border-image: none;
+}
+.adm-page .lgu-head-avatar {
+    width: 52px !important;
+    height: 52px !important;
+    margin-right: 0 !important;
+    border: 0 !important;
+    background: var(--tms-grad) !important;
+}
+.adm-page .lgu-head-avatar .v-icon {
+    color: #fff !important;
+    font-size: 26px !important;
+}
+.adm-hd-main {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+.adm-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+}
+.adm-sub {
+    margin: 4px 0 0;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: normal;
+}
+.adm-page > .v-card-title .v-btn {
+    height: 46px !important;
+    border: 0 !important;
+    color: #fff !important;
+    background: var(--tms-grad) !important;
+}
+.adm-page > .v-card-text {
+    padding: 20px 28px 0 !important;
+}
+.adm-page .table-stage {
+    min-height: calc(var(--tms-row) * 8 + 44px + 78px) !important;
+}
+.adm-page .lgu-table {
+    --v-table-row-height: var(--tms-row) !important;
+    --v-table-header-height: 44px !important;
+}
+.adm-page .lgu-table.table-pages .v-table__wrapper {
+    min-height: calc(var(--tms-row) * 8 + 44px) !important;
+}
+.adm-page .lgu-table thead tr th.v-data-table__th {
+    height: 44px;
+    padding: 0 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+    background: #f4f6fb !important;
+    color: rgb(var(--v-theme-secondary)) !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+}
+.adm-page .lgu-table thead tr th.v-data-table__th .v-data-table-header__content,
+.adm-page .lgu-table thead tr th.v-data-table__th .v-icon {
+    color: rgb(var(--v-theme-secondary)) !important;
+    font-size: 12px !important;
+}
+.adm-page .lgu-table tbody td {
+    height: var(--tms-row);
+    padding: 8px 14px !important;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+    font-size: 14.5px;
+}
+.adm-page .v-data-table-footer {
+    min-height: 78px;
+}
+html.dark .adm-page .lgu-table thead tr th.v-data-table__th {
+    background: #1c2645 !important;
+}
+
+/* These two tables scroll sideways like Roles when the window is narrow. */
+.adm-page .lgu-table .v-table__wrapper {
+    overflow-x: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--v-theme-secondary)) #f4f6fb;
+}
+.adm-page .lgu-table .v-table__wrapper::-webkit-scrollbar {
+    display: block;
+    width: 10px;
+    height: 10px;
+}
+.adm-page .lgu-table .v-table__wrapper::-webkit-scrollbar-track {
+    background: #f4f6fb;
+}
+.adm-page .lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--v-theme-secondary));
+    border: 2px solid #f4f6fb;
+    border-radius: 0;
+}
+.adm-page .lgu-table table {
+    min-width: 900px;
 }

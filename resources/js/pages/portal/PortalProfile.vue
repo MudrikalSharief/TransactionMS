@@ -260,7 +260,7 @@ onMounted(load);
     width: 72px;
     height: 72px;
     margin: 0 auto 12px;
-    background: rgb(var(--v-theme-primary));
+    background: var(--tms-grad);
     color: #fff;
     font-size: 1.6rem;
     font-weight: 800;

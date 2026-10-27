@@ -138,7 +138,7 @@ html.dark .wsh {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--wsh-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 
@@ -235,7 +235,7 @@ html.dark .wsh {
 
 .wsh-save {
     border: 1.5px solid transparent !important;
-    background: var(--wsh-blue) !important;
+    background: var(--tms-grad) !important;
     color: #fff !important;
 }
 

@@ -6,6 +6,7 @@
         }"
         :style="{ '--ro-minimap-height': `${minimapHeight}px` }"
     >
+        <LoadingVeil :show="loading" label="step data overview" icon="mdi-view-column-outline" />
         <v-alert
             v-if="error"
             type="error"
@@ -25,15 +26,7 @@
         />
 
         <div class="ro-shell" aria-live="polite">
-            <div v-if="loading" class="ro-loading">
-                <TableLoader
-                    compact
-                    label="step data overview"
-                    icon="mdi-view-column-outline"
-                />
-            </div>
-
-            <template v-else>
+            <template v-if="!loading">
                 <div class="ro-bar">
                     <div class="ro-stat">
                         <b>{{ overview.columns.length }}</b>
@@ -234,7 +227,7 @@ import {
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
-import TableLoader from "@/components/TableLoader.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
 
 const route = useRoute();
@@ -1250,7 +1243,7 @@ onBeforeUnmount(() => {
     width: 38px;
     height: 38px;
     flex: none;
-    background: var(--ro-blue);
+    background: var(--tms-grad);
     color: #fff;
     font-size: 15px;
     font-weight: 800;

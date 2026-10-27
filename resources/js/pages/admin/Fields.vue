@@ -1,11 +1,14 @@
 <template>
   <LoadingVeil :show="loading" label="fields" icon="mdi-form-textbox" />
-  <v-card rounded="0" elevation="1" class="lgu-card">
+  <v-card rounded="0" elevation="1" class="lgu-card adm-page">
     <v-card-title class="d-flex align-center pa-5 lgu-head">
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
         <v-icon color="#005EED">mdi-form-textbox</v-icon>
       </v-avatar>
-      <span class="text-h6 font-weight-bold">Field Definitions</span>
+      <div class="adm-hd-main">
+        <h1 class="adm-title">Field Definitions</h1>
+        <p class="adm-sub">The data fields that steps can collect.</p>
+      </div>
       <v-spacer />
       <v-text-field
         v-model="search"
@@ -17,7 +20,7 @@
         hide-details
         clearable
         class="mr-2"
-        style="max-width: 260px"
+        style="max-width: 320px"
       />
       <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
         Add Field
@@ -36,8 +39,8 @@
         :loading="loading"
         item-key="id"
         density="compact"
-        :items-per-page="7"
-        :items-per-page-options="[7]"
+        :items-per-page="8"
+        :items-per-page-options="[8]"
         hover
         class="lgu-table table-pages"
       >
@@ -396,21 +399,11 @@ onUnmounted(() => {
 
 <style scoped>
 /* Stable paged table: auto layout uses the full width, drawer
-   expand/collapse can never create a visible horizontal scrollbar —
-   overflow is clipped, not scrolled. */
+   expand/collapse keeps the layout steady; narrow windows scroll sideways
+   (see .adm-page in app.css). */
 .lgu-table {
   min-width: 0;
   width: 100%;
-}
-.lgu-table :deep(.v-table__wrapper) {
-  overflow-x: clip !important;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
-  display: none;
-  width: 0;
-  height: 0;
 }
 .lgu-table :deep(table) {
   width: 100%;
@@ -459,27 +452,5 @@ html.nav-open .row-actions {
 }
 .table-stage :deep(.v-data-table-footer) {
   margin-top: auto;
-}
-/* Boxed table header: dark-blue fill, white text, outer border only —
-   no dividers between header cells (matches Transactions tab). */
-.lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #1A1F2B !important;
-  color: #ffffff !important;
-  border-top: 2px solid #1A1F2B !important;
-  border-bottom: 3px solid #1A1F2B !important;
-  border-left: none !important;
-  border-right: none !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #1A1F2B !important;
-  padding-left: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #1A1F2B !important;
-  padding-right: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
-.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
-  color: #ffffff !important;
 }
 </style>
