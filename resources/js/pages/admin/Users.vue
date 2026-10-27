@@ -1,114 +1,159 @@
 <template>
   <LoadingVeil :show="loading" label="users" icon="mdi-account-group" />
-  <v-card rounded="0" elevation="1" class="lgu-card">
-    <v-card-title class="d-flex align-center pa-5 lgu-head">
-      <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-        <v-icon color="#16307C">mdi-account-group</v-icon>
-      </v-avatar>
-      <span class="text-h6 font-weight-bold">{{ officeMode ? 'Office Users' : 'Users' }}</span>
-      <ScopeChip v-if="officeMode" class="ml-3" />
-      <v-spacer />
-      <v-text-field
-        v-model="search"
-        prepend-inner-icon="mdi-magnify"
-        label="Search . . ."
-        variant="outlined"
-        density="compact"
-        rounded="0"
-        hide-details
-        clearable
-        class="mr-2"
-        style="max-width: 260px"
-      />
-      <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">
-        Add User
-      </v-btn>
-    </v-card-title>
-    <v-divider />
-    <v-card-text class="pa-4">
-      <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
-        {{ error }}
-      </v-alert>
-      <v-alert
-        v-if="canManage && pendingCount"
-        type="warning"
-        variant="tonal"
-        density="compact"
-        rounded="0"
-        icon="mdi-account-clock-outline"
-        class="mb-3"
-      >
-        {{ pendingCount === 1 ? '1 account is' : `${pendingCount} accounts are` }} waiting for approval.
-        They're listed first; check the details, then approve or reject.
-      </v-alert>
+  <v-card rounded="0" elevation="0" class="us-page mb-4">
+    <header class="us-hd">
+      <div class="us-badge" aria-hidden="true">
+        <v-icon size="26">mdi-account-group</v-icon>
+      </div>
+      <div class="us-hd-main">
+        <div class="us-titlewrap">
+          <h1 class="us-title">{{ officeMode ? 'Office Users' : 'Users' }}</h1>
+          <ScopeChip v-if="officeMode" class="us-scope" />
+        </div>
+        <p class="us-sub">
+          {{
+            officeMode
+              ? 'The members of your office — their roles and account status.'
+              : 'The people who use the system — their roles, offices and status.'
+          }}
+        </p>
+      </div>
+      <div class="us-tools">
+        <div class="us-search" role="search">
+          <v-icon class="us-search-icon" size="19">mdi-magnify</v-icon>
+          <input
+            v-model="search"
+            type="search"
+            class="us-search-input"
+            placeholder="Search name, email, role or office"
+            aria-label="Search users"
+            autocomplete="off"
+          />
+          <button
+            v-if="search"
+            type="button"
+            class="us-clear"
+            aria-label="Clear search"
+            @click="clearSearch"
+          >
+            <v-icon size="16">mdi-close</v-icon>
+          </button>
+        </div>
+        <button
+          v-if="canManage"
+          type="button"
+          class="us-add"
+          aria-label="Add user"
+          @click="openCreate"
+        >
+          <v-icon size="18">mdi-plus</v-icon>
+          <span class="us-add-label">Add user</span>
+        </button>
+      </div>
+    </header>
 
-      <div class="d-flex flex-column table-stage" style="min-height: 510px">
+    <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="us-alert">
+      {{ error }}
+    </v-alert>
+    <v-alert
+      v-if="canManage && pendingCount"
+      type="warning"
+      variant="tonal"
+      density="compact"
+      rounded="0"
+      icon="mdi-account-clock-outline"
+      class="us-alert us-warn"
+    >
+      {{ pendingCount === 1 ? '1 account is' : `${pendingCount} accounts are` }} waiting for approval.
+      They're listed first; check the details, then approve or reject.
+    </v-alert>
+
+    <div class="us-wrap">
       <v-data-table
         v-show="!loading"
         v-model:page="page"
         :items="filtered"
-        :loading="loading"
         :headers="headers"
+        :loading="loading"
         item-key="id"
-        density="compact"
         :items-per-page="PER_PAGE"
-        :items-per-page-options="[PER_PAGE]"
+        :hide-default-footer="true"
         hover
-        class="lgu-table table-pages table-fixed-cols"
+        class="us-table"
       >
         <template v-slot:[`item.name`]="{ item }">
-          <span class="cell-wrap font-weight-bold">{{ item.name }}</span>
+          <span class="us-name">{{ item.name }}</span>
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
-          <span class="cell-wrap cell-wrap--any">{{ item.email }}</span>
+          <span class="us-email">{{ item.email }}</span>
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
-          <div v-if="(item.roles || []).length" class="chip-stack">
+          <div v-if="(item.roles || []).length" class="us-roles">
             <v-chip
               v-for="r in item.roles"
               :key="r.id"
               rounded="0"
               size="small"
               variant="tonal"
-              class="chip-wrap"
+              class="us-role"
             >
               {{ r.name }}
             </v-chip>
           </div>
-          <span v-else class="text-medium-emphasis" title="No active role">—</span>
+          <span v-else class="us-dash" title="No active role">—</span>
         </template>
 
         <template v-slot:[`item.office`]="{ item }">
-          <v-chip
+          <span
             v-if="item.office?.name || officeNameById.get(Number(item.office_id))"
-            rounded="0"
-            size="small"
-            variant="tonal"
-            color="primary"
-            class="font-weight-bold chip-wrap"
+            class="us-office is-specific"
+            :title="item.office?.name || officeNameById.get(Number(item.office_id))"
           >
-            {{ item.office?.name || officeNameById.get(Number(item.office_id)) }}
-          </v-chip>
-          <span v-else class="text-medium-emphasis">—</span>
+            <img
+              v-if="officeIcon(userOffice(item))"
+              class="us-office-icon"
+              :src="officeIcon(userOffice(item))"
+              :alt="`${item.office?.name || officeNameById.get(Number(item.office_id))} icon`"
+            />
+            <span
+              v-else
+              class="us-office-icon-ph"
+              aria-label="No office icon"
+            >
+              ?
+            </span>
+            <span class="us-office-text">{{
+              item.office?.name || officeNameById.get(Number(item.office_id))
+            }}</span>
+          </span>
+          <span v-else class="us-dash">—</span>
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
-          <v-chip v-if="item.pending_approval" color="warning" rounded="0" size="small" variant="tonal" class="chip-wrap">
-            <v-icon start size="small">mdi-clock-outline</v-icon>
-            Waiting for approval
-          </v-chip>
-          <v-chip v-else :color="item.is_active ? 'success' : 'error'" rounded="0" size="small" variant="tonal">
-            <v-icon start size="small">{{ item.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}</v-icon>
-            {{ item.is_active ? 'Active' : 'Inactive' }}
-          </v-chip>
+          <span v-if="item.pending_approval" class="us-status is-pending">
+            <v-icon size="14">mdi-clock-outline</v-icon>
+            Waiting
+          </span>
+          <span v-else-if="item.is_active" class="us-status is-active">
+            <span class="us-status-dot" aria-hidden="true" />
+            Active
+          </span>
+          <span v-else class="us-status is-off">
+            <span class="us-status-dot" aria-hidden="true" />
+            Inactive
+          </span>
         </template>
 
         <template v-slot:[`item.actions`]="{ item }">
-          <div v-if="canManage" class="d-flex ga-3 justify-end row-actions">
-            <span v-if="lockReason(item)" v-tooltip="lockReason(item)" class="d-flex align-center text-medium-emphasis">
-              <v-icon size="small">mdi-lock-outline</v-icon>
+          <div v-if="canManage" class="us-actions">
+            <span
+              v-if="lockReason(item)"
+              v-tooltip="lockReason(item)"
+              class="us-lock"
+            >
+              <v-icon size="18">mdi-lock-outline</v-icon>
             </span>
             <template v-else-if="item.pending_approval">
               <v-btn
@@ -116,7 +161,8 @@
                 v-tooltip="'Approve: let this person sign in'"
                 size="small"
                 variant="outlined"
-                color="success"
+                rounded="0"
+                class="us-ib is-ok"
                 :loading="busyId === item.id"
                 @click="approve(item)"
               />
@@ -125,7 +171,9 @@
                 v-tooltip="'Edit before approving'"
                 size="small"
                 variant="outlined"
-                color="grey-darken-3"
+                rounded="0"
+                class="us-ib is-edit"
+                :disabled="busyId === item.id"
                 @click="openEdit(item)"
               />
               <v-btn
@@ -133,7 +181,8 @@
                 v-tooltip="'Reject: remove this request'"
                 size="small"
                 variant="outlined"
-                color="error"
+                rounded="0"
+                class="us-ib is-delete"
                 :disabled="busyId === item.id"
                 @click="reject(item)"
               />
@@ -144,7 +193,9 @@
                 v-tooltip="'Edit user'"
                 size="small"
                 variant="outlined"
-                color="grey-darken-3"
+                rounded="0"
+                class="us-ib is-edit"
+                :disabled="busyId === item.id"
                 @click="openEdit(item)"
               />
               <v-btn
@@ -152,16 +203,84 @@
                 v-tooltip="'Deactivate user'"
                 size="small"
                 variant="outlined"
-                color="error"
+                rounded="0"
+                class="us-ib is-delete"
                 :disabled="item.id === meId"
                 @click="deactivate(item)"
               />
             </template>
           </div>
         </template>
+
+        <template #no-data>
+          <div class="us-empty">
+            <template v-if="search.trim()">
+              <b>No matches</b> for “{{ search.trim() }}”. Try a different word.
+            </template>
+            <template v-else>
+              <b>No users yet.</b>
+              <span v-if="canManage"> Use “Add user” to create the first one. </span>
+            </template>
+          </div>
+        </template>
+
+        <template #body.append>
+          <tr
+            v-for="n in ghostRows"
+            :key="`ghost-${n}`"
+            class="us-ghost"
+            aria-hidden="true"
+          >
+            <td v-for="h in headers" :key="h.key" />
+          </tr>
+        </template>
       </v-data-table>
+    </div>
+
+    <footer class="us-pg">
+      <div class="us-per">
+        <span>Items per page</span>
+        <span class="us-per-box" aria-label="Items per page: 7">
+          <span>7</span>
+          <v-icon size="18" aria-hidden="true">mdi-chevron-down</v-icon>
+        </span>
       </div>
-    </v-card-text>
+      <span class="us-range">{{ rangeLabel }}</span>
+      <div class="us-pn" role="group" aria-label="Pagination">
+        <button
+          type="button"
+          :disabled="page <= 1"
+          aria-label="First page"
+          @click="goPage(1)"
+        >
+          <v-icon size="18">mdi-page-first</v-icon>
+        </button>
+        <button
+          type="button"
+          :disabled="page <= 1"
+          aria-label="Previous page"
+          @click="goPage(page - 1)"
+        >
+          <v-icon size="18">mdi-chevron-left</v-icon>
+        </button>
+        <button
+          type="button"
+          :disabled="page >= pageCount"
+          aria-label="Next page"
+          @click="goPage(page + 1)"
+        >
+          <v-icon size="18">mdi-chevron-right</v-icon>
+        </button>
+        <button
+          type="button"
+          :disabled="page >= pageCount"
+          aria-label="Last page"
+          @click="goPage(pageCount)"
+        >
+          <v-icon size="18">mdi-page-last</v-icon>
+        </button>
+      </div>
+    </footer>
   </v-card>
 
   <v-dialog
@@ -508,7 +627,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useRoles } from '@/composables/useRoles'
@@ -518,6 +637,7 @@ import { useApi } from '@/composables/useApi'
 import { confirm } from '@/composables/useConfirm'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import ScopeChip from '@/components/ScopeChip.vue'
+import { officeIcon } from '@/utils/officeIcons'
 
 const auth = useAuth()
 const { api } = useApi()
@@ -562,10 +682,9 @@ function lockReason(item) {
 // Two icon buttons side by side plus cell padding; a waiting account's
 // three buttons wrap onto two lines.
 const ACTIONS_W = 132
-// Columns share the table's width by percentage (table-fixed-cols), so the
-// table flexes with the window and the sidebar; long names, emails, roles
-// and offices wrap inside their columns, and Status and the actions always
-// stay in view.
+// Columns share the table's width by percentage, so the table flexes with
+// the window and the sidebar; long names, emails, roles and offices wrap
+// inside their columns, and Status and the actions always stay in view.
 const headers = officeMode
   ? [
       { title: 'Name', key: 'name', width: '30%' },
@@ -590,7 +709,35 @@ const search = ref('')
 const PER_PAGE = 7
 const page = ref(1)
 
-let navObserver = null
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil(filtered.value.length / PER_PAGE)),
+)
+const pageStart = computed(() =>
+  filtered.value.length ? (page.value - 1) * PER_PAGE + 1 : 0,
+)
+const pageEnd = computed(() =>
+  Math.min(page.value * PER_PAGE, filtered.value.length),
+)
+const rangeLabel = computed(() =>
+  filtered.value.length
+    ? `${pageStart.value}–${pageEnd.value} of ${filtered.value.length}`
+    : '0 of 0',
+)
+// Keep the seven-row rhythm: fill only the remaining slots with ghosts.
+const ghostRows = computed(() => {
+  const used = filtered.value.length
+    ? Math.max(0, pageEnd.value - pageStart.value + 1)
+    : 1
+  return Math.max(0, PER_PAGE - used)
+})
+
+function goPage(next) {
+  page.value = Math.min(pageCount.value, Math.max(1, Number(next) || 1))
+}
+
+function clearSearch() {
+  search.value = ''
+}
 
 // Client-side search: master data is small, filter loaded rows by
 // name / email / roles / office / status without extra requests.
@@ -718,6 +865,20 @@ const officeNameById = computed(() => {
   for (const o of (offices.value || [])) m.set(Number(o.id), o.name || o.code)
   return m
 })
+
+// Full office row for the icon chip (the API may embed a partial office).
+function userOffice(item) {
+  const id =
+    item.office_id != null
+      ? Number(item.office_id)
+      : item.office?.id != null
+        ? Number(item.office.id)
+        : null
+  if (id == null) return null
+  const byId = (offices.value || []).find((o) => Number(o.id) === id)
+  if (byId) return byId
+  return item.office && Number(item.office.id) === id ? item.office : null
+}
 
 function openCreate() {
   error.value = ''
@@ -934,147 +1095,575 @@ async function deactivate(item) {
   }
 }
 
-// Scroll only when there's enough to scroll: with fewer than SCROLL_FROM
-// rows on the current table page, the tab keeps the usual scroll lock;
-// from SCROLL_FROM rows up (wrapped rows can outgrow the screen) the page
-// scrolls. Defined after `filtered` and everything it reads.
-const SCROLL_FROM = 5
-const rowsOnPage = computed(() => {
-  const total = filtered.value.length
-  return Math.max(0, Math.min(PER_PAGE, total - (page.value - 1) * PER_PAGE))
-})
 watch(search, () => { page.value = 1 })
 watch(
-  rowsOnPage,
-  (n) => document.documentElement.classList.toggle('lock-scroll', n < SCROLL_FROM),
-  { immediate: true },
+  () => filtered.value.length,
+  (length) => {
+    if (page.value > Math.ceil(length / PER_PAGE)) {
+      page.value = Math.max(1, Math.ceil(length / PER_PAGE))
+    }
+  },
 )
 
 onMounted(() => {
-  // Scroll lock follows the rows on screen (see rowsOnPage): rows wrap to
-  // show full names, emails and offices, so a full page of users can be
-  // taller than the screen and then the page scrolls.
   // Independent lookups: run in parallel so one slow endpoint never blocks
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
   if (!officeMode) fetchOffices().catch(() => {})
   fetchUsers().catch(() => {})
-  // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
-  // the table is narrower, so flag html.nav-open to duck the row actions
-  // away instead of letting them get cut off. Covers hover-expand + toggle.
-  try {
-    const drawer = document.querySelector('.v-navigation-drawer')
-    if (drawer && 'ResizeObserver' in window) {
-      const sync = () => {
-        const w = drawer.getBoundingClientRect().width || 0
-        document.documentElement.classList.toggle('nav-open', w > 100)
-      }
-      sync()
-      navObserver = new ResizeObserver(sync)
-      navObserver.observe(drawer)
-    }
-  } catch {
-    /* actions just stay visible */
-  }
-})
-
-onUnmounted(() => {
-  document.documentElement.classList.remove('lock-scroll')
-  document.documentElement.classList.remove('nav-open')
-  try {
-    navObserver?.disconnect?.()
-  } catch {
-    /* ignore */
-  }
-  navObserver = null
 })
 </script>
 
 <style scoped>
-/* Full text, wrapped within its column; the row grows to fit. Breaks
-   between words; a single word longer than the column still breaks. */
-.cell-wrap {
-  display: block;
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: break-word;
-  line-height: 1.4;
-  padding: 10px 0;
+/* ==========================================================================
+   Users — sharp panel, header, table and footer
+   (visual port of the Offices / Transaction Types design system)
+   ========================================================================== */
+.us-page {
+    --us-ink: rgb(var(--v-theme-on-surface));
+    --us-muted: rgb(var(--v-theme-secondary));
+    --us-line: rgba(var(--v-border-color), var(--v-border-opacity));
+    --us-panel: rgb(var(--v-theme-surface));
+    --us-field: #f4f6fb;
+    --us-hover: #f3f6fc;
+    --us-blue: #1d3fae;
+    --us-blue-bg: #e8eeff;
+    --us-amber: #b86e00;
+    --us-amber-bg: #fff1d6;
+    --us-ok: #1b7a3d;
+    --us-ok-bg: #e3f4e8;
+    --us-err: rgb(var(--v-theme-error));
+    --us-err-bg: rgba(var(--v-theme-error), 0.12);
+    --us-ring: rgba(29, 63, 174, 0.28);
+    overflow: hidden;
+    background: var(--us-panel);
+    border: 1px solid var(--us-line);
+    box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
+    font-variant-numeric: tabular-nums;
 }
-/* Emails have no spaces: let them break anywhere. */
-.cell-wrap--any {
-  overflow-wrap: anywhere;
+html.dark .us-page {
+    --us-field: #1c2645;
+    --us-hover: #1d2745;
+    --us-blue: #6f8cff;
+    --us-blue-bg: #25306a;
+    --us-amber: #ffbf47;
+    --us-amber-bg: #4a3510;
+    --us-ok: #3fbf6f;
+    --us-ok-bg: #1e3b28;
+    --us-err-bg: #4a1f22;
+    --us-ring: rgba(138, 161, 255, 0.38);
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
 }
-/* Actions: always visible here (the global rule hides them while the
-   sidebar is open); with little room the buttons wrap instead. */
-.row-actions,
-:global(html.nav-open) .row-actions {
-  opacity: 1 !important;
-  visibility: visible !important;
-  animation: none !important;
-  flex-wrap: wrap;
-  gap: 8px !important;
-  min-width: 0;
-  padding: 6px 0;
+.us-page button:focus-visible,
+.us-page a:focus-visible {
+    outline: 3px solid var(--us-ring);
+    outline-offset: 2px;
 }
-.chip-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 0;
+
+/* ---- Header ---- */
+.us-hd {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 28px;
+    border-bottom: 3px solid var(--us-blue);
+    flex-wrap: wrap;
 }
-/* Chips that wrap long text instead of being cut at the column edge. */
-.chip-wrap {
-  height: auto !important;
-  min-height: 24px;
-  max-width: 100%;
-  padding-block: 3px;
-  white-space: normal;
+.us-badge {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    flex: none;
+    background: var(--us-blue);
+    color: #fff;
 }
-.chip-wrap :deep(.v-chip__content) {
-  white-space: normal;
-  line-height: 1.3;
+.us-hd-main {
+    flex: 1 1 320px;
+    min-width: 0;
 }
-/* Hide the table's internal scrollbar; drawer expand can never create a
-   visible horizontal bar — overflow is clipped, not scrolled. */
-.lgu-table {
-  min-width: 0;
-  width: 100%;
+.us-titlewrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
 }
-.lgu-table :deep(.v-table__wrapper) {
-  overflow-x: clip !important;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+.us-title {
+    margin: 0;
+    color: var(--us-ink);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
 }
-.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
-  display: none;
-  width: 0;
-  height: 0;
+.us-sub {
+    margin: 4px 0 0;
+    color: var(--us-muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.4;
 }
-.lgu-table :deep(table) {
-  width: 100%;
+.us-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+    margin-left: auto;
 }
-/* Boxed table header: dark-blue fill, white text, outer border only —
-   no dividers between header cells (matches Transactions tab). */
-.lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #0E1F52 !important;
-  color: #ffffff !important;
-  border-top: 2px solid #0E1F52 !important;
-  border-bottom: 3px solid #0E1F52 !important;
-  border-left: none !important;
-  border-right: none !important;
+.us-search {
+    position: relative;
+    flex: 0 0 320px;
+    min-width: 0;
+    max-width: 320px;
 }
-.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #0E1F52 !important;
-  padding-left: 20px !important;
+.us-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--us-muted);
+    pointer-events: none;
 }
-.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #0E1F52 !important;
-  padding-right: 20px !important;
+.us-search-input {
+    width: 100%;
+    height: 46px;
+    padding: 0 42px;
+    border: 1.5px solid var(--us-line);
+    border-radius: 0;
+    background: var(--us-field);
+    color: var(--us-ink);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 500;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        background 0.15s;
 }
-.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
-.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
-  color: #ffffff !important;
+.us-search-input::placeholder {
+    color: var(--us-muted);
+    opacity: 0.9;
+}
+.us-search-input:hover {
+    border-color: rgba(var(--v-border-color), 0.8);
+}
+.us-search-input:focus {
+    outline: none;
+    border-color: var(--us-blue);
+    background: var(--us-panel);
+    box-shadow: 0 0 0 4px var(--us-ring);
+}
+.us-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+.us-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--us-muted);
+    cursor: pointer;
+}
+.us-clear:hover {
+    background: var(--us-line);
+}
+.us-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 46px;
+    padding: 0 20px;
+    flex: none;
+    border: 1.5px solid var(--us-blue);
+    border-radius: 0;
+    background: var(--us-blue);
+    color: #fff;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.us-add:hover {
+    filter: brightness(0.94);
+}
+
+/* ---- Alerts + table shell ---- */
+.us-alert {
+    margin: 16px 28px 0 !important;
+    border-radius: 0 !important;
+}
+.us-warn {
+    margin-bottom: 0;
+}
+.us-wrap {
+    min-width: 0;
+    padding: 20px 28px 0;
+}
+.us-table {
+    --v-table-row-height: 74px;
+    --v-table-header-height: 44px;
+    width: 100%;
+    min-width: 0;
+    background: transparent !important;
+}
+.us-table :deep(.v-table__wrapper) {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--us-muted) var(--us-field);
+}
+.us-table :deep(.v-table__wrapper::-webkit-scrollbar) {
+    width: 10px;
+    height: 10px;
+}
+.us-table :deep(.v-table__wrapper::-webkit-scrollbar-track) {
+    background: var(--us-field);
+}
+.us-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb) {
+    border: 2px solid var(--us-field);
+    background: var(--us-muted);
+}
+.us-table :deep(table) {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.us-table :deep(thead th.v-data-table__th) {
+    height: 44px;
+    padding: 0 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--us-line) !important;
+    border-radius: 0 !important;
+    background: var(--us-field) !important;
+    color: var(--us-muted) !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.us-table :deep(thead th.v-data-table__th .v-data-table-header__content) {
+    color: var(--us-muted) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase;
+}
+.us-table :deep(thead th.v-data-table__th .v-icon) {
+    color: var(--us-muted) !important;
+    opacity: 0.65;
+}
+.us-table :deep(thead th.v-data-table__th:last-child) {
+    padding-left: 8px !important;
+    text-align: right;
+}
+.us-table :deep(tbody td:last-child) {
+    padding-left: 8px !important;
+}
+.us-table :deep(tbody td) {
+    height: 74px;
+    padding: 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--us-line) !important;
+    border-radius: 0 !important;
+    color: var(--us-ink);
+    font-size: 14.5px;
+    vertical-align: middle;
+}
+.us-table :deep(tbody tr:not(.us-ghost):hover) {
+    background: var(--us-hover) !important;
+}
+.us-table :deep(tbody tr.us-ghost) {
+    pointer-events: none;
+}
+.us-table :deep(tbody tr.us-ghost td) {
+    height: 74px;
+    padding: 14px !important;
+    border-bottom: 1px solid var(--us-line) !important;
+}
+.us-table :deep(.v-data-table-rows-no-data td) {
+    height: 74px !important;
+    padding: 0 !important;
+    border-bottom: 1px solid var(--us-line) !important;
+}
+.us-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-height: 74px;
+    padding: 0 14px;
+    color: var(--us-muted);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+}
+.us-empty b {
+    color: var(--us-ink);
+}
+
+/* ---- Cells ---- */
+/* Names, emails, roles and offices wrap inside their columns (rows grow). */
+.us-name {
+    display: block;
+    color: var(--us-ink);
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+.us-email {
+    display: block;
+    color: var(--us-muted);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+.us-dash {
+    color: var(--us-muted);
+}
+.us-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+/* Chips wrap long role names instead of being cut at the column edge. */
+.us-role {
+    height: auto !important;
+    min-height: 24px;
+    max-width: 100%;
+    padding-block: 3px;
+    white-space: normal;
+    font-weight: 600;
+}
+.us-role :deep(.v-chip__content) {
+    line-height: 1.3;
+    white-space: normal;
+}
+/* Office chip with icon (same pattern as Transaction Types). */
+.us-office {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    padding: 4px 10px 4px 5px;
+    background: var(--us-blue-bg);
+    color: var(--us-blue);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    vertical-align: middle;
+}
+.us-office-icon {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    object-fit: contain;
+}
+.us-office-icon-ph {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    background: var(--us-panel);
+    color: var(--us-blue);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    border-radius: 50%;
+}
+.us-office-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Status: waiting / active / off, dot style like the rest of the system. */
+.us-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    background: var(--us-amber-bg);
+    color: var(--us-amber);
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.us-status.is-pending :deep(.v-icon) {
+    color: inherit;
+}
+.us-status.is-active {
+    background: var(--us-ok-bg);
+    color: var(--us-ok);
+}
+.us-status.is-off {
+    background: var(--us-field);
+    color: var(--us-muted);
+}
+.us-status-dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+}
+/* Actions: square icon buttons, state-coloured like the other pages. */
+.us-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.us-lock {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: var(--us-muted);
+}
+.us-ib {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    padding: 0 !important;
+    border: 1.5px solid var(--us-line) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--us-muted) !important;
+    box-shadow: none !important;
+}
+.us-ib :deep(.v-icon) {
+    font-size: 18px !important;
+}
+.us-ib.is-ok {
+    border-color: var(--us-ok-bg) !important;
+    color: var(--us-ok) !important;
+}
+.us-ib.is-ok:hover {
+    background: var(--us-ok-bg) !important;
+}
+.us-ib.is-edit {
+    border-color: var(--us-amber-bg) !important;
+    color: var(--us-amber) !important;
+}
+.us-ib.is-edit:hover {
+    background: var(--us-amber-bg) !important;
+}
+.us-ib.is-delete {
+    border-color: var(--us-err-bg) !important;
+    color: var(--us-err) !important;
+}
+.us-ib.is-delete:hover {
+    background: var(--us-err-bg) !important;
+}
+.us-ib:disabled {
+    opacity: 0.45 !important;
+}
+
+/* ---- Footer ---- */
+.us-pg {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+    padding: 16px 28px 20px;
+    color: var(--us-muted);
+    font-size: 14px;
+    flex-wrap: wrap;
+}
+.us-per {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.us-per-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 76px;
+    height: 40px;
+    padding: 0 8px 0 12px;
+    border: 1.5px solid var(--us-line);
+    background: var(--us-panel);
+    color: var(--us-ink);
+    font-weight: 700;
+}
+.us-per-box :deep(.v-icon) {
+    color: var(--us-muted);
+}
+.us-range {
+    color: var(--us-ink);
+    font-weight: 700;
+}
+.us-pn {
+    display: flex;
+    gap: 4px;
+}
+.us-pn button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1.5px solid var(--us-line);
+    border-radius: 0;
+    background: var(--us-panel);
+    color: var(--us-ink);
+    cursor: pointer;
+}
+.us-pn button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+    .us-tools {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
+    .us-search {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+}
+@media (max-width: 760px) {
+    .us-hd {
+        padding: 18px 16px;
+    }
+    .us-title {
+        font-size: 20px;
+    }
+    .us-wrap {
+        padding: 16px 16px 0;
+    }
+    .us-pg {
+        justify-content: center;
+        padding: 16px;
+    }
+}
+@media (max-width: 520px) {
+    .us-add {
+        padding: 0 16px;
+    }
+    .us-add-label {
+        display: none;
+    }
 }
 
 /* New / Edit User modal */
