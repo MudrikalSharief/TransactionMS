@@ -487,7 +487,22 @@
                                             class="wf-office"
                                             :title="officeName(item)"
                                         >
-                                            {{ officeName(item) }}
+                                            <img
+                                                v-if="officeIcon(officeOf(item))"
+                                                class="wf-office-icon"
+                                                :src="officeIcon(officeOf(item))"
+                                                :alt="`${officeName(item)} icon`"
+                                            />
+                                            <span
+                                                v-else
+                                                class="wf-office-icon-ph"
+                                                aria-label="No office icon"
+                                            >
+                                                ?
+                                            </span>
+                                            <span class="wf-office-text">{{
+                                                officeName(item)
+                                            }}</span>
                                         </span>
                                         <span
                                             v-else
@@ -1058,8 +1073,39 @@
                                 density="comfortable"
                                 hide-details="auto"
                                 :error-messages="stepErrors.office_id"
-                                class="stp-in"
-                            />
+                                class="stp-in stp-offices"
+                            >
+                                <template #selection="{ item }">
+                                    <span class="stp-office-selection">
+                                        <img
+                                            v-if="item.raw.icon"
+                                            class="stp-office-chip-icon"
+                                            :src="item.raw.icon"
+                                            :alt="`${item.raw.label} icon`"
+                                        />
+                                        <span>{{ item.raw.label }}</span>
+                                    </span>
+                                </template>
+                                <template #item="{ props: itemProps, item }">
+                                    <v-list-item v-bind="itemProps">
+                                        <template #prepend>
+                                            <img
+                                                v-if="item.raw.icon"
+                                                class="stp-office-option-icon"
+                                                :src="item.raw.icon"
+                                                :alt="`${item.raw.label} icon`"
+                                            />
+                                            <span
+                                                v-else
+                                                class="stp-office-option-icon-placeholder"
+                                                aria-label="No office icon"
+                                            >
+                                                ?
+                                            </span>
+                                        </template>
+                                    </v-list-item>
+                                </template>
+                            </v-select>
                             <div
                                 v-if="stepForm.office_id == null"
                                 class="stp-help stp-help-user-office"
@@ -1932,6 +1978,7 @@ import { useWorkflows } from "@/composables/useWorkflows";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
 import { useOffices } from "@/composables/useOffices";
+import { officeIcon } from "@/utils/officeIcons";
 import TableLoader from "@/components/TableLoader.vue";
 import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
 import LoadingVeil from "@/components/LoadingVeil.vue";
@@ -2105,7 +2152,11 @@ const USER_OFFICE = "__user_office__";
 
 const officeOptions = computed(() => [
     { id: USER_OFFICE, label: "User's Office" },
-    ...(offices.value || []).map((o) => ({ id: o.id, label: `${o.name}` })),
+    ...(offices.value || []).map((o) => ({
+        id: o.id,
+        label: `${o.name}`,
+        icon: officeIcon(o),
+    })),
 ]);
 
 function officeItemProps(item) {
@@ -2139,6 +2190,15 @@ function officeName(item) {
     const byId = officeNameById.value.get(Number(item.office_id));
     if (byId) return byId;
     return Number(item?.office?.id) === Number(item.office_id) ? item.office.name || "" : "";
+}
+
+// The office object for a step row (for its icon): ids are the truth, the
+// embedded `office` object is only a fallback.
+function officeOf(item) {
+    if (item?.office_id == null) return null;
+    const byId = (offices.value || []).find((o) => Number(o.id) === Number(item.office_id));
+    if (byId) return byId;
+    return Number(item?.office?.id) === Number(item.office_id) ? item.office : null;
 }
 
 // Stages are stored as codes (end_user, gso, city_admin …). Present the
@@ -4055,7 +4115,9 @@ html.dark .wf-page {
     white-space: nowrap;
 }
 .wf-office {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     max-width: 100%;
     padding: 5px 10px;
     background: var(--wf-blue-bg);
@@ -4063,8 +4125,33 @@ html.dark .wf-page {
     font-size: 13px;
     font-weight: 700;
     line-height: 1.25;
-    overflow-wrap: break-word;
-    white-space: normal;
+    text-align: left;
+}
+.wf-office-icon {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    object-fit: contain;
+}
+.wf-office-icon-ph {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+}
+.wf-office-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .wf-office.is-dynamic {
     border: 1.5px dashed var(--wf-line);
@@ -4598,6 +4685,51 @@ html.dark .wf-page {
 .stp-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
     box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+}
+
+/* Assigned Office picker: icon + text, mirroring the transaction types
+   modal (selection chip rows and prepend-icon option rows). */
+.stp-offices :deep(.v-list-item-title) {
+    font-weight: 700;
+}
+.stp-office-selection {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+.stp-office-selection span:last-child {
+    font-size: 15px;
+    font-weight: 600;
+}
+.stp-office-chip-icon {
+    width: 22px;
+    height: 22px;
+    margin-inline-end: 8px;
+    object-fit: contain;
+}
+.stp-office-option-icon {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-inline-end: 10px;
+    object-fit: contain;
+}
+.stp-office-option-icon-placeholder {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-inline-end: 10px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* Flow: switch rows side by side. */

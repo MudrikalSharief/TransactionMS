@@ -502,7 +502,7 @@
                 </div>
 
                 <div class="ntt-f">
-                    <label class="ntt-lb" for="ntt-offices">Offices</label>
+                    <label class="ntt-lb" for="ntt-offices">Allowed Office</label>
                     <v-select
                         v-if="isSuperadmin"
                         id="ntt-offices"
@@ -512,7 +512,7 @@
                         item-title="title"
                         item-value="id"
                         :item-props="officeItemProps"
-                        placeholder="Select offices"
+                        placeholder="Select office"
                         variant="outlined"
                         density="comfortable"
                         hide-details="auto"
@@ -721,9 +721,9 @@ const headers = [
     { title: "Code", key: "code", width: "17%" },
     { title: "Name", key: "name", width: "18.5%" },
     { title: "Description", key: "description", width: "19%" },
-    { title: "Steps", key: "steps", sortable: false, width: "9%" },
-    { title: "Office(s)", key: "offices", sortable: false, width: "17.5%" },
+    { title: "Allowed Office", key: "offices", sortable: false, width: "16.5%" },
     { title: "Status", key: "is_active", width: "9%" },
+    { title: "Steps", key: "steps", sortable: false, width: "9%" },
     { title: "", key: "actions", sortable: false, width: "10%", align: "end" },
 ];
 
@@ -1343,10 +1343,9 @@ html.dark .tt-page {
 .tt-desc {
     display: block;
     max-width: 100%;
-    overflow: hidden;
     color: var(--tt-muted);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal; /* wrap: full description is always visible */
+    overflow-wrap: anywhere;
 }
 .tt-dash {
     color: var(--tt-muted);
@@ -1383,7 +1382,7 @@ html.dark .tt-page {
 }
 .tt-office {
     display: inline-flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 6px;
     max-width: 100%;
     min-width: 0;
@@ -1398,7 +1397,6 @@ html.dark .tt-page {
     width: 24px;
     height: 24px;
     flex: none;
-    margin-top: 2px;
     object-fit: contain;
 }
 .tt-office-text {

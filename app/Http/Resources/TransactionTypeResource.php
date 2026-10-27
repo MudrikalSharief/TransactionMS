@@ -49,6 +49,11 @@ class TransactionTypeResource extends JsonResource
                     ])
                     ->all()
             ),
+            'createdby_office' => $this->whenLoaded('createdByOffice', fn () => $this->createdByOffice ? [
+                'id' => $this->createdByOffice->id,
+                'code' => $this->createdByOffice->code,
+                'name' => $this->createdByOffice->name,
+            ] : null),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
