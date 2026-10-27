@@ -89,8 +89,28 @@
           </template>
 
           <template v-slot:[`item.office`]="{ item }">
-            <span v-if="item.office?.name" class="tl-office" :title="item.office.name">
-              {{ item.office.name }}
+            <span
+              v-if="item.office?.name || item.office?.code"
+              v-tooltip="item.office?.name || item.office?.code || ''"
+              class="tl-office-chip"
+              :title="item.office?.name || item.office?.code || ''"
+            >
+              <img
+                v-if="officeIcon(item.office)"
+                class="tl-office-icon"
+                :src="officeIcon(item.office)"
+                :alt="`${item.office?.name || 'Office'} icon`"
+              />
+              <span
+                v-else
+                class="tl-office-icon-ph"
+                aria-label="No office icon"
+              >
+                ?
+              </span>
+              <span class="tl-office-code">{{
+                item.office?.code || item.office?.name
+              }}</span>
             </span>
             <span v-else class="tl-dash">—</span>
           </template>
@@ -231,6 +251,7 @@ import { useSmartPoll } from '@/composables/useSmartPoll'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
+import { officeIcon } from '@/utils/officeIcons'
 
 const router = useRouter()
 const { items, loading, meta, fetchAll, create } = useTransactions()
@@ -741,11 +762,46 @@ html.dark .tl-page {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.tl-office {
-    display: block;
+/* Originating office: icon chip showing only the code; the full office
+   name is the tooltip. Same pattern as the Transaction Types table. */
+.tl-office-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     max-width: 100%;
+    padding: 4px 10px 4px 5px;
+    background: var(--tl-blue-bg);
+    color: var(--tl-blue);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    vertical-align: middle;
+}
+.tl-office-chip:hover {
+    filter: brightness(0.97);
+}
+.tl-office-icon {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    object-fit: contain;
+}
+.tl-office-icon-ph {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    background: var(--tl-panel);
+    color: var(--tl-blue);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    border-radius: 50%;
+}
+.tl-office-code {
     overflow: hidden;
-    color: var(--tl-muted);
+    letter-spacing: 0.02em;
     text-overflow: ellipsis;
     white-space: nowrap;
 }

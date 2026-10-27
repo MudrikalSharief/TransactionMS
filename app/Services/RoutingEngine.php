@@ -122,7 +122,7 @@ class RoutingEngine
     {
         return \App\Models\TransactionStepRun::where('transaction_id', $tx->id)
             ->whereNull('received_at')
-            ->with(['fromStep:id,code,name', 'toStep:id,code,name,office_id', 'performer:id,name', 'receivedOffice:id,code,name'])
+            ->with(['fromStep:id,code,name', 'toStep:id,code,name,office_id', 'performer:id,name', 'receivedOffice:id,code,name,icon_path'])
             ->orderByDesc('performed_at')
             ->orderByDesc('id')
             ->first();

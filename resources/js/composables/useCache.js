@@ -116,7 +116,7 @@ export function storedUserId() {
 }
 
 export const CacheKeys = {
-    transactions: 'tx-all',
+    transactions: 'tx-all:v2',
     myTransactions: 'tx-my',
     transactionTypes: 'tx-types:v3',
     offices: 'offices',
@@ -160,7 +160,14 @@ export function slimTx(tx) {
             : null,
         office_name: tx.office_name ?? tx.office?.name ?? null,
         office: tx.office
-            ? { id: tx.office.id ?? null, code: tx.office.code ?? null, name: tx.office.name ?? null }
+            ? {
+                  id: tx.office.id ?? null,
+                  code: tx.office.code ?? null,
+                  name: tx.office.name ?? null,
+                  // Keep the uploaded-office icon so officeIcon() works from
+                  // cached rows too (falls back to the static map when null).
+                  icon_url: tx.office.icon_url ?? null,
+              }
             : null,
         workflow: tx.workflow
             ? {

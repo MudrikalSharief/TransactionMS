@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Office;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
@@ -96,7 +97,7 @@ class ProfileController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'contact_number' => $user->Contact_number,
-            'office' => $user->office?->only(['id', 'code', 'name']),
+            'office' => Office::mini($user->office),
             'roles' => $user->roles->map(fn ($r) => $r->only(['id', 'code', 'name']))->values(),
         ];
     }

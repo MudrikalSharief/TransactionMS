@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Office;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
@@ -29,7 +30,7 @@ class TransactionListResource extends JsonResource
             'transaction_type' => $this->type?->only(['id', 'code', 'name']),
             // Back-compat flat names used by tables/search/slimTx cache.
             'transaction_type_name' => $this->type?->name,
-            'office' => $this->office?->only(['id', 'code', 'name']),
+            'office' => Office::mini($this->office),
             'office_name' => $this->office?->name,
             'workflow' => $this->workflow?->only(['id', 'version', 'status', 'name']),
 
@@ -70,7 +71,7 @@ class TransactionListResource extends JsonResource
 
         return [
             'office_id' => $office?->id,
-            'office' => $office?->only(['id', 'code', 'name']),
+            'office' => Office::mini($office),
         ];
     }
 
