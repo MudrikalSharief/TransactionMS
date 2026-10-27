@@ -107,7 +107,7 @@
                     class="mr-2 font-weight-medium nav-chip d-none d-md-flex"
                     :to="hasProfile ? '/profile' : undefined"
                     :aria-label="hasProfile ? 'My Profile' : undefined"
-                    v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : userTooltip"
+                    v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : false"
                 >
                     <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
                     <!-- Office scope sits inside the profile pill, right of the icon. -->
@@ -162,7 +162,7 @@
                         :exact="!!item.exact"
                         :prepend-icon="item.badge == null ? item.icon : undefined"
                         rounded="lg"
-                        v-tooltip:end="rail ? (item.badge ? `${item.title} ${item.badge}` : item.title) : undefined"
+                        v-tooltip:end="rail ? (item.badge ? `${item.title} ${item.badge}` : item.title) : false"
                     >
                         <!-- Items with a count (clerk Task): small red badge on the
                              icon in the rail; "TASK 9" (count right after the
@@ -199,7 +199,7 @@
                     v-if="false && showApprovals"
                     to="/approvals"
                     rounded="lg"
-                    v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : undefined"
+                    v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : false"
                 >
                     <template #prepend>
                         <v-badge
@@ -237,14 +237,15 @@
                     :class="{ 'nav-profile--rail': rail, 'nav-profile--link': hasProfile }"
                     :role="hasProfile ? 'link' : undefined"
                     :tabindex="hasProfile ? 0 : undefined"
-                    v-tooltip:end="rail ? userTooltip : undefined"
+                    v-tooltip:end="rail && hasProfile ? userTooltip : false"
                     @click="hasProfile && router.push('/profile')"
                     @keydown.enter="hasProfile && router.push('/profile')"
                 >
                     <div class="nav-profile__avatar">{{ userInitials }}</div>
                     <div v-if="!rail" class="nav-profile__text">
                         <div class="nav-profile__name">{{ auth.user.value.name }}</div>
-                        <div class="nav-profile__meta">
+                        <!-- The shared guest viewer shows only its name. -->
+                        <div v-if="hasProfile" class="nav-profile__meta">
                             {{ primaryRole }}<template v-if="auth.user.value.office"> · {{ auth.user.value.office.code || auth.user.value.office.name }}</template>
                         </div>
                     </div>
@@ -260,7 +261,7 @@
                         variant="tonal"
                         color="primary"
                         density="comfortable"
-                        v-tooltip="rail ? (isDark ? 'Light mode' : 'Dark mode') : undefined"
+                        v-tooltip="rail ? (isDark ? 'Light mode' : 'Dark mode') : false"
                         @click="toggleTheme"
                     >
                         <v-icon>{{ isDark ? "mdi-weather-sunny" : "mdi-weather-night" }}</v-icon>
@@ -275,7 +276,7 @@
                         color="primary"
                         density="comfortable"
                         to="/help"
-                        v-tooltip="rail ? 'Help' : undefined"
+                        v-tooltip="rail ? 'Help' : false"
                     >
                         <v-icon>mdi-help-circle-outline</v-icon>
                         <span v-if="!rail" class="ml-1 text-caption font-weight-bold">HELP</span>
