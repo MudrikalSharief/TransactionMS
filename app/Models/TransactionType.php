@@ -16,6 +16,7 @@ class TransactionType extends Model
         'name',
         'description',
         'is_active',
+        'createdby_office',
     ];
 
     protected $casts = [
@@ -26,6 +27,16 @@ class TransactionType extends Model
     {
         return $this->belongsToMany(Office::class, 'office_transaction_type')
             ->withTimestamps();
+    }
+
+    /**
+     * Office of the user who created this type (transaction_types.createdby_office,
+     * an FK to offices.id). Nullable: legacy rows and creations by users without
+     * an office (e.g. superadmins) stay NULL.
+     */
+    public function createdByOffice()
+    {
+        return $this->belongsTo(Office::class, 'createdby_office');
     }
 
     /**

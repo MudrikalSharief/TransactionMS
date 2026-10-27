@@ -83,7 +83,7 @@
                 </template>
 
                 <template v-slot:[`item.name`]="{ item }">
-                    <span class="tt-name" :title="item.name">{{
+                    <span class="tt-name" v-tooltip="item.name">{{
                         item.name
                     }}</span>
                 </template>
@@ -134,7 +134,8 @@
                             v-for="o in item.offices"
                             :key="o.id"
                             class="tt-office is-specific"
-                            :title="o.name"
+                            v-tooltip="o.name"
+                            :aria-label="o.name"
                         >
                             <img
                                 v-if="officeIcon(o)"
@@ -149,20 +150,20 @@
                             >
                                 ?
                             </span>
-                            {{ o.name }}
+                            <span class="tt-office-text">{{ o.code }}</span>
                         </span>
                     </div>
                     <span
                         v-else
                         class="tt-office"
-                        title="Available to every office"
+                        v-tooltip="'Available to every office'"
                     >
                         <img
                             class="tt-office-icon"
                             :src="anyOfficeIcon"
                             alt="Zamboanga City seal"
                         />
-                        Any Office
+                        <span class="tt-office-text">Any Office</span>
                     </span>
                 </template>
 
@@ -501,7 +502,7 @@
                 </div>
 
                 <div class="ntt-f">
-                    <label class="ntt-lb" for="ntt-offices">Offices</label>
+                    <label class="ntt-lb" for="ntt-offices">Allowed Office</label>
                     <v-select
                         v-if="isSuperadmin"
                         id="ntt-offices"
@@ -511,7 +512,7 @@
                         item-title="title"
                         item-value="id"
                         :item-props="officeItemProps"
-                        placeholder="Select offices"
+                        placeholder="Select office"
                         variant="outlined"
                         density="comfortable"
                         hide-details="auto"
@@ -720,9 +721,9 @@ const headers = [
     { title: "Code", key: "code", width: "17%" },
     { title: "Name", key: "name", width: "18.5%" },
     { title: "Description", key: "description", width: "19%" },
-    { title: "Steps", key: "steps", sortable: false, width: "9%" },
-    { title: "Office(s)", key: "offices", sortable: false, width: "17.5%" },
+    { title: "Allowed Office", key: "offices", sortable: false, width: "16.5%" },
     { title: "Status", key: "is_active", width: "9%" },
+    { title: "Steps", key: "steps", sortable: false, width: "9%" },
     { title: "", key: "actions", sortable: false, width: "10%", align: "end" },
 ];
 
@@ -1342,10 +1343,9 @@ html.dark .tt-page {
 .tt-desc {
     display: block;
     max-width: 100%;
-    overflow: hidden;
     color: var(--tt-muted);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal; /* wrap: full description is always visible */
+    overflow-wrap: anywhere;
 }
 .tt-dash {
     color: var(--tt-muted);
@@ -1386,20 +1386,24 @@ html.dark .tt-page {
     gap: 6px;
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
     padding: 5px 10px;
     background: var(--tt-field);
     color: var(--tt-muted);
     font-size: 13px;
     font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: left;
 }
 .tt-office-icon {
     width: 24px;
     height: 24px;
     flex: none;
     object-fit: contain;
+}
+.tt-office-text {
+    min-width: 0;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 .tt-office-icon-placeholder {
     display: inline-flex;

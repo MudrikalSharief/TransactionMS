@@ -19,11 +19,12 @@ class TransactionTypeController extends Controller
         // cache holds the full catalog; per-user office filtering happens here
         // so the cache stays single-key and never leaks other offices' types.
         $items = \Illuminate\Support\Facades\Cache::remember(
-            'lookup:transaction-types:v3',
+            'lookup:transaction-types:v4',
             600,
             fn () => TransactionType::query()
                 ->with([
                     'offices',
+                    'createdByOffice',
                     'liveWorkflow.steps' => fn ($q) => $q->orderBy('order_number')->orderBy('id'),
                     'liveWorkflow.steps.office',
                     'liveWorkflow.steps.roles',
@@ -58,7 +59,10 @@ class TransactionTypeController extends Controller
             }
         }
 
-        $type = TransactionType::create($validated);
+        // createdby_office: office.id of the creating user (nullable when the
+        // user belongs to no office, e.g. a superadmin). Recorded once, on
+        // create only — update() never touches it.
+        $type = TransactionType::create($validated + ['createdby_office' => $user->office_id]);
 
         if ($officeIds) {
             $type->offices()->sync($officeIds);
@@ -68,9 +72,9 @@ class TransactionTypeController extends Controller
             'payload' => $request->validated(),
         ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v3');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
 
-        return (new TransactionTypeResource($type->load('offices')))->response()->setStatusCode(201);
+        return (new TransactionTypeResource($type->load('offices', 'createdByOffice')))->response()->setStatusCode(201);
     }
 
     public function update(UpdateTransactionTypeRequest $request, TransactionType $transactionType, AuditService $audit)
@@ -109,7 +113,7 @@ class TransactionTypeController extends Controller
             ]),
         ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v3');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
 
         return new TransactionTypeResource($transactionType->load('offices'));
     }
@@ -127,7 +131,7 @@ class TransactionTypeController extends Controller
             'note' => 'Soft deleted transaction type',
         ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v3');
+        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
 
         return response()->json(['message' => 'Deleted.']);
     }

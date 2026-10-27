@@ -37,9 +37,18 @@ export function useOffices() {
   }
 
   async function update(id, payload) {
-    const res = await api.put(`/api/admin/offices/${id}`, payload)
+    // PHP only parses uploaded files on POST, so multipart updates use
+    // Laravel's method spoofing instead of a raw PUT request.
+    const res = payload instanceof FormData
+      ? await api.post(`/api/admin/offices/${id}`, withMethod(payload, 'PUT'))
+      : await api.put(`/api/admin/offices/${id}`, payload)
     invalidateCache(CacheKeys.offices)
     return res.data.data ?? res.data
+  }
+
+  function withMethod(formData, method) {
+    if (!formData.has('_method')) formData.append('_method', method)
+    return formData
   }
 
   async function remove(id) {

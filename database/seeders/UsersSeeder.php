@@ -32,6 +32,8 @@ class UsersSeeder extends Seeder
                     'name' => $u['name'],
                     'password' => Hash::make('admin123'),
                     'office_id' => $officeIds[$u['office']] ?? null,
+                    // Seeded accounts never wait for approval.
+                    'approved_at' => now(),
                 ]
             );
 

@@ -55,6 +55,8 @@ class StepAccountsSeeder extends Seeder
                     'password' => Hash::make('admin123'),
                     'office_id' => $step->office_id,
                     'is_active' => true,
+                    // Seeded accounts never wait for approval.
+                    'approved_at' => now(),
                 ]);
                 $user->roles()->sync($roleIds);
 

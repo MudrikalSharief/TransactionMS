@@ -133,15 +133,37 @@
                     <h2>Data fields for this step</h2>
                     <p>{{ cardSubtitle }}</p>
                 </div>
-                <button
-                    type="button"
-                    class="sd-add"
-                    :disabled="!selectedStepId || loading || stepsLoading"
-                    @click="openAdd"
-                >
-                    <v-icon size="18">mdi-plus</v-icon>
-                    <span>Add data field</span>
-                </button>
+                <div class="sd-actions">
+                    <button
+                        type="button"
+                        class="sd-overview"
+                        :disabled="stepsLoading || !selectedStepId"
+                        v-tooltip="'All steps, one board'"
+                        @click="openOverview"
+                    >
+                        <v-icon size="18">mdi-eye-outline</v-icon>
+                        <span>Step Data Overview</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sd-previous"
+                        :disabled="!previousStep || stepsLoading"
+                        v-tooltip="'Reuse a field from the previous step'"
+                        @click="openPreviousData"
+                    >
+                        <v-icon size="18">mdi-content-copy</v-icon>
+                        <span>Previous data</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sd-add"
+                        :disabled="!selectedStepId || loading || stepsLoading"
+                        @click="openAdd"
+                    >
+                        <v-icon size="18">mdi-plus</v-icon>
+                        <span>Add data field</span>
+                    </button>
+                </div>
             </div>
 
             <div v-if="loading || stepsLoading" class="sd-loading">
@@ -394,7 +416,7 @@
                             </div>
                             <div v-else class="df-help">
                                 Type the field's system code manually in
-                                snake_case.
+                                snake_case. Spaces turn into underscores.
                             </div>
                         </div>
 
@@ -426,7 +448,18 @@
                                 <label class="df-lb" for="df-order"
                                     >Order</label
                                 >
+                                <v-select
+                                    v-if="!isEditing"
+                                    id="df-order"
+                                    v-model="form.display_order"
+                                    :items="orderSlotOptions"
+                                    variant="outlined"
+                                    density="comfortable"
+                                    hide-details
+                                    class="df-in"
+                                />
                                 <v-text-field
+                                    v-else
                                     id="df-order"
                                     v-model.number="form.display_order"
                                     type="number"
@@ -437,6 +470,10 @@
                                     hide-details
                                     class="df-in"
                                 />
+                                <div v-if="!isEditing" class="df-help">
+                                    Choose where this field appears. Later
+                                    fields shift down automatically.
+                                </div>
                             </div>
                             <div class="df-f">
                                 <label class="df-lb" for="df-min">
@@ -487,23 +524,109 @@
                             Counted in characters. Leave empty for no limit.
                         </div>
 
-                        <section class="df-sec df-sec-preview">
-                            <div class="df-sec-t">Preview</div>
-                            <div class="df-preview">
-                                <div class="df-preview-label">
-                                    {{
-                                        form.display_name?.trim() ||
-                                        "Field name"
-                                    }}
-                                    <span
-                                        v-if="form.is_required"
-                                        class="df-required"
-                                        >*</span
-                                    >
+                        <section
+                            v-if="!isEditing"
+                            class="df-sec df-carry"
+                        >
+                            <div
+                                class="cr-card"
+                                :data-on="form.carry_to_steps ? 'true' : 'false'"
+                            >
+                                <div class="cr-head">
+                                    <span class="cr-ic">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9M14 8.5l3.5 3.5-3.5 3.5"/></svg>
+                                    </span>
+                                    <div>
+                                        <b>Carry across steps</b>
+                                        <span class="cr-d">{{ carryDesc }}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="cr-sw"
+                                        role="switch"
+                                        :aria-checked="form.carry_to_steps ? 'true' : 'false'"
+                                        :disabled="!carryCan"
+                                        @click="toggleCarry"
+                                    />
                                 </div>
-                                <div class="df-preview-input">
-                                    <span>Text input</span>
-                                    <span>{{ previewMeta }}</span>
+                                <div
+                                    v-if="form.carry_to_steps"
+                                    class="cr-panel"
+                                >
+                                    <div class="cr-grid">
+                                        <div class="cr-f">
+                                            <label for="cr-df-s"
+                                                >Starts at
+                                                <span class="cr-tag"
+                                                    >Current step</span
+                                                ></label
+                                            >
+                                            <div class="cr-sel">
+                                                <select id="cr-df-s" disabled>
+                                                    <option>
+                                                        {{ carryStartLabel }}
+                                                    </option>
+                                                </select>
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                                            </div>
+                                        </div>
+                                        <div class="cr-f">
+                                            <label for="cr-df-e"
+                                                >Ends at</label
+                                            >
+                                            <div class="cr-sel">
+                                                <select
+                                                    id="cr-df-e"
+                                                    v-model="form.carry_to_step_id"
+                                                >
+                                                    <option
+                                                        v-for="opt in carryEndOptions"
+                                                        :key="opt.id"
+                                                        :value="opt.id"
+                                                    >
+                                                        {{ opt.label }}
+                                                    </option>
+                                                </select>
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="cr-wrap">
+                                        <ol class="cr-track">
+                                            <li
+                                                v-for="(node, i) in carryTrack"
+                                                :key="node.step.id"
+                                                class="cr-n"
+                                                :data-in="node.in"
+                                                :data-link="node.link"
+                                                :data-start="node.start"
+                                                :data-end="node.end"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    :title="`Step ${node.step.order_number}: ${node.step.name}`"
+                                                    :aria-disabled="node.locked ? 'true' : 'false'"
+                                                    @click="clickCarryTrack(i)"
+                                                >
+                                                    {{ i + 1 }}
+                                                </button>
+                                            </li>
+                                        </ol>
+                                    </div>
+                                    <p
+                                        v-if="carryCount"
+                                        class="cr-sum"
+                                        aria-live="polite"
+                                    >
+                                        Added to
+                                        <b>{{ carryCount }} steps</b>, from
+                                        Step {{ carryStartNum }} to Step
+                                        {{ carryEndNum }}.
+                                    </p>
+                                    <p class="cr-hint">
+                                        Every step in between is included. No
+                                        steps are skipped.
+                                    </p>
                                 </div>
                             </div>
                         </section>
@@ -532,6 +655,98 @@
                         </v-btn>
                     </v-card-actions>
                 </form>
+            </v-card>
+        </v-dialog>
+
+        <v-dialog v-model="previousOpen" max-width="620">
+            <v-card rounded="xl" class="sd-prev-card">
+                <v-card-title class="sd-prev-hd">
+                    <v-avatar
+                        color="primary"
+                        variant="tonal"
+                        rounded="lg"
+                        size="44"
+                        class="sd-prev-badge"
+                    >
+                        <v-icon>mdi-content-copy</v-icon>
+                    </v-avatar>
+                    <div class="sd-prev-hd-t">
+                        <div class="sd-prev-title">Previous data</div>
+                        <div class="sd-prev-sub">
+                            Select a data field from
+                            {{ previousStep?.name || "the previous step" }} to
+                            reuse it in {{ selectedStep?.name || "this step" }}.
+                        </div>
+                    </div>
+                    <v-btn
+                        icon="mdi-close"
+                        variant="text"
+                        size="small"
+                        class="sd-prev-x"
+                        aria-label="Close previous data"
+                        @click="previousOpen = false"
+                    />
+                </v-card-title>
+
+                <v-divider />
+                <v-card-text class="sd-prev-bd">
+                    <v-alert
+                        v-if="previousError"
+                        type="error"
+                        variant="tonal"
+                        density="compact"
+                        class="mb-4"
+                    >
+                        {{ previousError }}
+                    </v-alert>
+                    <div v-if="previousLoading" class="sd-prev-load">
+                        <TableLoader
+                            compact
+                            label="previous data"
+                            icon="mdi-text-box-outline"
+                        />
+                    </div>
+                    <div
+                        v-else-if="previousRows.length"
+                        class="sd-prev-list"
+                    >
+                        <div
+                            v-for="item in previousRows"
+                            :key="
+                                String(item.client_id ?? item.id ?? item.code)
+                            "
+                            class="sd-prev-item"
+                        >
+                            <div class="sd-prev-name">
+                                <b>{{ item.display_name }}</b>
+                                <span>{{ item.code || "No code" }}</span>
+                            </div>
+                            <button
+                                type="button"
+                                class="sd-prev-add"
+                                :disabled="isFieldOnStep(item)"
+                                @click="addPreviousDataField(item)"
+                            >
+                                <v-icon size="16">
+                                    {{
+                                        isFieldOnStep(item)
+                                            ? "mdi-check"
+                                            : "mdi-plus"
+                                    }}
+                                </v-icon>
+                                {{
+                                    isFieldOnStep(item)
+                                        ? "Added"
+                                        : "Add to step"
+                                }}
+                            </button>
+                        </div>
+                    </div>
+                    <div v-else class="sd-prev-empty">
+                        {{ previousStep?.name || "The previous step" }} has no
+                        data fields to reuse.
+                    </div>
+                </v-card-text>
             </v-card>
         </v-dialog>
     </div>
@@ -578,6 +793,23 @@ function goBack() {
     if (target > 0)
         router.push({ path: "/admin/workflows", query: { type: target } });
     else router.push("/admin/workflows");
+}
+
+function openOverview() {
+    const wid = workflowDefinitionId.value;
+    const sid =
+        Number.isFinite(stepIdFromUrl.value) && stepIdFromUrl.value > 0
+            ? stepIdFromUrl.value
+            : Number(selectedStepId?.value);
+
+    if (!Number.isFinite(wid) || wid <= 0) return;
+    if (!Number.isFinite(sid) || sid <= 0) return;
+
+    router.push({
+        name: "admin.step-data-overview",
+        params: { workflowId: wid, stepId: sid },
+        query: route.query,
+    });
 }
 
 const workflowDefinitionId = computed(() => Number(route.params.workflowId));
@@ -636,6 +868,104 @@ const stepOptions = computed(() =>
     })),
 );
 
+// Carry-in-steps range: current step through the chosen ending step.
+const orderedSteps = computed(() =>
+    [...steps.value].sort(
+        (a, b) =>
+            Number(a.order_number ?? 0) - Number(b.order_number ?? 0) ||
+            Number(a.id ?? 0) - Number(b.id ?? 0),
+    ),
+);
+
+const selectedStepIndex = computed(() =>
+    orderedSteps.value.findIndex(
+        (s) => String(s.id) === String(selectedStepId.value),
+    ),
+);
+
+const carryStepOptions = computed(() =>
+    selectedStepIndex.value < 0
+        ? []
+        : orderedSteps.value.slice(selectedStepIndex.value).map((step) => ({
+              id: step.id,
+              label: `Step ${step.order_number}: ${step.name}`,
+          })),
+);
+
+// ---- Carry-across-steps card (mockup "CarryRange", rendering only) ----
+const carryCan = computed(
+    () =>
+        selectedStepIndex.value >= 0 &&
+        selectedStepIndex.value < orderedSteps.value.length - 1,
+);
+
+const carryDesc = computed(() => {
+    if (!carryCan.value)
+        return "This is the last step, so there are no later steps to add it to.";
+    return form.value.carry_to_steps
+        ? "Added to a range of steps"
+        : "Add this data field to every step in a range";
+});
+
+const carryStartLabel = computed(
+    () => carryStepOptions.value[0]?.label ?? "",
+);
+
+// "Ends at" only offers steps after the current one (mockup behavior).
+const carryEndOptions = computed(() => carryStepOptions.value.slice(1));
+
+const carryEndIndex = computed(() =>
+    orderedSteps.value.findIndex(
+        (step) =>
+            Number(step.id) === Number(form.value.carry_to_step_id ?? -1),
+    ),
+);
+
+const carryStartNum = computed(
+    () => orderedSteps.value[selectedStepIndex.value]?.order_number ?? "",
+);
+
+const carryEndNum = computed(
+    () => orderedSteps.value[carryEndIndex.value]?.order_number ?? "",
+);
+
+const carryCount = computed(() =>
+    form.value.carry_to_steps && carryEndIndex.value > selectedStepIndex.value
+        ? carryEndIndex.value - selectedStepIndex.value + 1
+        : 0,
+);
+
+const carryTrack = computed(() => {
+    const on = form.value.carry_to_steps;
+    return orderedSteps.value.map((step, i) => {
+        const inRange =
+            on &&
+            selectedStepIndex.value >= 0 &&
+            i >= selectedStepIndex.value &&
+            i <= carryEndIndex.value;
+        return {
+            step,
+            in: inRange ? "1" : "0",
+            link:
+                on && inRange && i > selectedStepIndex.value ? "1" : "0",
+            start: i === selectedStepIndex.value ? "1" : "0",
+            end: on && inRange && i === carryEndIndex.value ? "1" : "0",
+            locked: i <= selectedStepIndex.value,
+        };
+    });
+});
+
+function toggleCarry() {
+    if (!carryCan.value) return;
+    form.value.carry_to_steps = !form.value.carry_to_steps;
+}
+
+function clickCarryTrack(i) {
+    if (i <= selectedStepIndex.value) return;
+    const step = orderedSteps.value[i];
+    if (step) form.value.carry_to_step_id = step.id;
+}
+
 const sortedItems = computed(() =>
     [...(items.value || [])].sort(
         (a, b) =>
@@ -643,6 +973,27 @@ const sortedItems = computed(() =>
             String(a.id).localeCompare(String(b.id)),
     ),
 );
+
+// Order slots for the Add dialog, starting at 1: options run 1..N+1,
+// where N equals the number of fields on the step (count+1 appends last).
+const orderSlotOptions = computed(() => {
+    const count = sortedItems.value.length;
+    return Array.from({ length: count + 1 }, (_, i) => {
+        const slot = i + 1;
+        return {
+            title: orderSlotLabel(slot, count),
+            value: slot,
+        };
+    });
+});
+
+function orderSlotLabel(slot, count) {
+    if (!count || slot <= 1) return "1 (First)";
+    if (slot > count) return `${slot} (Last)`;
+    const occupant = sortedItems.value[slot - 1];
+    if (!occupant?.display_name) return String(slot);
+    return `${slot} — in front of "${occupant.display_name}"`;
+}
 
 function isNewStepData(item) {
     return typeof item?.id === "string";
@@ -880,6 +1231,8 @@ const form = ref({
     display_order: 0,
     min_length: null,
     max_length: null,
+    carry_to_steps: false,
+    carry_to_step_id: null,
 });
 const fieldErrors = ref({ display_name: "", code: "", lengths: "" });
 const nameField = ref(null);
@@ -899,7 +1252,15 @@ function onDisplayNameInput() {
     if (fieldErrors.value.display_name) fieldErrors.value.display_name = "";
 }
 
-function onCodeInput() {
+function clearLengthError() {
+    if (fieldErrors.value.lengths) fieldErrors.value.lengths = "";
+}
+
+function onCodeInput(value) {
+    // Typed spaces become underscores so snake_case is kept while typing.
+    if (value && /\s/.test(value)) {
+        form.value.code = String(value).replace(/\s+/g, "_");
+    }
     if (fieldErrors.value.code) fieldErrors.value.code = "";
 }
 
@@ -910,20 +1271,6 @@ function focusName() {
 function clearFieldErrors() {
     fieldErrors.value = { display_name: "", code: "", lengths: "" };
 }
-
-function clearLengthError() {
-    if (fieldErrors.value.lengths) fieldErrors.value.lengths = "";
-}
-
-const previewMeta = computed(() => {
-    const max = optionalInt(form.value.max_length);
-    if (max !== null && !Number.isNaN(max)) return `0/${max}`;
-
-    const min = optionalInt(form.value.min_length);
-    if (min !== null && !Number.isNaN(min)) return `min ${min}`;
-
-    return "";
-});
 
 function validateForm() {
     const name = form.value.display_name?.trim() || "";
@@ -993,9 +1340,14 @@ function openAdd() {
         display_name: "",
         code: "",
         is_required: false,
-        display_order: items.value.length,
+        display_order: items.value.length + 1,
         min_length: null,
         max_length: null,
+        carry_to_steps: false,
+        // Preselect the last step, same as the requirement carry section.
+        carry_to_step_id:
+            orderedSteps.value[orderedSteps.value.length - 1]?.id ??
+            selectedStepId.value,
     };
     dialog.value = true;
 }
@@ -1011,6 +1363,8 @@ function openEdit(item) {
         display_order: item.display_order ?? 0,
         min_length: item.min_length ?? null,
         max_length: item.max_length ?? null,
+        carry_to_steps: false,
+        carry_to_step_id: null,
     };
     dialog.value = true;
 }
@@ -1027,7 +1381,219 @@ function cleanPayload() {
     };
 }
 
-function saveForm() {
+function newFieldRow(payload, displayOrder) {
+    const key = tmpKey();
+    return {
+        id: key,
+        client_id: key,
+        source_id: null,
+        original_code: null,
+        type: "text",
+        ...payload,
+        display_order: Number(displayOrder ?? 0),
+    };
+}
+
+// Add dialog: the chosen Order slot is a 1-based insertion position. The
+// new field is spliced in there and every row is renumbered 1..N
+// afterwards, so a duplicate order number can never exist (legacy 0-based
+// or duplicated orders normalize too).
+function insertNewFieldRow(payload) {
+    const sorted = [...(items.value || [])].sort((a, b) =>
+        Number(a.display_order ?? 0) - Number(b.display_order ?? 0) ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+    const slot = Math.min(
+        Math.max(Number(form.value.display_order ?? sorted.length + 1), 1),
+        sorted.length + 1,
+    );
+    sorted.splice(slot - 1, 0, newFieldRow(payload, slot));
+    items.value = sorted.map((row, index) => ({
+        ...row,
+        display_order: index + 1,
+    }));
+}
+
+// Previous data: reuse a field from the step right before the selected one.
+const previousOpen = ref(false);
+const previousLoading = ref(false);
+const previousError = ref("");
+const previousRows = ref([]);
+let previousLoadToken = 0;
+
+const previousStep = computed(() =>
+    selectedStepIndex.value > 0
+        ? orderedSteps.value[selectedStepIndex.value - 1]
+        : null,
+);
+
+function isFieldOnStep(item) {
+    return (items.value || []).some(
+        (row) =>
+            String(row.code || "").toLowerCase() ===
+            String(item.code || "").toLowerCase(),
+    );
+}
+
+async function openPreviousData() {
+    const sourceStep = previousStep.value;
+    if (!sourceStep || !selectedStepId.value) return;
+
+    const token = ++previousLoadToken;
+    previousOpen.value = true;
+    previousLoading.value = true;
+    previousError.value = "";
+    previousRows.value = [];
+
+    try {
+        let rows = stagedRowsFor(sourceStep.id);
+        if (!Array.isArray(rows)) {
+            const res = await api.get(
+                `/api/admin/workflow-definitions/${workflowDefinitionId.value}/steps/${sourceStep.id}/step-data`,
+            );
+            const serverRows = res.data?.data ?? res.data ?? [];
+            if (!Array.isArray(serverRows)) {
+                throw new Error("Previous step data fields were invalid.");
+            }
+            if (typeId.value) {
+                staging.ensureStepDataVersion(
+                    typeId.value,
+                    workflowDefinitionId.value,
+                    defUpdatedAt.value,
+                );
+                staging.seedStepData(
+                    typeId.value,
+                    workflowDefinitionId.value,
+                    defUpdatedAt.value,
+                    sourceStep.id,
+                    serverRows.map((row) => ({ ...row })),
+                );
+            }
+            rows = serverRows;
+        }
+
+        if (token !== previousLoadToken) return;
+        previousRows.value = rows.map((row) => ({ ...row }));
+    } catch (e) {
+        if (token === previousLoadToken) {
+            previousError.value =
+                e?.response?.data?.message ||
+                e?.message ||
+                "Failed to load previous step data fields.";
+        }
+    } finally {
+        if (token === previousLoadToken) previousLoading.value = false;
+    }
+}
+
+function addPreviousDataField(item) {
+    if (isFieldOnStep(item)) return;
+    if (!typeId.value || !selectedStepId.value) return;
+
+    // Append after the current highest order, then renumber 1..N so no
+    // duplicate order numbers can exist.
+    const sorted = [...(items.value || [])].sort((a, b) =>
+        Number(a.display_order ?? 0) - Number(b.display_order ?? 0) ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+    const nextOrder =
+        sorted.reduce(
+            (max, row) => Math.max(max, Number(row.display_order ?? 0) || 0),
+            0,
+        ) + 1;
+    const key = tmpKey();
+    sorted.push({
+        id: key,
+        client_id: key,
+        source_id: item.source_id ?? null,
+        original_code: item.original_code ?? item.code ?? null,
+        type: item.type ?? "text",
+        display_name: item.display_name ?? "",
+        code: item.code ?? "",
+        is_required: !!item.is_required,
+        min_length: item.min_length ?? null,
+        max_length: item.max_length ?? null,
+        display_order: nextOrder,
+    });
+    items.value = sorted.map((row, index) => ({
+        ...row,
+        display_order: index + 1,
+    }));
+    stageStepData();
+    toastSuccess(`Field "${item.display_name}" added to this step.`);
+}
+
+// Stage the field on every step from the current one through the chosen
+// ending step. Steps with staged rows use those as-is; the rest are
+// fetched and seeded first so the later save diffs cleanly.
+async function carryFieldToSteps(payload) {
+    const wid = workflowDefinitionId.value;
+    const startIndex = selectedStepIndex.value;
+    const endIndex = orderedSteps.value.findIndex(
+        (step) => String(step.id) === String(form.value.carry_to_step_id),
+    );
+    if (startIndex < 0 || endIndex < startIndex) {
+        throw new Error("Choose a valid ending step for this range.");
+    }
+
+    const rangeSteps = orderedSteps.value.slice(startIndex, endIndex + 1);
+    for (const step of rangeSteps) {
+        if (Number(step.id) === Number(selectedStepId.value)) continue;
+
+        const stepId = Number(step.id);
+        let rows = stagedRowsFor(stepId);
+        if (!Array.isArray(rows)) {
+            const res = await api.get(
+                `/api/admin/workflow-definitions/${wid}/steps/${stepId}/step-data`,
+            );
+            const serverRows = res.data?.data ?? res.data ?? [];
+            if (!Array.isArray(serverRows)) {
+                throw new Error(
+                    `Data fields for step "${step.name}" were invalid.`,
+                );
+            }
+            if (typeId.value) {
+                staging.seedStepData(
+                    typeId.value,
+                    wid,
+                    defUpdatedAt.value,
+                    stepId,
+                    serverRows.map((row) => ({ ...row })),
+                );
+            }
+            rows = serverRows;
+        }
+
+        if (
+            rows.some(
+                (row) =>
+                    String(row.code || "").toLowerCase() ===
+                    String(payload.code).toLowerCase(),
+            )
+        ) {
+            continue;
+        }
+        if (!typeId.value) continue;
+
+        // Append after the step's current highest order, so it stays the
+        // last field whether that step's rows are 0-based (legacy) or
+        // already 1-based.
+        const nextOrder =
+            rows.reduce(
+                (max, row) =>
+                    Math.max(max, Number(row.display_order ?? 0) || 0),
+                0,
+            ) + 1;
+        staging.setStepData(typeId.value, stepId, [
+            ...rows,
+            newFieldRow(payload, nextOrder),
+        ]);
+    }
+
+    return rangeSteps;
+}
+
+async function saveForm() {
     if (formSaving.value) return;
     if (!selectedStepId.value) {
         formError.value = "Pick a step first.";
@@ -1043,33 +1609,36 @@ function saveForm() {
     formError.value = "";
     const wasEditing = !!editingId.value;
     const payload = cleanPayload();
-    if (wasEditing) {
-        items.value = (items.value || []).map((row) =>
-            String(row.id) === String(editingId.value)
-                ? { ...row, ...payload }
-                : row,
-        );
-    } else {
-        const key = tmpKey();
-        items.value = [
-            ...(items.value || []),
-            {
-                id: key,
-                client_id: key,
-                source_id: null,
-                original_code: null,
-                type: "text",
-                ...payload,
-            },
-        ];
+    formSaving.value = true;
+    try {
+        if (wasEditing) {
+            items.value = (items.value || []).map((row) =>
+                String(row.id) === String(editingId.value)
+                    ? { ...row, ...payload }
+                    : row,
+            );
+            stageStepData();
+            dialog.value = false;
+            toastSuccess(`Field "${payload.display_name}" updated.`);
+        } else {
+            const rangeSteps = form.value.carry_to_steps
+                ? await carryFieldToSteps(payload)
+                : null;
+            insertNewFieldRow(payload);
+            stageStepData();
+            dialog.value = false;
+            toastSuccess(
+                rangeSteps && rangeSteps.length > 1
+                    ? `Field "${payload.display_name}" added to ${rangeSteps.length} steps.`
+                    : `Field "${payload.display_name}" added.`,
+            );
+        }
+    } catch (e) {
+        formError.value =
+            e?.message || "Failed to stage the field. Please try again.";
+    } finally {
+        formSaving.value = false;
     }
-    stageStepData();
-    dialog.value = false;
-    toastSuccess(
-        wasEditing
-            ? `Field "${payload.display_name}" updated.`
-            : `Field "${payload.display_name}" added.`,
-    );
 }
 
 async function loadSteps() {
@@ -1159,6 +1728,10 @@ async function loadItems() {
 }
 
 watch(selectedStepId, async (id, previous) => {
+    if (String(id) !== String(previous)) {
+        previousOpen.value = false;
+        previousLoadToken += 1;
+    }
     if (!id) {
         itemsRequest += 1;
         items.value = [];
@@ -1562,7 +2135,6 @@ onBeforeUnmount(() => {
     flex: none;
     gap: 8px;
     height: 44px;
-    margin-left: auto;
     padding: 0 18px;
     border: 0;
     border-radius: 0;
@@ -1583,6 +2155,213 @@ onBeforeUnmount(() => {
 .sd-add:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.sd-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex: none;
+}
+
+.sd-overview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 8px;
+    height: 44px;
+    padding: 0 18px;
+    border: 1.5px solid rgba(var(--v-theme-primary), 0.42);
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
+}
+
+.sd-overview:hover:not(:disabled) {
+    border-color: rgba(var(--v-theme-primary), 0.65);
+    background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.sd-overview:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sd-overview:focus-visible {
+    outline: 3px solid rgba(var(--v-theme-primary), 0.28);
+    outline-offset: 2px;
+}
+
+.sd-previous {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    border: 1.5px solid rgba(var(--v-theme-primary), 0.42);
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        opacity 0.15s;
+}
+
+.sd-previous:hover:not(:disabled) {
+    border-color: rgba(var(--v-theme-primary), 0.65);
+    background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.sd-previous:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sd-previous:focus-visible {
+    outline: 3px solid rgba(var(--v-theme-primary), 0.28);
+    outline-offset: 2px;
+}
+
+.sd-prev-card {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow: hidden;
+}
+
+.sd-prev-hd {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 22px 24px 14px;
+}
+
+.sd-prev-badge {
+    flex: none;
+}
+
+.sd-prev-hd-t {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.sd-prev-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+.sd-prev-sub {
+    margin-top: 3px;
+    font-size: 14px;
+    color: rgb(var(--v-theme-secondary));
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.sd-prev-x {
+    margin-left: auto;
+    flex: none;
+}
+
+.sd-prev-bd {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 4px 24px 10px;
+    overflow-y: auto;
+}
+
+.sd-prev-load {
+    display: flex;
+    align-items: center;
+    min-height: 240px;
+}
+
+.sd-prev-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sd-prev-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+
+.sd-prev-name {
+    min-width: 0;
+}
+
+.sd-prev-name b {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.sd-prev-name span {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 4px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 12.5px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.sd-prev-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    gap: 6px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid rgba(var(--v-theme-primary), 0.42);
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.sd-prev-add:hover:not(:disabled) {
+    background: rgba(var(--v-theme-primary), 0.07);
+}
+
+.sd-prev-add:disabled {
+    opacity: 0.65;
+    cursor: default;
+}
+
+.sd-prev-empty {
+    padding: 22px 12px;
+    color: rgb(var(--v-theme-secondary));
+    text-align: center;
 }
 
 .sd-loading {
@@ -2063,67 +2842,332 @@ onBeforeUnmount(() => {
     margin-top: 8px;
 }
 
-.df-sec-preview {
-    margin: 16px 0 6px;
+.df-carry {
+    --cr-blue: rgb(var(--v-theme-primary));
+    --cr-blue-d: rgba(var(--v-theme-primary), 0.85);
+    --cr-blue-bg: rgba(var(--v-theme-primary), 0.12);
+    --cr-ink: rgb(var(--v-theme-on-surface));
+    --cr-muted: rgb(var(--v-theme-secondary));
+    --cr-line: rgba(var(--v-border-color), var(--v-border-opacity));
+    --cr-field: #f4f6fb;
+    --cr-panel: #fff;
+    --cr-ring: rgba(var(--v-theme-primary), 0.28);
+    color: var(--cr-ink);
 }
 
-.df-sec-t {
+.df-carry .cr-card {
+    border: 1.5px solid var(--cr-line);
+    border-radius: 16px;
+    background: var(--cr-panel);
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.df-carry .cr-card[data-on="true"] {
+    border-color: var(--cr-blue);
+}
+
+.df-carry .cr-head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin: 0 0 12px;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--v-theme-secondary));
-}
-
-.df-sec-t::after {
-    flex: 1;
-    height: 1px;
-    background: rgba(var(--v-border-color), var(--v-border-opacity));
-    content: "";
-}
-
-.df-preview {
+    gap: 14px;
     padding: 14px;
-    border: 1.5px dashed rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 14px;
 }
 
-.df-preview-label {
-    margin-bottom: 8px;
+.df-carry .cr-ic {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--cr-blue-bg);
+    color: var(--cr-blue);
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.df-carry .cr-ic svg {
+    width: 20px;
+    height: 20px;
+}
+
+.df-carry .cr-head b {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 700;
+}
+
+.df-carry .cr-d {
+    display: block;
+    font-size: 12.5px;
+    color: var(--cr-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.df-carry .cr-sw {
+    margin-left: auto;
+    width: 48px;
+    height: 28px;
+    min-width: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 99px;
+    background: #8b95aa;
+    position: relative;
+    flex: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.df-carry .cr-sw::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+.df-carry .cr-sw[aria-checked="true"] {
+    background: #1b7a3d;
+}
+
+.df-carry .cr-sw[aria-checked="true"]::after {
+    transform: translateX(20px);
+}
+
+.df-carry .cr-sw:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.df-carry .cr-sw:focus-visible {
+    outline: 3px solid var(--cr-ring);
+    outline-offset: 2px;
+}
+
+.df-carry .cr-panel {
+    padding: 0 14px 16px;
+    border-top: 1px solid var(--cr-line);
+    background: var(--cr-field);
+    animation: cr-in 0.2s ease-out;
+}
+
+@keyframes cr-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.df-carry .cr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding-top: 14px;
+}
+
+.df-carry .cr-f label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 6px;
+}
+
+.df-carry .cr-tag {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cr-blue);
+    background: var(--cr-blue-bg);
+    border-radius: 99px;
+    padding: 2px 8px;
+}
+
+.df-carry .cr-sel {
+    position: relative;
+}
+
+.df-carry .cr-sel select {
+    width: 100%;
+    height: 46px;
+    border: 1.5px solid var(--cr-line);
+    border-radius: 12px;
+    background: var(--cr-panel);
+    color: var(--cr-ink);
+    font: inherit;
     font-size: 14px;
     font-weight: 600;
-    word-break: break-word;
+    padding: 0 38px 0 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    text-overflow: ellipsis;
 }
 
-.df-preview-input {
+.df-carry .cr-sel select:hover:not(:disabled) {
+    border-color: #aab4cc;
+}
+
+.df-carry .cr-sel select:focus {
+    outline: none;
+    border-color: var(--cr-blue);
+    box-shadow: 0 0 0 4px var(--cr-ring);
+}
+
+.df-carry .cr-sel select:disabled {
+    background: transparent;
+    border-style: dashed;
+    color: var(--cr-muted);
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+.df-carry .cr-sel svg {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    transform: translateY(-50%);
+    color: var(--cr-muted);
+    pointer-events: none;
+}
+
+.df-carry .cr-wrap {
+    overflow-x: auto;
+    padding: 16px 2px 10px;
+    margin: 0 -2px;
+}
+
+.df-carry .cr-track {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    height: 44px;
-    padding: 0 14px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 12px;
-    background: #f4f6fb;
-    color: rgb(var(--v-theme-secondary));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: max-content;
+}
+
+.df-carry .cr-n {
+    display: flex;
+    align-items: center;
+}
+
+.df-carry .cr-n + .cr-n::before {
+    content: "";
+    width: 12px;
+    height: 3px;
+    background: var(--cr-line);
+    flex: none;
+    transition: background 0.2s;
+}
+
+.df-carry .cr-n[data-link="1"]::before {
+    background: var(--cr-blue);
+}
+
+.df-carry .cr-n button {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1.5px solid var(--cr-line);
+    background: var(--cr-panel);
+    color: var(--cr-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 0;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s,
+        transform 0.1s;
+}
+
+.df-carry .cr-n button:hover:not([aria-disabled="true"]) {
+    border-color: var(--cr-blue);
+    color: var(--cr-blue);
+}
+
+.df-carry .cr-n button[aria-disabled="true"] {
+    cursor: default;
+}
+
+.df-carry .cr-n[data-in="1"] button {
+    background: var(--cr-blue);
+    border-color: var(--cr-blue);
+    color: #fff;
+}
+
+.df-carry .cr-n[data-in="1"] button:hover:not([aria-disabled="true"]) {
+    background: var(--cr-blue-d);
+    color: #fff;
+}
+
+.df-carry .cr-n[data-end="1"] button,
+.df-carry .cr-n[data-start="1"] button {
+    box-shadow: 0 0 0 3px var(--cr-ring);
+}
+
+.df-carry .cr-n button:focus-visible {
+    outline: 3px solid var(--cr-ring);
+    outline-offset: 2px;
+}
+
+.df-carry .cr-sum {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.df-carry .cr-sum b {
+    color: var(--cr-blue);
+}
+
+.df-carry .cr-hint {
+    margin: 4px 0 0;
     font-size: 12.5px;
+    color: var(--cr-muted);
+    line-height: 1.45;
 }
 
-.df-preview-input span:first-child {
-    margin-right: auto;
-    color: #7b869e;
+html.dark .df-carry {
+    --cr-blue: #93c5fd;
+    --cr-blue-d: #bfdbfe;
+    --cr-blue-bg: rgba(147, 197, 253, 0.14);
+    --cr-field: #1c2645;
+    --cr-panel: #232b45;
+    --cr-ring: rgba(147, 197, 253, 0.28);
 }
 
-.df-preview-input span:last-child {
-    white-space: nowrap;
+html.dark .df-carry .cr-sw[aria-checked="true"] {
+    background: #3fbf6f;
 }
 
-.df-preview-input span:last-child:empty {
-    display: none;
+html.dark .df-carry .cr-n[data-in="1"] button,
+html.dark .df-carry .cr-n[data-in="1"] button:hover:not([aria-disabled="true"]) {
+    color: #0e1424;
+}
+
+@media (max-width: 420px) {
+    .df-carry .cr-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .df-ft {
@@ -2211,14 +3255,6 @@ html.dark .df-in :deep(.v-field) {
 html.dark .df-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
     box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.22);
-}
-
-html.dark .df-preview-input {
-    background: #232b45;
-}
-
-html.dark .df-preview-input span:first-child {
-    color: #9aa7c4;
 }
 
 @media (min-width: 1200px) {
