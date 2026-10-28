@@ -20,6 +20,7 @@
                         :is-last="isLast(i)"
                         :detail="detailFor(s)"
                         :move="moveFor(s)"
+                        :viewer="viewer"
                     />
                     <div
                         v-if="i < ordered.length - 1"
@@ -40,6 +41,7 @@
                                 :is-last="isLast(i)"
                                 :detail="detailFor(s)"
                                 :move="moveFor(s)"
+                                :viewer="viewer"
                                 :data-node="i"
                             />
                             <div
@@ -87,6 +89,8 @@ const props = defineProps({
     // Visited stations behind current read green (done); visited stations
     // ahead read yellow (passed); never-visited ahead stay grey.
     visitedStepIds: { type: Array, default: () => [] },
+    // Viewer tracking page: hover card shows office and time only.
+    viewer: { type: Boolean, default: false },
 })
 
 const visitedSet = computed(() => new Set((props.visitedStepIds || []).map((v) => String(v))))

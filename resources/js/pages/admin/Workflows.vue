@@ -1518,7 +1518,7 @@
                         </div>
                         <div class="sv-chips">
                             <v-menu
-                                v-for="chip in stagedCounts"
+                                v-for="chip in visibleCounts"
                                 :key="chip.key"
                                 open-on-hover
                                 open-on-focus
@@ -2514,7 +2514,7 @@ const stepHeaders = [
     },
     { title: "End user", key: "is_end_user", sortable: false, width: "8%" },
     { title: "Roles", key: "role_ids", sortable: false, width: "9.5%" },
-    { title: "Flags", key: "flags", sortable: false, width: "8%" },
+    { title: "Start/End", key: "flags", sortable: false, width: "8%" },
     { title: "", key: "actions", sortable: false, width: "19%", align: "end" },
 ];
 
@@ -2976,6 +2976,12 @@ const stagedCounts = computed(() => {
 });
 const stagedChangeTotal = computed(() =>
     stagedCounts.value.reduce((total, chip) => total + chip.count, 0),
+);
+// Same as SaveVersionDialog: Checklists and Field assignments chips are
+// hidden, but their changes still count toward the total.
+const HIDDEN_CHIPS = ["checklists", "fields"];
+const visibleCounts = computed(() =>
+    stagedCounts.value.filter((chip) => !HIDDEN_CHIPS.includes(chip.key)),
 );
 
 function changeKindLabel(kind) {

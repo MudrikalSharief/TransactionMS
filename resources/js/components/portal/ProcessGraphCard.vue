@@ -2,9 +2,9 @@
     <!-- Same weekly per-process graph as the admin dashboard, limited to what
          the server lets this account see: its office's transactions plus
          rows waiting on one of its roles at its office. -->
-    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="width: 100%">
-        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 graph-head">
-            <v-avatar color="white" rounded="0" size="40" class="mr-3 graph-avatar">
+    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
+        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 lgu-head">
+            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
                 <v-icon color="#005EED" size="24">mdi-chart-bar</v-icon>
             </v-avatar>
             <span class="text-subtitle-1 font-weight-bold">{{ title }}</span>
@@ -13,9 +13,10 @@
                 v-model="period"
                 :items="monthOptions"
                 label="Month"
+                prepend-inner-icon="mdi-calendar-blank-outline"
                 variant="outlined"
                 density="compact"
-                rounded="0"
+                rounded="lg"
                 hide-details
                 class="graph-filter"
             />
@@ -25,9 +26,10 @@
                 label="Process"
                 placeholder="All processes"
                 persistent-placeholder
+                prepend-inner-icon="mdi-swap-horizontal"
                 variant="outlined"
                 density="compact"
-                rounded="0"
+                rounded="lg"
                 hide-details
                 multiple
                 clearable
@@ -221,14 +223,6 @@ const ariaLabel = computed(() =>
 </script>
 
 <style scoped>
-.graph-head {
-    background: transparent;
-    border-bottom: 4px solid rgb(var(--v-theme-primary));
-    border-image: var(--tms-grad-h) 1;
-}
-.graph-avatar {
-    border: 2px solid rgb(var(--v-theme-primary));
-}
 .graph-filter {
     flex: 0 1 240px;
     min-width: 160px;

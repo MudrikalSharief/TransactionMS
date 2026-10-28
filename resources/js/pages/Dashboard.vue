@@ -1,15 +1,60 @@
 <template>
     <div>
-        <div v-if="layoutChanged" class="d-flex justify-end mb-1">
-            <v-btn
-                variant="text"
-                size="small"
-                color="grey-darken-3"
-                prepend-icon="mdi-restore"
-                @click="resetLayout"
-            >
-                Reset layout
-            </v-btn>
+        <div class="dash-hello">
+            <div class="dash-hello-text">
+                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
+                <div class="dash-hello-sub">
+                    <v-icon size="15">mdi-calendar-today</v-icon>{{ todayLabel }}
+                    <template v-if="scopeLabel"><span class="dash-hello-dot" />{{ scopeLabel }}</template>
+                    <template v-if="refreshedLabel"><span class="dash-hello-dot" />Updated {{ refreshedLabel }}</template>
+                </div>
+            </div>
+            <div class="dash-hello-actions">
+                <template v-if="canSeeSummary">
+                    <v-select
+                        v-model="summaryPeriod"
+                        :items="periodOptions"
+                        label="Period"
+                        prepend-inner-icon="mdi-calendar-range"
+                        variant="outlined"
+                        density="compact"
+                        rounded="lg"
+                        hide-details
+                        class="dash-filter"
+                    />
+                    <v-select
+                        v-if="isSuperadmin"
+                        v-model="officeFilter"
+                        :items="officeOptions"
+                        label="Offices"
+                        placeholder="All offices"
+                        persistent-placeholder
+                        prepend-inner-icon="mdi-office-building-outline"
+                        variant="outlined"
+                        density="compact"
+                        rounded="lg"
+                        hide-details
+                        multiple
+                        clearable
+                        class="dash-filter"
+                    >
+                        <template v-slot:selection="{ item }">
+                            <v-chip size="small" variant="tonal" class="mr-1">{{ item.raw.code }}</v-chip>
+                        </template>
+                    </v-select>
+                </template>
+                <v-btn
+                    v-if="layoutChanged"
+                    variant="tonal"
+                    size="small"
+                    color="primary"
+                    rounded="pill"
+                    prepend-icon="mdi-restore"
+                    @click="resetLayout"
+                >
+                    Reset layout
+                </v-btn>
+            </div>
         </div>
         <!-- Cards render in the user's saved order; press-and-hold a card
              for 2s, then drag it onto another card to swap them. -->
@@ -25,9 +70,9 @@
         >
             <template v-for="id in cardOrder" :key="id">
                 <v-col v-if="id === 'graph'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 dash-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 lgu-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
                                 <v-icon color="#005EED" size="24">mdi-chart-bar</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">{{ scopeProcessTitle }}</span>
@@ -36,9 +81,10 @@
                                 v-model="graphPeriod"
                                 :items="monthOptions"
                                 label="Month"
+                                prepend-inner-icon="mdi-calendar-blank-outline"
                                 variant="outlined"
                                 density="compact"
-                                rounded="0"
+                                rounded="lg"
                                 hide-details
                                 class="process-filter mr-2"
                             />
@@ -48,9 +94,10 @@
                                 label="Process"
                                 placeholder="All processes"
                                 persistent-placeholder
+                                prepend-inner-icon="mdi-swap-horizontal"
                                 variant="outlined"
                                 density="compact"
-                                rounded="0"
+                                rounded="lg"
                                 hide-details
                                 multiple
                                 clearable
@@ -76,16 +123,45 @@
                         </v-card-text>
                     </v-card>
                 </v-col>
-                <v-col v-else-if="id === 'start'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 dash-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                <v-col v-else-if="id === 'start'" cols="12" :lg="isStaff ? 4 : 12" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card v-if="!isStaff" rounded="0" elevation="1" class="lgu-card dash-panel start-hero" style="width: 100%">
+                        <div class="start-hero-intro">
+                            <v-icon class="start-hero-rocket" size="40">mdi-rocket-launch</v-icon>
+                            <div>
+                                <div class="start-hero-title">Get Started</div>
+                                <div class="start-hero-sub">Quick access to the most important tools and resources.</div>
+                            </div>
+                        </div>
+                        <div class="start-hero-links">
+                            <div
+                                v-for="link in startLinks"
+                                :key="link.title"
+                                class="start-tile"
+                                role="button"
+                                tabindex="0"
+                                @click="link.go"
+                                @keydown.enter.prevent="link.go"
+                            >
+                                <div class="start-tile-icon" :style="{ background: link.tile }">
+                                    <v-icon color="white" size="22">{{ link.icon }}</v-icon>
+                                </div>
+                                <div class="flex-grow-1" style="min-width: 0">
+                                    <div class="start-tile-title">{{ link.title }}</div>
+                                    <div class="start-tile-sub text-truncate">{{ link.subtitle }}</div>
+                                </div>
+                                <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
+                            </div>
+                        </div>
+                    </v-card>
+                    <v-card v-else rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 lgu-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
                                 <v-icon color="#005EED" size="24">mdi-rocket-launch-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Get Started</span>
                         </v-card-title>
                         <v-divider />
-                        <v-card-text class="pa-0 d-flex flex-column" style="flex: 1 1 auto">
+                        <v-card-text class="pa-0 d-flex" :class="isStaff ? 'flex-column' : 'start-wide'" style="flex: 1 1 auto">
                             <div
                                 v-for="link in startLinks"
                                 :key="link.title"
@@ -93,7 +169,7 @@
                                 style="flex: 1 1 0"
                                 @click="link.go"
                             >
-                                <v-avatar :color="link.color" rounded="0" size="34" class="mr-3">
+                                <v-avatar :color="link.color" rounded="lg" size="38" class="mr-3">
                                     <v-icon color="white" size="20">{{ link.icon }}</v-icon>
                                 </v-avatar>
                                 <div class="flex-grow-1" style="min-width: 0">
@@ -106,126 +182,90 @@
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'summary'" cols="12" class="dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card summary-card">
-                        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 dash-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#005EED" size="24">mdi-clipboard-text-clock-outline</v-icon>
-                            </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">Transaction Summary</span>
-                            <v-spacer />
-                            <v-select
-                                v-model="summaryPeriod"
-                                :items="periodOptions"
-                                label="Period"
-                                variant="outlined"
-                                density="compact"
-                                rounded="0"
-                                hide-details
-                                class="process-filter"
-                            />
-                            <v-select
-                                v-if="isSuperadmin"
-                                v-model="officeFilter"
-                                :items="officeOptions"
-                                label="Offices"
-                                placeholder="All offices"
-                                persistent-placeholder
-                                variant="outlined"
-                                density="compact"
-                                rounded="0"
-                                hide-details
-                                multiple
-                                clearable
-                                class="process-filter"
+                    <v-card rounded="0" elevation="0" class="summary-bare">
+                        <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
+                            {{ summaryError }}
+                        </v-alert>
+                        <div class="summary-tiles" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <StatCard
+                                v-for="tile in summaryTiles"
+                                :key="tile.key"
+                                :ref="(el) => (tileEls[tile.key] = el?.$el ?? null)"
+                                :label="tile.label"
+                                :value="tile.value"
+                                :hint="tile.hint"
+                                :variant="tile.variant"
+                                :icon="tile.icon"
+                                :loading="summaryLoading && !summary"
+                                cta="Show list"
+                                @activate="openDetail(tile.key, tileEls[tile.key])"
                             >
-                                <template v-slot:selection="{ item }">
-                                    <v-chip size="small" variant="tonal" class="mr-1">{{ item.raw.code }}</v-chip>
-                                </template>
-                            </v-select>
+                                <SummaryPopover
+                                    :category="tile.key"
+                                    :query="summaryQuery"
+                                    :period-label="summaryScopeText"
+                                    :disabled="!summary"
+                                    @expand="openDetail(tile.key, tileEls[tile.key])"
+                                />
+                            </StatCard>
+                        </div>
+                    </v-card>
+                </v-col>
+                <v-col v-else-if="id === 'byprocess'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 lgu-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                                <v-icon color="#005EED" size="24">mdi-format-list-bulleted-type</v-icon>
+                            </v-avatar>
+                            <div style="min-width: 0">
+                                <div class="text-subtitle-1 font-weight-bold">By Process</div>
+                                <div class="dash-panel-sub text-truncate">{{ summaryScopeText }}</div>
+                            </div>
+                            <v-spacer />
+                            <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="goToQueue">
+                                View all
+                            </v-btn>
                         </v-card-title>
-                        <v-divider />
-                        <v-card-text class="pa-4">
-                            <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
-                                {{ summaryError }}
-                            </v-alert>
-                            <v-row :class="{ 'summary-stale': summaryLoading && summary }">
-                                <v-col cols="12" md="7">
-                                    <div class="summary-tiles">
-                                        <div
-                                            v-for="tile in summaryTiles"
-                                            :key="tile.key"
-                                            :ref="(el) => (tileEls[tile.key] = el)"
-                                            class="summary-tile"
-                                            :style="{ '--tile-accent': tile.accent }"
-                                            role="button"
-                                            tabindex="0"
-                                            :aria-label="`${tile.label}: ${tile.value}. Press Enter for the full list`"
-                                            @keydown.enter.prevent="openDetail(tile.key, tileEls[tile.key])"
-                                            @keydown.space.prevent="openDetail(tile.key, tileEls[tile.key])"
-                                        >
-                                            <SummaryPopover
-                                                :category="tile.key"
-                                                :query="summaryQuery"
-                                                :period-label="summaryScopeText"
-                                                :disabled="!summary"
-                                                @expand="openDetail(tile.key, tileEls[tile.key])"
-                                            />
-                                            <div class="d-flex align-center ga-2 summary-tile-label">
-                                                <v-icon :color="tile.color" size="20" class="summary-tile-icon">{{ tile.icon }}</v-icon>
-                                                {{ tile.label }}
-                                            </div>
-                                            <div class="summary-tile-value">
-                                                <v-progress-circular v-if="summaryLoading && !summary" indeterminate size="22" width="3" color="grey" />
-                                                <template v-else>{{ tile.value }}</template>
-                                            </div>
-                                            <div class="text-caption text-medium-emphasis">{{ tile.hint }}</div>
-                                            <div class="summary-tile-cta">
-                                                Show list <v-icon size="14">mdi-chevron-down</v-icon>
-                                            </div>
-                                        </div>
+                        <v-card-text class="pa-4 process-bars" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
+                                No transactions created in this period.
+                            </div>
+                            <div
+                                v-for="row in byProcessRows"
+                                :key="row.id"
+                                :ref="(el) => (barEls[row.id] = el)"
+                                class="process-bar-row"
+                                role="button"
+                                tabindex="0"
+                                :aria-label="`${row.name}: ${row.count} transactions. Press Enter for the full list`"
+                                @keydown.enter.prevent="openDetail('process', barEls[row.id], row)"
+                            >
+                                <SummaryPopover
+                                    category="process"
+                                    :process-id="row.id"
+                                    :process-name="`${row.name} transactions`"
+                                    :query="summaryQuery"
+                                    :period-label="summaryScopeText"
+                                    @expand="openDetail('process', barEls[row.id], row)"
+                                />
+                                <div class="bp-icon" :style="{ background: processColor(row.name) }">
+                                    <v-icon color="white" size="20">{{ processIcon(row.name) }}</v-icon>
+                                </div>
+                                <div class="bp-main">
+                                    <div class="process-bar-name text-truncate" :title="row.name">{{ row.name }}</div>
+                                    <div class="process-bar-track">
+                                        <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
                                     </div>
-                                </v-col>
-                                <v-col cols="12" md="5">
-                                    <div class="summary-tile-label mb-2">
-                                        <v-icon size="20" color="grey-darken-1">mdi-format-list-bulleted-type</v-icon>
-                                        Transactions by process
-                                    </div>
-                                    <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
-                                        No transactions created in this period.
-                                    </div>
-                                    <div
-                                        v-for="row in byProcessRows"
-                                        :key="row.id"
-                                        :ref="(el) => (barEls[row.id] = el)"
-                                        class="process-bar-row"
-                                        role="button"
-                                        tabindex="0"
-                                        :aria-label="`${row.name}: ${row.count} transactions. Press Enter for the full list`"
-                                        @keydown.enter.prevent="openDetail('process', barEls[row.id], row)"
-                                    >
-                                        <SummaryPopover
-                                            category="process"
-                                            :process-id="row.id"
-                                            :process-name="`${row.name} transactions`"
-                                            :query="summaryQuery"
-                                            :period-label="summaryScopeText"
-                                            @expand="openDetail('process', barEls[row.id], row)"
-                                        />
-                                        <div class="process-bar-name text-truncate" :title="row.name">{{ row.name }}</div>
-                                        <div class="process-bar-track">
-                                            <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
-                                        </div>
-                                        <div class="process-bar-count">{{ row.count }}</div>
-                                    </div>
-                                </v-col>
-                            </v-row>
+                                </div>
+                                <div class="process-bar-count">{{ row.count }}</div>
+                            </div>
                         </v-card-text>
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'recent'" cols="12" :lg="isStaff ? 8 : 4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 dash-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 lgu-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
                                 <v-icon color="#005EED" size="24">mdi-history</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
@@ -233,7 +273,7 @@
                             <v-btn
                                 variant="text"
                                 size="small"
-                                color="grey-darken-3"
+                                color="primary"
                                 append-icon="mdi-arrow-right"
                                 @click="goToQueue"
                             >
@@ -263,18 +303,17 @@
                                     @click="openTx(tx)"
                                 >
                                     <template v-slot:prepend>
-                                        <v-avatar color="grey-darken-3" variant="tonal" rounded="0" size="34">
-                                            <v-icon color="grey-darken-3" size="20">mdi-file-document-outline</v-icon>
-                                        </v-avatar>
+                                        <div class="row-icon" :style="tintStyle(txProcessName(tx))">
+                                            <v-icon size="20">mdi-file-document-outline</v-icon>
+                                        </div>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
                                         {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
                                     </v-list-item-title>
-                                    <v-list-item-subtitle>
-                                        {{ txSubtitle(tx) }} · {{ timeAgo(tx.created_at) }}
-                                    </v-list-item-subtitle>
+                                    <v-list-item-subtitle>{{ txSubtitle(tx) }}</v-list-item-subtitle>
                                     <template v-slot:append>
-                                        <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
+                                        <span class="row-time">{{ timeAgo(tx.created_at) }}</span>
+                                        <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
                                     </template>
                                 </v-list-item>
                             </v-list>
@@ -282,25 +321,100 @@
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'action'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 dash-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
-                                <v-icon color="#005EED" size="24">mdi-tray-full</v-icon>
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 lgu-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                                <v-icon color="#005EED" size="24">{{ isSuperadmin ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
+                            <div>
+                                <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
+                                <div v-if="isSuperadmin" class="dash-panel-sub">Accounts waiting for approval</div>
+                            </div>
                             <v-spacer />
                             <v-btn
                                 variant="text"
                                 size="small"
-                                color="grey-darken-3"
+                                color="primary"
                                 append-icon="mdi-arrow-right"
-                                @click="goToQueue"
+                                @click="isSuperadmin ? goToAccounts() : goToQueue()"
                             >
-                                My queue
+                                {{ isSuperadmin ? 'All accounts' : 'My queue' }}
                             </v-btn>
                         </v-card-title>
                         <v-divider />
-                        <v-card-text class="pa-0">
+                        <!-- Superadmin: new sign-ups to approve or reject. -->
+                        <v-card-text v-if="isSuperadmin" class="pa-0">
+                            <div v-if="accountsLoading && !pendingAccounts.length" class="d-flex align-center justify-center" style="height: 200px">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
+                            </div>
+                            <v-alert v-if="accountError" type="error" variant="tonal" rounded="0" density="compact" class="ma-4">
+                                {{ accountError }}
+                            </v-alert>
+                            <v-alert
+                                v-if="!accountsLoading && !pendingAccounts.length"
+                                type="success"
+                                variant="tonal"
+                                rounded="0"
+                                class="ma-4"
+                            >
+                                All clear — no accounts waiting for approval.
+                            </v-alert>
+                            <v-table v-else-if="pendingAccounts.length" class="action-table">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Account</th>
+                                        <th class="text-left">Office · Role</th>
+                                        <th class="text-left">Requested</th>
+                                        <th class="text-right">Approve / Reject</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="u in pendingAccounts" :key="u.id">
+                                        <td>
+                                            <div class="d-flex align-center ga-3">
+                                                <div class="row-icon account-icon">
+                                                    <v-icon size="20">mdi-account-outline</v-icon>
+                                                </div>
+                                                <div style="min-width: 0">
+                                                    <div class="font-weight-bold action-title">{{ u.name }}</div>
+                                                    <div class="text-caption text-medium-emphasis">{{ u.email }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-body-2">{{ accountScope(u) }}</td>
+                                        <td class="font-weight-bold">{{ timeAgo(u.created_at) }}</td>
+                                        <td class="text-right">
+                                            <div class="d-inline-flex ga-2">
+                                                <v-btn
+                                                    icon="mdi-check"
+                                                    size="small"
+                                                    variant="tonal"
+                                                    color="success"
+                                                    rounded="0"
+                                                    v-tooltip="'Approve: let this person sign in'"
+                                                    :aria-label="`Approve ${u.name}`"
+                                                    :loading="accountBusyId === u.id"
+                                                    :disabled="accountBusyId != null && accountBusyId !== u.id"
+                                                    @click="approveAccount(u)"
+                                                />
+                                                <v-btn
+                                                    icon="mdi-close"
+                                                    size="small"
+                                                    variant="tonal"
+                                                    color="error"
+                                                    rounded="0"
+                                                    v-tooltip="'Reject: remove this request'"
+                                                    :aria-label="`Reject ${u.name}`"
+                                                    :disabled="accountBusyId != null"
+                                                    @click="rejectAccount(u)"
+                                                />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </v-table>
+                        </v-card-text>
+                        <v-card-text v-else class="pa-0">
                             <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
@@ -319,6 +433,7 @@
                                         <th class="text-left">Transaction</th>
                                         <th class="text-left">Current Step</th>
                                         <th class="text-left">Waiting</th>
+                                        <th style="width: 40px" />
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -329,19 +444,33 @@
                                         @click="openTx(tx)"
                                     >
                                         <td>
-                                            <div class="font-weight-bold action-title">
-                                                {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
-                                            </div>
-                                            <div class="text-caption text-medium-emphasis">
-                                                {{ txSubtitle(tx) }}
+                                            <div class="d-flex align-center ga-3">
+                                                <div class="row-icon" :style="tintStyle(txProcessName(tx))">
+                                                    <v-icon size="20">{{ processIcon(txProcessName(tx)) }}</v-icon>
+                                                </div>
+                                                <div style="min-width: 0">
+                                                    <div class="font-weight-bold action-title">
+                                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                                    </div>
+                                                    <div class="text-caption text-medium-emphasis">
+                                                        {{ txSubtitle(tx) }}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td>
-                                            <v-chip size="small" variant="tonal" color="grey-darken-3" class="font-weight-bold">
+                                            <span class="step-pill" :style="tintStyle(txProcessName(tx))">
                                                 {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
-                                            </v-chip>
+                                            </span>
                                         </td>
-                                        <td class="font-weight-bold">{{ timeAgo(tx.entered_at || tx.created_at) }}</td>
+                                        <td
+                                            class="font-weight-bold"
+                                            :class="{ 'waiting-late': isPastLimit(tx) }"
+                                            :title="isPastLimit(tx) ? 'Past this station’s time limit' : undefined"
+                                        >
+                                            {{ timeAgo(tx.entered_at || tx.created_at) }}
+                                        </td>
+                                        <td class="text-right"><v-icon size="small" color="primary">mdi-chevron-right</v-icon></td>
                                     </tr>
                                 </tbody>
                             </v-table>
@@ -349,9 +478,9 @@
                     </v-card>
                 </v-col>
                 <v-col v-else-if="id === 'intransit'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 dash-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 dash-avatar">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center pa-4 lgu-head">
+                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
                                 <v-icon color="#005EED" size="24">mdi-truck-fast-outline</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold">In Transit</span>
@@ -380,18 +509,17 @@
                                     @click="openTx(tx)"
                                 >
                                     <template v-slot:prepend>
-                                        <v-avatar color="grey-darken-3" variant="tonal" rounded="0" size="34">
-                                            <v-icon color="grey-darken-3" size="20">mdi-file-document-outline</v-icon>
-                                        </v-avatar>
+                                        <div class="row-icon" :style="tintStyle(txProcessName(tx))">
+                                            <v-icon size="20">mdi-truck-fast-outline</v-icon>
+                                        </div>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
                                         {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
                                     </v-list-item-title>
-                                    <v-list-item-subtitle>
-                                        {{ transitSubtitle(tx) }} · {{ timeAgo(tx.entered_at || tx.created_at) }}
-                                    </v-list-item-subtitle>
+                                    <v-list-item-subtitle>{{ transitSubtitle(tx) }}</v-list-item-subtitle>
                                     <template v-slot:append>
-                                        <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
+                                        <span class="row-time">{{ timeAgo(tx.entered_at || tx.created_at) }}</span>
+                                        <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
                                     </template>
                                 </v-list-item>
                             </v-list>
@@ -425,10 +553,14 @@ import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
+import { useAdminUsers } from '@/composables/useAdminUsers'
+import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
+import StatCard from '@/components/StatCard.vue'
+import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
@@ -456,13 +588,29 @@ const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 // in-transit card showing where their office's papers currently sit.
 const isStaff = computed(() => !canSeeSummary.value)
 
+// ---- Greeting strip ----
+const greeting = computed(() => {
+    const h = new Date().getHours()
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+})
+const firstName = computed(() => (auth.user.value?.name || '').trim().split(/\s+/)[0] || 'there')
+const todayLabel = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+const scopeLabel = computed(() => {
+    const u = auth.user.value
+    if (isSuperadmin.value) return 'All offices'
+    return u?.office?.name || u?.office?.code || ''
+})
+const refreshedLabel = computed(() =>
+    refreshedAt.value ? refreshedAt.value.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }) : '',
+)
+
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
 // Default order; Transaction Summary is superadmin / office admin only,
 // and the staff layout swaps the graph + Get Started hero for the queue.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['summary', 'graph', 'start', 'recent', 'action']
+        return ['summary', 'graph', 'byprocess', 'action', 'recent', 'start']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
@@ -858,14 +1006,14 @@ const summaryScopeText = computed(
     () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'All time',
 )
 
-// Status tiles: the icon carries the status color, the number stays in text ink.
+// Status tiles: each card takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
     const s = summary.value || {}
-    const dark = themeMode.value === 'dark'
     return [
-        { key: 'completed', label: 'Completed', icon: 'mdi-check-circle', color: 'success', accent: dark ? '#2fa84f' : '#008300', value: s.completed ?? '—', hint: 'Finalized in this period' },
-        { key: 'in_process', label: 'In-process', icon: 'mdi-progress-clock', color: 'grey-darken-1', accent: dark ? '#3987e5' : '#2a78d6', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
-        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', color: 'warning', accent: dark ? '#e0a526' : '#c98500', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },    ]
+        { key: 'completed', label: 'Completed', icon: 'mdi-check-bold', variant: 'success', value: s.completed ?? '—', hint: 'Finalized in this period' },
+        { key: 'in_process', label: 'In-process', icon: 'mdi-timer-sand', variant: 'warning', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
+        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', variant: 'danger', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
+    ]
 })
 
 // ---- Detail pop-up: grows out of the tile / process bar that was clicked ----
@@ -944,16 +1092,16 @@ const startLinks = computed(() => {
     // Get Started shrinks to Help. The full card is the empty state.
     if (isStaff.value && scopeSource.value.length) {
         return [
-            { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', go: goToHelp },
+            { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', tile: '#0B2B66', go: goToHelp },
         ]
     }
     const links = [
-        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', go: goToHelp },
+        { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', tile: '#0B2B66', go: goToHelp },
         isSuperadmin.value
-            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#005EED', go: goToQueue }
+            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
             : isOfficeAdmin.value
-              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#005EED', go: goToQueue }
-              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', go: goToQueue },
+              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
+              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue },
     ]
     if (isOfficeAdmin.value) {
         links.push({
@@ -961,6 +1109,7 @@ const startLinks = computed(() => {
             subtitle: 'People and roles in your office',
             icon: 'mdi-account-group',
             color: '#005EED',
+            tile: '#8B5CF6',
             go: () => router.push('/office/users'),
         })
     }
@@ -970,11 +1119,18 @@ const startLinks = computed(() => {
             subtitle: 'Offices, steps, and assignments',
             icon: 'mdi-office-building-outline',
             color: '#005EED',
+            tile: '#8B5CF6',
             go: () => router.push('/admin/offices'),
         })
     }
     return links
 })
+
+// Tinted chip/icon in the process's color (same color on every card).
+function tintStyle(name) {
+    const c = processColor(name)
+    return { color: c, background: `color-mix(in srgb, ${c} 14%, transparent)` }
+}
 
 function txSubtitle(tx) {
     return [tx.reference_number, tx.transaction_type?.name || tx.transaction_type_name]
@@ -1007,6 +1163,68 @@ function goToQueue() {
     router.push('/transactions')
 }
 
+// ---- Superadmin: accounts waiting for approval (Needs My Action) ----
+const accountStore = useAdminUsers()
+const accountsLoading = computed(() => accountStore.loading.value)
+const accountBusyId = ref(null)
+const accountError = ref('')
+
+// Oldest request first, same as the transaction queue.
+const pendingAccounts = computed(() =>
+    (accountStore.users.value || [])
+        .filter((u) => u.pending_approval)
+        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)),
+)
+
+function accountScope(u) {
+    const office = u.office?.code || u.office?.name
+    const roles = (u.roles || []).map((r) => r.name || r.code).join(', ')
+    return [office, roles].filter(Boolean).join(' · ') || '—'
+}
+
+function loadAccounts(opts = {}) {
+    if (!isSuperadmin.value) return
+    return accountStore.fetchUsers(opts).catch(() => {})
+}
+
+async function approveAccount(u) {
+    accountError.value = ''
+    accountBusyId.value = u.id
+    try {
+        await accountStore.approveUser(u.id)
+        await loadAccounts({ silent: true })
+    } catch (e) {
+        accountError.value = e?.response?.data?.message || 'Approve failed.'
+    } finally {
+        accountBusyId.value = null
+    }
+}
+
+// Same wording as the Users page.
+async function rejectAccount(u) {
+    const ok = await confirm({
+        title: 'Reject this request?',
+        message: `${u.name} (${u.email}) will not get access, and the request will be removed. They can sign up again.`,
+        confirmLabel: 'Reject',
+        cancelLabel: 'Keep',
+    })
+    if (!ok) return
+    accountError.value = ''
+    accountBusyId.value = u.id
+    try {
+        await accountStore.rejectUser(u.id)
+        await loadAccounts({ silent: true })
+    } catch (e) {
+        accountError.value = e?.response?.data?.message || 'Reject failed.'
+    } finally {
+        accountBusyId.value = null
+    }
+}
+
+function goToAccounts() {
+    router.push('/admin/users')
+}
+
 function goToHelp() {
     router.push('/help')
 }
@@ -1029,6 +1247,7 @@ onMounted(async () => {
     if (isSuperadmin.value) {
         typeStore.fetchAll({ silent: true }).catch(() => {})
         officeStore.fetchAll({ silent: true }).catch(() => {})
+        loadAccounts()
     }
 
     try {
@@ -1049,6 +1268,7 @@ useSmartPoll(async () => {
         // was retired); the summary is for superadmins and office admins.
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
+        loadAccounts({ silent: true })
         refreshedAt.value = new Date()
     } catch {
         /* next tick retries */
@@ -1061,6 +1281,39 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ---- Greeting strip ---- */
+.dash-hello {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 14px;
+}
+.dash-hello-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.2;
+    color: rgb(var(--v-theme-on-surface));
+}
+.dash-hello-sub {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 0.85rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.dash-hello-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+    margin: 0 4px;
+}
+
 /* ---- Movable cards (press and hold 2s, then drag) ---- */
 /* Each card keeps its width but grows to fill its row, so no order leaves a gap. */
 .dash-col {
@@ -1078,7 +1331,118 @@ onUnmounted(() => {
 }
 /* Keep Get Started shortcut rows at their natural height so a single
    row doesn't balloon to fill the taller card; content stays top-aligned. */
-.dash-staff [data-card='start'] .start-row {
+.dash-staff [data-card='start'] /* ---- Row icons, step pills, waiting ---- */
+.row-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    margin-right: 12px;
+}
+.action-table .row-icon {
+    margin-right: 0;
+}
+.row-icon .v-icon {
+    color: inherit;
+}
+.account-icon {
+    color: #005EED;
+    background: color-mix(in srgb, #005EED 14%, transparent);
+}
+.row-time {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    margin-right: 10px;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.step-pill {
+    display: inline-block;
+    max-width: 260px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+.waiting-late {
+    color: #e5383b;
+}
+/* ---- Get Started hero strip (admin layout) ---- */
+.start-hero {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    padding: 20px 24px;
+    background: linear-gradient(100deg, #eaf2ff 0%, #f4f8ff 55%, #e2edff 100%) !important;
+}
+.start-hero-intro {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1 1 280px;
+    min-width: 0;
+}
+.start-hero-rocket {
+    color: rgb(var(--v-theme-primary));
+    transform: rotate(-12deg);
+}
+.start-hero-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: rgb(var(--v-theme-on-surface));
+}
+.start-hero-sub {
+    font-size: 0.85rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.start-hero-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    flex: 3 1 640px;
+    min-width: 0;
+}
+.start-tile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgb(var(--v-theme-surface));
+    box-shadow: 0 6px 16px -12px rgba(15, 23, 42, 0.35);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.start-tile:hover,
+.start-tile:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 22px -14px rgba(0, 94, 237, 0.55);
+    outline: none;
+}
+.start-tile-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+}
+.start-tile-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: rgb(var(--v-theme-on-surface));
+}
+.start-tile-sub {
+    font-size: 0.75rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.start-row {
     flex: 0 0 auto !important;
 }
 /* Armed card: lifted, grabbing cursor, frozen scroll/selection while moving. */
@@ -1104,7 +1468,7 @@ onUnmounted(() => {
     cursor: pointer;
 }
 .recent-row:hover {
-    background: #f1f5f9;
+    background: rgba(var(--v-theme-on-surface), 0.05);
 }
 /* Slimmer recent rows: smaller type instead of cramped spacing */
 .recent-row :deep(.v-list-item-title) {
@@ -1125,7 +1489,7 @@ onUnmounted(() => {
     cursor: pointer;
 }
 .action-row:hover {
-    background: #f1f5f9;
+    background: rgba(var(--v-theme-on-surface), 0.05);
 }
 .action-title {
     font-size: 0.9rem;
@@ -1136,7 +1500,7 @@ onUnmounted(() => {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #94a3b8;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
     padding-bottom: 10px;
 }
 .action-table :deep(td) {
@@ -1145,7 +1509,7 @@ onUnmounted(() => {
     vertical-align: middle;
 }
 .action-table :deep(tbody tr:not(:last-child) td) {
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .action-table :deep(td:last-child) {
     white-space: nowrap;
@@ -1154,95 +1518,61 @@ onUnmounted(() => {
     flex: 0 1 240px;
     min-width: 160px;
 }
-/* ---- Card headers: white, thick dark-blue bottom rule ---- */
-.dash-head {
-    background: transparent;
-    border-bottom: 4px solid rgb(var(--v-theme-primary));
-    border-image: var(--tms-grad-h) 1;
-}
-.dash-head + .v-divider {
-    display: none;
-}
-/* Header icon tiles: white backlight, thick dark-blue border */
-.dash-avatar {
-    border: 2px solid rgb(var(--v-theme-primary));
-}
 /* ---- Transaction Summary card ---- */
 .summary-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
 }
-.summary-tile {
-    position: relative;
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    padding: 12px 14px 26px;
-    min-width: 0;
-    cursor: pointer;
-    background: rgb(var(--v-theme-surface));
-    transition: transform 0.22s cubic-bezier(.2, .9, .25, 1), box-shadow 0.22s, border-color 0.22s;
+.summary-bare {
+    background: transparent !important;
+    box-shadow: none !important;
 }
-.summary-tile:hover,
-.summary-tile:focus-visible {
-    transform: translateY(-3px);
-    border-color: var(--tile-accent);
-    box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--tile-accent) 55%, transparent);
-    outline: none;
-}
-.summary-tile:focus-visible {
-    box-shadow: 0 0 0 2px var(--tile-accent);
-}
-.summary-tile-icon {
-    transition: transform 0.3s cubic-bezier(.3, 1.6, .5, 1);
-}
-.summary-tile:hover .summary-tile-icon {
-    transform: scale(1.18) rotate(-6deg);
-}
-.summary-tile-cta {
-    position: absolute;
-    left: 14px;
-    bottom: 7px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--tile-accent);
-    opacity: 0;
-    transform: translateX(-6px);
-    transition: opacity 0.2s, transform 0.2s;
-}
-.summary-tile:hover .summary-tile-cta,
-.summary-tile:focus-visible .summary-tile-cta {
-    opacity: 1;
-    transform: none;
-}
-@media (prefers-reduced-motion: reduce) {
-    .summary-tile,
-    .summary-tile-icon,
-    .summary-tile-cta {
-        transition: none;
-    }
-    .summary-tile:hover,
-    .summary-tile:focus-visible,
-    .summary-tile:hover .summary-tile-icon {
-        transform: none;
-    }
-}
-.summary-tile-label {
+.dash-hello-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    flex-wrap: wrap;
+    gap: 10px;
 }
-.summary-tile-value {
-    font-size: 2.1rem;
-    font-weight: 800;
-    line-height: 1.15;
-    margin: 6px 0 2px;
-    min-height: 2.4rem;
-    color: rgb(var(--v-theme-on-surface));
+/* Explicit width too: Firefox sizes the wrapping row from the select's
+   content, not its flex-basis, and stacked the two filters. */
+.dash-filter {
+    flex: 0 0 200px;
+    width: 200px;
+    min-width: 170px;
+}
+.dash-panel-sub {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+/* By Process card: one column of bars, scrolls when there are many */
+.process-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    max-height: 300px;
+    overflow-y: auto;
+}
+/* Get Started as a horizontal strip of shortcuts (admin layout) */
+.start-wide {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.start-wide .start-row {
+    flex: 1 1 260px !important;
+    min-height: 72px;
+}
+.start-wide .start-row + .start-row {
+    border-top: none;
+    border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+@media (max-width: 960px) {
+    .start-wide .start-row + .start-row {
+        border-left: none;
+        border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    }
 }
 .summary-stale {
     opacity: 0.6;
@@ -1250,12 +1580,12 @@ onUnmounted(() => {
 }
 .process-bar-row {
     display: grid;
-    grid-template-columns: minmax(120px, 200px) minmax(48px, 1fr) 40px;
+    grid-template-columns: 40px minmax(0, 1fr) 36px;
     align-items: center;
-    gap: 8px;
-    padding: 5px 6px;
+    gap: 14px;
+    padding: 8px 6px;
     margin: 0 -6px;
-    border-radius: 6px;
+    border-radius: 10px;
     cursor: pointer;
     transition: background-color 0.15s;
 }
@@ -1267,6 +1597,19 @@ onUnmounted(() => {
 .process-bar-row.faded {
     opacity: 0.3;
 }
+.bp-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+}
+.bp-main {
+    min-width: 0;
+}
+.bp-main .process-bar-name {
+    margin-bottom: 6px;
+}
 .process-bar-name {
     font-size: 0.85rem;
     font-weight: 700;
@@ -1274,15 +1617,15 @@ onUnmounted(() => {
     color: rgb(var(--v-theme-on-surface));
 }
 .process-bar-track {
-    height: 8px;
+    height: 10px;
     min-width: 0;
-    background: rgba(var(--v-theme-on-surface), 0.06);
-    border-radius: 0 4px 4px 0;
+    background: rgba(var(--v-theme-on-surface), 0.07);
+    border-radius: 999px;
     overflow: hidden;
 }
 .process-bar-fill {
     height: 100%;
-    border-radius: 0 4px 4px 0;
+    border-radius: 999px;
 }
 .process-bar-count {
     font-size: 0.85rem;
@@ -1295,10 +1638,10 @@ onUnmounted(() => {
     min-height: 64px;
 }
 .start-row + .start-row {
-    border-top: 1px solid #eef2f7;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .start-row:hover {
-    background: #f1f5f9;
+    background: rgba(var(--v-theme-on-surface), 0.05);
 }
 .start-title {
     font-size: 0.85rem;

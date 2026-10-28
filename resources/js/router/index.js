@@ -85,6 +85,13 @@ export function createRouter() {
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
             },
             {
+                // Same page in archive mode: completed transactions only.
+                path: "/portal/history",
+                name: "portal.history",
+                component: PortalTransactions,
+                meta: { requiresAuth: true, title: "Transaction History", kind: "staff", history: true },
+            },
+            {
                 // My Profile: every signed-in account (viewers are sent back
                 // to tracking by the guard below).
                 path: "/profile",

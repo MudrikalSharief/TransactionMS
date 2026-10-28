@@ -57,13 +57,13 @@ const scope = useOfficeScope()
 @media (prefers-reduced-motion: reduce) {
     .scope-chip { animation: none; }
 }
-:global(html.dark) .scope-chip {
+html.dark .scope-chip {
     background: rgba(148, 163, 184, 0.12);
     color: #E2E8F0;
     border-color: rgba(147, 197, 253, 0.3);
     border-left-color: #93C5FD;
 }
-:global(html.dark) .scope-chip__icon {
+html.dark .scope-chip__icon {
     color: #93C5FD;
 }
 </style>

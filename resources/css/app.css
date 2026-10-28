@@ -20,6 +20,14 @@
     /* Table row height: stretches so 7 rows + header + footer fill the window
        (no page scroll, no dead space), between 56px and 96px. */
     --tms-row: clamp(56px, calc((100vh - 394px) / 8), 96px);
+    /* Glow: one brand-blue halo for app bar, active nav, cards, fields,
+       buttons and footer. Stronger in dark mode, where it reads as light. */
+    --tms-glow-c: rgba(0, 94, 237, 0.45);
+    --tms-glow: 0 0 0 1px rgba(0, 94, 237, 0.18), 0 10px 30px -10px var(--tms-glow-c);
+}
+html.dark {
+    --tms-glow-c: rgba(96, 165, 250, 0.55);
+    --tms-glow: 0 0 0 1px rgba(147, 197, 253, 0.28), 0 10px 32px -8px var(--tms-glow-c);
 }
 
 .v-btn.bg-primary,
@@ -130,6 +138,45 @@ html.dark *::-webkit-scrollbar-thumb:hover {
     /* !important: Vuetify's own .v-avatar sets border-width: 0 in a later
        stylesheet, which would otherwise cancel this border. */
     border: 2px solid rgb(var(--v-theme-primary)) !important;
+}
+
+/* ---- Dashboard panels: rounded white cards with a soft shadow and a
+   light header (round tinted icon, bold title). Scoped to .dash-panel so
+   the list-tab headers (.lgu-head alone) keep their treatment. ---- */
+.dash-panel {
+    border-radius: 12px !important;
+    border-color: rgba(15, 23, 42, 0.06) !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px -16px rgba(15, 23, 42, 0.22) !important;
+    overflow: hidden;
+}
+.dash-panel .lgu-head {
+    border-bottom: 1px solid rgba(var(--v-border-color), 0.08);
+    border-image: none;
+    padding: 14px 18px !important;
+}
+.dash-panel .lgu-head .lgu-head-avatar {
+    border: none !important;
+    border-radius: 50% !important;
+    background: rgba(var(--v-theme-primary), 0.1) !important;
+}
+.dash-panel .lgu-head .lgu-head-avatar .v-icon {
+    color: rgb(var(--v-theme-primary)) !important;
+}
+.dash-panel .lgu-head .text-subtitle-1 {
+    font-size: 1.08rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+}
+.dash-panel .v-table th {
+    font-size: 0.72rem !important;
+    letter-spacing: 0.04em;
+}
+html.dark .dash-panel.start-hero {
+    background: linear-gradient(100deg, #1b2540 0%, #1e1e2e 55%, #1b2a4a 100%) !important;
+}
+html.dark .dash-panel {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -16px rgba(0, 0, 0, 0.7) !important;
 }
 
 /* ---- Pixiv-style search dropdown: blue thin scrollbar ---- */
@@ -453,6 +500,29 @@ html.nav-open .row-actions {
 /* ---- Sample design system: sharp cards + blue scrollbars ---- */
 .lgu-card {
     border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+/* Glow: cards light up under the pointer. */
+.lgu-card:hover {
+    box-shadow: var(--tms-glow) !important;
+    border-color: rgba(0, 94, 237, 0.35);
+}
+/* Glow: focused inputs and selects get a soft halo. */
+.v-main .v-field--focused {
+    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.14), 0 0 18px -4px var(--tms-glow-c);
+}
+/* Glow: filled primary/dark buttons on hover and keyboard focus. */
+.v-main .v-btn--variant-flat.bg-primary:hover,
+.v-main .v-btn--variant-flat.bg-grey-darken-3:hover,
+.v-main .v-btn--variant-elevated.bg-primary:hover,
+.v-main .v-btn--variant-elevated.bg-grey-darken-3:hover,
+.v-main .v-btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.16), 0 8px 22px -6px var(--tms-glow-c) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .lgu-card {
+        transition: none;
+    }
 }
 
 .lgu-table :deep(.v-table__wrapper),

@@ -6,9 +6,9 @@
                  one-line card header still fits. -->
             <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
-                    <v-icon color="#005EED">mdi-file-document-multiple</v-icon>
+                    <v-icon color="#005EED">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
                 </v-avatar>
-                <span class="text-h6 font-weight-bold">Transactions</span>
+                <span class="text-h6 font-weight-bold">{{ isHistory ? "Transaction History" : "Transactions" }}</span>
                 <v-spacer />
                 <v-btn
                     variant="outlined"
@@ -25,7 +25,7 @@
                     <template v-else>Refresh</template>
                 </v-btn>
                 <v-btn
-                    v-if="canCreate"
+                    v-if="canCreate && !isHistory"
                     variant="outlined"
                     color="primary"
                     rounded="0"
@@ -42,8 +42,9 @@
 
             <v-divider />
 
-            <!-- Clerks only see My office: what waits on them is on Approvals. -->
-            <v-tabs v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
+            <!-- Clerks only see My office: what waits on them is on Approvals.
+                 History has no tabs: finished papers never need action. -->
+            <v-tabs v-if="!isHistory" v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
                 <v-tab v-if="!hasApprovals" value="action" class="font-weight-bold">
                     <v-icon start>mdi-tray-full</v-icon>
                     Needs my action
@@ -53,16 +54,20 @@
                     My office
                 </v-tab>
             </v-tabs>
-            <v-divider />
+            <v-divider v-if="!isHistory" />
 
             <v-card-text class="pa-4">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
-                <v-alert v-if="tab === 'action'" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
+                <v-alert v-if="isHistory" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
+                    Completed transactions from your office, kept here for reference.
+                </v-alert>
+                <v-alert v-else-if="tab === 'action'" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Transactions currently on a step assigned to your role at your office. Open one to work on it.
                 </v-alert>
                 <v-alert v-else type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Every transaction that belongs to your office, plus any waiting on your role.
+                    Every open transaction that belongs to your office, plus any waiting on your role.
+                    Completed ones move to Transaction History.
                 </v-alert>
 
                 <v-text-field
@@ -140,9 +145,11 @@
                         <template #no-data>
                             <div class="pa-6 text-medium-emphasis">
                                 {{
-                                    items.length && (filtersActive || search)
+                                    scoped.length && (filtersActive || search)
                                         ? "No transactions match your search or filters."
-                                        : tab === "action" ? "Nothing is waiting on your role right now." : "No transactions in your office yet."
+                                        : isHistory
+                                          ? "No completed transactions yet."
+                                          : tab === "action" ? "Nothing is waiting on your role right now." : "No open transactions in your office."
                                 }}
                             </div>
                         </template>
@@ -281,7 +288,10 @@ const PER_PAGE = 7;
 // Clerks (anyone who may approve) have the Approvals page for "Needs my
 // action", so they only get the office list here.
 const hasApprovals = computed(() => canUseApprovals(user.value));
-const tab = ref(hasApprovals.value || route.query.tab === "office" ? "office" : "action");
+// Transaction History (/portal/history) is this page in archive mode:
+// completed rows only. The normal page lists open rows only.
+const isHistory = computed(() => !!route.meta.history);
+const tab = ref(isHistory.value || hasApprovals.value || route.query.tab === "office" ? "office" : "action");
 const items = ref([]);
 const loading = ref(true);
 const error = ref("");
@@ -296,7 +306,9 @@ function clearFilters() {
     filters.value = { ...emptyFilters(), order: filters.value.order };
 }
 const typeName = (t) => t.transaction_type?.name || t.transaction_type_name || "";
-const typeFilterOptions = computed(() => [...new Set(items.value.map(typeName).filter(Boolean))].sort());
+// Open rows here, completed rows in History; filters work on this split.
+const scoped = computed(() => items.value.filter((t) => !!t.is_done === isHistory.value));
+const typeFilterOptions = computed(() => [...new Set(scoped.value.map(typeName).filter(Boolean))].sort());
 
 const shown = computed(() => {
     const q = String(search.value || "").trim().toLowerCase();
@@ -309,7 +321,7 @@ const shown = computed(() => {
         to = new Date(y, m - 1, d + 1).getTime();
     }
     const dir = filters.value.order === "asc" ? 1 : -1;
-    return items.value
+    return scoped.value
         .filter((t) => {
             if (filters.value.type && typeName(t) !== filters.value.type) return false;
             const at = new Date(t.created_at).getTime();
@@ -332,7 +344,7 @@ const headers = [
     { title: "Transaction Type", key: "type", sortable: false },
     { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
-    { title: "Created At", key: "created_at", sortable: false, width: 170 },
+    { title: "Created", key: "created_at", sortable: false, width: 170 },
 ];
 
 const endpoint = () => (tab.value === "action" ? "/api/transactions" : "/api/admin/transactions");
@@ -457,7 +469,7 @@ async function createTx() {
 
 onMounted(async () => {
     await fetchRows();
-    if (route.query.new === "1" && canCreate.value) openCreate();
+    if (route.query.new === "1" && canCreate.value && !isHistory.value) openCreate();
 });
 
 useSmartPoll(() => {

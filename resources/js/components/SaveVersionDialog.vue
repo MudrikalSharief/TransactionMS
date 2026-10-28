@@ -52,7 +52,7 @@
                     </div>
                     <div class="sv-chips">
                         <v-menu
-                            v-for="chip in stagedCounts"
+                            v-for="chip in visibleCounts"
                             :key="chip.key"
                             open-on-hover
                             open-on-focus
@@ -343,6 +343,13 @@ const stagedCounts = computed(() => {
 
 const stagedChangeTotal = computed(() =>
     stagedCounts.value.reduce((total, chip) => total + chip.count, 0),
+);
+
+// Checklists and Field assignments are no longer shown as chips; their
+// changes still count toward the total so a save never drops them.
+const HIDDEN_CHIPS = ["checklists", "fields"];
+const visibleCounts = computed(() =>
+    stagedCounts.value.filter((chip) => !HIDDEN_CHIPS.includes(chip.key)),
 );
 
 const stepNameById = computed(() => {

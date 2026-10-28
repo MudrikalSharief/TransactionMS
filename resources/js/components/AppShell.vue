@@ -295,7 +295,10 @@
 
         <v-main class="app-main">
             <OfflineBar />
-            <v-container v-if="showAuthUi" fluid class="pa-6">
+            <!-- The tracker's flag backdrop behind every page; the viewer
+                 pages draw their own (search dims it as results appear). -->
+            <TrackBackdrop v-if="showAuthUi && route.meta?.kind !== 'viewer'" quiet />
+            <v-container v-if="showAuthUi" fluid class="pa-6 app-page">
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
                 <div :key="route.matched[0]?.path || route.path" class="page-enter">
@@ -305,8 +308,8 @@
             <template v-else>
                 <router-view />
             </template>
-            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-spacer" aria-hidden="true"></div>
-            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
+            <div v-if="showAuthUi" class="app-foot-spacer" aria-hidden="true"></div>
+            <AppFooter v-if="showAuthUi" />
         </v-main>
 
         <v-dialog v-model="confirmLogout" max-width="640">
@@ -351,6 +354,8 @@ import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
 import OfflineBar from "@/components/OfflineBar.vue";
+import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
+import AppFooter from "@/components/AppFooter.vue";
 import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
 const router = useRouter();
@@ -368,7 +373,8 @@ let hoverExpanded = false;
 
 const toggleNav = () => {
     hoverExpanded = false;
-    if (mobile.value) {
+    // Viewers start with the sidebar hidden, so the button shows/hides it.
+    if (mobile.value || kind.value === "viewer") {
         drawer.value = !drawer.value;
     } else {
         rail.value = !rail.value;
@@ -396,6 +402,12 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
+// Viewers have a single page (Track), so the sidebar starts hidden; every
+// other account gets it back. The shell outlives sign-ins, so a viewer
+// session must not leave it hidden for the next admin or clerk.
+watch(kind, (k) => {
+    drawer.value = k !== "viewer" && !mobile.value;
+}, { immediate: true });
 // My Profile: every signed-in account except the shared guest viewer.
 const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
 
@@ -421,6 +433,8 @@ const navGroups = computed(() => {
                 badge: n,
             });
         }
+        // Completed transactions move here from Transactions.
+        work.push({ title: "Transaction History", icon: "mdi-archive-outline", to: "/portal/history" });
         return [
             { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
             { title: "Work", items: work },
@@ -564,6 +578,7 @@ const searchPages = computed(() => {
             ...(showApprovals.value
                 ? [{ title: "Task", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
                 : []),
+            { title: "Transaction History", subtitle: "Page", icon: "mdi-archive-outline", to: "/portal/history" },
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
     }
@@ -916,7 +931,8 @@ onUnmounted(() => {
    blending into a white header. Thin gold rule nods to the city seal. */
 .app-bar {
     background: #0B2B66 !important;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+    /* Thin lit edge plus a soft blue glow under the bar. */
+    box-shadow: 0 1px 0 rgba(147, 197, 253, 0.35), 0 6px 26px -8px var(--tms-glow-c) !important;
 }
 .brand-title {
     color: #ffffff;
@@ -1094,7 +1110,7 @@ onUnmounted(() => {
 :deep(.v-navigation-drawer .v-list-item--active) {
     background: var(--tms-grad-h) !important;
     color: #ffffff !important;
-    box-shadow: inset 3px 0 0 #93C5FD;
+    box-shadow: inset 3px 0 0 #93C5FD, 0 0 18px -2px var(--tms-glow-c);
 }
 :deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
     opacity: 0 !important;
@@ -1258,16 +1274,12 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
 }
+/* Page sits above the fixed backdrop (AppFooter does the same). */
+.app-page {
+    position: relative;
+    z-index: 1;
+}
 .app-foot-spacer {
     flex: 1 1 auto;
-}
-/* Bottom footer container: plain in-flow bar, no overlay, no z-index games. */
-.app-foot-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--tms-grad-h);
-    padding: 16px 24px;
-    margin-top: 24px;
 }
 </style>

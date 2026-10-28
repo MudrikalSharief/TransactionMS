@@ -25,6 +25,7 @@ class ViewerTrackingController extends Controller
             'q' => ['nullable', 'string', 'max:200'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'status' => ['nullable', 'in:completed,in_process'],
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
         $q = trim($data['q'] ?? '');
@@ -33,6 +34,7 @@ class ViewerTrackingController extends Controller
         $query = Transaction::query()
             // No keyword: only the viewer's own. A keyword searches everything.
             ->when($q === '', fn ($w) => $w->where('transactions.created_by', $userId))
+            ->when(isset($data['status']), fn ($w) => $w->where('transactions.is_done', $data['status'] === 'completed'))
             ->with([
                 'type:id,code,name',
                 'office:id,code,name,icon_path',

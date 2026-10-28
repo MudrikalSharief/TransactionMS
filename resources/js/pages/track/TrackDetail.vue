@@ -48,15 +48,16 @@
                 :current-step-code="tx.current_step?.code"
                 :visited-step-ids="tx.visited_step_ids"
                 :runs="trackerRuns"
+                viewer
             />
 
-            <!-- Movement history: offices and times only -->
+            <!-- Route history: offices and times only -->
             <v-card rounded="0" elevation="1" class="lgu-card">
                 <v-card-title class="d-flex align-center pa-4 track-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 track-avatar">
                         <v-icon color="#005EED" size="24">mdi-history</v-icon>
                     </v-avatar>
-                    <span class="text-subtitle-1 font-weight-bold">Movement History</span>
+                    <span class="text-subtitle-1 font-weight-bold">Route History</span>
                 </v-card-title>
                 <v-card-text class="pa-4">
                     <v-alert v-if="!tx.history.length" type="info" variant="tonal" rounded="0">

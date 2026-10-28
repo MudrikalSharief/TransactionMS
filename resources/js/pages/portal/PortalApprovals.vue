@@ -157,7 +157,7 @@ const headers = [
     { title: "Transaction Type", key: "type", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
     { title: "Waiting", key: "entered_at" },
-    { title: "Created At", key: "created_at" },
+    { title: "Created", key: "created_at" },
     { title: "", key: "actions", sortable: false, align: "end" },
 ];
 
