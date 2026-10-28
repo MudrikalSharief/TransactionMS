@@ -18,7 +18,7 @@
                     />
                 </div>
                 <div class="eyebrow">Transaction tracker</div>
-                <h1 class="title">Where is your document?</h1>
+                <h1 class="title">Where is your transaction?</h1>
                 <p class="sub">
                     Type a keyword (a name, reference number, transaction type or office) and follow
                     each transaction from office to office.
@@ -62,13 +62,28 @@
                 <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>
 
                 <v-card rounded="0" elevation="1" class="lgu-card">
-                    <v-card-title class="d-flex align-center pa-4 results-head">
+                    <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 results-head">
                         <v-avatar color="white" rounded="0" size="36" class="mr-3 results-avatar">
-                            <v-icon color="#1E40AF" size="22">mdi-map-marker-path</v-icon>
+                            <v-icon color="#005EED" size="22">mdi-map-marker-path</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">
                             {{ loading && !searched ? "Searching…" : resultsLabel }}
                         </span>
+                        <v-spacer />
+                        <!-- One button: shows the list it filters to; click flips it. -->
+                        <v-btn
+                            :color="statusView.color"
+                            variant="flat"
+                            rounded="0"
+                            size="small"
+                            class="status-filter"
+                            :prepend-icon="statusView.icon"
+                            v-tooltip="`Showing ${statusView.title.toLowerCase()} transactions · click for ${statusView.next}`"
+                            :aria-label="`Showing ${statusView.title.toLowerCase()} transactions. Switch to ${statusView.next}.`"
+                            @click="toggleStatus"
+                        >
+                            {{ statusView.title }}
+                        </v-btn>
                     </v-card-title>
                     <v-card-text class="pa-4">
                         <v-data-table
@@ -125,6 +140,20 @@
                                     />
                                 </v-menu>
                             </template>
+                            <template v-slot:[`item.office`]="{ item }">
+                                <v-chip
+                                    v-if="item.current_step?.office"
+                                    color="grey-darken-3"
+                                    variant="tonal"
+                                    rounded="0"
+                                    size="small"
+                                    class="font-weight-bold"
+                                    v-tooltip="item.current_step.office.name"
+                                >
+                                    {{ item.current_step.office.code || item.current_step.office.name }}
+                                </v-chip>
+                                <span v-else class="text-medium-emphasis">—</span>
+                            </template>
                             <template v-slot:[`item.created_at`]="{ item }">
                                 <div class="font-weight-bold">{{ fmtDate(item.created_at) }}</div>
                                 <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
@@ -138,7 +167,9 @@
 
                         <div v-else-if="searched && !loading" class="empty">
                             <v-icon size="40" color="grey">mdi-file-search-outline</v-icon>
-                            <div class="font-weight-bold mt-2">Nothing found for “{{ shownQuery }}”</div>
+                            <div class="font-weight-bold mt-2">
+                                Nothing<template v-if="status !== 'all'"> {{ statusView.title.toLowerCase() }}</template> found for “{{ shownQuery }}”
+                            </div>
                             <div class="text-caption text-medium-emphasis">
                                 Try a name, a reference number, a transaction type or an office.
                             </div>
@@ -180,8 +211,27 @@ const headers = [
     { title: "Transaction Type", key: "type", sortable: false },
     { title: "Status", key: "status", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
-    { title: "Created At", key: "created_at" },
+    // Where the transaction sits now (the current step's office).
+    { title: "Office", key: "office", sortable: false },
+    { title: "Created", key: "created_at" },
 ];
+
+// Status filter, applied by the server so paging stays right.
+// One button cycles All -> Incomplete -> Complete -> All.
+const STATUS_CYCLE = [
+    { value: "all", title: "All", icon: "mdi-format-list-bulleted", color: "grey-darken-3" },
+    { value: "in_process", title: "Incomplete", icon: "mdi-progress-clock", color: "warning" },
+    { value: "completed", title: "Complete", icon: "mdi-check-circle-outline", color: "success" },
+];
+const status = ref("all");
+const statusIndex = computed(() => STATUS_CYCLE.findIndex((s) => s.value === status.value));
+const statusView = computed(() => ({
+    ...STATUS_CYCLE[statusIndex.value],
+    next: STATUS_CYCLE[(statusIndex.value + 1) % STATUS_CYCLE.length].title.toLowerCase(),
+}));
+function toggleStatus() {
+    status.value = STATUS_CYCLE[(statusIndex.value + 1) % STATUS_CYCLE.length].value;
+}
 
 const resultsLabel = computed(() => {
     const n = meta.value.total || items.value.length;
@@ -197,7 +247,12 @@ async function fetchRows({ silent = false } = {}) {
     if (!silent) loading.value = true;
     try {
         const res = await api.get("/api/viewer/transactions", {
-            params: { q, page: page.value, per_page: 25 },
+            params: {
+                q,
+                page: page.value,
+                per_page: 25,
+                status: status.value === "all" ? undefined : status.value,
+            },
         });
         if (mine !== seq) return; // a newer search is already running
         items.value = res.data?.data ?? [];
@@ -237,6 +292,11 @@ watch(query, (v) => {
         page.value = 1;
         fetchRows();
     }, 450);
+});
+
+watch(status, () => {
+    page.value = 1;
+    fetchRows();
 });
 
 function clear() {
@@ -309,8 +369,10 @@ useSmartPoll(() => {
 .finder.is-idle {
     padding-top: max(4vh, calc(50vh - 250px));
 }
+/* Results: wider, so all seven columns fit without side-scrolling. */
 .finder.is-active {
     padding-top: 0;
+    max-width: 1320px;
 }
 
 .lead {
@@ -420,7 +482,7 @@ useSmartPoll(() => {
     place-items: center;
     width: 60px;
     flex: none;
-    background: rgb(var(--v-theme-primary));
+    background: var(--tms-grad);
     color: #ffffff;
     cursor: text;
 }
@@ -460,7 +522,7 @@ useSmartPoll(() => {
     min-width: 108px;
     border: 0;
     padding: 0 22px;
-    background: rgb(var(--v-theme-primary));
+    background: var(--tms-grad);
     color: #ffffff;
     font: inherit;
     font-size: 15px;
@@ -508,9 +570,16 @@ useSmartPoll(() => {
 .results-head {
     background: transparent;
     border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
 }
 .results-avatar {
     border: 2px solid rgb(var(--v-theme-primary));
+}
+.status-filter {
+    min-width: 140px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
 }
 .empty {
     text-align: center;

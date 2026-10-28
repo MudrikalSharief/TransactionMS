@@ -6,9 +6,9 @@
                  one-line card header still fits. -->
             <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
-                    <v-icon color="#16307C">mdi-file-document-multiple</v-icon>
+                    <v-icon color="#005EED">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
                 </v-avatar>
-                <span class="text-h6 font-weight-bold">Transactions</span>
+                <span class="text-h6 font-weight-bold">{{ isHistory ? "Transaction History" : "Transactions" }}</span>
                 <v-spacer />
                 <v-btn
                     variant="outlined"
@@ -25,7 +25,7 @@
                     <template v-else>Refresh</template>
                 </v-btn>
                 <v-btn
-                    v-if="canCreate"
+                    v-if="canCreate && !isHistory"
                     variant="outlined"
                     color="primary"
                     rounded="0"
@@ -42,8 +42,9 @@
 
             <v-divider />
 
-            <!-- Clerks only see My office: what waits on them is on Approvals. -->
-            <v-tabs v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
+            <!-- Clerks only see My office: what waits on them is on Approvals.
+                 History has no tabs: finished papers never need action. -->
+            <v-tabs v-if="!isHistory" v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
                 <v-tab v-if="!hasApprovals" value="action" class="font-weight-bold">
                     <v-icon start>mdi-tray-full</v-icon>
                     Needs my action
@@ -53,16 +54,20 @@
                     My office
                 </v-tab>
             </v-tabs>
-            <v-divider />
+            <v-divider v-if="!isHistory" />
 
             <v-card-text class="pa-4">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
-                <v-alert v-if="tab === 'action'" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
+                <v-alert v-if="isHistory" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
+                    Completed transactions from your office, kept here for reference.
+                </v-alert>
+                <v-alert v-else-if="tab === 'action'" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Transactions currently on a step assigned to your role at your office. Open one to work on it.
                 </v-alert>
                 <v-alert v-else type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Every transaction that belongs to your office, plus any waiting on your role.
+                    Every open transaction that belongs to your office, plus any waiting on your role.
+                    Completed ones move to Transaction History.
                 </v-alert>
 
                 <v-text-field
@@ -92,9 +97,9 @@
                         class="fb-type"
                     />
                     <v-text-field
-                        v-model="filters.from"
-                        type="datetime-local"
-                        label="Created from"
+                        v-model="filters.date"
+                        type="date"
+                        label="Created on"
                         variant="outlined"
                         density="compact"
                         rounded="0"
@@ -102,21 +107,20 @@
                         clearable
                         class="fb-date"
                     />
-                    <v-text-field
-                        v-model="filters.to"
-                        type="datetime-local"
-                        label="Created to"
-                        variant="outlined"
-                        density="compact"
+                    <!-- One box: click to switch between newest and oldest first. -->
+                    <v-btn
+                        variant="tonal"
                         rounded="0"
-                        hide-details
-                        clearable
-                        class="fb-date"
-                    />
-                    <v-btn-toggle v-model="filters.order" mandatory rounded="0" density="compact" variant="outlined" divided color="primary" class="fb-order">
-                        <v-btn value="desc" prepend-icon="mdi-sort-calendar-descending">Newest first</v-btn>
-                        <v-btn value="asc" prepend-icon="mdi-sort-calendar-ascending">Oldest first</v-btn>
-                    </v-btn-toggle>
+                        color="primary"
+                        height="40"
+                        class="fb-order"
+                        :prepend-icon="filters.order === 'asc' ? 'mdi-sort-calendar-ascending' : 'mdi-sort-calendar-descending'"
+                        :aria-label="`Sorted ${filters.order === 'asc' ? 'oldest' : 'newest'} first. Click to switch`"
+                        v-tooltip="'Click to switch the order'"
+                        @click="filters.order = filters.order === 'asc' ? 'desc' : 'asc'"
+                    >
+                        {{ filters.order === 'asc' ? 'Oldest first' : 'Newest first' }}
+                    </v-btn>
                     <v-btn v-if="filtersActive" variant="text" rounded="0" color="grey-darken-3" prepend-icon="mdi-filter-remove-outline" @click="clearFilters">
                         Clear
                     </v-btn>
@@ -141,9 +145,11 @@
                         <template #no-data>
                             <div class="pa-6 text-medium-emphasis">
                                 {{
-                                    items.length && (filtersActive || search)
+                                    scoped.length && (filtersActive || search)
                                         ? "No transactions match your search or filters."
-                                        : tab === "action" ? "Nothing is waiting on your role right now." : "No transactions in your office yet."
+                                        : isHistory
+                                          ? "No completed transactions yet."
+                                          : tab === "action" ? "Nothing is waiting on your role right now." : "No open transactions in your office."
                                 }}
                             </div>
                         </template>
@@ -215,7 +221,7 @@
             <v-card rounded="0">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#1E40AF">mdi-plus</v-icon>
+                        <v-icon color="#005EED">mdi-plus</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold">New Transaction</span>
                 </v-card-title>
@@ -282,34 +288,44 @@ const PER_PAGE = 7;
 // Clerks (anyone who may approve) have the Approvals page for "Needs my
 // action", so they only get the office list here.
 const hasApprovals = computed(() => canUseApprovals(user.value));
-const tab = ref(hasApprovals.value || route.query.tab === "office" ? "office" : "action");
+// Transaction History (/portal/history) is this page in archive mode:
+// completed rows only. The normal page lists open rows only.
+const isHistory = computed(() => !!route.meta.history);
+const tab = ref(isHistory.value || hasApprovals.value || route.query.tab === "office" ? "office" : "action");
 const items = ref([]);
 const loading = ref(true);
 const error = ref("");
 const search = ref("");
 const page = ref(1);
 
-// Filters: transaction type, created date + time range, newest/oldest.
-const emptyFilters = () => ({ type: null, from: null, to: null, order: "desc" });
+// Filters: transaction type, the day it was created, newest/oldest.
+const emptyFilters = () => ({ type: null, date: null, order: "desc" });
 const filters = ref(emptyFilters());
-const filtersActive = computed(() => !!(filters.value.type || filters.value.from || filters.value.to));
+const filtersActive = computed(() => !!(filters.value.type || filters.value.date));
 function clearFilters() {
     filters.value = { ...emptyFilters(), order: filters.value.order };
 }
 const typeName = (t) => t.transaction_type?.name || t.transaction_type_name || "";
-const typeFilterOptions = computed(() => [...new Set(items.value.map(typeName).filter(Boolean))].sort());
+// Open rows here, completed rows in History; filters work on this split.
+const scoped = computed(() => items.value.filter((t) => !!t.is_done === isHistory.value));
+const typeFilterOptions = computed(() => [...new Set(scoped.value.map(typeName).filter(Boolean))].sort());
 
 const shown = computed(() => {
     const q = String(search.value || "").trim().toLowerCase();
-    const from = filters.value.from ? new Date(filters.value.from).getTime() : null;
-    const to = filters.value.to ? new Date(filters.value.to).getTime() : null;
+    // "YYYY-MM-DD" -> that whole local day (built from parts: new Date("YYYY-MM-DD") is UTC).
+    let from = null;
+    let to = null;
+    if (filters.value.date) {
+        const [y, m, d] = filters.value.date.split("-").map(Number);
+        from = new Date(y, m - 1, d).getTime();
+        to = new Date(y, m - 1, d + 1).getTime();
+    }
     const dir = filters.value.order === "asc" ? 1 : -1;
-    return items.value
+    return scoped.value
         .filter((t) => {
             if (filters.value.type && typeName(t) !== filters.value.type) return false;
             const at = new Date(t.created_at).getTime();
-            if (from != null && at < from) return false;
-            if (to != null && at > to) return false;
+            if (from != null && (at < from || at >= to)) return false;
             if (!q) return true;
             return [t.reference_number, t.title, typeName(t), t.office?.name, t.current_step?.name]
                 .some((v) => String(v || "").toLowerCase().includes(q));
@@ -328,7 +344,7 @@ const headers = [
     { title: "Transaction Type", key: "type", sortable: false },
     { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
-    { title: "Created At", key: "created_at", sortable: false, width: 170 },
+    { title: "Created", key: "created_at", sortable: false, width: 170 },
 ];
 
 const endpoint = () => (tab.value === "action" ? "/api/transactions" : "/api/admin/transactions");
@@ -453,7 +469,7 @@ async function createTx() {
 
 onMounted(async () => {
     await fetchRows();
-    if (route.query.new === "1" && canCreate.value) openCreate();
+    if (route.query.new === "1" && canCreate.value && !isHistory.value) openCreate();
 });
 
 useSmartPoll(() => {
@@ -475,28 +491,29 @@ useSmartPoll(() => {
     max-width: 260px;
 }
 .fb-date {
-    flex: 1 1 210px;
-    max-width: 240px;
+    flex: 1 1 170px;
+    max-width: 200px;
 }
-.fb-order :deep(.v-btn) {
+.fb-order {
     text-transform: none;
     font-weight: 600;
+    min-width: 150px;
 }
 /* Boxed table header: dark-blue fill, white text (same as the admin tables). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
-    background-color: #0e1f52 !important;
+    background-color: #1A1F2B !important;
     color: #ffffff !important;
-    border-top: 2px solid #0e1f52 !important;
-    border-bottom: 3px solid #0e1f52 !important;
+    border-top: 2px solid #1A1F2B !important;
+    border-bottom: 3px solid #1A1F2B !important;
     border-left: none !important;
     border-right: none !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-    border-left: 2px solid #0e1f52 !important;
+    border-left: 2px solid #1A1F2B !important;
     padding-left: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-    border-right: 2px solid #0e1f52 !important;
+    border-right: 2px solid #1A1F2B !important;
     padding-right: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),

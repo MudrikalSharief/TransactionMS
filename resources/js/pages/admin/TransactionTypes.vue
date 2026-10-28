@@ -83,7 +83,7 @@
                 </template>
 
                 <template v-slot:[`item.name`]="{ item }">
-                    <span class="tt-name" :title="item.name">{{
+                    <span class="tt-name" v-tooltip="item.name">{{
                         item.name
                     }}</span>
                 </template>
@@ -134,7 +134,8 @@
                             v-for="o in item.offices"
                             :key="o.id"
                             class="tt-office is-specific"
-                            :title="o.name"
+                            v-tooltip="o.name"
+                            :aria-label="o.name"
                         >
                             <img
                                 v-if="officeIcon(o)"
@@ -149,20 +150,20 @@
                             >
                                 ?
                             </span>
-                            {{ o.name }}
+                            <span class="tt-office-text">{{ o.code }}</span>
                         </span>
                     </div>
                     <span
                         v-else
                         class="tt-office"
-                        title="Available to every office"
+                        v-tooltip="'Available to every office'"
                     >
                         <img
                             class="tt-office-icon"
                             :src="anyOfficeIcon"
                             alt="Zamboanga City seal"
                         />
-                        Any Office
+                        <span class="tt-office-text">Any Office</span>
                     </span>
                 </template>
 
@@ -344,8 +345,8 @@
         <footer class="tt-pg">
             <div class="tt-per">
                 <span>Items per page</span>
-                <span class="tt-per-box" aria-label="Items per page: 7">
-                    <span>7</span>
+                <span class="tt-per-box" aria-label="Items per page: 8">
+                    <span>8</span>
                     <v-icon size="18" aria-hidden="true"
                         >mdi-chevron-down</v-icon
                     >
@@ -501,7 +502,7 @@
                 </div>
 
                 <div class="ntt-f">
-                    <label class="ntt-lb" for="ntt-offices">Offices</label>
+                    <label class="ntt-lb" for="ntt-offices">Allowed Office</label>
                     <v-select
                         v-if="isSuperadmin"
                         id="ntt-offices"
@@ -511,7 +512,7 @@
                         item-title="title"
                         item-value="id"
                         :item-props="officeItemProps"
-                        placeholder="Select offices"
+                        placeholder="Select office"
                         variant="outlined"
                         density="comfortable"
                         hide-details="auto"
@@ -720,9 +721,9 @@ const headers = [
     { title: "Code", key: "code", width: "17%" },
     { title: "Name", key: "name", width: "18.5%" },
     { title: "Description", key: "description", width: "19%" },
-    { title: "Steps", key: "steps", sortable: false, width: "9%" },
-    { title: "Office(s)", key: "offices", sortable: false, width: "17.5%" },
+    { title: "Allowed Office", key: "offices", sortable: false, width: "16.5%" },
     { title: "Status", key: "is_active", width: "9%" },
+    { title: "Steps", key: "steps", sortable: false, width: "9%" },
     { title: "", key: "actions", sortable: false, width: "10%", align: "end" },
 ];
 
@@ -830,7 +831,7 @@ const saving = ref(false);
 const error = ref("");
 const search = ref("");
 const searchInput = ref(null);
-const PER_PAGE = 7;
+const PER_PAGE = 8;
 const page = ref(1);
 
 // Client-side search: master data is small, filter loaded rows by
@@ -1037,7 +1038,7 @@ onMounted(() => {
     --tt-panel: rgb(var(--v-theme-surface));
     --tt-field: #f4f6fb;
     --tt-hover: #f3f6fc;
-    --tt-blue: #1d3fae;
+    --tt-blue: #005EED;
     --tt-blue-bg: #e8eeff;
     --tt-ok: #1b7a3d;
     --tt-ok-bg: #e3f5ea;
@@ -1086,7 +1087,7 @@ html.dark .tt-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--tt-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .tt-hd-main {
@@ -1190,7 +1191,7 @@ html.dark .tt-page {
     flex: none;
     border: 1.5px solid var(--tt-blue);
     border-radius: 0;
-    background: var(--tt-blue);
+    background: var(--tms-grad);
     color: #fff;
     font: inherit;
     font-size: 14.5px;
@@ -1213,7 +1214,7 @@ html.dark .tt-page {
     padding: 20px 28px 0;
 }
 .tt-table {
-    --v-table-row-height: 74px;
+    --v-table-row-height: var(--tms-row);
     --v-table-header-height: 44px;
     width: 100%;
     min-width: 0;
@@ -1274,8 +1275,8 @@ html.dark .tt-page {
     padding-left: 8px !important;
 }
 .tt-table :deep(tbody td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--tt-line) !important;
     border-radius: 0 !important;
@@ -1290,12 +1291,12 @@ html.dark .tt-page {
     pointer-events: none;
 }
 .tt-table :deep(tbody tr.tt-ghost td) {
-    height: 74px;
-    padding: 14px !important;
+    height: var(--tms-row);
+    padding: 8px 14px !important;
     border-bottom: 1px solid var(--tt-line) !important;
 }
 .tt-table :deep(.v-data-table-rows-no-data td) {
-    height: 74px !important;
+    height: var(--tms-row) !important;
     padding: 0 !important;
     border-bottom: 1px solid var(--tt-line) !important;
 }
@@ -1304,7 +1305,7 @@ html.dark .tt-page {
     align-items: center;
     justify-content: center;
     gap: 5px;
-    min-height: 74px;
+    min-height: var(--tms-row);
     padding: 0 14px;
     color: var(--tt-muted);
     font-size: 14px;
@@ -1342,10 +1343,9 @@ html.dark .tt-page {
 .tt-desc {
     display: block;
     max-width: 100%;
-    overflow: hidden;
     color: var(--tt-muted);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal; /* wrap: full description is always visible */
+    overflow-wrap: anywhere;
 }
 .tt-dash {
     color: var(--tt-muted);
@@ -1386,20 +1386,24 @@ html.dark .tt-page {
     gap: 6px;
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
     padding: 5px 10px;
     background: var(--tt-field);
     color: var(--tt-muted);
     font-size: 13px;
     font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: left;
 }
 .tt-office-icon {
     width: 24px;
     height: 24px;
     flex: none;
     object-fit: contain;
+}
+.tt-office-text {
+    min-width: 0;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 .tt-office-icon-placeholder {
     display: inline-flex;
@@ -1653,7 +1657,7 @@ html.dark .tt-page {
 }
 .ntt-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 .ntt-mono :deep(input) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

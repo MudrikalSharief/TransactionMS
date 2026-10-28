@@ -1,0 +1,1520 @@
+<template>
+    <div
+        class="ro-page"
+        :class="{
+            'has-minimap': !loading && !fits && overview.columns.length,
+        }"
+        :style="{ '--ro-minimap-height': `${minimapHeight}px` }"
+    >
+        <LoadingVeil :show="loading" label="step data overview" icon="mdi-view-column-outline" />
+        <v-alert
+            v-if="error"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+        >
+            {{ error }}
+        </v-alert>
+
+        <WorkflowPageHeader
+            icon="mdi-view-column-outline"
+            title="Step Data Overview"
+            subtitle="See what data each step collects at Proceed, and which fields carry over to the next step."
+            read-only
+            @back="goBack"
+        />
+
+        <div class="ro-shell" aria-live="polite">
+            <template v-if="!loading">
+                <div class="ro-bar">
+                    <div class="ro-stat">
+                        <b>{{ overview.columns.length }}</b>
+                        <span>steps</span>
+                    </div>
+                    <div class="ro-stat">
+                        <b>{{ overview.dataFieldCount }}</b>
+                        <span>data fields</span>
+                    </div>
+                    <div class="ro-stat">
+                        <b>{{ overview.carriedCount }}</b>
+                        <span>carried over</span>
+                    </div>
+
+                    <div class="ro-legend" aria-label="Legend">
+                        <span class="ro-legend-item">
+                            <svg
+                                class="ro-lk"
+                                viewBox="0 0 34 12"
+                                aria-hidden="true"
+                            >
+                                <path d="M0 6h34" />
+                            </svg>
+                            Same data field in the next step
+                        </span>
+                        <span class="ro-tag ro-tag-r">Required</span>
+                    </div>
+                </div>
+
+                <div v-if="!overview.columns.length" class="ro-empty">
+                    <v-icon size="36" class="ro-empty-ic"
+                        >mdi-view-column-outline</v-icon
+                    >
+                    <b>{{
+                        error ? "Couldn't load the overview" : "No steps in this workflow"
+                    }}</b>
+                    <span>
+                        {{
+                            error
+                                ? "Check the error above, then try again."
+                                : "Add steps in Workflows to see their step data here."
+                        }}
+                    </span>
+                    <button
+                        v-if="error"
+                        type="button"
+                        class="ro-retry"
+                        @click="loadPage"
+                    >
+                        Retry
+                    </button>
+                </div>
+
+                <div
+                    v-else
+                    id="ro-board"
+                    ref="boardEl"
+                    class="ro-board"
+                    tabindex="0"
+                    aria-label="Step data by step. Scroll sideways to see all steps."
+                    @scroll.passive="updateViewport"
+                    @wheel.passive="stopGlide"
+                    @touchstart.passive="stopGlide"
+                >
+                    <div ref="colsEl" class="ro-cols">
+                        <svg
+                            ref="linesEl"
+                            class="ro-lines"
+                            aria-hidden="true"
+                        ></svg>
+
+                        <section
+                            v-for="column in overview.columns"
+                            :key="column.id"
+                            class="ro-step"
+                            :aria-label="`Step ${column.stepNumber}: ${column.name}`"
+                        >
+                            <div class="ro-step-hd">
+                                <span class="ro-step-n">{{
+                                    column.stepNumber
+                                }}</span>
+                                <div class="ro-step-t">
+                                    <small>Step {{ column.stepNumber }}</small>
+                                    <b>{{ column.name }}</b>
+                                </div>
+                            </div>
+
+                            <div class="ro-list">
+                                <template v-if="column.rows.length">
+                                    <div
+                                        v-for="row in column.rows"
+                                        :id="row.domId"
+                                        :key="row.key"
+                                        class="ro-req"
+                                        :class="{
+                                            'is-link': !!row.color,
+                                            'is-unsaved': row.isUnsaved,
+                                        }"
+                                        :style="
+                                            row.color
+                                                ? { '--ro-cc': row.color }
+                                                : null
+                                        "
+                                    >
+                                        <div class="ro-req-n">
+                                            {{ row.name }}
+                                            <span
+                                                v-if="row.isUnsaved"
+                                                class="ro-req-unsaved"
+                                            >
+                                                UNSAVED
+                                            </span>
+                                        </div>
+                                        <span class="ro-req-c">{{
+                                            row.code || "—"
+                                        }}</span>
+                                        <div class="ro-tags">
+                                            <span
+                                                class="ro-tag"
+                                                :class="
+                                                    row.is_required
+                                                        ? 'ro-tag-r'
+                                                        : 'ro-tag-o'
+                                                "
+                                            >
+                                                {{
+                                                    row.is_required
+                                                        ? "Required"
+                                                        : "Optional"
+                                                }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <p v-else class="ro-none">
+                                    No data fields in this step
+                                </p>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+            </template>
+        </div>
+
+        <Teleport to="body">
+            <div
+                v-if="!loading && !fits && overview.columns.length"
+                ref="miniPanelEl"
+                class="ro-mm"
+                :style="{ left: `${minimapLeft}px` }"
+            >
+                <div class="ro-mm-h">
+                    <div class="ro-mm-title">
+                        <span>Minimap</span>
+                        <small>{{ minimapText }}</small>
+                    </div>
+                </div>
+                <div
+                    ref="miniEl"
+                    class="ro-mm-b"
+                    :class="{ 'is-drag': dragging }"
+                    role="scrollbar"
+                    aria-controls="ro-board"
+                    aria-orientation="horizontal"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    :aria-valuenow="scrollPercent"
+                    aria-label="Board position. Drag or use the arrow keys to move."
+                    tabindex="0"
+                    @pointerdown="onMiniPointerDown"
+                    @pointermove="onMiniPointerMove"
+                    @pointerup="onMiniPointerUp"
+                    @pointercancel="onMiniPointerUp"
+                    @keydown="onMiniKeydown"
+                >
+                    <svg
+                        ref="miniSvgEl"
+                        class="ro-mm-svg"
+                        aria-hidden="true"
+                    ></svg>
+                    <div ref="viewportEl" class="ro-vp"></div>
+                </div>
+            </div>
+        </Teleport>
+    </div>
+</template>
+
+<script setup>
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useApi } from "@/composables/useApi";
+import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
+import LoadingVeil from "@/components/LoadingVeil.vue";
+import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
+
+const route = useRoute();
+const router = useRouter();
+const { api } = useApi();
+
+const workflowDefinitionId = computed(() => Number(route.params.workflowId));
+const stepIdFromUrl = computed(() => Number(route.params.stepId));
+
+const returnTypeId = ref(null);
+const typeId = computed(() => {
+    const q = Number(route.query.type);
+    if (Number.isFinite(q) && q > 0) return q;
+    const t = Number(returnTypeId.value);
+    return Number.isFinite(t) && t > 0 ? t : null;
+});
+
+const staging = useWorkflowStaging();
+
+const steps = ref([]);
+const loading = ref(true);
+const error = ref("");
+
+const bucket = computed(() =>
+    typeId.value ? staging.buckets.get(String(typeId.value)) : null,
+);
+
+function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+// Rows carry their step's code; the code is the stable handle used to
+// spot the same data field in the next step (carry-over links).
+function normalizeServerRow(row, idx) {
+    return {
+        key: String(row.code || row.id || `row-${idx}`),
+        name: row.name ?? row.display_name ?? "",
+        code: row.code ?? "",
+        is_required: !!row.is_required,
+        display_order: Number(row.display_order ?? idx),
+        seq: idx,
+    };
+}
+
+function existedInSource(row, sourceRows) {
+    if (!Array.isArray(sourceRows)) return true;
+    return sourceRows.some((sourceRow) =>
+        row.id != null
+            ? Number(sourceRow.id) === Number(row.id)
+            : String(sourceRow.code) === String(row.code ?? ""),
+    );
+}
+
+function normalizeStagedRow(row, idx, sourceRows) {
+    const key = String(
+        row.code ?? row.source_id ?? row.client_id ?? row.id ?? `row-${idx}`,
+    );
+    return {
+        key,
+        name: row.name ?? row.display_name ?? "",
+        code: row.code ?? "",
+        is_required: !!row.is_required,
+        display_order: Number(row.display_order ?? idx),
+        seq: idx,
+        isUnsaved:
+            !(Number.isFinite(Number(row.id)) && Number(row.id) > 0) ||
+            !existedInSource(row, sourceRows),
+    };
+}
+
+const columns = computed(() => {
+    const sourceSteps = [...(steps.value || [])].sort((a, b) => {
+        const ao = Number(a.order_number ?? 0);
+        const bo = Number(b.order_number ?? 0);
+        return ao - bo || Number(a.step_id ?? 0) - Number(b.step_id ?? 0);
+    });
+    const bucketValue = bucket.value;
+    const bindings = bucketValue?.stepData || {};
+
+    return sourceSteps.map((step, index) => {
+        const stepKey = String(step.step_id);
+        const serverRows = (step.rows || []).map(normalizeServerRow);
+
+        // Prefer already-staged rows so unsaved edits on the Step Data
+        // page are reflected here without a save.
+        const stagedRows = hasOwn(bindings, stepKey)
+            ? (bindings[stepKey] || []).map((row, rowIndex) =>
+                  normalizeStagedRow(
+                      row,
+                      rowIndex,
+                      bucketValue?.sourceStepData?.[stepKey],
+                  ),
+              )
+            : null;
+
+        const rows = (stagedRows || serverRows).sort(
+            (a, b) =>
+                a.display_order - b.display_order ||
+                a.seq - b.seq ||
+                a.name.localeCompare(b.name),
+        );
+
+        const seen = new Set();
+        const dataRows = rows.filter((row) => {
+            if (!row.key || seen.has(row.key)) return false;
+            seen.add(row.key);
+            return true;
+        });
+
+        const stepNumber =
+            Number(step.order_number) > 0
+                ? Number(step.order_number)
+                : index + 1;
+
+        return {
+            id: `step-${step.step_id}`,
+            stepId: step.step_id,
+            stepNumber,
+            name: step.name || `Step ${stepNumber}`,
+            rows: dataRows,
+        };
+    });
+});
+
+const overview = computed(() => {
+    const cols = columns.value.map((column, columnIndex) => ({
+        ...column,
+        rows: column.rows.map((row, reqIndex) => ({
+            ...row,
+            domId: `ro-r-${columnIndex}-${reqIndex}`,
+            color: null,
+        })),
+    }));
+
+    const colorByKey = new Map();
+    let nextColor = 0;
+    const links = [];
+
+    for (let i = 0; i < cols.length - 1; i += 1) {
+        const nextByKey = new Map(
+            cols[i + 1].rows.map((row) => [row.key, row]),
+        );
+        for (const row of cols[i].rows) {
+            const next = nextByKey.get(row.key);
+            if (!next) continue;
+
+            if (!colorByKey.has(row.key)) {
+                colorByKey.set(row.key, nextColor++ % 6);
+            }
+
+            links.push({
+                a: row.domId,
+                b: next.domId,
+                colorIndex: colorByKey.get(row.key),
+            });
+        }
+    }
+
+    for (const column of cols) {
+        for (const row of column.rows) {
+            if (colorByKey.has(row.key)) {
+                row.color = `var(--ro-c${colorByKey.get(row.key)})`;
+            }
+        }
+    }
+
+    const uniqueKeys = new Set();
+    for (const column of cols) {
+        for (const row of column.rows) uniqueKeys.add(row.key);
+    }
+
+    return {
+        columns: cols,
+        links,
+        carriedCount: colorByKey.size,
+        dataFieldCount: uniqueKeys.size,
+    };
+});
+
+const boardEl = ref(null);
+const colsEl = ref(null);
+const linesEl = ref(null);
+const miniPanelEl = ref(null);
+const miniEl = ref(null);
+const miniSvgEl = ref(null);
+const viewportEl = ref(null);
+
+const fits = ref(true);
+const dragging = ref(false);
+const minimapHeight = ref(0);
+const minimapLeft = ref(0);
+const minimapText = ref("");
+const scrollPercent = ref(0);
+
+let disposed = false;
+let loadToken = 0;
+let refreshFrame = 0;
+let glideFrame = 0;
+let scrollTarget = 0;
+let scrollTargetY = 0;
+let dragStartPointerX = 0;
+let dragStartPointerY = 0;
+let dragStartScrollX = 0;
+let dragStartScrollY = 0;
+let resizeObserver = null;
+let miniResizeObserver = null;
+let layoutObserver = null;
+
+function apiError(reason, fallback) {
+    return (
+        reason?.response?.data?.message ||
+        reason?.message ||
+        fallback
+    );
+}
+
+async function loadPage() {
+    const token = ++loadToken;
+    const wid = workflowDefinitionId.value;
+
+    if (!Number.isFinite(wid) || wid <= 0) {
+        error.value = "Invalid workflow.";
+        loading.value = false;
+        return;
+    }
+
+    loading.value = true;
+    error.value = "";
+    fits.value = true;
+    dragging.value = false;
+    minimapHeight.value = 0;
+    minimapText.value = "";
+    scrollPercent.value = 0;
+    steps.value = [];
+    returnTypeId.value = null;
+
+    try {
+        const [stepsDataResult, definitionResult] = await Promise.allSettled([
+            api.get(`/api/admin/workflow-definitions/${wid}/step-data`),
+            api.get(`/api/admin/workflow-definitions/${wid}`),
+        ]);
+
+        if (token !== loadToken || disposed) return;
+
+        if (stepsDataResult.status === "fulfilled") {
+            const payload =
+                stepsDataResult.value.data?.data ?? stepsDataResult.value.data;
+            steps.value = Array.isArray(payload) ? payload : [];
+        } else {
+            error.value = apiError(
+                stepsDataResult.reason,
+                "Failed to load step data.",
+            );
+        }
+
+        if (definitionResult.status === "fulfilled") {
+            const def =
+                definitionResult.value.data?.data ??
+                definitionResult.value.data;
+            const tid = Number(def?.transaction_type_id);
+            if (Number.isFinite(tid) && tid > 0) returnTypeId.value = tid;
+        }
+    } finally {
+        if (token === loadToken && !disposed) {
+            loading.value = false;
+            await nextTick();
+            observeCols();
+            scheduleRefresh();
+        }
+    }
+}
+
+function observeCols() {
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+    }
+    if (!colsEl.value || !("ResizeObserver" in window)) return;
+    resizeObserver = new ResizeObserver(scheduleRefresh);
+    resizeObserver.observe(colsEl.value);
+}
+
+function syncMinimapLeft() {
+    const main = document.querySelector(".v-main");
+    const next = main
+        ? parseFloat(getComputedStyle(main).paddingLeft) || 0
+        : 0;
+    if (next !== minimapLeft.value) minimapLeft.value = next;
+}
+
+function observeLayout() {
+    syncMinimapLeft();
+    if (layoutObserver || !("ResizeObserver" in window)) return;
+
+    const main = document.querySelector(".v-main");
+    if (!main) return;
+    layoutObserver = new ResizeObserver(() => {
+        syncMinimapLeft();
+        scheduleRefresh();
+    });
+    layoutObserver.observe(main);
+}
+
+function syncMinimapHeight() {
+    const next = miniPanelEl.value?.offsetHeight ?? 0;
+    if (next !== minimapHeight.value) minimapHeight.value = next;
+}
+
+function observeMiniPanel() {
+    if (miniResizeObserver) {
+        miniResizeObserver.disconnect();
+        miniResizeObserver = null;
+    }
+    if (!miniPanelEl.value || !("ResizeObserver" in window)) {
+        syncMinimapHeight();
+        return;
+    }
+    miniResizeObserver = new ResizeObserver(syncMinimapHeight);
+    miniResizeObserver.observe(miniPanelEl.value);
+    syncMinimapHeight();
+}
+
+function scheduleRefresh() {
+    if (disposed || refreshFrame) return;
+    refreshFrame = requestAnimationFrame(() => {
+        refreshFrame = 0;
+        refreshOverview();
+    });
+}
+
+async function refreshOverview() {
+    await nextTick();
+    if (disposed) return;
+
+    const board = boardEl.value;
+    if (!board) {
+        fits.value = true;
+        return;
+    }
+
+    syncMinimapLeft();
+    const overflows = board.scrollWidth > board.clientWidth + 1;
+    fits.value = !overflows;
+    await nextTick();
+    if (disposed) return;
+
+    observeMiniPanel();
+    drawConnectors();
+    if (!overflows) return;
+
+    drawMinimap();
+    updateViewport();
+}
+
+// Carry-over connectors are straight diagonals from the source chip to
+// the target chip: clean in every geometry, and they match the minimap.
+function connectorPath(x1, y1, x2, y2) {
+    return `M${x1} ${y1} L${x2} ${y2}`;
+}
+
+function drawConnectors() {
+    const cols = colsEl.value;
+    const svg = linesEl.value;
+    if (!cols || !svg) {
+        if (svg) svg.innerHTML = "";
+        return;
+    }
+
+    const base = cols.getBoundingClientRect();
+    svg.setAttribute("width", String(cols.scrollWidth));
+    svg.setAttribute("height", String(cols.scrollHeight));
+
+    let out = "";
+    for (const link of overview.value.links) {
+        const a = document.getElementById(link.a);
+        const b = document.getElementById(link.b);
+        if (!a || !b) continue;
+
+        const ar = a.getBoundingClientRect();
+        const br = b.getBoundingClientRect();
+        const x1 = ar.right - base.left;
+        const y1 = ar.top + ar.height / 2 - base.top;
+        const x2 = br.left - base.left;
+        const y2 = br.top + br.height / 2 - base.top;
+        const color = `var(--ro-c${link.colorIndex})`;
+        const d = connectorPath(x1, y1, x2, y2);
+
+        out += `<path d="${d}" style="stroke:${color}"/>`;
+        out += `<rect x="${x1 - 4}" y="${y1 - 4}" width="8" height="8" style="fill:${color}"/>`;
+        out += `<rect x="${x2 - 4}" y="${y2 - 4}" width="8" height="8" style="fill:${color}"/>`;
+    }
+    svg.innerHTML = out;
+}
+
+function drawMinimap() {
+    const board = boardEl.value;
+    const cols = colsEl.value;
+    const mini = miniEl.value;
+    const svg = miniSvgEl.value;
+    if (!board || !cols || !mini || !svg) return;
+
+    const W = board.scrollWidth;
+    const H = board.scrollHeight;
+    const mw = mini.clientWidth;
+    const mh = mini.clientHeight;
+    if (!W || !H || !mw || !mh) return;
+
+    const scale = Math.min(mw / W, mh / H);
+    const offsetX = (mw - W * scale) / 2;
+    const offsetY = (mh - H * scale) / 2;
+    const base = board.getBoundingClientRect();
+    const pos = (el) => {
+        const r = el.getBoundingClientRect();
+        return {
+            x: r.left - base.left + board.scrollLeft,
+            y: r.top - base.top + board.scrollTop,
+            w: r.width,
+            h: r.height,
+        };
+    };
+
+    let out = `<g id="ro-mini-content" transform="translate(${offsetX} ${offsetY}) scale(${scale})">`;
+    cols.querySelectorAll(".ro-step").forEach((step, index) => {
+        const p = pos(step);
+        out += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" style="fill:var(--ro-panel);stroke:var(--ro-line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+        if (p.w * scale > 16) {
+            out += `<text x="${p.x + p.w / 2}" y="${p.y + 12 / scale}" text-anchor="middle" font-size="${10 / scale}" font-weight="800" style="fill:var(--ro-muted)">${index + 1}</text>`;
+        }
+    });
+
+    cols.querySelectorAll(".ro-req").forEach((req) => {
+        const p = pos(req);
+        const color =
+            req.style.getPropertyValue("--ro-cc").trim() || "var(--ro-line)";
+        out += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" style="fill:${color}" opacity=".85"/>`;
+    });
+
+    for (const link of overview.value.links) {
+        const a = document.getElementById(link.a);
+        const b = document.getElementById(link.b);
+        if (!a || !b) continue;
+
+        const pa = pos(a);
+        const pb = pos(b);
+        const x1 = pa.x + pa.w;
+        const y1 = pa.y + pa.h / 2;
+        const x2 = pb.x;
+        const y2 = pb.y + pb.h / 2;
+        const d = connectorPath(x1, y1, x2, y2);
+
+        out += `<path d="${d}" fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke" style="stroke:var(--ro-c${link.colorIndex})"/>`;
+    }
+
+    svg.setAttribute("viewBox", `0 0 ${mw} ${mh}`);
+    svg.innerHTML = `${out}</g>`;
+}
+
+function updateViewport() {
+    const board = boardEl.value;
+    const cols = colsEl.value;
+    const mini = miniEl.value;
+    const vp = viewportEl.value;
+    if (!board || !mini || !vp) return;
+
+    const W = board.scrollWidth;
+    const H = board.scrollHeight;
+    const mw = mini.clientWidth;
+    const mh = mini.clientHeight;
+    if (fits.value || !W || !H || !mw || !mh) {
+        vp.style.width = "0px";
+        vp.style.height = "0px";
+        return;
+    }
+
+    const scale = Math.min(mw / W, mh / H);
+    const offsetX = (mw - W * scale) / 2;
+    const offsetY = (mh - H * scale) / 2;
+    const boardRect = board.getBoundingClientRect();
+    const viewportHeight = Math.max(
+        0,
+        window.innerHeight - (miniPanelEl.value?.offsetHeight || 0),
+    );
+    const visibleTop = Math.max(0, Math.min(H, -boardRect.top));
+    const visibleBottom = Math.max(
+        visibleTop,
+        Math.min(H, viewportHeight - boardRect.top),
+    );
+    vp.style.left = `${board.scrollLeft * scale + offsetX}px`;
+    vp.style.top = `${visibleTop * scale + offsetY}px`;
+    vp.style.width = `${board.clientWidth * scale}px`;
+    vp.style.height = `${(visibleBottom - visibleTop) * scale}px`;
+
+    const visible = [];
+    if (cols) {
+        cols.querySelectorAll(".ro-step").forEach((step, index) => {
+            const rect = step.getBoundingClientRect();
+            if (
+                rect.right > boardRect.left + 8 &&
+                rect.left < boardRect.right - 8
+            ) {
+                visible.push(index + 1);
+            }
+        });
+    }
+
+    const total = overview.value.columns.length;
+    minimapText.value = !visible.length
+        ? ""
+        : visible.length === total
+          ? `All ${total} steps in view`
+          : `Showing steps ${visible[0]}${visible.length > 1 ? `–${visible[visible.length - 1]}` : ""} of ${total}`;
+
+    const max = W - board.clientWidth;
+    scrollPercent.value =
+        max > 0 ? Math.round((board.scrollLeft / max) * 100) : 0;
+}
+
+function stopGlide() {
+    if (glideFrame) cancelAnimationFrame(glideFrame);
+    glideFrame = 0;
+    if (boardEl.value) scrollTarget = boardEl.value.scrollLeft;
+    scrollTargetY = window.scrollY;
+}
+
+function glideToTarget() {
+    const board = boardEl.value;
+    if (!board) {
+        glideFrame = 0;
+        return;
+    }
+
+    const distance = scrollTarget - board.scrollLeft;
+    const distanceY = scrollTargetY - window.scrollY;
+    const doneX = Math.abs(distance) < 2;
+    const doneY = Math.abs(distanceY) < 2;
+    board.scrollLeft = doneX
+        ? scrollTarget
+        : board.scrollLeft + distance * 0.22;
+    window.scrollTo(
+        0,
+        doneY ? scrollTargetY : window.scrollY + distanceY * 0.22,
+    );
+    if (doneX && doneY) {
+        glideFrame = 0;
+        return;
+    }
+    glideFrame = requestAnimationFrame(glideToTarget);
+}
+
+function minimapMetrics() {
+    const board = boardEl.value;
+    const mini = miniEl.value;
+    if (!board || !mini) return null;
+
+    const rect = mini.getBoundingClientRect();
+    const width = mini.clientWidth;
+    const height = mini.clientHeight;
+    if (!rect.width || !rect.height || !width || !height) return null;
+    const scale = Math.min(
+        width / board.scrollWidth,
+        height / board.scrollHeight,
+    );
+    return {
+        board,
+        rect,
+        scale,
+        offsetX: (width - board.scrollWidth * scale) / 2,
+        offsetY: (height - board.scrollHeight * scale) / 2,
+    };
+}
+
+function jumpToPointer(clientX, clientY) {
+    const metrics = minimapMetrics();
+    if (!metrics) return;
+    const { board, rect, scale, offsetX, offsetY } = metrics;
+    const miniPanelHeight = miniPanelEl.value?.offsetHeight || 0;
+    const visibleHeight = Math.max(0, window.innerHeight - miniPanelHeight);
+    const worldX = (clientX - rect.left - offsetX) / scale;
+    const worldY = (clientY - rect.top - offsetY) / scale;
+    scrollTarget = Math.max(
+        0,
+        Math.min(
+            board.scrollWidth - board.clientWidth,
+            worldX - board.clientWidth / 2,
+        ),
+    );
+    const boardDocumentTop =
+        board.getBoundingClientRect().top + window.scrollY;
+    scrollTargetY = Math.max(
+        0,
+        Math.min(
+            document.documentElement.scrollHeight - window.innerHeight,
+            boardDocumentTop + worldY - visibleHeight / 2,
+        ),
+    );
+    if (scrollBehavior() === "auto") {
+        stopGlide();
+        board.scrollLeft = scrollTarget;
+        window.scrollTo(0, scrollTargetY);
+        return;
+    }
+    if (!glideFrame) glideFrame = requestAnimationFrame(glideToTarget);
+}
+
+function onMiniPointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    stopGlide();
+    const mini = miniEl.value;
+    const viewport = viewportEl.value;
+    const board = boardEl.value;
+    if (!mini || !viewport || !board) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const withinViewport =
+        event.clientX >= viewportRect.left &&
+        event.clientX <= viewportRect.right &&
+        event.clientY >= viewportRect.top &&
+        event.clientY <= viewportRect.bottom;
+    dragging.value = true;
+    mini.setPointerCapture?.(event.pointerId);
+    mini.focus?.();
+    dragStartPointerX = event.clientX;
+    dragStartPointerY = event.clientY;
+    if (withinViewport) {
+        dragStartScrollX = board.scrollLeft;
+        dragStartScrollY = window.scrollY;
+    } else {
+        jumpToPointer(event.clientX, event.clientY);
+        dragStartScrollX = scrollTarget;
+        dragStartScrollY = scrollTargetY;
+    }
+}
+
+function onMiniPointerMove(event) {
+    if (!dragging.value) return;
+    const metrics = minimapMetrics();
+    if (!metrics) return;
+    const { board, scale } = metrics;
+    scrollTarget = Math.max(
+        0,
+        Math.min(
+            board.scrollWidth - board.clientWidth,
+            dragStartScrollX + (event.clientX - dragStartPointerX) / scale,
+        ),
+    );
+    scrollTargetY = Math.max(
+        0,
+        Math.min(
+            document.documentElement.scrollHeight - window.innerHeight,
+            dragStartScrollY + (event.clientY - dragStartPointerY) / scale,
+        ),
+    );
+    if (scrollBehavior() === "auto") {
+        stopGlide();
+        board.scrollLeft = scrollTarget;
+        window.scrollTo(0, scrollTargetY);
+    } else if (!glideFrame) {
+        glideFrame = requestAnimationFrame(glideToTarget);
+    }
+}
+
+function onMiniPointerUp(event) {
+    dragging.value = false;
+    const mini = miniEl.value;
+    if (mini?.hasPointerCapture?.(event.pointerId)) {
+        mini.releasePointerCapture(event.pointerId);
+    }
+}
+
+function scrollBehavior() {
+    if (typeof window === "undefined") return "auto";
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth";
+}
+
+function onMiniKeydown(event) {
+    const board = boardEl.value;
+    if (!board) return;
+
+    stopGlide();
+    const behavior = scrollBehavior();
+    if (event.key === "ArrowRight") {
+        event.preventDefault();
+        board.scrollBy({ left: 300, behavior });
+    } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        board.scrollBy({ left: -300, behavior });
+    } else if (event.key === "Home") {
+        event.preventDefault();
+        board.scrollTo({ left: 0, behavior });
+    } else if (event.key === "End") {
+        event.preventDefault();
+        board.scrollTo({ left: board.scrollWidth, behavior });
+    }
+}
+
+function goBack() {
+    const wid = workflowDefinitionId.value;
+    const sid = stepIdFromUrl.value;
+
+    if (Number.isFinite(wid) && wid > 0 && Number.isFinite(sid) && sid > 0) {
+        router.push({
+            name: "admin.step-data",
+            params: { workflowId: wid, stepId: sid },
+            query: route.query,
+        });
+    } else {
+        router.push("/admin/workflows");
+    }
+}
+
+watch(overview, scheduleRefresh, { flush: "post" });
+
+watch(workflowDefinitionId, () => {
+    loadPage();
+});
+
+onMounted(async () => {
+    window.addEventListener("resize", scheduleRefresh);
+    window.addEventListener("scroll", updateViewport, { passive: true });
+    window.addEventListener("wheel", stopGlide, { passive: true });
+    window.addEventListener("touchstart", stopGlide, { passive: true });
+    observeLayout();
+    document.fonts?.ready?.then(scheduleRefresh).catch(() => {});
+    await loadPage();
+});
+
+onBeforeUnmount(() => {
+    disposed = true;
+    loadToken += 1;
+    window.removeEventListener("resize", scheduleRefresh);
+    window.removeEventListener("scroll", updateViewport);
+    window.removeEventListener("wheel", stopGlide);
+    window.removeEventListener("touchstart", stopGlide);
+    if (refreshFrame) cancelAnimationFrame(refreshFrame);
+    stopGlide();
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    miniResizeObserver?.disconnect();
+    miniResizeObserver = null;
+    layoutObserver?.disconnect();
+    layoutObserver = null;
+});
+</script>
+
+<style scoped>
+.ro-page {
+    --ro-bg: #eef2f9;
+    --ro-panel: #fff;
+    --ro-ink: #14213d;
+    --ro-muted: #5b6780;
+    --ro-line: #d5dbe8;
+    --ro-field: #f4f6fb;
+    --ro-hover: #f3f6fc;
+    --ro-blue: #005EED;
+    --ro-blue-d: #142d82;
+    --ro-blue-bg: #e8eeff;
+    --ro-err: #c62828;
+    --ro-err-bg: #fde8e8;
+    --ro-c0: #005EED;
+    --ro-c1: #c77700;
+    --ro-c2: #1b7a3d;
+    --ro-c3: #a6288f;
+    --ro-c4: #0e7490;
+    --ro-c5: #b42318;
+    --ro-ring: rgba(29, 63, 174, 0.28);
+    width: auto;
+    max-width: none;
+    margin: 0 -24px;
+    padding: 0 clamp(16px, 3vw, 48px) 16px;
+    background: var(--ro-bg);
+    color: var(--ro-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.ro-page.has-minimap {
+    padding-bottom: calc(
+        var(--ro-minimap-height, 0px) +
+            max(32px, env(safe-area-inset-bottom, 0px))
+    );
+}
+
+.ro-page :deep(.v-alert) {
+    border-radius: 0;
+}
+
+.ro-page :deep(.v-btn) {
+    border-radius: 0;
+}
+
+.ro-shell {
+    border: 1px solid var(--ro-line);
+    background: var(--ro-panel);
+    box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
+}
+
+.ro-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 380px;
+    padding: 16px 0;
+}
+
+.ro-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 28px;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--ro-line);
+    background: var(--ro-field);
+}
+
+.ro-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--ro-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ro-stat b {
+    color: var(--ro-ink);
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.ro-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin-left: auto;
+    color: var(--ro-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.ro-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ro-lk {
+    width: 34px;
+    height: 12px;
+    flex: none;
+}
+
+.ro-lk path {
+    fill: none;
+    stroke: var(--ro-c0);
+    stroke-width: 2.5;
+}
+
+.ro-mm {
+    --ro-panel: #fff;
+    --ro-muted: #5b6780;
+    --ro-line: #d5dbe8;
+    --ro-field: #f4f6fb;
+    --ro-blue: #005EED;
+    --ro-ring: rgba(29, 63, 174, 0.28);
+    --ro-c0: #005EED;
+    --ro-c1: #c77700;
+    --ro-c2: #1b7a3d;
+    --ro-c3: #a6288f;
+    --ro-c4: #0e7490;
+    --ro-c5: #b42318;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 11;
+    padding: 10px clamp(12px, 2.5vw, 40px)
+        max(12px, env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--ro-line);
+    background: var(--ro-panel);
+    box-shadow: 0 -8px 20px -12px rgba(20, 33, 61, 0.4);
+}
+
+.ro-mm-h {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px 16px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.ro-mm-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ro-mm-h span {
+    color: var(--ro-muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ro-mm-h small {
+    color: var(--ro-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.ro-mm-b {
+    position: relative;
+    height: 96px;
+    overflow: hidden;
+    border: 1.5px solid var(--ro-line);
+    background: var(--ro-field);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.ro-mm-b.is-drag {
+    cursor: grabbing;
+}
+
+.ro-mm-svg {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.ro-vp {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    min-width: 6px;
+    min-height: 6px;
+    border: 2px solid var(--ro-blue);
+    background: color-mix(in srgb, var(--ro-blue) 16%, transparent);
+    pointer-events: none;
+}
+
+.ro-board {
+    overflow-x: auto;
+    padding: 28px;
+    scrollbar-width: thin;
+}
+
+.ro-board:focus-visible,
+.ro-mm-b:focus-visible {
+    outline: 3px solid var(--ro-ring);
+    outline-offset: 2px;
+}
+
+.ro-cols {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 84px;
+    width: max-content;
+    min-width: 100%;
+}
+
+.ro-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.ro-lines path {
+    fill: none;
+    stroke-width: 2.5;
+}
+
+.ro-lines rect {
+    stroke: none;
+}
+
+.ro-step {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: 300px;
+    border: 1.5px solid var(--ro-line);
+    background: var(--ro-panel);
+}
+
+.ro-step-hd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-bottom: 1.5px solid var(--ro-line);
+    background: var(--ro-field);
+}
+
+.ro-step-n {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    background: var(--tms-grad);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.ro-step-t {
+    min-width: 0;
+}
+
+.ro-step-t small {
+    display: block;
+    color: var(--ro-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ro-step-t b {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.ro-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+}
+
+.ro-req {
+    --ro-cc: var(--ro-line);
+    padding: 11px 12px;
+    border: 1.5px solid var(--ro-line);
+    border-left: 4px solid var(--ro-line);
+    background: var(--ro-panel);
+}
+
+.ro-req.is-link {
+    border-left-color: var(--ro-cc);
+}
+
+.ro-req.is-unsaved {
+    border-color: #b7d9f4;
+    border-left-color: #1670b7;
+    background: #eaf5ff;
+}
+
+.ro-req.is-unsaved.is-link {
+    border-left-color: var(--ro-cc);
+}
+
+.ro-req-unsaved {
+    display: inline-flex;
+    margin-left: 8px;
+    padding: 2px 6px;
+    background: #cfe7fa;
+    color: #124d7a;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+.ro-req-n {
+    color: var(--ro-ink);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.ro-req-c {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 7px;
+    background: var(--ro-field);
+    color: var(--ro-muted);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    overflow-wrap: anywhere;
+}
+
+.ro-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 9px;
+}
+
+.ro-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.ro-tag-r {
+    background: var(--ro-err-bg);
+    color: var(--ro-err);
+}
+
+.ro-tag-o {
+    background: var(--ro-field);
+    color: var(--ro-muted);
+}
+
+.ro-tag-u {
+    background: var(--ro-blue-bg);
+    color: var(--ro-blue);
+}
+
+.ro-none {
+    margin: 0;
+    padding: 22px 8px;
+    border: 1.5px dashed var(--ro-line);
+    color: var(--ro-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.ro-empty {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 280px;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.ro-empty-ic {
+    margin-bottom: 12px;
+    color: var(--ro-blue);
+}
+
+.ro-empty b {
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.ro-empty span {
+    max-width: 460px;
+    margin-top: 5px;
+    color: var(--ro-muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.ro-retry {
+    height: 40px;
+    margin-top: 18px;
+    padding: 0 18px;
+    border: 1.5px solid var(--ro-blue);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ro-blue);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ro-retry:hover {
+    background: var(--ro-blue-bg);
+}
+
+.ro-retry:focus-visible {
+    outline: 3px solid var(--ro-ring);
+    outline-offset: 2px;
+}
+
+html.dark .ro-page {
+    --ro-bg: #0e1424;
+    --ro-panel: #161e36;
+    --ro-ink: #eef2fb;
+    --ro-muted: #9aa7c4;
+    --ro-line: #2b3558;
+    --ro-field: #1c2645;
+    --ro-hover: #1d2745;
+    --ro-blue: #6f8cff;
+    --ro-blue-d: #8aa1ff;
+    --ro-blue-bg: #25306a;
+    --ro-err: #ff8a80;
+    --ro-err-bg: #4a1f22;
+    --ro-c0: #7f9bff;
+    --ro-c1: #ffb347;
+    --ro-c2: #4cd080;
+    --ro-c3: #e27bd0;
+    --ro-c4: #4cc3dd;
+    --ro-c5: #ff8a80;
+    --ro-ring: rgba(138, 161, 255, 0.38);
+}
+
+html.dark .ro-req.is-unsaved {
+    border-color: #385b76;
+    border-left-color: #6db8f0;
+    background: #182d40;
+}
+
+html.dark .ro-req.is-unsaved.is-link {
+    border-left-color: var(--ro-cc);
+}
+
+html.dark .ro-req-unsaved {
+    background: #244966;
+    color: #c8e7ff;
+}
+
+html.dark .ro-mm {
+    --ro-panel: #161e36;
+    --ro-muted: #9aa7c4;
+    --ro-line: #2b3558;
+    --ro-field: #1c2645;
+    --ro-blue: #6f8cff;
+    --ro-ring: rgba(138, 161, 255, 0.38);
+    --ro-c0: #7f9bff;
+    --ro-c1: #ffb347;
+    --ro-c2: #4cd080;
+    --ro-c3: #e27bd0;
+    --ro-c4: #4cc3dd;
+    --ro-c5: #ff8a80;
+}
+
+html.dark .ro-shell {
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
+}
+
+@media (max-width: 760px) {
+    .ro-bar {
+        padding: 14px 16px;
+    }
+
+    .ro-legend {
+        margin-left: 0;
+    }
+
+    .ro-mm {
+        padding: 8px 16px max(10px, env(safe-area-inset-bottom, 0px));
+    }
+
+    .ro-mm-b {
+        height: 72px;
+    }
+
+    .ro-board {
+        padding: 20px 16px;
+    }
+
+    .ro-cols {
+        gap: 64px;
+    }
+
+    .ro-step {
+        width: 264px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ro-page *,
+    .ro-page *::before,
+    .ro-page *::after {
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}
+</style>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Office;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -124,11 +125,7 @@ class AuthController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'office' => $user->office ? [
-                        'id' => $user->office->id,
-                        'code' => $user->office->code,
-                        'name' => $user->office->name,
-                    ] : null,
+                    'office' => Office::mini($user->office),
                     'roles' => $user->roles->map(fn($r) => [
                         'id' => $r->id,
                         'code' => $r->code,

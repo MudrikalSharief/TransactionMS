@@ -191,7 +191,7 @@ class DashboardSummaryController extends Controller
             'reference_number' => $tx->reference_number,
             'title' => $tx->title,
             'process' => $tx->type?->only(['id', 'name']),
-            'office' => $tx->office?->only(['id', 'code', 'name']),
+            'office' => Office::mini($tx->office),
             'created_by' => $tx->creator?->only(['id', 'name', 'email']),
             'created_at' => $tx->created_at?->toIso8601String(),
         ];

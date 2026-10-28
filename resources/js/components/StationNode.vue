@@ -67,7 +67,7 @@
                 </div>
                 <div class="hover-title">{{ titleText }}</div>
                 <div class="hover-assigned">
-                    Assigned office: <b>{{ assignedOfficeLabel }}</b>
+                    {{ viewer ? 'Office' : 'Assigned office' }}: <b>{{ assignedOfficeLabel }}</b>
                 </div>
                 <div v-if="showCallout" class="hover-callout">
                     <v-icon size="small" color="#7ab7ff" aria-hidden="true">mdi-information-outline</v-icon>
@@ -136,10 +136,13 @@
                     <v-icon size="small" aria-hidden="true">mdi-arrow-right</v-icon>
                     <span class="hover-pill hover-pill-to">{{ moveTo }}</span>
                 </div>
+                <!-- Viewers see the time only, no office badge or name. -->
                 <div class="hover-meta">
-                    <span class="hover-avatar">{{ avatarLetter }}</span>
-                    <span class="hover-by">{{ moveBy }}</span>
-                    <span class="hover-at" :title="moveAtFull">· {{ moveAt }}</span>
+                    <template v-if="!viewer">
+                        <span class="hover-avatar">{{ avatarLetter }}</span>
+                        <span class="hover-by">{{ moveBy }}</span>
+                    </template>
+                    <span class="hover-at" :title="moveAtFull">{{ viewer ? moveAt : `· ${moveAt}` }}</span>
                 </div>
                 <div v-if="moveRemarks" class="hover-remarks">“{{ moveRemarks }}”</div>
             </div>
@@ -159,6 +162,7 @@ const props = defineProps({
     detail: { type: Object, default: null },
     move: { type: Object, default: null },
     dataNode: { type: [Number, String, null], default: null },
+    viewer: { type: Boolean, default: false },
 })
 
 // purple = current, green = visited behind, pale blue = already passed ahead.

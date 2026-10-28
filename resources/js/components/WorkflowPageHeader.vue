@@ -101,7 +101,7 @@ const versionTitle = computed(() =>
     --wsh-muted: rgb(var(--v-theme-secondary));
     --wsh-line: rgba(var(--v-border-color), var(--v-border-opacity));
     --wsh-hover: #f3f6fc;
-    --wsh-blue: #1d3fae;
+    --wsh-blue: #005EED;
     --wsh-field: #f4f6fb;
     --wsh-ok: #1b7a3d;
     --wsh-amber: #b86e00;
@@ -138,7 +138,7 @@ html.dark .wsh {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--wsh-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 
@@ -235,7 +235,7 @@ html.dark .wsh {
 
 .wsh-save {
     border: 1.5px solid transparent !important;
-    background: var(--wsh-blue) !important;
+    background: var(--tms-grad) !important;
     color: #fff !important;
 }
 

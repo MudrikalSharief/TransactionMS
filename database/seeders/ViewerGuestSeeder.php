@@ -33,6 +33,8 @@ class ViewerGuestSeeder extends Seeder
                 'name' => 'Guest Viewer',
                 'password' => Hash::make(Str::random(40)),
                 'is_active' => true,
+                // Seeded accounts never wait for approval.
+                'approved_at' => now(),
             ]
         );
 

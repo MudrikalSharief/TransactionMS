@@ -3,7 +3,7 @@
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                    <v-icon color="#16307C">mdi-help-circle-outline</v-icon>
+                    <v-icon color="#005EED">mdi-help-circle-outline</v-icon>
                 </v-avatar>
                 <div>
                     <span class="text-h6 font-weight-bold">Help &amp; Manual</span>
@@ -28,7 +28,7 @@
 
         <!-- Doing your work -->
         <div v-if="filteredUser.length" class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-            <v-avatar color="#16307C" rounded="0" size="28" class="mr-2">
+            <v-avatar color="#005EED" rounded="0" size="28" class="mr-2">
                 <v-icon color="white" size="18">mdi-account-check-outline</v-icon>
             </v-avatar>
             Doing your work
@@ -45,7 +45,7 @@
                     <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
                         <span class="help-num flex-shrink-0">{{ item.i + 1 }}</span>
                         <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
-                            <v-icon color="#16307C" size="18">{{ item.s.icon }}</v-icon>
+                            <v-icon color="#005EED" size="18">{{ item.s.icon }}</v-icon>
                         </v-avatar>
                         <div style="min-width: 0">
                             <div class="font-weight-bold">{{ item.s.title }}</div>
@@ -65,7 +65,7 @@
         <!-- Admin setup -->
         <template v-if="isSuperadmin">
             <div v-if="filteredAdmin.length" class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-                <v-avatar color="#16307C" rounded="0" size="28" class="mr-2">
+                <v-avatar color="#005EED" rounded="0" size="28" class="mr-2">
                     <v-icon color="white" size="18">mdi-cog-outline</v-icon>
                 </v-avatar>
                 Setting the system up
@@ -82,7 +82,7 @@
                         <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
                             <span class="help-num flex-shrink-0">{{ item.i + 1 }}</span>
                             <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
-                                <v-icon color="#16307C" size="18">{{ item.s.icon }}</v-icon>
+                                <v-icon color="#005EED" size="18">{{ item.s.icon }}</v-icon>
                             </v-avatar>
                             <div style="min-width: 0">
                                 <div class="font-weight-bold">{{ item.s.title }}</div>
@@ -102,7 +102,7 @@
 
         <!-- Stations & routes + notes -->
         <div v-if="showStations || filteredNotes.length" class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
-            <v-avatar color="#16307C" rounded="0" size="28" class="mr-2">
+            <v-avatar color="#005EED" rounded="0" size="28" class="mr-2">
                 <v-icon color="white" size="18">mdi-source-branch</v-icon>
             </v-avatar>
             Stations, routes &amp; notes
@@ -112,7 +112,7 @@
                 <v-expansion-panel-title>
                     <div class="d-flex align-center ga-3" style="min-width: 0; flex: 1 1 auto">
                         <v-avatar rounded="0" size="32" class="flex-shrink-0 help-ico">
-                            <v-icon color="#16307C" size="18">mdi-source-branch</v-icon>
+                            <v-icon color="#005EED" size="18">mdi-source-branch</v-icon>
                         </v-avatar>
                         <div style="min-width: 0">
                             <div class="font-weight-bold">Transaction Steps &amp; Routes</div>
@@ -478,7 +478,7 @@ const windowOpen = ref(false)
 const activeKey = ref(null)
 const activeContent = computed(() => {
     if (activeKey.value === 'stations') {
-        return { icon: 'mdi-source-branch', title: 'Transaction Steps & Routes', color: '#16307C' }
+        return { icon: 'mdi-source-branch', title: 'Transaction Steps & Routes', color: '#005EED' }
     }
     const m = /^note-(\d+)$/.exec(activeKey.value || '')
     if (m) {
@@ -518,7 +518,7 @@ watch(query, () => {
 <style scoped>
 /* Blank dark footer container (no text): flushes to the page bottom. */
 .help-foot {
-    background: #0E1F52;
+    background: #1A1F2B;
     padding: 16px 24px;
     margin-top: 8px;
     margin-bottom: -24px;
@@ -530,8 +530,8 @@ watch(query, () => {
     border: 1px solid #e2e8f0 !important;
 }
 .help-entry.v-expansion-panel--active {
-    border-color: #16307C !important;
-    box-shadow: 0 10px 24px -12px rgba(22, 48, 124, 0.35) !important;
+    border-color: #005EED !important;
+    box-shadow: 0 10px 24px -12px rgba(0, 94, 237, 0.35) !important;
 }
 .help-num {
     display: inline-flex;
@@ -540,13 +540,13 @@ watch(query, () => {
     min-width: 28px;
     height: 28px;
     padding: 0 6px;
-    background: #16307C;
+    background: #005EED;
     color: #ffffff;
     font-weight: 800;
     font-size: 0.8rem;
 }
 .help-ico {
-    background: rgba(22, 48, 124, 0.1);
+    background: rgba(0, 94, 237, 0.1);
 }
 html.dark .help-entry {
     border-color: #334155 !important;

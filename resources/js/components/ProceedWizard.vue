@@ -231,31 +231,14 @@
                 </div>
 
                 <div v-if="tickRequirements.length" class="d-flex flex-column ga-3">
-                    <!-- Tick group: previous-station mirror (Prev, display-only)
-                        + current verify tick. Ticking a required row unlocks
-                        its section below. Step 1 has no predecessor, so it
-                        renders today's single checkbox. -->
+                    <!-- Tick group: current verify tick. Ticking a required
+                        row unlocks its section below. -->
                     <div v-if="tickRequirements.length" class="d-flex flex-column">
-                        <div v-if="hasPrevColumn" class="d-flex align-center ga-2">
-                            <span style="width: 44px" class="text-caption text-medium-emphasis text-center">Prev</span>
-                            <span class="text-caption text-medium-emphasis">Verify</span>
-                        </div>
                         <div
                             v-for="r in tickRequirements"
                             :key="r.definition.id"
                             class="d-flex align-center ga-2 py-1"
                         >
-                            <div v-if="hasPrevColumn" style="width: 44px" class="d-flex justify-center">
-                            <v-checkbox
-                                :model-value="!!r.prev_checked"
-                                :class="{ 'prev-tick-done': r.prev_checked }"
-                                disabled
-                                density="compact"
-                                hide-details="auto"
-                                style="flex: 0 0 auto; margin: 0"
-                                :title="prevTickTitle(r)"
-                            />
-                            </div>
                             <v-checkbox
                                 :model-value="!!r.checked"
                                 :label="r.definition.name"
@@ -674,18 +657,6 @@ const tickRequirements = computed(() => props.isReturnSelected
     : sortedRequirements.value,
 )
 
-// First (Prev) column shows only when some requirement carries a
-// previous-station tick — step 1 has no predecessor, so it keeps the
-// single-checkbox layout.
-const hasPrevColumn = computed(() => (props.requirements || []).some((r) => !!r.prev_step))
-
-function prevTickTitle(r) {
-    if (!r.prev_step) return 'No previous station'
-    const who = r.prev_checked_by?.name ? ` by ${r.prev_checked_by.name}` : ''
-    const where = r.prev_step?.name ? ` at ${r.prev_step.name}` : ''
-    return r.prev_checked ? `Checked${where}${who}` : `Not checked${where}`
-}
-
 // Group card order: true upload inputs first, then tick-only sections.
 // Stable sort preserves the required-first order inside each band.
 // Built from the visible (return-filtered) rows so PR cards hide on return.
@@ -979,24 +950,12 @@ defineExpose({ clearReqFiles, getReqFiles, removeReqFile })
 .wizard-stepper.is-step-1 :deep(.req-step .v-stepper-item__avatar) {
     background-color: #BFDBFE !important;
     border-color: #BFDBFE !important;
-    color: #16307C !important;
+    color: #005EED !important;
 }
 .wizard-stepper.is-step-2 :deep(.review-step .v-avatar),
 .wizard-stepper.is-step-2 :deep(.review-step .v-stepper-item__avatar) {
     background-color: #FDE68A !important;
     border-color: #FDE68A !important;
     color: #92400E !important;
-}
-
-/* Auto-filled Prev ticks: subtle green when checked. Unchecked Prev
-   boxes keep Vuetify's default grey. Dynamic class (not Vuetify state
-   classes) so only checked mirrors are recolored. */
-:deep(.prev-tick-done.v-input--disabled),
-:deep(.prev-tick-done.v-selection-control--disabled) {
-    opacity: 1;
-}
-:deep(.prev-tick-done .v-selection-control__input > .v-icon) {
-    color: #81C784;
-    opacity: .9;
 }
 </style>

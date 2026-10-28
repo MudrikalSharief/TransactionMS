@@ -66,7 +66,7 @@
                     :no-data-text="searchNoDataText"
                     :menu-props="{ contentClass: 'search-menu', offset: 18 }"
                     class="font-weight-bold search-pixiv"
-                    style="width: 100%; max-width: 520px"
+                    style="width: 100%; max-width: 380px"
                     @focus="ensureSearchData"
                     @update:model-value="goToResult"
                 >
@@ -82,60 +82,69 @@
             </div>
 
             <div class="d-flex align-center" style="flex: 0 0 auto">
-                <ScopeChip class="mr-2 d-none d-lg-inline-flex" />
-                <v-chip
-                    variant="flat"
-                    class="mr-2 font-weight-medium nav-chip"
-                    v-tooltip="'Zamboanga local time'"
-                >
-                    <v-icon start color="#c7d7ff">mdi-clock-outline</v-icon>
-                    {{ clock }}
-                </v-chip>
-
-                <v-chip
-                    variant="flat"
-                    class="mr-2 font-weight-medium nav-chip"
-                    v-tooltip="'Weather in Zamboanga City: ' + weatherLabel"
-                >
-                    <v-icon start color="#c7d7ff">{{ weatherIcon }}</v-icon>
-                    {{ temperature }} · Zamboanga
-                </v-chip>
-
-                <!-- Profile icon: opens My Profile (the shared guest viewer has none). -->
-                <v-chip
-                    v-if="auth.user.value"
-                    variant="flat"
-                    class="mr-2 font-weight-medium nav-chip d-none d-md-flex"
-                    :to="hasProfile ? '/profile' : undefined"
-                    :aria-label="hasProfile ? 'My Profile' : undefined"
-                    v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : userTooltip"
-                >
-                    <v-icon color="#c7d7ff">mdi-account-circle</v-icon>
-                </v-chip>
-
-                <!-- Viewers never signed in themselves (Track your Document
-                     Process), so leaving is a plain "back", no confirmation. -->
-                <v-btn
-                    v-if="kind === 'viewer'"
-                    variant="outlined"
-                    color="white"
-                    rounded="pill"
-                    class="track-exit font-weight-bold"
-                    :loading="loggingOut"
-                    v-tooltip="'Leave tracking and return to the login page'"
-                    @click="onLogout"
-                >
-                    <v-icon start>mdi-arrow-left</v-icon>
-                    <span class="d-none d-sm-inline">Back to login</span>
-                </v-btn>
-                <v-btn
-                    v-else
-                    icon="mdi-logout"
-                    v-tooltip="'Log out'"
-                    color="white"
-                    class="nav-logout"
-                    @click="confirmLogout = true"
-                />
+                <!-- One pill, three segments split by dividers: time, weather,
+                     profile (opens My Profile; the shared guest viewer has none). -->
+                <div class="nav-group mr-8">
+                    <div class="nav-seg" v-tooltip="'Zamboanga local time'">
+                        <v-icon size="20" color="#c7d7ff">mdi-clock-outline</v-icon>
+                        <span>{{ clock }}</span>
+                    </div>
+                    <span class="nav-sep" aria-hidden="true"></span>
+                    <div class="nav-seg" v-tooltip="'Weather in Zamboanga City: ' + weatherLabel">
+                        <v-icon size="20" color="#c7d7ff">{{ weatherIcon }}</v-icon>
+                        <span>{{ temperature }} · Zamboanga</span>
+                    </div>
+                    <template v-if="auth.user.value">
+                        <span class="nav-sep d-none d-md-block" aria-hidden="true"></span>
+                        <div
+                            class="nav-seg d-none d-md-flex"
+                            :class="{ 'nav-seg--link': hasProfile }"
+                            :role="hasProfile ? 'link' : undefined"
+                            :tabindex="hasProfile ? 0 : undefined"
+                            :aria-label="hasProfile ? 'My Profile' : undefined"
+                            v-tooltip="hasProfile ? `${userTooltip} · Click to edit your profile` : false"
+                            @click="hasProfile && router.push('/profile')"
+                            @keydown.enter="hasProfile && router.push('/profile')"
+                        >
+                            <v-icon size="22" color="#c7d7ff">mdi-account-circle</v-icon>
+                            <!-- One label at a time: office scope and role swap every 10 s.
+                                 Both are stacked in one grid cell, so the pill keeps the
+                                 width of the longer one and nothing shifts. -->
+                            <span v-if="scopeTexts.length" class="nav-swap-box">
+                                <span
+                                    v-for="t in scopeTexts"
+                                    :key="t"
+                                    class="nav-swap-item"
+                                    :class="{ 'is-on': t === scopeLabel?.text }"
+                                >{{ t }}</span>
+                            </span>
+                        </div>
+                    </template>
+                    <span class="nav-sep" aria-hidden="true"></span>
+                    <!-- Viewers never signed in themselves (Track your Document
+                         Process), so leaving is a plain "back", no confirmation. -->
+                    <button
+                        v-if="kind === 'viewer'"
+                        type="button"
+                        class="nav-seg nav-seg--link nav-seg--btn"
+                        :disabled="loggingOut"
+                        v-tooltip="'Leave tracking and return to the login page'"
+                        @click="onLogout"
+                    >
+                        <v-icon size="20" color="#c7d7ff">mdi-arrow-left</v-icon>
+                        <span class="d-none d-sm-inline">Back to login</span>
+                    </button>
+                    <button
+                        v-else
+                        type="button"
+                        class="nav-seg nav-seg--link nav-seg--btn"
+                        aria-label="Log out"
+                        v-tooltip="'Log out'"
+                        @click="confirmLogout = true"
+                    >
+                        <v-icon size="22" color="#c7d7ff">mdi-logout</v-icon>
+                    </button>
+                </div>
             </div>
         </v-app-bar>
 
@@ -143,7 +152,8 @@
             v-if="showAuthUi"
             v-model="drawer"
             :rail="rail"
-            style="border-right: 2px solid #16307C"
+            :rail-width="76"
+            style="border-right: 2px solid #005EED"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
         >
@@ -160,40 +170,44 @@
                         :exact="!!item.exact"
                         :prepend-icon="item.badge == null ? item.icon : undefined"
                         rounded="lg"
-                        v-tooltip:end="rail ? (item.badge ? `${item.title} · ${item.badgeLabel}` : item.title) : undefined"
+                        v-tooltip:end="rail ? (item.badge ? `${item.title} ${item.badge}` : item.title) : false"
                     >
-                        <!-- Items with a count (clerk Approvals): small red badge on
-                             the icon in the rail, a red chip when the menu is open. -->
+                        <!-- Items with a count (clerk Task): small red badge on the
+                             icon in the rail; "TASK 9" (count right after the
+                             title) when the menu is open. -->
                         <template v-if="item.badge != null" #prepend>
+                            <!-- Badge only exists while collapsed, so the open row's
+                                 text reads "TASK 9", not "9TASK 9". -->
                             <v-badge
-                                :model-value="rail && item.badge > 0"
+                                v-if="rail && item.badge > 0"
                                 :content="item.badge > 99 ? '99+' : item.badge"
                                 color="error"
                                 class="approvals-badge"
                             >
                                 <v-icon>{{ item.icon }}</v-icon>
                             </v-badge>
+                            <v-icon v-else>{{ item.icon }}</v-icon>
                         </template>
-                        <v-list-item-title>{{ item.title.toUpperCase() }}</v-list-item-title>
-                        <template v-if="item.badge != null" #append>
+                        <v-list-item-title class="d-flex align-center">
+                            {{ item.title.toUpperCase() }}
                             <v-chip
-                                v-if="!rail && item.badge > 0"
+                                v-if="item.badge != null && !rail && item.badge > 0"
                                 size="x-small"
                                 color="error"
                                 variant="flat"
-                                class="font-weight-bold"
-                                v-tooltip="item.badgeLabel"
+                                class="font-weight-bold ml-2"
+                                v-tooltip="`${item.title} ${item.badge}`"
                             >
                                 {{ item.badge > 99 ? "99+" : item.badge }}
                             </v-chip>
-                        </template>
+                        </v-list-item-title>
                     </v-list-item>
                 </template>
                 <v-list-item
                     v-if="false && showApprovals"
                     to="/approvals"
                     rounded="lg"
-                    v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : undefined"
+                    v-tooltip:end="rail && pendingRequirements ? approvalsBadgeLabel : false"
                 >
                     <template #prepend>
                         <v-badge
@@ -231,16 +245,17 @@
                     :class="{ 'nav-profile--rail': rail, 'nav-profile--link': hasProfile }"
                     :role="hasProfile ? 'link' : undefined"
                     :tabindex="hasProfile ? 0 : undefined"
-                    v-tooltip:end="rail ? userTooltip : undefined"
+                    v-tooltip:end="rail && hasProfile ? userTooltip : false"
                     @click="hasProfile && router.push('/profile')"
                     @keydown.enter="hasProfile && router.push('/profile')"
                 >
-                    <div class="nav-profile__avatar">{{ userInitials }}</div>
+                    <div v-if="rail" class="nav-profile__avatar">{{ userInitials }}</div>
                     <div v-if="!rail" class="nav-profile__text">
-                        <div class="nav-profile__name">{{ auth.user.value.name }}</div>
-                        <div class="nav-profile__meta">
+                        <span class="nav-profile__name">{{ auth.user.value.name }}</span>
+                        <!-- The shared guest viewer shows only its name. -->
+                        <template v-if="hasProfile"><span class="nav-profile__sep" aria-hidden="true">|</span><span class="nav-profile__meta">
                             {{ primaryRole }}<template v-if="auth.user.value.office"> · {{ auth.user.value.office.code || auth.user.value.office.name }}</template>
-                        </div>
+                        </span></template>
                     </div>
                 </div>
                 <v-divider />
@@ -254,7 +269,7 @@
                         variant="tonal"
                         color="primary"
                         density="comfortable"
-                        v-tooltip="rail ? (isDark ? 'Light mode' : 'Dark mode') : undefined"
+                        v-tooltip="rail ? (isDark ? 'Light mode' : 'Dark mode') : false"
                         @click="toggleTheme"
                     >
                         <v-icon>{{ isDark ? "mdi-weather-sunny" : "mdi-weather-night" }}</v-icon>
@@ -269,7 +284,7 @@
                         color="primary"
                         density="comfortable"
                         to="/help"
-                        v-tooltip="rail ? 'Help' : undefined"
+                        v-tooltip="rail ? 'Help' : false"
                     >
                         <v-icon>mdi-help-circle-outline</v-icon>
                         <span v-if="!rail" class="ml-1 text-caption font-weight-bold">HELP</span>
@@ -280,7 +295,10 @@
 
         <v-main class="app-main">
             <OfflineBar />
-            <v-container v-if="showAuthUi" fluid class="pa-6">
+            <!-- The tracker's flag backdrop behind every page; the viewer
+                 pages draw their own (search dims it as results appear). -->
+            <TrackBackdrop v-if="showAuthUi && route.meta?.kind !== 'viewer'" quiet />
+            <v-container v-if="showAuthUi" fluid class="pa-6 app-page">
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
                 <div :key="route.matched[0]?.path || route.path" class="page-enter">
@@ -290,15 +308,15 @@
             <template v-else>
                 <router-view />
             </template>
-            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-spacer" aria-hidden="true"></div>
-            <div v-if="showAuthUi && route.name === 'dashboard'" class="app-foot-bar" aria-hidden="true"></div>
+            <div v-if="showAuthUi" class="app-foot-spacer" aria-hidden="true"></div>
+            <AppFooter v-if="showAuthUi" />
         </v-main>
 
         <v-dialog v-model="confirmLogout" max-width="640">
             <v-card rounded="0">
                 <v-card-title class="d-flex align-center pa-5 lgu-head">
                     <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#16307C">mdi-logout</v-icon>
+                        <v-icon color="#005EED">mdi-logout</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold">LOG OUT?</span>
                     <v-spacer />
@@ -329,18 +347,21 @@ import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
-import ScopeChip from "@/components/ScopeChip.vue";
+import { useOfficeScope } from "@/composables/useOfficeScope";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
 import OfflineBar from "@/components/OfflineBar.vue";
+import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
+import AppFooter from "@/components/AppFooter.vue";
 import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
 
 const router = useRouter();
 const route = useRoute();
 const auth = useAuth();
+const officeScope = useOfficeScope();
 const { mobile } = useDisplay();
 
 // ---- Collapsible sidebar (starts collapsed) ----
@@ -352,7 +373,8 @@ let hoverExpanded = false;
 
 const toggleNav = () => {
     hoverExpanded = false;
-    if (mobile.value) {
+    // Viewers start with the sidebar hidden, so the button shows/hides it.
+    if (mobile.value || kind.value === "viewer") {
         drawer.value = !drawer.value;
     } else {
         rail.value = !rail.value;
@@ -380,6 +402,12 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
+// Viewers have a single page (Track), so the sidebar starts hidden; every
+// other account gets it back. The shell outlives sign-ins, so a viewer
+// session must not leave it hidden for the next admin or clerk.
+watch(kind, (k) => {
+    drawer.value = k !== "viewer" && !mobile.value;
+}, { immediate: true });
 // My Profile: every signed-in account except the shared guest viewer.
 const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
 
@@ -403,9 +431,10 @@ const navGroups = computed(() => {
                 icon: "mdi-clipboard-check-multiple-outline",
                 to: "/portal/approvals",
                 badge: n,
-                badgeLabel: `${n} task${n === 1 ? "" : "s"} waiting for you`,
             });
         }
+        // Completed transactions move here from Transactions.
+        work.push({ title: "Transaction History", icon: "mdi-archive-outline", to: "/portal/history" });
         return [
             { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
             { title: "Work", items: work },
@@ -490,6 +519,23 @@ const primaryRole = computed(() => {
     return top.name || top.code;
 });
 
+// The profile pill shows one label at a time: the office scope and the role
+// swap every 10 s (only the role when there is no office scope).
+const showRoleLabel = ref(false);
+const scopeLabel = computed(() => {
+    const office = officeScope.value?.label;
+    const role = primaryRole.value !== "No role" ? primaryRole.value : null;
+    if (office && role) return showRoleLabel.value ? { text: role, isRole: true } : { text: office, isRole: false };
+    if (office) return { text: office, isRole: false };
+    return role ? { text: role, isRole: true } : null;
+});
+const scopeTexts = computed(() => {
+    const office = officeScope.value?.label;
+    const role = primaryRole.value !== "No role" ? primaryRole.value : null;
+    return [office, role].filter(Boolean);
+});
+let scopeTimer = null;
+
 const userInitials = computed(() => {
     const parts = (auth.user.value?.name || "").trim().split(/\s+/).filter(Boolean);
     const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] || "?").slice(0, 2);
@@ -532,6 +578,7 @@ const searchPages = computed(() => {
             ...(showApprovals.value
                 ? [{ title: "Task", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
                 : []),
+            { title: "Transaction History", subtitle: "Page", icon: "mdi-archive-outline", to: "/portal/history" },
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
     }
@@ -858,6 +905,7 @@ onMounted(() => {
     weatherTimer = setInterval(() => {
         if (!document.hidden && navigator.onLine) loadTemperature();
     }, (slowNet ? 30 : 10) * 60 * 1000);
+    scopeTimer = setInterval(() => { showRoleLabel.value = !showRoleLabel.value; }, 10000);
     approvalBadgeTimer = setInterval(() => {
         if (!document.hidden && navigator.onLine) refreshApprovalBadge();
     }, (slowNet ? 5 : 1) * 60 * 1000);
@@ -873,6 +921,7 @@ onUnmounted(() => {
     window.removeEventListener("online", loadTemperature);
     document.removeEventListener("visibilitychange", onVisible);
     if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
+    if (scopeTimer) clearInterval(scopeTimer);
 });
 </script>
 
@@ -881,9 +930,9 @@ onUnmounted(() => {
    dashboard foot bar) so the clock/weather/user/logout controls stop
    blending into a white header. Thin gold rule nods to the city seal. */
 .app-bar {
-    background: linear-gradient(90deg, #0e1f52 0%, #16307c 100%) !important;
-    border-bottom: 2px solid #d9ab3c;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+    background: #0B2B66 !important;
+    /* Thin lit edge plus a soft blue glow under the bar. */
+    box-shadow: 0 1px 0 rgba(147, 197, 253, 0.35), 0 6px 26px -8px var(--tms-glow-c) !important;
 }
 .brand-title {
     color: #ffffff;
@@ -891,14 +940,74 @@ onUnmounted(() => {
 .brand-sub {
     color: rgba(255, 255, 255, 0.62);
 }
-.nav-chip {
-    background: rgba(255, 255, 255, 0.12) !important;
-    color: #e8eefc !important;
+/* Time / weather / profile live in one pill; thin vertical dividers split it. */
+.nav-group {
+    display: flex;
+    align-items: stretch;
+    height: 44px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e8eefc;
     border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.nav-seg {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
     transition: background-color 0.15s ease;
 }
-.nav-chip:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
+.nav-seg--btn {
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 500;
+}
+.nav-seg--link {
+    cursor: pointer;
+}
+.nav-seg--link:hover,
+.nav-seg--link:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    outline: none;
+}
+.nav-sep {
+    align-self: center;
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.28);
+}
+.nav-swap-box {
+    display: inline-grid;
+    margin-left: 6px;
+}
+.nav-swap-item {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #e8eefc;
+}
+.nav-swap-item.is-on {
+    opacity: 1;
+}
+@media (max-width: 1279px) {
+    .nav-swap-box {
+        display: none;
+    }
 }
 .nav-logout {
     color: #e8eefc !important;
@@ -978,7 +1087,7 @@ onUnmounted(() => {
     transition: background-color 0.18s ease, color 0.18s ease;
 }
 .nav-groups :deep(.v-list-item:not(.v-list-item--active):hover .v-icon) {
-    color: #1E40AF;
+    color: #005EED;
 }
 /* Page change: a short ease-in so the switch reads as one smooth move. */
 /* backwards, not both: once the move ends no transform is left on the
@@ -999,9 +1108,9 @@ onUnmounted(() => {
 /* Active nav item: solid dark fill instead of the faint primary tint,
    with a light inner accent so the current page reads at a glance. */
 :deep(.v-navigation-drawer .v-list-item--active) {
-    background-color: #0E1F52 !important;
+    background: var(--tms-grad-h) !important;
     color: #ffffff !important;
-    box-shadow: inset 3px 0 0 #93C5FD;
+    box-shadow: inset 3px 0 0 #93C5FD, 0 0 18px -2px var(--tms-glow-c);
 }
 :deep(.v-navigation-drawer .v-list-item--active > .v-list-item__overlay) {
     opacity: 0 !important;
@@ -1069,7 +1178,7 @@ onUnmounted(() => {
 }
 .nav-profile--link:hover,
 .nav-profile--link:focus-visible {
-    background: rgba(22, 48, 124, 0.06);
+    background: rgba(0, 94, 237, 0.06);
     outline: none;
 }
 .nav-profile__avatar {
@@ -1079,7 +1188,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #1E3A8A;
+    background: #1A1F2B;
     color: #fff;
     font-size: 0.8rem;
     font-weight: 800;
@@ -1087,19 +1196,38 @@ onUnmounted(() => {
     box-shadow: inset 0 -3px 0 #93C5FD;
 }
 .nav-profile__text {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 8px;
     min-width: 0;
     line-height: 1.2;
     animation: nav-label-in 0.25s ease both;
 }
 .nav-profile__name {
     font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.nav-profile__name {
+    flex: 0 1 auto;
+}
+.nav-profile__sep {
+    flex: none;
+    color: rgba(var(--v-theme-on-surface), 0.35);
+    font-weight: 400;
+}
 .nav-profile__meta {
+    flex: 0 1 auto;
+    min-width: 0;
     font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     font-weight: 600;
     color: rgba(var(--v-theme-on-surface), 0.6);
     white-space: nowrap;
@@ -1129,10 +1257,10 @@ onUnmounted(() => {
     padding-bottom: 4px;
 }
 .search-pixiv :deep(.v-field--focused) {
-    box-shadow: 0 0 0 2px #16307C;
+    box-shadow: 0 0 0 2px #005EED;
 }
 .search-pixiv :deep(.v-field__prepend-inner .v-icon) {
-    color: #16307C;
+    color: #005EED;
     opacity: 1;
 }
 .search-pixiv :deep(input),
@@ -1146,16 +1274,12 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
 }
+/* Page sits above the fixed backdrop (AppFooter does the same). */
+.app-page {
+    position: relative;
+    z-index: 1;
+}
 .app-foot-spacer {
     flex: 1 1 auto;
-}
-/* Bottom footer container: plain in-flow bar, no overlay, no z-index games. */
-.app-foot-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #0E1F52;
-    padding: 16px 24px;
-    margin-top: 24px;
 }
 </style>

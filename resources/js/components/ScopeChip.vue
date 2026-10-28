@@ -8,25 +8,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useAuth, isSuperadminUser, isOfficeAdminUser } from '@/composables/useAuth'
+import { useOfficeScope } from '@/composables/useOfficeScope'
 
-const auth = useAuth()
-
-const scope = computed(() => {
-    const u = auth.user.value
-    if (!u) return null
-    if (isSuperadminUser(u)) {
-        return { kind: 'all', icon: 'mdi-earth', label: 'All offices', badge: 'Superadmin', tooltip: 'You see every office' }
-    }
-    const office = u.office
-    if (!office) return null
-    const label = office.code ? `${office.code} · ${office.name}` : office.name
-    if (isOfficeAdminUser(u)) {
-        return { kind: 'office', icon: 'mdi-office-building-outline', label, badge: 'Office admin', tooltip: `You manage ${office.name}` }
-    }
-    return { kind: 'member', icon: 'mdi-office-building-outline', label, badge: '', tooltip: `Your office: ${office.name}` }
-})
+const scope = useOfficeScope()
 </script>
 
 <style scoped>
@@ -37,7 +21,7 @@ const scope = computed(() => {
     height: 28px;
     padding: 0 10px 0 8px;
     border: 1px solid rgba(30, 64, 175, 0.28);
-    border-left: 3px solid #1E40AF;
+    border-left: 3px solid #005EED;
     background: #f1f5f9;
     color: #1E293B;
     font-size: 0.78rem;
@@ -47,7 +31,7 @@ const scope = computed(() => {
     animation: scope-in 0.35s cubic-bezier(.2, .9, .25, 1) both;
 }
 .scope-chip__icon {
-    color: #1E40AF;
+    color: #005EED;
 }
 .scope-chip__label {
     overflow: hidden;
@@ -58,7 +42,7 @@ const scope = computed(() => {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 2px 6px;
-    background: #1E3A8A;
+    background: #1A1F2B;
     color: #fff;
 }
 .scope-chip--all {
@@ -73,13 +57,13 @@ const scope = computed(() => {
 @media (prefers-reduced-motion: reduce) {
     .scope-chip { animation: none; }
 }
-:global(html.dark) .scope-chip {
+html.dark .scope-chip {
     background: rgba(148, 163, 184, 0.12);
     color: #E2E8F0;
     border-color: rgba(147, 197, 253, 0.3);
     border-left-color: #93C5FD;
 }
-:global(html.dark) .scope-chip__icon {
+html.dark .scope-chip__icon {
     color: #93C5FD;
 }
 </style>

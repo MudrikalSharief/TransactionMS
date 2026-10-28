@@ -552,43 +552,106 @@
                             </div>
                         </section>
 
-                        <section class="req-sec req-carry-sec">
-                            <v-checkbox
-                                v-model="addForm.carry_to_steps"
-                                label="Carry this Requirement in steps"
-                                color="primary"
-                                density="compact"
-                                hide-details
-                            />
-                            <div v-if="addForm.carry_to_steps">
-                                <div class="req-carry-selects">
-                                    <v-select
-                                        :model-value="selectedStepId"
-                                        :items="carryStepOptions"
-                                        item-title="label"
-                                        item-value="id"
-                                        label="Starting step"
-                                        variant="outlined"
-                                        density="comfortable"
-                                        class="req-in"
-                                        disabled
-                                        hide-details
-                                    />
-                                    <v-select
-                                        v-model="addForm.carry_to_step_id"
-                                        :items="carryStepOptions"
-                                        item-title="label"
-                                        item-value="id"
-                                        label="Ending step"
-                                        variant="outlined"
-                                        density="comfortable"
-                                        class="req-in"
-                                        hide-details
+                        <section class="req-sec req-carry">
+                            <div
+                                class="cr-card"
+                                :data-on="addForm.carry_to_steps ? 'true' : 'false'"
+                            >
+                                <div class="cr-head">
+                                    <span class="cr-ic">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9M14 8.5l3.5 3.5-3.5 3.5"/></svg>
+                                    </span>
+                                    <div>
+                                        <b>Carry across steps</b>
+                                        <span class="cr-d">{{ carryDesc }}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="cr-sw"
+                                        role="switch"
+                                        :aria-checked="addForm.carry_to_steps ? 'true' : 'false'"
+                                        :disabled="!carryCan"
+                                        @click="toggleCarry"
                                     />
                                 </div>
-                                <div class="req-help">
-                                    The requirement will be added to every step
-                                    in this range, without skipping steps.
+                                <div
+                                    v-if="addForm.carry_to_steps"
+                                    class="cr-panel"
+                                >
+                                    <div class="cr-grid">
+                                        <div class="cr-f">
+                                            <label for="cr-rq-s"
+                                                >Starts at
+                                                <span class="cr-tag"
+                                                    >Current step</span
+                                                ></label
+                                            >
+                                            <div class="cr-sel">
+                                                <select id="cr-rq-s" disabled>
+                                                    <option>
+                                                        {{ carryStartLabel }}
+                                                    </option>
+                                                </select>
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                                            </div>
+                                        </div>
+                                        <div class="cr-f">
+                                            <label for="cr-rq-e"
+                                                >Ends at</label
+                                            >
+                                            <div class="cr-sel">
+                                                <select
+                                                    id="cr-rq-e"
+                                                    v-model="addForm.carry_to_step_id"
+                                                >
+                                                    <option
+                                                        v-for="opt in carryEndOptions"
+                                                        :key="opt.id"
+                                                        :value="opt.id"
+                                                    >
+                                                        {{ opt.label }}
+                                                    </option>
+                                                </select>
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="cr-wrap">
+                                        <ol class="cr-track">
+                                            <li
+                                                v-for="(node, i) in carryTrack"
+                                                :key="node.step.id"
+                                                class="cr-n"
+                                                :data-in="node.in"
+                                                :data-link="node.link"
+                                                :data-start="node.start"
+                                                :data-end="node.end"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    :title="`Step ${node.step.order_number}: ${node.step.name}`"
+                                                    :aria-disabled="node.locked ? 'true' : 'false'"
+                                                    @click="clickCarryTrack(i)"
+                                                >
+                                                    {{ i + 1 }}
+                                                </button>
+                                            </li>
+                                        </ol>
+                                    </div>
+                                    <p
+                                        v-if="carryCount"
+                                        class="cr-sum"
+                                        aria-live="polite"
+                                    >
+                                        Added to
+                                        <b>{{ carryCount }} steps</b>, from
+                                        Step {{ carryStartNum }} to Step
+                                        {{ carryEndNum }}.
+                                    </p>
+                                    <p class="cr-hint">
+                                        Every step in between is included. No
+                                        steps are skipped.
+                                    </p>
                                 </div>
                             </div>
                         </section>
@@ -943,6 +1006,80 @@ const carryStepOptions = computed(() =>
                   label: `Step ${step.order_number}: ${step.name}`,
               })),
 );
+
+// ---- Carry-across-steps card (mockup "CarryRange", rendering only) ----
+const carryCan = computed(
+    () =>
+        selectedStepIndex.value >= 0 &&
+        selectedStepIndex.value < orderedSteps.value.length - 1,
+);
+
+const carryDesc = computed(() => {
+    if (!carryCan.value)
+        return "This is the last step, so there are no later steps to add it to.";
+    return addForm.value.carry_to_steps
+        ? "Added to a range of steps"
+        : "Add this requirement to every step in a range";
+});
+
+const carryStartLabel = computed(
+    () => carryStepOptions.value[0]?.label ?? "",
+);
+
+// "Ends at" only offers steps after the current one (mockup behavior).
+const carryEndOptions = computed(() => carryStepOptions.value.slice(1));
+
+const carryEndIndex = computed(() =>
+    orderedSteps.value.findIndex(
+        (step) => Number(step.id) === Number(addForm.value.carry_to_step_id),
+    ),
+);
+
+const carryStartNum = computed(
+    () => orderedSteps.value[selectedStepIndex.value]?.order_number ?? "",
+);
+
+const carryEndNum = computed(
+    () => orderedSteps.value[carryEndIndex.value]?.order_number ?? "",
+);
+
+const carryCount = computed(() =>
+    addForm.value.carry_to_steps &&
+    carryEndIndex.value > selectedStepIndex.value
+        ? carryEndIndex.value - selectedStepIndex.value + 1
+        : 0,
+);
+
+const carryTrack = computed(() => {
+    const on = addForm.value.carry_to_steps;
+    return orderedSteps.value.map((step, i) => {
+        const inRange =
+            on &&
+            selectedStepIndex.value >= 0 &&
+            i >= selectedStepIndex.value &&
+            i <= carryEndIndex.value;
+        return {
+            step,
+            in: inRange ? "1" : "0",
+            link:
+                on && inRange && i > selectedStepIndex.value ? "1" : "0",
+            start: i === selectedStepIndex.value ? "1" : "0",
+            end: on && inRange && i === carryEndIndex.value ? "1" : "0",
+            locked: i <= selectedStepIndex.value,
+        };
+    });
+});
+
+function toggleCarry() {
+    if (!carryCan.value) return;
+    addForm.value.carry_to_steps = !addForm.value.carry_to_steps;
+}
+
+function clickCarryTrack(i) {
+    if (i <= selectedStepIndex.value) return;
+    const step = orderedSteps.value[i];
+    if (step) addForm.value.carry_to_step_id = step.id;
+}
 
 function openOverview() {
     const wid = workflowDefinitionId.value;
@@ -3002,7 +3139,7 @@ html.dark .sr-ib-delete:hover {
 
 .req-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
 }
 
 .req-in :deep(.v-field--error) {
@@ -3129,29 +3266,338 @@ html.dark .sr-ib-delete:hover {
     outline-offset: 2px;
 }
 
-.req-carry-sec {
-    padding: 12px 14px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 14px;
+.req-carry {
+    --cr-blue: rgb(var(--v-theme-primary));
+    --cr-blue-d: rgba(var(--v-theme-primary), 0.85);
+    --cr-blue-bg: rgba(var(--v-theme-primary), 0.12);
+    --cr-ink: rgb(var(--v-theme-on-surface));
+    --cr-muted: rgb(var(--v-theme-secondary));
+    --cr-line: rgba(var(--v-border-color), var(--v-border-opacity));
+    --cr-field: #f4f6fb;
+    --cr-panel: #fff;
+    --cr-ring: rgba(var(--v-theme-primary), 0.28);
+    color: var(--cr-ink);
 }
 
-.req-carry-sec :deep(.v-checkbox) {
-    margin-bottom: 8px;
+.req-carry .cr-card {
+    border: 1.5px solid var(--cr-line);
+    border-radius: 16px;
+    background: var(--cr-panel);
+    overflow: hidden;
+    transition: border-color 0.2s;
 }
 
-.req-carry-selects {
+.req-carry .cr-card[data-on="true"] {
+    border-color: var(--cr-blue);
+}
+
+.req-carry .cr-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+}
+
+.req-carry .cr-ic {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--cr-blue-bg);
+    color: var(--cr-blue);
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    place-items: center;
+    flex: none;
 }
 
-.req-carry-sec .req-help {
-    margin-top: 8px;
+.req-carry .cr-ic svg {
+    width: 20px;
+    height: 20px;
+}
+
+.req-carry .cr-head b {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 700;
+}
+
+.req-carry .cr-d {
+    display: block;
+    font-size: 12.5px;
+    color: var(--cr-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.req-carry .cr-sw {
+    margin-left: auto;
+    width: 48px;
+    height: 28px;
+    min-width: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 99px;
+    background: #8b95aa;
+    position: relative;
+    flex: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.req-carry .cr-sw::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+.req-carry .cr-sw[aria-checked="true"] {
+    background: #1b7a3d;
+}
+
+.req-carry .cr-sw[aria-checked="true"]::after {
+    transform: translateX(20px);
+}
+
+.req-carry .cr-sw:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.req-carry .cr-sw:focus-visible {
+    outline: 3px solid var(--cr-ring);
+    outline-offset: 2px;
+}
+
+.req-carry .cr-panel {
+    padding: 0 14px 16px;
+    border-top: 1px solid var(--cr-line);
+    background: var(--cr-field);
+    animation: cr-in 0.2s ease-out;
+}
+
+@keyframes cr-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.req-carry .cr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding-top: 14px;
+}
+
+.req-carry .cr-f label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 6px;
+}
+
+.req-carry .cr-tag {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cr-blue);
+    background: var(--cr-blue-bg);
+    border-radius: 99px;
+    padding: 2px 8px;
+}
+
+.req-carry .cr-sel {
+    position: relative;
+}
+
+.req-carry .cr-sel select {
+    width: 100%;
+    height: 46px;
+    border: 1.5px solid var(--cr-line);
+    border-radius: 12px;
+    background: var(--cr-panel);
+    color: var(--cr-ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 38px 0 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    text-overflow: ellipsis;
+}
+
+.req-carry .cr-sel select:hover:not(:disabled) {
+    border-color: #aab4cc;
+}
+
+.req-carry .cr-sel select:focus {
+    outline: none;
+    border-color: var(--cr-blue);
+    box-shadow: 0 0 0 4px var(--cr-ring);
+}
+
+.req-carry .cr-sel select:disabled {
+    background: transparent;
+    border-style: dashed;
+    color: var(--cr-muted);
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+.req-carry .cr-sel svg {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    transform: translateY(-50%);
+    color: var(--cr-muted);
+    pointer-events: none;
+}
+
+.req-carry .cr-wrap {
+    overflow-x: auto;
+    padding: 16px 2px 10px;
+    margin: 0 -2px;
+}
+
+.req-carry .cr-track {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: max-content;
+}
+
+.req-carry .cr-n {
+    display: flex;
+    align-items: center;
+}
+
+.req-carry .cr-n + .cr-n::before {
+    content: "";
+    width: 12px;
+    height: 3px;
+    background: var(--cr-line);
+    flex: none;
+    transition: background 0.2s;
+}
+
+.req-carry .cr-n[data-link="1"]::before {
+    background: var(--cr-blue);
+}
+
+.req-carry .cr-n button {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1.5px solid var(--cr-line);
+    background: var(--cr-panel);
+    color: var(--cr-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 0;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s,
+        transform 0.1s;
+}
+
+.req-carry .cr-n button:hover:not([aria-disabled="true"]) {
+    border-color: var(--cr-blue);
+    color: var(--cr-blue);
+}
+
+.req-carry .cr-n button[aria-disabled="true"] {
+    cursor: default;
+}
+
+.req-carry .cr-n[data-in="1"] button {
+    background: var(--cr-blue);
+    border-color: var(--cr-blue);
+    color: #fff;
+}
+
+.req-carry .cr-n[data-in="1"] button:hover:not([aria-disabled="true"]) {
+    background: var(--cr-blue-d);
+    color: #fff;
+}
+
+.req-carry .cr-n[data-end="1"] button,
+.req-carry .cr-n[data-start="1"] button {
+    box-shadow: 0 0 0 3px var(--cr-ring);
+}
+
+.req-carry .cr-n button:focus-visible {
+    outline: 3px solid var(--cr-ring);
+    outline-offset: 2px;
+}
+
+.req-carry .cr-sum {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.req-carry .cr-sum b {
+    color: var(--cr-blue);
+}
+
+.req-carry .cr-hint {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--cr-muted);
+    line-height: 1.45;
+}
+
+html.dark .req-carry {
+    --cr-blue: #93c5fd;
+    --cr-blue-d: #bfdbfe;
+    --cr-blue-bg: rgba(147, 197, 253, 0.14);
+    --cr-field: #1c2645;
+    --cr-panel: #232b45;
+    --cr-ring: rgba(147, 197, 253, 0.28);
+}
+
+html.dark .req-carry .cr-sw[aria-checked="true"] {
+    background: #3fbf6f;
+}
+
+html.dark .req-carry .cr-n[data-in="1"] button,
+html.dark .req-carry .cr-n[data-in="1"] button:hover:not([aria-disabled="true"]) {
+    color: #0e1424;
+}
+
+@media (max-width: 420px) {
+    .req-carry .cr-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .req-ft {
     flex: none;
     gap: 10px;
+    justify-content: flex-end;
     padding: 16px 24px max(20px, env(safe-area-inset-bottom, 0px));
 }
 

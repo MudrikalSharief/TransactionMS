@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TransactionListResource;
 use App\Models\Transaction;
+use App\Models\Office;
 use App\Services\RoutingEngine;
 use Illuminate\Http\Request;
 
@@ -24,6 +25,7 @@ class ViewerTrackingController extends Controller
             'q' => ['nullable', 'string', 'max:200'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'status' => ['nullable', 'in:completed,in_process'],
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
         $q = trim($data['q'] ?? '');
@@ -32,11 +34,12 @@ class ViewerTrackingController extends Controller
         $query = Transaction::query()
             // No keyword: only the viewer's own. A keyword searches everything.
             ->when($q === '', fn ($w) => $w->where('transactions.created_by', $userId))
+            ->when(isset($data['status']), fn ($w) => $w->where('transactions.is_done', $data['status'] === 'completed'))
             ->with([
                 'type:id,code,name',
-                'office:id,code,name',
-                'workflow.steps.office:id,code,name',
-                'state.currentStep.office:id,code,name',
+                'office:id,code,name,icon_path',
+                'workflow.steps.office:id,code,name,icon_path',
+                'state.currentStep.office:id,code,name,icon_path',
                 'creator:id,name,email',
             ])
             ->latest();
@@ -75,13 +78,13 @@ class ViewerTrackingController extends Controller
 
         $transaction->load([
             'type:id,code,name',
-            'office:id,code,name',
-            'workflow.steps.office:id,code,name',
-            'state.currentStep.office:id,code,name',
+            'office:id,code,name,icon_path',
+            'workflow.steps.office:id,code,name,icon_path',
+            'state.currentStep.office:id,code,name,icon_path',
             'creator:id,name,email',
-            'runs.fromStep.office:id,code,name',
-            'runs.toStep.office:id,code,name',
-            'runs.receivedOffice:id,code,name',
+            'runs.fromStep.office:id,code,name,icon_path',
+            'runs.toStep.office:id,code,name,icon_path',
+            'runs.receivedOffice:id,code,name,icon_path',
         ]);
 
         $summary = (new TransactionListResource($transaction))->resolve($request);
@@ -90,7 +93,7 @@ class ViewerTrackingController extends Controller
             'id' => $s->id,
             'code' => $s->code,
             'name' => $s->name,
-            'office' => $transaction->displayStepOffice($s)?->only(['id', 'code', 'name']),
+            'office' => Office::mini($transaction->displayStepOffice($s)),
         ] : null;
 
         $history = $transaction->runs
@@ -103,7 +106,7 @@ class ViewerTrackingController extends Controller
                 'to_step' => $step($r->toStep),
                 'performed_at' => $r->performed_at?->toISOString(),
                 'received_at' => $r->received_at?->toISOString(),
-                'received_office' => $r->receivedOffice?->only(['id', 'code', 'name']),
+                'received_office' => Office::mini($r->receivedOffice),
             ])
             ->values();
 

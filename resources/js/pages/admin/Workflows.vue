@@ -59,7 +59,7 @@
                                     size="40"
                                     class="mr-3 lgu-head-avatar"
                                 >
-                                    <v-icon color="#16307C"
+                                    <v-icon color="#005EED"
                                         >mdi-source-branch</v-icon
                                     >
                                 </v-avatar>
@@ -487,7 +487,22 @@
                                             class="wf-office"
                                             :title="officeName(item)"
                                         >
-                                            {{ officeName(item) }}
+                                            <img
+                                                v-if="officeIcon(officeOf(item))"
+                                                class="wf-office-icon"
+                                                :src="officeIcon(officeOf(item))"
+                                                :alt="`${officeName(item)} icon`"
+                                            />
+                                            <span
+                                                v-else
+                                                class="wf-office-icon-ph"
+                                                aria-label="No office icon"
+                                            >
+                                                ?
+                                            </span>
+                                            <span class="wf-office-text">{{
+                                                officeName(item)
+                                            }}</span>
                                         </span>
                                         <span
                                             v-else
@@ -1058,8 +1073,39 @@
                                 density="comfortable"
                                 hide-details="auto"
                                 :error-messages="stepErrors.office_id"
-                                class="stp-in"
-                            />
+                                class="stp-in stp-offices"
+                            >
+                                <template #selection="{ item }">
+                                    <span class="stp-office-selection">
+                                        <img
+                                            v-if="item.raw.icon"
+                                            class="stp-office-chip-icon"
+                                            :src="item.raw.icon"
+                                            :alt="`${item.raw.label} icon`"
+                                        />
+                                        <span>{{ item.raw.label }}</span>
+                                    </span>
+                                </template>
+                                <template #item="{ props: itemProps, item }">
+                                    <v-list-item v-bind="itemProps">
+                                        <template #prepend>
+                                            <img
+                                                v-if="item.raw.icon"
+                                                class="stp-office-option-icon"
+                                                :src="item.raw.icon"
+                                                :alt="`${item.raw.label} icon`"
+                                            />
+                                            <span
+                                                v-else
+                                                class="stp-office-option-icon-placeholder"
+                                                aria-label="No office icon"
+                                            >
+                                                ?
+                                            </span>
+                                        </template>
+                                    </v-list-item>
+                                </template>
+                            </v-select>
                             <div
                                 v-if="stepForm.office_id == null"
                                 class="stp-help stp-help-user-office"
@@ -1472,7 +1518,7 @@
                         </div>
                         <div class="sv-chips">
                             <v-menu
-                                v-for="chip in stagedCounts"
+                                v-for="chip in visibleCounts"
                                 :key="chip.key"
                                 open-on-hover
                                 open-on-focus
@@ -1791,7 +1837,7 @@
                         size="40"
                         class="mr-3 lgu-head-avatar"
                     >
-                        <v-icon color="#16307C">mdi-swap-horizontal</v-icon>
+                        <v-icon color="#005EED">mdi-swap-horizontal</v-icon>
                     </v-avatar>
                     <span class="text-h6 font-weight-bold"
                         >SWITCH LIVE VERSION?</span
@@ -1887,7 +1933,7 @@
         <!-- End-of-workflow footer: same deep-blue bar as the dashboard foot. -->
         <v-sheet
             v-if="selectedTypeId"
-            color="#0E1F52"
+            color="#1A1F2B"
             rounded="0"
             class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center"
         >
@@ -1897,7 +1943,7 @@
                 size="52"
                 class="lgu-head-avatar"
             >
-                <v-icon color="#16307C" size="32">mdi-flag-checkered</v-icon>
+                <v-icon color="#005EED" size="32">mdi-flag-checkered</v-icon>
             </v-avatar>
             <v-divider
                 vertical
@@ -1932,6 +1978,7 @@ import { useWorkflows } from "@/composables/useWorkflows";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useRoles } from "@/composables/useRoles";
 import { useOffices } from "@/composables/useOffices";
+import { officeIcon } from "@/utils/officeIcons";
 import TableLoader from "@/components/TableLoader.vue";
 import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
 import LoadingVeil from "@/components/LoadingVeil.vue";
@@ -2105,7 +2152,11 @@ const USER_OFFICE = "__user_office__";
 
 const officeOptions = computed(() => [
     { id: USER_OFFICE, label: "User's Office" },
-    ...(offices.value || []).map((o) => ({ id: o.id, label: `${o.name}` })),
+    ...(offices.value || []).map((o) => ({
+        id: o.id,
+        label: `${o.name}`,
+        icon: officeIcon(o),
+    })),
 ]);
 
 function officeItemProps(item) {
@@ -2139,6 +2190,15 @@ function officeName(item) {
     const byId = officeNameById.value.get(Number(item.office_id));
     if (byId) return byId;
     return Number(item?.office?.id) === Number(item.office_id) ? item.office.name || "" : "";
+}
+
+// The office object for a step row (for its icon): ids are the truth, the
+// embedded `office` object is only a fallback.
+function officeOf(item) {
+    if (item?.office_id == null) return null;
+    const byId = (offices.value || []).find((o) => Number(o.id) === Number(item.office_id));
+    if (byId) return byId;
+    return Number(item?.office?.id) === Number(item.office_id) ? item.office : null;
 }
 
 // Stages are stored as codes (end_user, gso, city_admin …). Present the
@@ -2454,7 +2514,7 @@ const stepHeaders = [
     },
     { title: "End user", key: "is_end_user", sortable: false, width: "8%" },
     { title: "Roles", key: "role_ids", sortable: false, width: "9.5%" },
-    { title: "Flags", key: "flags", sortable: false, width: "8%" },
+    { title: "Start/End", key: "flags", sortable: false, width: "8%" },
     { title: "", key: "actions", sortable: false, width: "19%", align: "end" },
 ];
 
@@ -2916,6 +2976,12 @@ const stagedCounts = computed(() => {
 });
 const stagedChangeTotal = computed(() =>
     stagedCounts.value.reduce((total, chip) => total + chip.count, 0),
+);
+// Same as SaveVersionDialog: Checklists and Field assignments chips are
+// hidden, but their changes still count toward the total.
+const HIDDEN_CHIPS = ["checklists", "fields"];
+const visibleCounts = computed(() =>
+    stagedCounts.value.filter((chip) => !HIDDEN_CHIPS.includes(chip.key)),
 );
 
 function changeKindLabel(kind) {
@@ -3589,7 +3655,7 @@ onMounted(async () => {
     --wf-line: rgba(var(--v-border-color), var(--v-border-opacity));
     --wf-field: #f4f6fb;
     --wf-hover: #f3f6fc;
-    --wf-blue: #1d3fae;
+    --wf-blue: #005EED;
     --wf-blue-bg: #e8eeff;
     --wf-ok: #1b7a3d;
     --wf-ok-bg: #e3f5ea;
@@ -3645,7 +3711,7 @@ html.dark .wf-page {
     width: 52px;
     height: 52px;
     flex: none;
-    background: var(--wf-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .wf-hd-main {
@@ -3754,7 +3820,7 @@ html.dark .wf-page {
 }
 .wf-save {
     border: 1.5px solid transparent !important;
-    background: var(--wf-blue) !important;
+    background: var(--tms-grad) !important;
     color: #fff !important;
 }
 .wf-save.v-btn--disabled {
@@ -3852,7 +3918,7 @@ html.dark .wf-page {
     letter-spacing: 0;
 }
 .wf-tabs :deep(.v-tab[aria-selected="true"]) .wf-count {
-    background: var(--wf-blue);
+    background: var(--tms-grad);
     color: #fff;
 }
 .wf-dirty {
@@ -3892,7 +3958,7 @@ html.dark .wf-page {
     margin-left: auto;
     padding: 0 20px !important;
     border-radius: 0 !important;
-    background: var(--wf-blue) !important;
+    background: var(--tms-grad) !important;
     color: #fff !important;
     font-size: 14px !important;
     font-weight: 700 !important;
@@ -4055,7 +4121,9 @@ html.dark .wf-page {
     white-space: nowrap;
 }
 .wf-office {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     max-width: 100%;
     padding: 5px 10px;
     background: var(--wf-blue-bg);
@@ -4063,8 +4131,33 @@ html.dark .wf-page {
     font-size: 13px;
     font-weight: 700;
     line-height: 1.25;
-    overflow-wrap: break-word;
-    white-space: normal;
+    text-align: left;
+}
+.wf-office-icon {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    object-fit: contain;
+}
+.wf-office-icon-ph {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+}
+.wf-office-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .wf-office.is-dynamic {
     border: 1.5px dashed var(--wf-line);
@@ -4597,7 +4690,52 @@ html.dark .wf-page {
 }
 .stp-in :deep(.v-field--focused) {
     background: rgb(var(--v-theme-surface));
-    box-shadow: 0 0 0 4px rgba(22, 48, 124, 0.18);
+    box-shadow: 0 0 0 4px rgba(0, 94, 237, 0.18);
+}
+
+/* Assigned Office picker: icon + text, mirroring the transaction types
+   modal (selection chip rows and prepend-icon option rows). */
+.stp-offices :deep(.v-list-item-title) {
+    font-weight: 700;
+}
+.stp-office-selection {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+.stp-office-selection span:last-child {
+    font-size: 15px;
+    font-weight: 600;
+}
+.stp-office-chip-icon {
+    width: 22px;
+    height: 22px;
+    margin-inline-end: 8px;
+    object-fit: contain;
+}
+.stp-office-option-icon {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-inline-end: 10px;
+    object-fit: contain;
+}
+.stp-office-option-icon-placeholder {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    margin-inline-end: 10px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 2px solid #7b8495;
+    border-radius: 50%;
+    background: #f3f5f8;
+    color: #596579;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* Flow: switch rows side by side. */

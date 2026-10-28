@@ -1,82 +1,77 @@
 <template>
   <div>
     <LoadingVeil :show="loading" label="transactions" icon="mdi-swap-horizontal" />
-    <v-card rounded="0" elevation="1" class="lgu-card">
-      <v-card-title class="d-flex align-center pa-5 lgu-head">
-        <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-          <v-icon color="#16307C">mdi-swap-horizontal</v-icon>
-        </v-avatar>
-        <span class="text-h6 font-weight-bold">Transactions</span>
-        <v-spacer />
-        <v-text-field
-          v-model="search"
-          prepend-inner-icon="mdi-magnify"
-          label="Search . . ."
-          variant="outlined"
-          density="compact"
-          rounded="0"
-          hide-details
-          clearable
-          class="mr-2"
-          style="max-width: 260px"
-        />
-        <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">New Transaction</v-btn>
-      </v-card-title>
-      <v-divider />
+    <v-card rounded="0" elevation="0" class="tl-page mb-4">
+      <header class="tl-hd">
+        <div class="tl-badge" aria-hidden="true">
+          <v-icon size="26">mdi-swap-horizontal</v-icon>
+        </div>
+        <div class="tl-hd-main">
+          <h1 class="tl-title">Transactions</h1>
+          <p class="tl-sub">
+            The transactions moving through your offices, and where each one
+            is in its workflow.
+          </p>
+        </div>
+        <div class="tl-tools">
+          <div class="tl-search" role="search">
+            <v-icon class="tl-search-icon" size="19">mdi-magnify</v-icon>
+            <input
+              v-model="search"
+              type="search"
+              class="tl-search-input"
+              placeholder="Search reference or title"
+              aria-label="Search transactions"
+              autocomplete="off"
+            />
+            <button
+              v-if="search"
+              type="button"
+              class="tl-clear"
+              aria-label="Clear search"
+              @click="clearSearch"
+            >
+              <v-icon size="16">mdi-close</v-icon>
+            </button>
+          </div>
+          <button
+            v-if="canManage"
+            type="button"
+            class="tl-add"
+            aria-label="New transaction"
+            @click="openCreate"
+          >
+            <v-icon size="18">mdi-plus</v-icon>
+            <span class="tl-add-label">New transaction</span>
+          </button>
+        </div>
+      </header>
 
-      <v-card-text class="pa-4">
-        <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
+      <v-alert
+        v-if="error"
+        type="error"
+        variant="tonal"
+        rounded="0"
+        class="tl-alert"
+      >
+        {{ error }}
+      </v-alert>
 
-        <div class="d-flex flex-column table-stage" style="min-height: 510px">
+      <div class="tl-wrap">
         <v-data-table
           v-show="!loading"
           :headers="headers"
           :items="filtered"
           :loading="loading"
           item-key="id"
-          density="compact"
-          :items-per-page="7"
+          :items-per-page="8"
           :sort-by="[{ key: 'created_at', order: 'desc' }]"
           v-model:page="tablePage"
-          hide-default-footer
+          :hide-default-footer="true"
           hover
-          class="lgu-table table-pages"
+          class="tl-table"
           @click:row="(_, row) => go(row.item.id)"
         >
-          <template v-slot:bottom>
-            <div class="page-slot">
-              <div class="d-flex align-center justify-space-between w-100 pl-4 pr-2">
-                <div class="d-flex align-center ga-2">
-                  <span class="text-caption text-medium-emphasis font-weight-bold">Items per page:</span>
-                  <v-select
-                    :model-value="7"
-                    :items="[7]"
-                    density="compact"
-                    variant="outlined"
-                    rounded="0"
-                    hide-details
-                    style="max-width: 76px"
-                  />
-                  <span class="text-caption text-medium-emphasis">{{ rangeText }}</span>
-                </div>
-                <v-pagination
-                  v-if="meta.lastPage > 1 && !loading"
-                  v-model="page"
-                  :length="meta.lastPage"
-                  :total-visible="5"
-                  density="comfortable"
-                  @update:model-value="goToPage"
-                />
-                <v-pagination
-                  v-else
-                  v-model="tablePage"
-                  :length="clientPages"
-                  :total-visible="5"
-                  density="comfortable"
-                />
-              </div>
-            </div>
-          </template>
           <template v-slot:[`item.reference_number`]="{ item }">
             <v-chip color="primary" variant="tonal" rounded="0" size="small" class="font-weight-bold">
               {{ item.reference_number || `#${item.id}` }}
@@ -84,7 +79,7 @@
           </template>
 
           <template v-slot:[`item.title`]="{ item }">
-            <span class="cell-truncate font-weight-bold" :title="item.title || ''">{{ item.title || 'N/A' }}</span>
+            <span class="tl-name" :title="item.title || ''">{{ item.title || 'N/A' }}</span>
           </template>
 
           <template v-slot:[`item.type`]="{ item }">
@@ -94,10 +89,30 @@
           </template>
 
           <template v-slot:[`item.office`]="{ item }">
-            <span v-if="item.office?.name" class="cell-truncate text-medium-emphasis" :title="item.office.name">
-              {{ item.office.name }}
+            <span
+              v-if="item.office?.name || item.office?.code"
+              v-tooltip="item.office?.name || item.office?.code || ''"
+              class="tl-office-chip"
+              :title="item.office?.name || item.office?.code || ''"
+            >
+              <img
+                v-if="officeIcon(item.office)"
+                class="tl-office-icon"
+                :src="officeIcon(item.office)"
+                :alt="`${item.office?.name || 'Office'} icon`"
+              />
+              <span
+                v-else
+                class="tl-office-icon-ph"
+                aria-label="No office icon"
+              >
+                ?
+              </span>
+              <span class="tl-office-code">{{
+                item.office?.code || item.office?.name
+              }}</span>
             </span>
-            <span v-else class="text-medium-emphasis">—</span>
+            <span v-else class="tl-dash">—</span>
           </template>
 
           <template v-slot:[`item.current_step`]="{ item }">
@@ -137,13 +152,79 @@
           </template>
 
           <template v-slot:[`item.created_at`]="{ item }">
-            <div class="font-weight-bold">{{ fmtDate(item.created_at) }}</div>
-            <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
+            <div class="tl-date">{{ fmtDate(item.created_at) }}</div>
+            <div class="tl-ago">{{ timeAgo(item.created_at) }}</div>
+          </template>
+
+          <template #no-data>
+            <div class="tl-empty">
+              <template v-if="search.trim()">
+                <b>No matches</b> for “{{ search.trim() }}”. Try a different word.
+              </template>
+              <template v-else>
+                <b>No transactions yet.</b>
+                <span v-if="canManage">Use “New transaction” to start the first one.</span>
+              </template>
+            </div>
+          </template>
+
+          <template #body.append>
+            <tr
+              v-for="n in ghostRows"
+              :key="`ghost-${n}`"
+              class="tl-ghost"
+              aria-hidden="true"
+            >
+              <td v-for="h in headers" :key="h.key" />
+            </tr>
           </template>
         </v-data-table>
-        <div v-if="!loading && filtered.length" class="table-filler" :style="{ height: `${fillerHeight}px` }" />
+      </div>
+
+      <footer class="tl-pg">
+        <div class="tl-per">
+          <span>Items per page</span>
+          <span class="tl-per-box" aria-label="Items per page: 8">
+            <span>8</span>
+            <v-icon size="18" aria-hidden="true">mdi-chevron-down</v-icon>
+          </span>
         </div>
-      </v-card-text>
+        <span class="tl-range">{{ rangeText }}</span>
+        <div class="tl-pn" role="group" aria-label="Pagination">
+          <button
+            type="button"
+            :disabled="navDisabled || currentPage <= 1"
+            aria-label="First page"
+            @click="goPage(1)"
+          >
+            <v-icon size="18">mdi-page-first</v-icon>
+          </button>
+          <button
+            type="button"
+            :disabled="navDisabled || currentPage <= 1"
+            aria-label="Previous page"
+            @click="goPage(currentPage - 1)"
+          >
+            <v-icon size="18">mdi-chevron-left</v-icon>
+          </button>
+          <button
+            type="button"
+            :disabled="navDisabled || currentPage >= pageCount"
+            aria-label="Next page"
+            @click="goPage(currentPage + 1)"
+          >
+            <v-icon size="18">mdi-chevron-right</v-icon>
+          </button>
+          <button
+            type="button"
+            :disabled="navDisabled || currentPage >= pageCount"
+            aria-label="Last page"
+            @click="goPage(pageCount)"
+          >
+            <v-icon size="18">mdi-page-last</v-icon>
+          </button>
+        </div>
+      </footer>
     </v-card>
 
     <NewTransactionDialog
@@ -160,7 +241,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
@@ -170,6 +251,7 @@ import { useSmartPoll } from '@/composables/useSmartPoll'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
+import { officeIcon } from '@/utils/officeIcons'
 
 const router = useRouter()
 const { items, loading, meta, fetchAll, create } = useTransactions()
@@ -188,8 +270,6 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
-
-let navObserver = null
 
 const typeOptions = computed(() => {
   const myOfficeId = auth.user.value?.office?.id ?? null
@@ -219,16 +299,14 @@ const officeOptions = computed(() =>
     .map(o => ({ id: o.id, label: `${o.name} (${o.code})` }))
 )
 
-const baseHeaders = [
-  { title: 'Ref #', key: 'reference_number' },
-  { title: 'Title', key: 'title' },
-  { title: 'Transaction Type', key: 'type', sortable: false },
-  { title: 'Originating Office', key: 'office', sortable: false },
-  { title: 'Current Step', key: 'current_step', sortable: false, width: 200 },
-  { title: 'Created', key: 'created_at' },
+const headers = [
+  { title: 'Ref #', key: 'reference_number', width: '14%' },
+  { title: 'Title', key: 'title', width: '18%' },
+  { title: 'Transaction Type', key: 'type', sortable: false, width: '17%' },
+  { title: 'Originating Office', key: 'office', sortable: false, width: '16%' },
+  { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
+  { title: 'Created', key: 'created_at', width: '14%' },
 ]
-
-const headers = baseHeaders
 
 // Server-filtered: the API already applies ?q= (ref/title) and paginates to
 // 25 slim rows, so the table renders one light page instead of filtering
@@ -236,29 +314,37 @@ const headers = baseHeaders
 // template is untouched.
 const filtered = computed(() => items.value || [])
 
-// Client-side page count for the loaded 25-row server chunk at 7/page.
+// Client-side page count for the loaded 25-row server chunk at 8/page.
 // Server jumps use `page`; in-chunk moves use `tablePage`.
 const tablePage = ref(1)
-const clientPages = computed(() => Math.max(1, Math.ceil((filtered.value || []).length / 7)))
+const clientPages = computed(() => Math.max(1, Math.ceil((filtered.value || []).length / 8)))
 
-// Layout filler keeps every page a full 7-row height without fake data
-// rows. Fake `__pad` rows leaked as visible N/A / Unassigned / Jan 1 1970
-// rows when the hiding CSS missed (v-menu teleport, sorting). A plain div
-// below the table preserves the card rhythm with zero row content.
-const fillerHeight = computed(() => {
+// The footer drives whichever pager is active: server pages when the API
+// reports more than one, otherwise the in-chunk pages of the loaded rows.
+const currentPage = computed(() => (meta.value.lastPage > 1 ? page.value : tablePage.value))
+const pageCount = computed(() => (meta.value.lastPage > 1 ? meta.value.lastPage : clientPages.value))
+const navDisabled = computed(() => !!loading.value)
+
+// Keep the eight-row rhythm: fill only the remaining slots with ghosts.
+const ghostRows = computed(() => {
   const n = (filtered.value || []).length
-  if (!n) return 0
-  const visible = Math.min(7, n - (tablePage.value - 1) * 7)
-  return Math.max(0, 7 - visible) * 60
+  const used = n
+    ? Math.max(0, Math.min(8, n - (tablePage.value - 1) * 8))
+    : 1
+  return Math.max(0, 8 - Math.max(1, used))
 })
 
-// Default-footer style range for the visible chunk: "1–7 of 25".
+// Default-footer style range for the visible chunk: "1–8 of 25".
 const rangeText = computed(() => {
   const n = (filtered.value || []).length
   if (!n) return '0 of 0'
-  const start = (tablePage.value - 1) * 7 + 1
-  return `${start}–${Math.min(tablePage.value * 7, n)} of ${n}`
+  const start = (tablePage.value - 1) * 8 + 1
+  return `${start}–${Math.min(tablePage.value * 8, n)} of ${n}`
 })
+
+function clearSearch() {
+  search.value = ''
+}
 
 let searchTimer = null
 watch(search, () => {
@@ -284,6 +370,16 @@ async function goToPage(p) {
   } catch {
     /* keep current rows */
   }
+}
+
+async function goPage(p) {
+  const target = Math.min(pageCount.value, Math.max(1, Number(p) || 1))
+  if (meta.value.lastPage > 1) {
+    if (target === page.value) return
+    await goToPage(target)
+    return
+  }
+  tablePage.value = target
 }
 
 function stepColor(step) {
@@ -355,41 +451,11 @@ async function createTx(payload) {
 }
 
 onMounted(() => {
-  // Full scroll lock for this tab: no bars and no scrolling anywhere.
-  document.documentElement.classList.add('lock-scroll')
   // Fire together: each paints its cache synchronously on invocation and
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
   fetchOffices().catch(() => {})
   fetchAll({ q: search.value, page: page.value }).catch(() => {})
-  // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
-  // the table is narrower, so flag html.nav-open to duck the row actions
-  // away instead of letting them get cut off. Covers hover-expand + toggle.
-  try {
-    const drawer = document.querySelector('.v-navigation-drawer')
-    if (drawer && 'ResizeObserver' in window) {
-      const sync = () => {
-        const w = drawer.getBoundingClientRect().width || 0
-        document.documentElement.classList.toggle('nav-open', w > 100)
-      }
-      sync()
-      navObserver = new ResizeObserver(sync)
-      navObserver.observe(drawer)
-    }
-  } catch {
-    /* actions just stay visible */
-  }
-})
-
-onUnmounted(() => {
-  document.documentElement.classList.remove('lock-scroll')
-  document.documentElement.classList.remove('nav-open')
-  try {
-    navObserver?.disconnect?.()
-  } catch {
-    /* ignore */
-  }
-  navObserver = null
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,
@@ -406,69 +472,451 @@ useSmartPoll(async () => {
 </script>
 
 <style scoped>
-/* Hide the table's internal scrollbar; drawer expand can never create a
-   visible horizontal bar — overflow is clipped, not scrolled. */
-.lgu-table {
-  min-width: 0;
-  width: 100%;
+/* ==========================================================================
+   Transactions — sharp panel, header, table and footer
+   (visual port of the Offices / Transaction Types design system)
+   ========================================================================== */
+.tl-page {
+    --tl-ink: rgb(var(--v-theme-on-surface));
+    --tl-muted: rgb(var(--v-theme-secondary));
+    --tl-line: rgba(var(--v-border-color), var(--v-border-opacity));
+    --tl-panel: rgb(var(--v-theme-surface));
+    --tl-field: #f4f6fb;
+    --tl-hover: #f3f6fc;
+    --tl-blue: #005EED;
+    --tl-blue-bg: #e8eeff;
+    --tl-ring: rgba(29, 63, 174, 0.28);
+    overflow: hidden;
+    background: var(--tl-panel);
+    border: 1px solid var(--tl-line);
+    box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
+    font-variant-numeric: tabular-nums;
 }
-.lgu-table :deep(.v-table__wrapper) {
-  overflow-x: clip !important;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+html.dark .tl-page {
+    --tl-field: #1c2645;
+    --tl-hover: #1d2745;
+    --tl-blue: #6f8cff;
+    --tl-blue-bg: #25306a;
+    --tl-ring: rgba(138, 161, 255, 0.38);
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
 }
-.lgu-table :deep(.v-table__wrapper::-webkit-scrollbar) {
-  display: none;
-  width: 0;
-  height: 0;
+.tl-page button:focus-visible,
+.tl-page a:focus-visible {
+    outline: 3px solid var(--tl-ring);
+    outline-offset: 2px;
 }
-.lgu-table :deep(table) {
-  width: 100%;
+
+/* ---- Header ---- */
+.tl-hd {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 28px;
+    border-bottom: 3px solid var(--tl-blue);
+    flex-wrap: wrap;
 }
+.tl-badge {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    flex: none;
+    background: var(--tms-grad);
+    color: #fff;
+}
+.tl-hd-main {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+.tl-title {
+    margin: 0;
+    color: var(--tl-ink);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+}
+.tl-sub {
+    margin: 4px 0 0;
+    color: var(--tl-muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+.tl-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+    margin-left: auto;
+}
+.tl-search {
+    position: relative;
+    flex: 0 0 320px;
+    min-width: 0;
+    max-width: 320px;
+}
+.tl-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--tl-muted);
+    pointer-events: none;
+}
+.tl-search-input {
+    width: 100%;
+    height: 46px;
+    padding: 0 42px;
+    border: 1.5px solid var(--tl-line);
+    border-radius: 0;
+    background: var(--tl-field);
+    color: var(--tl-ink);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 500;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        background 0.15s;
+}
+.tl-search-input::placeholder {
+    color: var(--tl-muted);
+    opacity: 0.9;
+}
+.tl-search-input:hover {
+    border-color: rgba(var(--v-border-color), 0.8);
+}
+.tl-search-input:focus {
+    outline: none;
+    border-color: var(--tl-blue);
+    background: var(--tl-panel);
+    box-shadow: 0 0 0 4px var(--tl-ring);
+}
+.tl-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+.tl-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--tl-muted);
+    cursor: pointer;
+}
+.tl-clear:hover {
+    background: var(--tl-line);
+}
+.tl-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 46px;
+    padding: 0 20px;
+    flex: none;
+    border: 1.5px solid var(--tl-blue);
+    border-radius: 0;
+    background: var(--tms-grad);
+    color: #fff;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.tl-add:hover {
+    filter: brightness(0.94);
+}
+
+/* ---- Alerts + table shell ---- */
+.tl-alert {
+    margin: 16px 28px 0 !important;
+    border-radius: 0 !important;
+}
+.tl-wrap {
+    min-width: 0;
+    padding: 20px 28px 0;
+}
+.tl-table {
+    --v-table-row-height: var(--tms-row);
+    --v-table-header-height: 44px;
+    width: 100%;
+    min-width: 0;
+    background: transparent !important;
+}
+.tl-table :deep(.v-table__wrapper) {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--tl-muted) var(--tl-field);
+}
+.tl-table :deep(.v-table__wrapper::-webkit-scrollbar) {
+    width: 10px;
+    height: 10px;
+}
+.tl-table :deep(.v-table__wrapper::-webkit-scrollbar-track) {
+    background: var(--tl-field);
+}
+.tl-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb) {
+    border: 2px solid var(--tl-field);
+    background: var(--tl-muted);
+}
+.tl-table :deep(table) {
+    width: 100%;
+    min-width: 960px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.tl-table :deep(thead th.v-data-table__th) {
+    height: 44px;
+    padding: 0 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--tl-line) !important;
+    border-radius: 0 !important;
+    background: var(--tl-field) !important;
+    color: var(--tl-muted) !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.tl-table :deep(thead th.v-data-table__th .v-data-table-header__content) {
+    color: var(--tl-muted) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase;
+}
+.tl-table :deep(thead th.v-data-table__th .v-icon) {
+    color: var(--tl-muted) !important;
+    opacity: 0.65;
+}
+.tl-table :deep(tbody td) {
+    height: var(--tms-row);
+    padding: 8px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--tl-line) !important;
+    border-radius: 0 !important;
+    color: var(--tl-ink);
+    font-size: 14.5px;
+    vertical-align: middle;
+}
+/* Rows open the transaction detail — make the affordance obvious. */
+.tl-table :deep(tbody tr:not(.tl-ghost)) {
+    cursor: pointer;
+}
+.tl-table :deep(tbody tr:not(.tl-ghost):hover) {
+    background: var(--tl-hover) !important;
+}
+.tl-table :deep(tbody tr.tl-ghost) {
+    pointer-events: none;
+}
+.tl-table :deep(tbody tr.tl-ghost td) {
+    height: var(--tms-row);
+    padding: 8px 14px !important;
+    border-bottom: 1px solid var(--tl-line) !important;
+}
+.tl-table :deep(.v-data-table-rows-no-data td) {
+    height: var(--tms-row) !important;
+    padding: 0 !important;
+    border-bottom: 1px solid var(--tl-line) !important;
+}
+.tl-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-height: var(--tms-row);
+    padding: 0 14px;
+    color: var(--tl-muted);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+}
+.tl-empty b {
+    color: var(--tl-ink);
+}
+
+/* ---- Cells ---- */
 /* Long titles / offices / chip names truncate to one line (full text on
-   hover) so rows always hold the 60px rhythm and the card matches the
-   other tabs. Full values remain visible on the detail page. The step
-   chip's icon must not eat the text budget, so the text gets its own
-   cap slightly inside the chip's overall cap. */
+   hover) so rows hold the 56px rhythm. Full values remain visible on the
+   detail page. The step chip's icon must not eat the text budget, so the
+   text gets its own cap slightly inside the chip's overall cap. */
+.tl-name {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--tl-ink);
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Originating office: icon chip showing only the code; the full office
+   name is the tooltip. Same pattern as the Transaction Types table. */
+.tl-office-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    padding: 4px 10px 4px 5px;
+    background: var(--tl-blue-bg);
+    color: var(--tl-blue);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    vertical-align: middle;
+}
+.tl-office-chip:hover {
+    filter: brightness(0.97);
+}
+.tl-office-icon {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    object-fit: contain;
+}
+.tl-office-icon-ph {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    background: var(--tl-panel);
+    color: var(--tl-blue);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    border-radius: 50%;
+}
+.tl-office-code {
+    overflow: hidden;
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tl-dash {
+    color: var(--tl-muted);
+}
+.tl-date {
+    font-weight: 700;
+}
+.tl-ago {
+    color: var(--tl-muted);
+    font-size: 12px;
+}
 .tx-chip :deep(.v-chip__content) {
-  max-width: 200px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .tx-chip-text {
-  min-width: 0;
-  max-width: 170px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+    min-width: 0;
+    max-width: 170px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
-/* Boxed table header: dark-blue fill, white text, outer border only —
-   no dividers between header cells (first/last cells carry the edges). */
-.lgu-table :deep(thead tr th.v-data-table__th) {
-  background-color: #0E1F52 !important;
-  color: #ffffff !important;
-  border-top: 2px solid #0E1F52 !important;
-  border-bottom: 3px solid #0E1F52 !important;
-  border-left: none !important;
-  border-right: none !important;
+
+/* ---- Footer ---- */
+.tl-pg {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 20px;
+    padding: 16px 28px 20px;
+    color: var(--tl-muted);
+    font-size: 14px;
+    flex-wrap: wrap;
 }
-.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-  border-left: 2px solid #0E1F52 !important;
-  padding-left: 20px !important;
+.tl-per {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
-.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-  border-right: 2px solid #0E1F52 !important;
-  padding-right: 20px !important;
+.tl-per-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 76px;
+    height: 40px;
+    padding: 0 8px 0 12px;
+    border: 1.5px solid var(--tl-line);
+    background: var(--tl-panel);
+    color: var(--tl-ink);
+    font-weight: 700;
 }
-.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
-.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
-  color: #ffffff !important;
+.tl-per-box :deep(.v-icon) {
+    color: var(--tl-muted);
 }
-/* Layout filler below the table: preserves the full 7-row card height
-   on short pages with no fake rows and no content to leak. */
-.table-filler {
-  width: 100%;
-  pointer-events: none;
+.tl-range {
+    color: var(--tl-ink);
+    font-weight: 700;
+}
+.tl-pn {
+    display: flex;
+    gap: 4px;
+}
+.tl-pn button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1.5px solid var(--tl-line);
+    border-radius: 0;
+    background: var(--tl-panel);
+    color: var(--tl-ink);
+    cursor: pointer;
+}
+.tl-pn button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+    .tl-tools {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
+    .tl-search {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+}
+@media (max-width: 760px) {
+    .tl-hd {
+        padding: 18px 16px;
+    }
+    .tl-title {
+        font-size: 20px;
+    }
+    .tl-wrap {
+        padding: 16px 16px 0;
+    }
+    .tl-pg {
+        justify-content: center;
+        padding: 16px;
+    }
+}
+@media (max-width: 520px) {
+    .tl-add {
+        padding: 0 16px;
+    }
+    .tl-add-label {
+        display: none;
+    }
 }
 </style>

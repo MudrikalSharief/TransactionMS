@@ -9,7 +9,7 @@
             <div class="orbit">
                 <span class="orbit-ring outer" />
                 <span class="orbit-ring middle" />
-                <v-avatar color="grey-darken-3" size="56" class="orbit-core">
+                <v-avatar color="#005EED" size="56" class="orbit-core">
                     <v-icon color="white" size="30">{{ icon }}</v-icon>
                 </v-avatar>
                 <span class="orbit-dot d1" />
@@ -115,21 +115,21 @@ onUnmounted(() => {
 .orbit-ring.outer {
     inset: 0;
     border: 5px solid #e5e7eb;
-    border-top-color: #424242;
-    border-right-color: #616161;
+    border-top-color: #005EED;
+    border-right-color: #4D94FF;
     animation: orbit-spin 1.1s linear infinite;
 }
 
 .orbit-ring.middle {
     inset: 16px;
-    border: 3px dashed #9e9e9e;
+    border: 3px dashed #8FBBFF;
     opacity: 0.8;
     animation: orbit-spin-rev 2.4s linear infinite;
 }
 
 .orbit-core {
     animation: core-pulse 1.8s ease-in-out infinite;
-    box-shadow: 0 4px 14px rgba(66, 66, 66, 0.4);
+    box-shadow: 0 4px 14px rgba(0, 94, 237, 0.4);
 }
 
 .orbit-dot {
@@ -137,7 +137,7 @@ onUnmounted(() => {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #424242;
+    background: #005EED;
 }
 
 .orbit-dot.d1 {
@@ -149,14 +149,14 @@ onUnmounted(() => {
 .orbit-dot.d2 {
     bottom: 10px;
     right: 16px;
-    background: #757575;
+    background: #4D94FF;
     animation: dot-bob 1.4s ease-in-out 0.25s infinite;
 }
 
 .orbit-dot.d3 {
     top: 52px;
     right: 2px;
-    background: #9e9e9e;
+    background: #8FBBFF;
     animation: dot-bob 1.4s ease-in-out 0.5s infinite;
 }
 
@@ -170,7 +170,7 @@ onUnmounted(() => {
     margin-left: 3px;
     animation: dot-bounce 1.2s ease-in-out infinite;
     font-weight: 800;
-    color: #424242;
+    color: #005EED;
 }
 
 .dots span:nth-child(2) {

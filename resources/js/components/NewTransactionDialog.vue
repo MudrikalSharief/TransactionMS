@@ -252,7 +252,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
   --ntx-line: #d5dbe8;
   --ntx-field: #f4f6fb;
   --ntx-hover: #f3f6fc;
-  --ntx-blue: #1d3fae;
+  --ntx-blue: #005EED;
   --ntx-blue-d: #142d82;
   --ntx-blue-bg: #e8eeff;
   --ntx-err: #c62828;
@@ -543,7 +543,7 @@ select.ntx-in {
   z-index: 1;
 }
 .ntx-st:first-child .ntx-n {
-  background: var(--ntx-blue);
+  background: var(--tms-grad);
   color: #fff;
 }
 .ntx-st b {
@@ -626,7 +626,7 @@ select.ntx-in {
   background: var(--ntx-hover);
 }
 .ntx-b.ntx-pri {
-  background: var(--ntx-blue);
+  background: var(--tms-grad);
   color: #fff;
   min-width: 150px;
 }

@@ -5,7 +5,7 @@
                  only their icons so the one-line header still fits. -->
             <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
-                    <v-icon color="#16307C">mdi-clipboard-check-multiple-outline</v-icon>
+                    <v-icon color="#005EED">mdi-clipboard-check-multiple-outline</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">Task</span>
                 <v-chip
@@ -157,7 +157,7 @@ const headers = [
     { title: "Transaction Type", key: "type", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
     { title: "Waiting", key: "entered_at" },
-    { title: "Created At", key: "created_at" },
+    { title: "Created", key: "created_at" },
     { title: "", key: "actions", sortable: false, align: "end" },
 ];
 
@@ -239,19 +239,19 @@ useSmartPoll(() => fetchAll({ silent: true }));
 <style scoped>
 /* Boxed table header: dark-blue fill, white text (same as the admin tables). */
 .lgu-table :deep(thead tr th.v-data-table__th) {
-    background-color: #0e1f52 !important;
+    background-color: #1A1F2B !important;
     color: #ffffff !important;
-    border-top: 2px solid #0e1f52 !important;
-    border-bottom: 3px solid #0e1f52 !important;
+    border-top: 2px solid #1A1F2B !important;
+    border-bottom: 3px solid #1A1F2B !important;
     border-left: none !important;
     border-right: none !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-    border-left: 2px solid #0e1f52 !important;
+    border-left: 2px solid #1A1F2B !important;
     padding-left: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-    border-right: 2px solid #0e1f52 !important;
+    border-right: 2px solid #1A1F2B !important;
     padding-right: 20px !important;
 }
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),

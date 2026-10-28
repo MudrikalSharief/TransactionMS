@@ -4,7 +4,7 @@
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
             <v-card-title class="d-flex align-center pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                    <v-icon color="#16307C">mdi-file-document</v-icon>
+                    <v-icon color="#005EED">mdi-file-document</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">
                     <template v-if="tx">
@@ -695,9 +695,9 @@
         </v-dialog>
 
         <!-- End-of-transaction footer: same deep-blue bar as the dashboard foot. -->
-        <v-sheet v-if="tx" color="#0E1F52" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
+        <v-sheet v-if="tx" color="#1A1F2B" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
             <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
-                <v-icon color="#16307C" size="32">mdi-flag-checkered</v-icon>
+                <v-icon color="#005EED" size="32">mdi-flag-checkered</v-icon>
             </v-avatar>
             <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
             <div class="text-left">
