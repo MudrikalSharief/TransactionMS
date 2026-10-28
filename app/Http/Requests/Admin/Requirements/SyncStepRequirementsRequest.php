@@ -18,6 +18,8 @@ class SyncStepRequirementsRequest extends FormRequest
             'requirements.*.requirement_definition_id' => ['required', 'integer', 'min:1'],
             'requirements.*.display_order' => ['nullable', 'integer', 'min:0'],
             'requirements.*.is_required' => ['nullable', 'boolean'],
+            'requirements.*.code' => ['nullable', 'string', 'max:64'],
+            'requirements.*.description' => ['nullable', 'string'],
         ];
     }
 }

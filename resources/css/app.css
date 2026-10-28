@@ -6,14 +6,42 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'M PLUS Rounded 1c', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* Bolder, rounder Pixiv-style type across the app */
+/* ---- Brand gradient: black -> blue (#1A1F2B -> #005EED) ----
+   One source for every filled "base colour" surface (primary buttons, active
+   nav item, header rules). Flat uses of the blue read from the theme's
+   primary (#005EED). */
+:root {
+    --tms-grad: linear-gradient(#2D3139, #2D3139);
+    --tms-grad-h: linear-gradient(#2D3139, #2D3139);
+    /* Table row height: stretches so 7 rows + header + footer fill the window
+       (no page scroll, no dead space), between 56px and 96px. */
+    --tms-row: clamp(56px, calc((100vh - 394px) / 8), 96px);
+    /* Glow: one brand-blue halo for app bar, active nav, cards, fields,
+       buttons and footer. Stronger in dark mode, where it reads as light. */
+    --tms-glow-c: rgba(0, 94, 237, 0.45);
+    --tms-glow: 0 0 0 1px rgba(0, 94, 237, 0.18), 0 10px 30px -10px var(--tms-glow-c);
+}
+html.dark {
+    --tms-glow-c: rgba(96, 165, 250, 0.55);
+    --tms-glow: 0 0 0 1px rgba(147, 197, 253, 0.28), 0 10px 32px -8px var(--tms-glow-c);
+}
+
+.v-btn.bg-primary,
+.v-chip.bg-primary {
+    background-image: var(--tms-grad) !important;
+}
+.v-btn.bg-primary:hover {
+    filter: brightness(1.12);
+}
+
+/* Inter across the app (loaded non-blocking from app.blade.php). */
 body,
 .v-application {
-    font-family: 'M PLUS Rounded 1c', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
+    font-family: 'Inter', 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif !important;
     background: #F2F5F9;
 }
 
@@ -44,6 +72,113 @@ html.dark .help-title-green { color: #81C784; }
 html.dark .help-title-purple { color: #CE93D8; }
 html.dark .help-title-orange { color: #FFAB91; }
 
+/* ---- Global sleek dark-blue scrollbar (site-wide) ----
+   Thin thumb, transparent track, rounded ends. Component-specific rules
+   below (search menu, tables) win by specificity where defined; explicit
+   hide/lock utilities (login, dashboard, users tab) are untouched. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #1A1F2B transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: #1A1F2B;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: #005EED;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+html.dark * {
+    scrollbar-color: #3b82f6 transparent;
+}
+
+html.dark *::-webkit-scrollbar-thumb {
+    background-color: #3b82f6;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+html.dark *::-webkit-scrollbar-thumb:hover {
+    background-color: #60a5fa;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+/* ---- List-tab headers: Dashboard treatment (white tile, blue border,
+   4px primary bottom rule). Theme-aware via --v-theme-primary, same as
+   .dash-head / .dash-avatar on the Dashboard. ---- */
+.lgu-head {
+    background: transparent;
+    border-bottom: 4px solid rgb(var(--v-theme-primary));
+    border-image: var(--tms-grad-h) 1;
+}
+.lgu-head + .v-divider {
+    display: none;
+}
+.lgu-head-avatar {
+    /* !important: Vuetify's own .v-avatar sets border-width: 0 in a later
+       stylesheet, which would otherwise cancel this border. */
+    border: 2px solid rgb(var(--v-theme-primary)) !important;
+}
+
+/* ---- Dashboard panels: rounded white cards with a soft shadow and a
+   light header (round tinted icon, bold title). Scoped to .dash-panel so
+   the list-tab headers (.lgu-head alone) keep their treatment. ---- */
+.dash-panel {
+    border-radius: 12px !important;
+    border-color: rgba(15, 23, 42, 0.06) !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px -16px rgba(15, 23, 42, 0.22) !important;
+    overflow: hidden;
+}
+.dash-panel .lgu-head {
+    border-bottom: 1px solid rgba(var(--v-border-color), 0.08);
+    border-image: none;
+    padding: 14px 18px !important;
+}
+.dash-panel .lgu-head .lgu-head-avatar {
+    border: none !important;
+    border-radius: 50% !important;
+    background: rgba(var(--v-theme-primary), 0.1) !important;
+}
+.dash-panel .lgu-head .lgu-head-avatar .v-icon {
+    color: rgb(var(--v-theme-primary)) !important;
+}
+.dash-panel .lgu-head .text-subtitle-1 {
+    font-size: 1.08rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+}
+.dash-panel .v-table th {
+    font-size: 0.72rem !important;
+    letter-spacing: 0.04em;
+}
+html.dark .dash-panel.start-hero {
+    background: linear-gradient(100deg, #1b2540 0%, #1e1e2e 55%, #1b2a4a 100%) !important;
+}
+html.dark .dash-panel {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 24px -16px rgba(0, 0, 0, 0.7) !important;
+}
+
 /* ---- Pixiv-style search dropdown: blue thin scrollbar ---- */
 .search-menu {
     border-radius: 24px;
@@ -56,8 +191,8 @@ html.dark .help-title-orange { color: #FFAB91; }
     border-radius: 24px;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #7C3AED transparent;
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    scrollbar-color: #005EED transparent;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 .search-menu .v-list::-webkit-scrollbar {
@@ -69,7 +204,7 @@ html.dark .help-title-orange { color: #FFAB91; }
 }
 
 .search-menu .v-list::-webkit-scrollbar-thumb {
-    background-color: #7C3AED;
+    background-color: #005EED;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -88,6 +223,18 @@ html.hide-page-scroll::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
+}
+
+/* ---- Full scroll lock (Users tab): no bars and no scrolling at all ---- */
+html.lock-scroll,
+html.lock-scroll body {
+    overflow: hidden !important;
+}
+
+/* Fuse per-cell header borders into one continuous edge-to-edge rule
+   (Vuetify defaults to border-collapse: separate, which can seam). */
+.lgu-table table {
+    border-collapse: collapse;
 }
 
 .lgu-table thead tr th.v-data-table__th {
@@ -134,11 +281,99 @@ html.hide-page-scroll::-webkit-scrollbar {
     max-height: 450px !important;
 }
 
+/* ---- Unified 7-tab contract (Transactions, Roles, Users, Offices,
+   Transaction Types, Fields, Gov References): identical card anatomy ----
+   Every tab renders: header (avatar + title + search + actions, 40px
+   content) + .table-stage (510px: 7-row paged table + pinned footer).
+   Above-table slots were removed everywhere: Transactions search and the
+   Gov Ref info banner both live in the card header as compact controls.
+   Per-page scoped copies of these rules are harmless duplicates kept for
+   safety; this global block is the source of truth so tabs can't drift.
+   Heights are FORCED, not hoped for: header content can never wrap taller
+   (nowrap), every body row is locked to 60px, footer is 56px — so each
+   card is exactly 80 + 510 + padding on every tab, whatever the data. */
+.table-stage {
+    min-height: 510px !important;
+    min-width: 0;
+}
+/* Card headers can never grow: single flex line, title never wraps
+   (long titles like "Government References" truncate instead of pushing
+   the header to two lines when the drawer narrows the content). */
+.lgu-card > .v-card-title {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+.lgu-card > .v-card-title .text-h6 {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+/* Body rows are locked to the 60px rhythm: every text cell truncates to
+   one line (2-line clamp for type descriptions), so no value can ever
+   wrap a row taller. NOTE: max-height/overflow on td does nothing in CSS
+   table layout (cell height is a minimum) — bounding works only through
+   the content, which is why every slot truncates. Full text stays
+   on hover via title. Short states (< 8 rows) are floored by the
+   min-height in the paginated-tables rule below. */
+.table-stage {
+    min-height: 510px !important;
+    min-width: 0;
+}
+.table-stage .lgu-table {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0;
+    width: 100%;
+}
+.table-stage .v-data-table-footer {
+    margin-top: auto;
+}
+/* Server-pagination strip (Transactions bottom slot): fixed 62px to match
+   the measured default footer exactly, so single-page vs multi-page and
+   custom vs default never shifts the card. */
+.page-slot {
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Row actions stay visible normally; only duck away with a quick blink
+   while the left navbar is expanded (html.nav-open via drawer observer)
+   so the narrower table never cuts them off. Space is always reserved. */
+.row-actions {
+    opacity: 1;
+    visibility: visible;
+    min-width: 76px;
+    justify-content: flex-end;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+html.nav-open .row-actions {
+    opacity: 0;
+    visibility: hidden;
+    animation: action-blink-out 0.45s ease;
+}
+@keyframes action-blink-out {
+    0% { opacity: 1; }
+    30% { opacity: 0; }
+    55% { opacity: 0.7; }
+    100% { opacity: 0; }
+}
+/* Skeleton loaders fill the stage identically on every tab: same flex,
+   same centered orbit, same min-height. */
+.table-stage > .table-loader,
+.table-stage .table-loader {
+    flex: 1 1 auto !important;
+    width: 100%;
+}
+
 /* Paginated tables (7/page): natural height, never an inner scrollbar —
-   the wrapper grows with the rows instead of locking to 450px. */
+   the wrapper grows with the rows instead of locking to 450px, and never
+   shrinks below one full 7-row page (34 + 7x60) so short states match. */
 .lgu-table.table-pages .v-table__wrapper {
     height: auto !important;
-    min-height: 0 !important;
+    min-height: 454px !important;
     max-height: none !important;
 }
 
@@ -265,12 +500,35 @@ html.hide-page-scroll::-webkit-scrollbar {
 /* ---- Sample design system: sharp cards + blue scrollbars ---- */
 .lgu-card {
     border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+/* Glow: cards light up under the pointer. */
+.lgu-card:hover {
+    box-shadow: var(--tms-glow) !important;
+    border-color: rgba(0, 94, 237, 0.35);
+}
+/* Glow: focused inputs and selects get a soft halo. */
+.v-main .v-field--focused {
+    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.14), 0 0 18px -4px var(--tms-glow-c);
+}
+/* Glow: filled primary/dark buttons on hover and keyboard focus. */
+.v-main .v-btn--variant-flat.bg-primary:hover,
+.v-main .v-btn--variant-flat.bg-grey-darken-3:hover,
+.v-main .v-btn--variant-elevated.bg-primary:hover,
+.v-main .v-btn--variant-elevated.bg-grey-darken-3:hover,
+.v-main .v-btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.16), 0 8px 22px -6px var(--tms-glow-c) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .lgu-card {
+        transition: none;
+    }
 }
 
 .lgu-table :deep(.v-table__wrapper),
 .lgu-table .v-table__wrapper {
     scrollbar-width: thin;
-    scrollbar-color: #7C3AED transparent;
+    scrollbar-color: #005EED transparent;
     transition: none;
 }
 
@@ -291,7 +549,7 @@ html.hide-page-scroll::-webkit-scrollbar {
 
 .lgu-table :deep(.v-table__wrapper::-webkit-scrollbar-thumb),
 .lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
-    background-color: #7C3AED;
+    background-color: #005EED;
     border-radius: 0;
     border: 2px solid #ffffff;
 }
@@ -332,19 +590,19 @@ html.dark .search-pixiv .v-field {
     background-color: #2A2A3D !important;
 }
 html.dark .search-pixiv input {
-    color: #EDE9FE;
+    color: #DBEAFE;
 }
 
 /* Table headers */
 html.dark .lgu-table thead tr th.v-data-table__th,
 html.dark .lgu-table thead tr th.v-data-table__th .v-data-table-header__content {
-    color: #C4B5FD !important;
+    color: #93C5FD !important;
 }
 
 /* Guide panels + section labels */
 html.dark .guide-panel {
     background: #1E1E2E;
-    color: #EDE9FE;
+    color: #DBEAFE;
     border-bottom-color: #334155;
 }
 html.dark .guide-sec {
@@ -359,8 +617,8 @@ html.dark .donut-wrap svg circle:first-child {
 /* Loader orbit rings + text */
 html.dark .orbit-ring.outer {
     border-color: #2A2A3D;
-    border-top-color: #A78BFA;
-    border-right-color: #8B5CF6;
+    border-top-color: #93C5FD;
+    border-right-color: #2563EB;
 }
 html.dark .loader-text {
     color: #CBD5E1;
@@ -381,9 +639,9 @@ html.dark .v-btn--variant-outlined.text-grey-darken-3 {
     border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Icon backlights (header avatars) turn purple in dark mode */
+/* Icon backlights (header avatars) turn blue in dark mode */
 html.dark .v-avatar.bg-grey-darken-3 {
-    background-color: #7C3AED !important;
+    background-color: #005EED !important;
 }
 
 /* Scrollbar tracks */
@@ -409,4 +667,134 @@ html.dark .lgu-table .v-table__wrapper::-webkit-scrollbar-track {
     font-size: 0.75rem !important;
     white-space: normal;
     line-height: 1.3;
+}
+
+/* ---- Loading skeletons: blue bones with a lighter blue shimmer ---- */
+.v-skeleton-loader .v-skeleton-loader__heading,
+.v-skeleton-loader .v-skeleton-loader__text,
+.v-skeleton-loader .v-skeleton-loader__avatar,
+.v-skeleton-loader .v-skeleton-loader__button,
+.v-skeleton-loader .v-skeleton-loader__chip,
+.v-skeleton-loader .v-skeleton-loader__image,
+.v-skeleton-loader .v-skeleton-loader__ossein {
+    background: rgba(0, 94, 237, 0.16) !important;
+}
+.v-skeleton-loader .v-skeleton-loader__bone::after {
+    background: linear-gradient(90deg, rgba(77, 148, 255, 0), rgba(77, 148, 255, 0.35), rgba(77, 148, 255, 0)) !important;
+}
+
+/* Solid-blue avatars set through the colour prop (inline style) get the gradient too. */
+.v-avatar[style*="005EED"],
+.v-avatar[style*="rgb(0, 94, 237)"] {
+    background-image: var(--tms-grad);
+}
+
+/* ---- Government References / Field Definitions: same card, header and table
+   dimensions as Roles (52px badge, 100px header, 44px th, var(--tms-row) rows, 8 rows). ---- */
+.adm-page > .v-card-title.lgu-head {
+    min-height: 100px;
+    padding: 22px 28px !important;
+    gap: 16px;
+    border-bottom: 3px solid #005EED;
+    border-image: none;
+}
+.adm-page .lgu-head-avatar {
+    width: 52px !important;
+    height: 52px !important;
+    margin-right: 0 !important;
+    border: 0 !important;
+    background: var(--tms-grad) !important;
+}
+.adm-page .lgu-head-avatar .v-icon {
+    color: #fff !important;
+    font-size: 26px !important;
+}
+.adm-hd-main {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+.adm-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+}
+.adm-sub {
+    margin: 4px 0 0;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: normal;
+}
+.adm-page > .v-card-title .v-btn {
+    height: 46px !important;
+    border: 0 !important;
+    color: #fff !important;
+    background: var(--tms-grad) !important;
+}
+.adm-page > .v-card-text {
+    padding: 20px 28px 0 !important;
+}
+.adm-page .table-stage {
+    min-height: calc(var(--tms-row) * 8 + 44px + 78px) !important;
+}
+.adm-page .lgu-table {
+    --v-table-row-height: var(--tms-row) !important;
+    --v-table-header-height: 44px !important;
+}
+.adm-page .lgu-table.table-pages .v-table__wrapper {
+    min-height: calc(var(--tms-row) * 8 + 44px) !important;
+}
+.adm-page .lgu-table thead tr th.v-data-table__th {
+    height: 44px;
+    padding: 0 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+    background: #f4f6fb !important;
+    color: rgb(var(--v-theme-secondary)) !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+}
+.adm-page .lgu-table thead tr th.v-data-table__th .v-data-table-header__content,
+.adm-page .lgu-table thead tr th.v-data-table__th .v-icon {
+    color: rgb(var(--v-theme-secondary)) !important;
+    font-size: 12px !important;
+}
+.adm-page .lgu-table tbody td {
+    height: var(--tms-row);
+    padding: 8px 14px !important;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+    font-size: 14.5px;
+}
+.adm-page .v-data-table-footer {
+    min-height: 78px;
+}
+html.dark .adm-page .lgu-table thead tr th.v-data-table__th {
+    background: #1c2645 !important;
+}
+
+/* These two tables scroll sideways like Roles when the window is narrow. */
+.adm-page .lgu-table .v-table__wrapper {
+    overflow-x: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--v-theme-secondary)) #f4f6fb;
+}
+.adm-page .lgu-table .v-table__wrapper::-webkit-scrollbar {
+    display: block;
+    width: 10px;
+    height: 10px;
+}
+.adm-page .lgu-table .v-table__wrapper::-webkit-scrollbar-track {
+    background: #f4f6fb;
+}
+.adm-page .lgu-table .v-table__wrapper::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--v-theme-secondary));
+    border: 2px solid #f4f6fb;
+    border-radius: 0;
+}
+.adm-page .lgu-table table {
+    min-width: 900px;
 }

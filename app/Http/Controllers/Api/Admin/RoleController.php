@@ -15,16 +15,33 @@ class RoleController extends Controller
     public function index()
     {
         return RoleResource::collection(
-            Role::query()->orderBy('code')->get()
+            Role::query()->ordered()->get()
         );
     }
 
     public function store(StoreRoleRequest $request, AuditService $audit)
     {
-        $role = Role::create($request->validated());
+        $data = $request->validated();
+
+        // Re-adding a deleted role's code restores that role (with the new
+        // name and description), so its users and workflow steps come back
+        // with it instead of the code being reported as taken.
+        $trashed = Role::onlyTrashed()->where('code', $data['code'])->first();
+        if ($trashed) {
+            $trashed->restore();
+            $trashed->update($data);
+
+            $audit->log($request, 'roles.restore', $trashed, [
+                'payload' => $data,
+            ]);
+
+            return (new RoleResource($trashed))->response()->setStatusCode(201);
+        }
+
+        $role = Role::create($data);
 
         $audit->log($request, 'roles.create', $role, [
-            'payload' => $request->validated(),
+            'payload' => $data,
         ]);
 
         return (new RoleResource($role))->response()->setStatusCode(201);

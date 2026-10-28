@@ -1,3 +1,7 @@
+// Full Vuetify styles + all components/directives: the app's layout is
+// built on Vuetify utility classes (d-flex, align-center, text-caption,
+// font-weight-bold, ...), which per-component tree-shaking does NOT ship.
+// Keep the MDI font CSS (icon-font decision unchanged).
 import 'vuetify/styles'
 import '@mdi/font/css/materialdesignicons.css'
 import { createVuetify } from 'vuetify'
@@ -19,6 +23,12 @@ export function createVuetifyInstance() {
   return createVuetify({
     components,
     directives,
+    // Switches: a clear "on" colour everywhere (green track vs grey when
+    // off) and the rounded inset style. Without a colour, on and off drew
+    // the same grey track, so toggles looked like they did nothing.
+    defaults: {
+      VSwitch: { color: 'success', inset: true },
+    },
     icons: {
       defaultSet: 'mdi',
       aliases: {
@@ -40,11 +50,11 @@ export function createVuetifyInstance() {
         pixivLight: {
           dark: false,
           colors: {
-            primary: '#7C3AED',
+            primary: '#005EED',
             secondary: '#5B6770',
-            accent: '#C4B5FD',
+            accent: '#93C5FD',
             error: '#FF5252',
-            info: '#7C3AED',
+            info: '#005EED',
             success: '#4CAF50',
             warning: '#FFB300',
             background: '#F2F5F9',
@@ -54,11 +64,11 @@ export function createVuetifyInstance() {
         pixivDark: {
           dark: true,
           colors: {
-            primary: '#A78BFA',
+            primary: '#93C5FD',
             secondary: '#9AA4B2',
-            accent: '#C4B5FD',
+            accent: '#93C5FD',
             error: '#FF8A80',
-            info: '#A78BFA',
+            info: '#93C5FD',
             success: '#66BB6A',
             warning: '#FFCA28',
             background: '#12121A',

@@ -13,7 +13,7 @@
         </div>
         <v-spacer />
         <v-btn variant="text" @click="$router.push('/admin/offices')">Back</v-btn>
-        <v-btn color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
+        <v-btn v-if="canManage" color="grey-darken-3" rounded="0" prepend-icon="mdi-plus" @click="openCreate">
           Add Step
         </v-btn>
       </v-card-title>
@@ -62,7 +62,7 @@
           </template>
 
           <template v-slot:[`item.actions`]="{ item }">
-            <div class="d-flex ga-3 justify-end">
+            <div v-if="canManage" class="d-flex ga-3 justify-end">
               <v-btn
                 icon="mdi-pencil"
                 v-tooltip="'Edit step'"
@@ -88,7 +88,7 @@
     </v-card>
 
     <v-dialog v-model="dialog" max-width="700">
-      <v-card rounded="0">
+      <v-card rounded="xl" style="overflow: hidden">
         <v-card-title>{{ form.id ? 'Edit Step' : 'New Step' }}</v-card-title>
         <v-divider />
         <v-card-text>
@@ -105,7 +105,7 @@
           />
           <v-text-field v-model="form.name" label="Office Name of this step" />
           <v-textarea v-model="form.description" label="Description" rows="3" />
-          <v-switch v-model="form.is_active" label="Active" />
+          <v-switch v-model="form.is_active" :label="form.is_active ? 'Active' : 'Inactive'" />
         </v-card-text>
         <v-divider />
         <v-card-actions class="justify-end">
@@ -120,12 +120,16 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 import { useOffices } from '@/composables/useOffices'
 import TableLoader from '@/components/TableLoader.vue'
 
 const route = useRoute()
 const officeId = route.params.officeId
+const auth = useAuth()
 const { items, fetchAll, fetchSteps, createStep, updateStep, removeStep } = useOffices()
+
+const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const office = ref(null)
 const steps = ref([])

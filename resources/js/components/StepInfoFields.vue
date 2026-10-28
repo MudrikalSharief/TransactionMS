@@ -8,6 +8,8 @@
                 :items="row.definition.options || []"
                 :multiple="row.definition.type === 'multiselect'"
                 :type="inputTypeFor(row.definition.type)"
+                :error="isEmpty(row)"
+                :error-messages="isEmpty(row) ? ['* required'] : []"
                 clearable
             />
         </v-col>
@@ -17,7 +19,7 @@
 <script setup>
 // Shared station-info inputs. `form` is the page's single recording object
 // (mutated in place), so page card and modals always show the same draft.
-defineProps({
+const props = defineProps({
     fields: { type: Array, default: () => [] },
     form: { type: Object, required: true },
 });
@@ -36,5 +38,11 @@ function inputTypeFor(type) {
     if (type === "number" || type === "currency") return "number";
     if (type === "date") return "date";
     return "text";
+}
+
+function isEmpty(row) {
+    if (!row?.definition?.required) return false;
+    const v = props.form?.[row.definition.code];
+    return v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
 }
 </script>

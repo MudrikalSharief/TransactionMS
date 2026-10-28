@@ -17,6 +17,8 @@ class SuperAdminSeeder extends Seeder
                 'name' => 'Super Admin',
                 'password' => Hash::make('admin123'),
                 'is_active' => true,
+                // Seeded accounts never wait for approval.
+                'approved_at' => now(),
             ]
         );
 

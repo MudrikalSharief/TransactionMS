@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -16,8 +15,7 @@ return new class extends Migration {
             });
         }
 
-        $indexes = collect(DB::select('SHOW INDEX FROM workflow_steps'))->pluck('Key_name');
-        if (!$indexes->contains('wf_steps_def_parent_order_idx')) {
+        if (!Schema::hasIndex('workflow_steps', 'wf_steps_def_parent_order_idx')) {
             Schema::table('workflow_steps', function (Blueprint $table) {
                 $table->index(['workflow_definition_id', 'parent_id', 'order_number'], 'wf_steps_def_parent_order_idx');
             });

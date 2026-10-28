@@ -1,14 +1,17 @@
 <template>
     <div>
-        <h1 class="text-h5 font-weight-bold mb-5">Transaction Detail</h1>
+        <LoadingVeil :show="!tx && loading" label="transaction" icon="mdi-file-document-outline" />
         <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-file-document</v-icon>
+            <v-card-title class="d-flex align-center pa-5 lgu-head">
+                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
+                    <v-icon color="#005EED">mdi-file-document</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">
-                    Transaction: <b>{{ tx?.reference_number }}</b>
-                    <span v-if="tx?.title"> — {{ tx.title }}</span>
+                    <template v-if="tx">
+                        Transaction: <b>{{ tx.reference_number }}</b>
+                        <span v-if="tx.title"> — {{ tx.title }}</span>
+                    </template>
+                    <template v-else>Transaction</template>
                 </span>
                 <v-spacer />
                 <v-btn variant="text" @click="$router.push('/transactions')"
@@ -18,22 +21,32 @@
 
             <v-divider />
 
-            <v-card-text v-if="tx" class="pa-4">
-                <div class="mb-2">
-                    <b>Transaction Type:</b> {{ tx.transaction_type?.name }}
-                </div>
+            <v-card-text v-if="tx" class="pa-0">
+                <v-row no-gutters>
+                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3">
+                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
+                            <v-icon size="20">mdi-shape-outline</v-icon>
+                        </v-avatar>
+                        <div class="min-w-0">
+                            <div class="text-caption text-medium-emphasis">Transaction Type</div>
+                            <div class="text-body-1 font-weight-bold">{{ tx.transaction_type?.name }}</div>
+                        </div>
+                    </v-col>
+                    <v-divider class="d-sm-none" />
+                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3 meta-divide">
+                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
+                            <v-icon size="20">mdi-source-branch</v-icon>
+                        </v-avatar>
+                        <div class="min-w-0">
+                            <div class="text-caption text-medium-emphasis">Current Step</div>
+                            <div class="text-body-1 font-weight-bold">{{ tx.current_step?.name }}</div>
+                        </div>
+                    </v-col>
+                </v-row>
 
-                <div class="mb-2">
-                    <b>Current Step:</b> {{ tx.current_step?.name }} ({{
-                        tx.current_step?.code
-                    }})
-                </div>
+                <v-alert v-if="error" type="error" variant="tonal" class="ma-4 mt-0">{{ error }}</v-alert>
 
-                <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
-                    {{ error }}
-                </v-alert>
-
-                <v-divider class="my-3" />
+                <v-divider />
 
             </v-card-text>
 
@@ -47,71 +60,7 @@
             </v-card-text>
         </v-card>
 
-        <template v-if="!tx && loading">
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-text class="pa-4">
-                    <div class="d-flex flex-wrap ga-1">
-                        <v-skeleton-loader v-for="n in 6" :key="n" type="chip" width="110" />
-                    </div>
-                </v-card-text>
-            </v-card>
-
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-swap-horizontal</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Available Actions</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="actions" />
-                </v-card-text>
-            </v-card>
-
-            <!-- Step Form skeleton hidden with its card (see above). -->
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-form-textbox</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Step Form</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="paragraph" />
-                </v-card-text>
-            </v-card>
-
-            <!-- Checklist skeleton hidden with its card (see below). -->
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="false">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-clipboard-check-outline</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">Checklist</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="table-thead" />
-                    <v-skeleton-loader type="table-tbody" />
-                </v-card-text>
-            </v-card>
-
-            <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-                <v-card-title class="d-flex align-center pa-5">
-                    <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                        <v-icon color="white">mdi-history</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">History</span>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pa-4">
-                    <v-skeleton-loader type="table-thead" />
-                    <v-skeleton-loader type="table-tbody" />
-                </v-card-text>
-            </v-card>
-        </template>
+        <!-- Covered by LoadingVeil above while the transaction loads. -->
 
         <div v-if="(tx?.workflow_steps || []).length" class="mb-4">
             <StepProgress
@@ -127,61 +76,125 @@
             >
                 <template #actions v-if="tx">
                     <v-alert
+                        v-if="pendingReceipt"
+                        type="warning"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
+                        <div class="text-caption" v-if="canReceivePending">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <div class="text-caption" v-else>Waiting at {{ pendingReceiptStation }} — only its staff can receive it.</div>
+                        <v-btn v-if="canReceivePending" color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
+                            <v-icon start>mdi-inbox-arrow-down</v-icon>
+                            Receive Step
+                        </v-btn>
+                    </v-alert>
+                    <v-alert
                         v-if="isDone"
                         type="success"
                         variant="tonal"
                         class="mb-3"
                     >
                         <v-icon start size="small">mdi-flag-checkered</v-icon>
-                        This process has been finalized — view only.
+                        This transaction has been finalized — view only.
                     </v-alert>
                     <v-alert
-                        v-else-if="!hasActionOptions && !showFinalize"
+                        v-else-if="noOutgoingRoutes"
+                        type="error"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <div class="font-weight-bold">This step has no outgoing routes — the transaction can't move forward.</div>
+                        <div class="text-caption">Link the steps in Workflows (Routes), then publish. Transactions already created stay on the old version — create a new one after publishing.</div>
+                        <v-btn v-if="isSuperadmin()" :to="workflowsLink" color="error" variant="outlined" rounded="0" size="small" class="mt-2">
+                            <v-icon start size="small">mdi-source-branch</v-icon>
+                            Open Workflows
+                        </v-btn>
+                    </v-alert>
+                    <v-alert
+                        v-else-if="!hasActionOptions && !showFinalize && !showCompleteStep"
                         type="info"
                         variant="tonal"
                         class="mb-3"
                     >
                         No actions available for your role on this step (or route
                         conditions not satisfied).
+                        <span v-if="currentStepRoles.length" class="d-block mt-1 text-caption">This step requires role(s): <b>{{ currentStepRoles.join(', ') }}</b>.</span>
                     </v-alert>
 
                     <div v-else>
-                        <v-row v-if="hasActionOptions">
-                            <v-col cols="12">
-                                <v-select
-                                    v-model="selectedRouteId"
+                        <RouteFlowPreview
+                            v-if="hasActionOptions"
+                            :prev-step="tx?.previous_step_context?.step ?? null"
+                            :current-step="tx?.current_step ?? null"
+                            :dest-step="selectedRouteId ? destStepForTitle() : null"
+                            :workflow-steps="tx?.workflow_steps || []"
+                            :direction="!selectedRouteId ? null : (isJumpSelected ? (isJumpForward ? 'resend' : 'return') : (isReturnSelected ? 'return' : 'forward'))"
+                            :has-selection="!!selectedRouteId"
+                            :hide-previous="isAtFirstStep"
+                        />
+
+                        <v-row class="mt-1" align="stretch">
+                            <v-col v-if="hasActionOptions" cols="12" md="6">
+                                <ActionDropdown
+                                    :model-value="selectedRouteId"
                                     :items="unifiedRouteOptions"
-                                    item-title="label"
-                                    item-value="value"
-                                    label="Select Action"
-                                    clearable
                                     :disabled="saving"
+                                    @update:model-value="onSelectAction"
                                 />
                             </v-col>
-                        </v-row>
-
-                        <v-row class="mt-1">
-                            <v-col cols="12" class="d-flex justify-end ga-2">
+                            <v-col cols="12" :md="hasActionOptions ? 6 : 12" class="d-flex justify-end ga-2" style="flex-wrap: wrap">
+                                <!-- Finalize replaced by Complete Step on the last station -->
                                 <v-btn
-                                    v-if="showFinalize"
+                                    v-if="false"
                                     variant="outlined"
                                     color="grey-darken-3"
                                     rounded="0"
+                                    height="100%"
                                     :disabled="saving"
                                     :loading="saving"
                                     @click="finalizeDialog = true"
                                 >
-                                    Finalize Process
+                                    Finalize Transaction
                                 </v-btn>
                                 <v-btn
-                                    v-if="hasActionOptions"
-                                    color="grey-darken-3"
+                                    v-if="showCompleteStep && !isReturnAction"
+                                    color="success"
                                     rounded="0"
+                                    append-icon="mdi-flag-checkered"
+                                    style="width: 100%; flex: 1 1 auto"
+                                    height="100%"
+                                    :disabled="saving"
+                                    :loading="saving"
+                                    @click="openComplete()"
+                                >
+                                    Complete Step
+                                </v-btn>
+                                <v-btn
+                                    v-if="showCompleteStep && isReturnAction"
+                                    color="warning"
+                                    rounded="0"
+                                    append-icon="mdi-chevron-triple-left"
+                                    style="width: 100%; flex: 1 1 auto"
+                                    height="100%"
                                     :disabled="!selectedRouteId || saving"
                                     :loading="saving"
-                                    @click="isJumpSelected ? openJump() : openProceed()"
+                                    @click="isJumpSelected && !isReturnAction ? openJump() : openProceed()"
                                 >
-                                    {{ mainActionButtonLabel }}
+                                    {{ actionButtonLabel }}
+                                </v-btn>
+                                <v-btn
+                                    v-if="hasActionOptions && !showCompleteStep"
+                                    :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'primary'"
+                                    rounded="0"
+                                    :append-icon="isReturnAction ? 'mdi-chevron-triple-left' : 'mdi-chevron-triple-right'"
+                                    style="width: 100%; flex: 1 1 auto"
+                                    height="100%"
+                                    :disabled="!selectedRouteId || saving"
+                                    :loading="saving"
+                                    @click="isJumpSelected && !isReturnAction ? openJump() : openProceed()"
+                                >
+                                    {{ actionButtonLabel }}
                                 </v-btn>
                             </v-col>
                         </v-row>
@@ -236,19 +249,28 @@
                     variant="tonal"
                     class="mb-3"
                 >
-                    No stations in this process yet.
+                    No stations in this transaction type yet.
                 </v-alert>
 
                 <div v-else class="mb-3">
+                    <!-- Station-card missing-files warning hidden: blocking stays in the
+                         Proceed modal (upload-required chips + disabled Proceed + backend 422).
+                         Remove v-if="false" to restore. -->
                     <v-alert
-                        v-if="missingRequiredLabels.length"
+                        v-if="false && (missingRequiredUploadLabels.length || missingRequiredChecklistLabels.length)"
                         type="warning"
                         variant="tonal"
                         class="mb-3"
                     >
-                        Required items missing:
-                        {{ missingRequiredLabels.join(", ") }}. You will not be
-                        able to execute any action until these are checked.
+                        <div v-if="missingRequiredUploadLabels.length">
+                            Missing files for upload-required items:
+                            {{ missingRequiredUploadLabels.join(", ") }}.
+                        </div>
+                        <div v-if="missingRequiredChecklistLabels.length">
+                            Required checklist items not ticked:
+                            {{ missingRequiredChecklistLabels.join(", ") }}.
+                        </div>
+                        You will not be able to proceed until these are done.
                     </v-alert>
 
                     <div class="d-flex flex-column" style="min-height: 510px">
@@ -268,6 +290,9 @@
                             <div class="font-weight-medium text-caption">
                                 {{ item.station.order_number }}. {{ item.station.name }}
                                 <v-chip v-if="isCurrentRow(item)" rounded="0" size="x-small" class="ml-1" variant="tonal" color="primary">here</v-chip>
+                            </div>
+                            <div class="text-caption text-medium-emphasis">
+                                {{ stationOfficeLabel(item.station) }}
                             </div>
                         </template>
 
@@ -345,7 +370,7 @@
                                 {{ item.checked_by?.name }} •
                                 {{ item.checked_at }}
                             </div>
-                            <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" is-admin compact @deleted="removeAttachment" />
+                            <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" is-admin compact :current-step-id="tx?.current_step?.id" @deleted="removeAttachment" />
                             </template>
                         </template>
 
@@ -437,88 +462,80 @@
             </v-card-text>
         </v-card>
 
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-history</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">History</span>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <div class="d-flex flex-column" style="min-height: 510px">
-                <v-data-table
-                    v-show="!loading"
-                    :headers="runHeaders"
-                    :items="tx.runs || []"
-                    item-key="id"
-                    density="compact"
-                    height="450"
-                    fixed-header
-                    :items-per-page="25"
-                    hover
-                    class="lgu-table"
-                >
-                    <template v-slot:[`item.from_step`]="{ item }">
-                        {{ item.from_step?.name }} ({{ item.from_step?.code }})
-                    </template>
-                    <template v-slot:[`item.to_step`]="{ item }">
-                        {{ item.to_step?.name }} ({{ item.to_step?.code }})
-                    </template>
-                    <template v-slot:[`item.performed_by`]="{ item }">
-                        {{ item.performed_by?.name }}
-                    </template>
-                    <template v-slot:[`item.files`]="{ item }">
-                        <AttachmentList :items="item.attachments || []" :tx-id="route.params.id" is-admin compact @deleted="removeAttachment" />
-                    </template>
-                </v-data-table>
-                <TableLoader v-if="loading" label="history" compact style="flex: 1 1 auto" />
-                </div>
-            </v-card-text>
-        </v-card>
+        <HistoryAttachmentsTabs
+            v-if="tx || loading"
+            :runs="tx?.runs || []"
+            :loading="loading"
+            :tx-id="route.params.id"
+            is-admin
+            :attachments="tx?.attachments || []"
+            :workflow-steps="tx?.workflow_steps || []"
+            :workflow-routes="tx?.workflow_routes || []"
+            :current-step-id="tx?.current_step?.id"
+            @deleted="removeAttachment"
+        />
 
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4" v-if="tx">
-            <v-card-title class="d-flex align-center pa-5">
-                <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
-                    <v-icon color="white">mdi-paperclip</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">Attached Files</span>
-                <v-chip size="small" variant="tonal" class="ml-2">{{ (tx.attachments || []).length }}</v-chip>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-4">
-                <AttachmentList :items="tx.attachments || []" :tx-id="route.params.id" is-admin @deleted="removeAttachment" />
-            </v-card-text>
-        </v-card>
-
-        <v-dialog v-model="remarksDialog" max-width="800">
-            <v-card rounded="0">
-                <v-card-title>
-                    {{ isSingleStepProceed ? 'Proceed' : `Proceed — Step ${wizardStep} of 2` }}
-                    <div v-if="selectedActionLabel" class="text-caption text-medium-emphasis font-weight-bold">{{ selectedActionLabel }}</div>
+        <v-dialog v-model="remarksDialog" max-width="800" scrollable>
+            <v-card rounded="xl" style="overflow: hidden">
+                <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
+                <v-card-title :class="[{ 'text-warning': isReturnAction || isReturnMode }, 'd-flex', 'align-center', 'ga-2']">
+                    <span>{{ displayModalTitle }}</span>
+                    <v-spacer />
+                    <v-btn v-if="!isReturnMode && !isAtFirstStep" size="small" variant="outlined" rounded="lg" color="warning" prepend-icon="mdi-arrow-left" @click="toggleWizardMode">Return</v-btn>
+                    <v-btn v-else-if="!isAtFirstStep" size="small" variant="outlined" rounded="lg" color="grey-darken-3" prepend-icon="mdi-arrow-right" @click="toggleWizardMode">Proceed</v-btn>
                 </v-card-title>
                 <v-divider />
-                <v-card-text>
+                <v-card-text class="proceed-scroll">
+                    <div v-if="isReturnMode" class="mb-3">
+                        <ActionDropdown
+                            :model-value="selectedRouteId"
+                            :items="returnPickerOptions"
+                            label="Select where to return"
+                            placeholder="Choose a station"
+                            :disabled="saving"
+                            @update:model-value="onSelectAction"
+                        />
+                    </div>
                     <ProceedWizard
                         ref="wizardRef"
                         v-model:step="wizardStep"
                         v-model:remarks="remarks"
                         v-model:proceed-attachments="proceedAttachments"
+                        v-model:attachment-name="attachmentName"
                         :tx-id="route.params.id"
                         is-admin
+                        :current-step-id="tx?.current_step?.id"
                         :requirements="tx?.current_step_requirements || []"
+                        :existing-attachments="tx?.attachments || []"
+                        :current-step-order="tx?.current_step?.order_number"
+                        :workflow-steps="tx?.workflow_steps || []"
+                        :checklist="effectiveChecklist"
                         :fields="tx?.current_step_fields"
                         :form="form"
-                        :selected-action-label="selectedActionLabel"
-                        :selected-route-id="selectedRouteId"
-                        :is-return-selected="isReturnSelected"
-                        :missing-required-labels="missingRequiredLabels"
+                        v-model:step-data-form="stepDataForm"
+                        v-model:flagged="returnFlags"
+                        :step-data="tx?.current_step_data || []"
+                        :prev-context="tx?.previous_step_context || null"
+                        :selected-action-label="isCompleting ? 'Complete Step' : selectedActionLabel"
+                        :selected-route-id="isCompleting ? null : selectedRouteId"
+                        :is-return-selected="isCompleting ? false : (isReturnMode || isReturnSelected)"
+                        :is-completing="isCompleting"
+                        :show-checklist="isCompleting ? true : !skipReview"
+                        :missing-required-upload-labels="missingRequiredUploadLabels"
+                        :missing-required-tick-labels="missingRequiredTickLabels"
+                        :missing-required-checklist-labels="isCompleting ? missingRequiredCompleteLabels : missingRequiredChecklistLabels"
                         :missing-required-fields="missingRequiredFields"
                         :execute-error="executeError"
                         :saving="saving"
                         :saving-checklist="savingChecklist"
+                        :saving-checklist-item-id="savingChecklistItemId"
                         :saving-requirement-id="savingRequirementId"
+                        :remarks-label="isReturnMode ? 'Reason for returning (required)' : (autoReturnInfo?.sender ? `Reply to ${autoReturnInfo.sender} (optional)` : 'Remarks (optional)')"
+                        remarks-placeholder="Explain what you changed or fixed"
+                        attachments-title="Additional files"
                         @toggle-requirement="onWizardToggle"
+                        @return-missing="returnForMissing"
+                        @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
                         @attachment-deleted="removeAttachment"
                     />
@@ -529,25 +546,64 @@
                         >Cancel</v-btn
                     >
                     <v-btn
-                        v-if="wizardStep === 2 && !isSingleStepProceed"
+                        v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview && !isCompleting"
                         variant="text"
                         @click="wizardStep = 1"
                     >Back</v-btn>
                     <v-btn
-                        v-if="wizardStep === 1 && !isSingleStepProceed"
+                        v-if="isCompleting && wizardStep === 2 && !isSingleStepProceed"
+                        variant="text"
+                        @click="wizardStep = 1"
+                    >Back</v-btn>
+                    <v-btn
+                        v-if="!isCompleting && wizardStep === 1 && !isSingleStepProceed && !skipReview"
                         color="grey-darken-3"
                         rounded="0"
                         :disabled="saving || savingChecklist"
                         @click="goWizardNext"
                     >Next</v-btn>
                     <v-btn
-                        v-if="wizardStep === 2"
-                        color="grey-darken-3"
+                        v-if="!isReturnMode && !isCompleting && isReturnAction && wizardStep === 1 && !isSingleStepProceed && !skipReview"
+                        color="warning"
                         rounded="0"
                         :loading="saving"
-                        :disabled="!selectedRouteId || (!isReturnSelected && missingRequiredLabels.length > 0) || missingRequiredFields.length > 0"
+                        :disabled="returnSubmitDisabled"
+                        @click="isJumpSelected ? openJump() : executeSelected()"
+                    >Return</v-btn>
+                    <v-btn
+                        v-if="isCompleting && wizardStep === 1 && !isSingleStepProceed"
+                        color="grey-darken-3"
+                        rounded="0"
+                        :disabled="saving || savingChecklist"
+                        @click="goWizardNext"
+                    >Next</v-btn>
+                    <v-btn
+                        v-if="isCompleting && !isReturnMode && (wizardStep === 2 || isSingleStepProceed)"
+                        color="success"
+                        rounded="0"
+                        :loading="saving"
+                        :disabled="completeBlocked"
+                        @click="finalizeTx"
+                        >Complete Step</v-btn
+                    >
+                    <template v-if="isReturnMode">
+                        <span v-if="missingRequiredFields.length > 0" class="text-caption text-medium-emphasis mr-2">Fill required station info: {{ missingRequiredFields.join(', ') }}.</span>
+                        <v-btn
+                            color="warning"
+                            rounded="0"
+                            :loading="saving"
+                            :disabled="returnSubmitDisabled"
+                            @click="isJumpSelected ? returnViaJump() : executeSelected()"
+                        >Return</v-btn>
+                    </template>
+                    <v-btn
+                        v-else-if="!isCompleting && (wizardStep === 2 || skipReview)"
+                        :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'grey-darken-3'"
+                        rounded="0"
+                        :loading="saving"
+                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0"
                         @click="executeSelected"
-                        >Proceed</v-btn
+                        >{{ isReturnAction ? 'Return' : 'Proceed' }}</v-btn
                     >
                 </v-card-actions>
             </v-card>
@@ -557,23 +613,26 @@
             v-model:open="jumpDialog"
             :current-label="jumpCurrentLabel"
             :destination-label="jumpDestinationLabel"
+            :subject="tx?.title || ''"
             :confirm-label="mainActionButtonLabel"
             :saving="saving"
+            :is-forward="isJumpForward"
+            :checklist="tx?.current_step_checklist || []"
             @confirm="confirmJump"
         />
 
         <ConfirmActionDialog
             v-model:open="finalizeDialog"
-            title="Finalize process?"
+            title="Finalize transaction?"
             message="This marks the transaction done and locks it to view-only."
-            confirm-label="Finalize Process"
+            confirm-label="Finalize Transaction"
             confirm-color="success"
             :saving="saving"
             @confirm="finalizeTx"
         />
 
         <v-dialog v-model="checkDialog" max-width="700">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Check: {{ checkTarget?.definition?.name }}</v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -585,6 +644,7 @@
                         :requirement-id="checkTarget?.definition?.id"
                         v-model="checkAttachments"
                         :disabled="isDone"
+                        file-action="download"
                         @deleted="removeAttachment"
                     />
                     <v-expansion-panels variant="accordion" class="mt-3">
@@ -613,7 +673,7 @@
         </v-dialog>
 
         <v-dialog v-model="uncheckDialog" max-width="600">
-            <v-card rounded="0">
+            <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Uncheck: {{ uncheckTarget?.definition?.name }}</v-card-title>
                 <v-divider />
                 <v-card-text>
@@ -633,28 +693,47 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <!-- End-of-transaction footer: same deep-blue bar as the dashboard foot. -->
+        <v-sheet v-if="tx" color="#1A1F2B" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
+            <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
+                <v-icon color="#005EED" size="32">mdi-flag-checkered</v-icon>
+            </v-avatar>
+            <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
+            <div class="text-left">
+                <div class="text-h6 font-weight-bold text-white lh-1">END OF TRANSACTION</div>
+                <div class="text-caption" style="color: rgba(255, 255, 255, 0.75)">TRANSACTION: {{ tx.reference_number }}</div>
+            </div>
+        </v-sheet>
     </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
+import LoadingVeil from '@/components/LoadingVeil.vue';
 import StepProgress from '@/components/StepProgress.vue';
+import ActionDropdown from '@/components/ActionDropdown.vue';
+import RouteFlowPreview from '@/components/RouteFlowPreview.vue';
 import JumpBackDialog from '@/components/JumpBackDialog.vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
 import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
+import ReturnBanner from '@/components/ReturnBanner.vue';
+import StepBadge from '@/components/StepBadge.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
+import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
+import { fmtDateTime } from '@/utils/dates';
 
 const route = useRoute();
 const { api } = useApi();
-const { getOne, execute, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
+const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
@@ -673,16 +752,111 @@ function formatApiError(e, fallback) {
 }
 
 const remarksDialog = ref(false);
+// Return reason captured when a backward receive auto-opens Proceed.
+// Shown under the modal title; cleared whenever the modal closes so
+// manual Proceed opens never show a stale banner.
+const autoReturnInfo = ref(null);
+watch(remarksDialog, (open) => { if (!open) { autoReturnInfo.value = null; isCompleting.value = false; wizardMode.value = 'proceed'; stashedProceedAttachments.value = null; } });
 const wizardStep = ref(1);
+// UI-only Proceed/Return mode toggle in the Proceed modal (no backend:
+// return mode reuses the same wizard shell with return styling/copy).
+const wizardMode = ref('proceed');
+const isReturnMode = computed(() => wizardMode.value === 'return');
+const returnModalTitle = computed(() => {
+    const dest = destStepForTitle();
+    if (selectedRouteId.value && isReturnAction.value && dest) {
+        const n = dest?.order_number ?? '';
+        const name = dest?.name || dest?.code || '';
+        if (n !== '' || name) return `Return to Step ${n} · ${name}`.trim();
+    }
+    const cur = tx.value?.current_step;
+    const n = cur?.order_number ?? '';
+    const name = cur?.name || cur?.code || '';
+    return (n !== '' || name) ? `Return from Step ${n} · ${name}`.trim() : 'Return';
+});
+const displayModalTitle = computed(() => {
+    if (isReturnMode.value) return returnModalTitle.value;
+    if (isCompleting.value) return completeModalTitle.value;
+    return proceedModalTitle.value;
+});
+// Stash the forward pick before Return clears it, so toggling back to
+// Proceed restores "Proceed to ..." instead of plain "Proceed".
+const stashedProceedRouteId = ref(null);
+// Same stash idea for the staged "Additional files": entering Return
+// clears the list; toggling back restores Proceed's.
+const stashedProceedAttachments = ref(null);
+function defaultForwardRouteId() {
+    const forwards = forwardActions.value || [];
+    if (!forwards.length) return null;
+    if (forwards.length === 1) return forwards[0].route_id;
+    const curOrder = Number(tx.value?.current_step?.order_number);
+    if (Number.isFinite(curOrder)) {
+        const next = forwards.find((a) => Number(a?.to_step?.order_number) === curOrder + 1);
+        if (next) return next.route_id;
+    }
+    return forwards[0].route_id;
+}
+function toggleWizardMode() {
+    const toReturn = !isReturnMode.value;
+    wizardMode.value = toReturn ? 'return' : 'proceed';
+    // Return stages uploads on the Requirements page — move the stepper
+    // dot there. Proceed restarts on Review (or Requirements for step 1).
+    if (toReturn) {
+        // Remember the forward pick so Proceed toggle-back restores it.
+        if (selectedRouteId.value != null && !isReturnAction.value) {
+            stashedProceedRouteId.value = selectedRouteId.value;
+        }
+        // Return's "Additional files" starts empty — only files the user
+        // uploads or links there. The returning step's own files still
+        // travel back (stamped server-side), so nothing is orphaned.
+        stashedProceedAttachments.value = [...(proceedAttachments.value || [])];
+        proceedAttachments.value = [];
+        // Checklist is skipped on return — land straight on Requirements.
+        const hasReqPage = (tx.value?.current_step_requirements || []).length > 0
+            || (tx.value?.current_step_data || []).length > 0;
+        wizardStep.value = hasReqPage ? 2 : 1;
+    } else {
+        wizardStep.value = 1;
+        // Restore the forward pick; auto-pick next step when nothing valid.
+        if (selectedRouteId.value == null || isReturnAction.value) {
+            const stash = stashedProceedRouteId.value;
+            const stashValid = stash != null && (
+                (forwardActions.value || []).some((a) => Number(a.route_id) === Number(stash)) ||
+                (jumpRouteOptions.value || []).some((o) => String(o.value) === String(stash) && o.is_forward)
+            );
+            selectedRouteId.value = stashValid ? stash : defaultForwardRouteId();
+        }
+        // Back to Proceed: restore the staged list Return replaced, or the
+        // fresh-Proceed default when Return was opened directly.
+        proceedAttachments.value = stashedProceedAttachments.value != null
+            ? [...stashedProceedAttachments.value]
+            : proceedDefaultAttachments();
+    }
+    // Entering Return must force a choice — never inherit a forward
+    // selection (that's why Step 3 looked "stuck" on Step 1).
+    if (toReturn && !isReturnAction.value) {
+        selectedRouteId.value = null;
+    }
+}
 const wizardRef = ref(null);
 const selectedRouteId = ref(null);
-// Stations the paper already passed (meta.visited_step_ids). Powers the
-// yellow tracker nodes + the "Go to Station N" jump options.
+// Steps the paper already passed (meta.visited_step_ids). Powers the
+// yellow tracker nodes + the "Return to Step N" jump options.
 const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value);
+const showFinalize = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
+// Complete Step replaces Finalize on the last station: green button that
+// opens the checklist modal, then finalizes. No outgoing routes needed.
+const isCompleting = ref(false);
+const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
+const completeModalTitle = computed(() => {
+    const cur = tx.value?.current_step;
+    const n = cur?.order_number ?? '';
+    const name = cur?.name || cur?.code || '';
+    return (n !== '' || name) ? `Complete Step ${n} · ${name}`.trim() : 'Complete Step';
+});
 const hasActionOptions = computed(() =>
     (availableActions.value || []).length > 0 || (jumpRouteOptions.value || []).length > 0,
 );
@@ -700,6 +874,139 @@ const isReturnSelected = computed(() =>
         (a) => Number(a.route_id) === Number(selectedRouteId.value) && !!a.is_return_route,
     ),
 );
+// Step 1 → step 2 shows requirements only: hide the checklist in the wizard
+// and skip its gating. Every other transition is unchanged.
+const isFirstStepTransition = computed(() =>
+    !isReturnSelected.value &&
+    !isJumpSelected.value &&
+    Number(tx.value?.current_step?.order_number) === 1 &&
+    Number(selectedAction.value?.to_step?.order_number) === 2,
+);
+// Step 1 stations skip the Review page entirely: step 1 holds no
+// predecessor checklist, so Review would only ever be its empty state.
+// Exception (frontend-only return review): after a backward return into
+// Step 1 (e.g. 3 -> 1) the receiver must re-verify the returned files,
+// so Review shows a synthesized checklist built from the return run.
+const isAtFirstStep = computed(() => Number(tx.value?.current_step?.order_number) === 1);
+// Local ticks for the synthesized return-review rows (no checklist_override
+// ids exist on Step 1, so these never call the checklist check API).
+const returnReviewTicks = ref({});
+const returnReviewBase = computed(() => {
+    if (Number(tx.value?.current_step?.order_number) !== 1) return [];
+    const ctx = tx.value?.previous_step_context;
+    const prevStepId = Number(ctx?.step?.id || 0);
+    if (!prevStepId) return [];
+    const norm = (s) => String(s || '').trim().toLowerCase();
+    const txAtts = tx.value?.attachments || [];
+    const station = (tx.value?.station_checklist || []).find((s) => Number(s?.step?.id) === prevStepId);
+    const flagged = ctx?.run?.flagged_items || [];
+    const attsForReq = (code, name, reqId) => txAtts
+        .filter((a) => {
+            if (Number(a.workflow_step_id) !== prevStepId) return false;
+            if (reqId && Number(a.requirement_definition_id) === Number(reqId)) return true;
+            const c = norm(code);
+            const rc = norm(a.requirement?.code);
+            const rn = norm(a.requirement?.name);
+            if (c && (rc === c)) return true;
+            const n = norm(name);
+            if (n && (rn === n)) return true;
+            return false;
+        })
+        .map((a) => ({
+            id: a.id,
+            original_name: a.original_name,
+            label: a.label,
+            mime: a.mime,
+            size_bytes: a.size_bytes,
+            requirement_definition_id: a.requirement_definition_id,
+            uploaded_by: a.uploaded_by,
+            created_at: a.created_at,
+            download_url: a.download_url,
+            view_url: a.view_url,
+        }));
+    const rows = [];
+    const pushRow = (key, name, code, description, attachments) => {
+        if (!name && !code) return;
+        const id = `return-${key}`;
+        rows.push({
+            id,
+            requirement_definition_id: null,
+            name: name || code,
+            code: code || '',
+            description: description || '',
+            is_required: true,
+            display_order: rows.length,
+            checked: !!returnReviewTicks.value[id],
+            flagged_on_return: true,
+            prev_step: ctx?.step || null,
+            prev_checked: true,
+            attachments: attachments || [],
+            attachment_count: (attachments || []).length,
+        });
+    };
+    if (Array.isArray(flagged) && flagged.length) {
+        flagged.forEach((f, i) => {
+            const code = String(f?.code || '').trim();
+            const name = String(f?.name || '').trim();
+            const reqId = f?.requirement_definition_id ?? null;
+            const match = (station?.requirements || []).find((r) =>
+                (code && norm(r?.definition?.code) === norm(code)) ||
+                (name && norm(r?.definition?.name) === norm(name)) ||
+                (reqId && Number(r?.definition?.id) === Number(reqId)),
+            );
+            const label = match?.definition?.name || name || code || `Returned item ${i + 1}`;
+            const rCode = match?.definition?.code || code || '';
+            const atts = attsForReq(rCode || code, label, match?.definition?.id ?? reqId);
+            pushRow(`flag-${norm(rCode || code) || norm(label) || i}`, label, rCode, `Returned from Station ${ctx?.step?.order_number ?? ''}`.trim(), atts);
+        });
+    } else if ((station?.requirements || []).length) {
+        station.requirements.forEach((r) => {
+            const label = r?.definition?.name || r?.definition?.code || 'Returned file';
+            const code = r?.definition?.code || '';
+            const atts = attsForReq(code, label, r?.definition?.id);
+            pushRow(`req-${norm(code) || norm(label)}`, label, code, `Returned from Station ${ctx?.step?.order_number ?? ''}`.trim(), atts);
+        });
+    }
+    // Move-level Additional files from the returning station each get their
+    // own row so every returned file is explicitly ticked.
+    for (const a of (ctx?.attachments || [])) {
+        pushRow(`file-${a.id}`, a.original_name || a.label || 'Returned file', '', `Returned from Station ${ctx?.step?.order_number ?? ''}`.trim(), [{
+            id: a.id,
+            original_name: a.original_name,
+            label: a.label,
+            mime: a.mime,
+            size_bytes: a.size_bytes,
+            requirement_definition_id: a.requirement_definition_id,
+            uploaded_by: a.uploaded_by,
+            created_at: a.created_at,
+            download_url: a.download_url,
+            view_url: a.view_url,
+        }]);
+    }
+    return rows;
+});
+const isReturnedToFirstStep = computed(() => {
+    if (!isAtFirstStep.value) return false;
+    if (!returnReviewBase.value.length) return false;
+    const runs = tx.value?.runs || [];
+    if (!runs.length) return !!tx.value?.previous_step_context?.step?.id;
+    const curId = Number(tx.value?.current_step?.id);
+    const last = [...runs].sort((a, b) => Number(a.id) - Number(b.id)).pop();
+    if (!last) return false;
+    const toId = Number(last.to_step?.id ?? last.to_step_id ?? 0);
+    if (toId !== curId) return false;
+    const fromOrd = Number(last.from_step?.order_number);
+    const toOrd = Number(last.to_step?.order_number);
+    if (Number.isFinite(fromOrd) && Number.isFinite(toOrd)) return fromOrd > toOrd;
+    return Number(last.from_step?.id) !== curId;
+});
+const effectiveChecklist = computed(() => isReturnedToFirstStep.value ? returnReviewBase.value : (tx.value?.current_step_checklist || []));
+const skipReview = computed(() => (isFirstStepTransition.value || isAtFirstStep.value) && !isReturnedToFirstStep.value);
+// Dropdown selection: the '__clear' entry ("CANCEL") maps back
+// to null so the box always shows a real destination or the placeholder.
+function onSelectAction(v) {
+    selectedRouteId.value = v === '__clear' ? null : v;
+}
 // Drop a selection that no longer exists in the refreshed action list.
 // Otherwise the closed select renders the raw route id (e.g. "42") with
 // no matching label after a move or a condition flip.
@@ -718,21 +1025,46 @@ const hasProceedRequirements = computed(
     () => (tx.value?.current_step_requirements || []).length > 0,
 );
 const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
-// Return autofill: show every file on the transaction (including previous
-// stations and already-linked runs) so the user sees what travels back.
-// Forward actions start empty on purpose.
-function returnAttachments() {
-    return [...(tx.value?.attachments || [])];
+// Return's "Additional files" starts empty: only what the user adds there
+// is listed. Returned evidence is not lost — the from-step's own files are
+// stamped to the return run by the engine.
+// Proceed default for staged "Additional files": re-walks into an
+// already-passed station prefill this station's previous files; first
+// visits start empty on purpose.
+function proceedDefaultAttachments() {
+    const id = selectedAction.value?.to_step?.id;
+    const visited = id !== null && id !== undefined
+        && (visitedStepIds.value || []).map(Number).includes(Number(id));
+    return visited ? [...currentStepAttachments()] : [];
 }
 const remarks = ref("");
 const proceedAttachments = ref([]);
+// Structured return flags (flag pills): sent as flagged_items on execute,
+// never written into remarks text. Reset after each move.
+const returnFlags = ref([]);
+const attachmentName = ref("");
 const checkAttachments = ref([]);
 
 const form = ref({});
 
+// Step-data draft keyed by definition code (e.g. receipt_number),
+// prefilled from the latest saved value per definition.
+const stepDataForm = ref({});
+
+function hydrateStepDataForm() {
+    const next = {};
+    for (const row of tx.value?.current_step_data ?? []) {
+        const code = row?.definition?.code;
+        if (!code) continue;
+        next[code] = row.value ?? "";
+    }
+    stepDataForm.value = next;
+}
+
 const auth = useAuth();
 
 const savingChecklist = ref(false);
+const savingChecklistItemId = ref(null);
 const savingRequirementId = ref(null);
 
 const reqHeaders = [
@@ -800,21 +1132,134 @@ function isCurrentRow(row) {
     return Number(row.station?.id) === Number(tx.value?.current_step?.id);
 }
 
+function stationOfficeLabel(station) {
+    const office = station?.office;
+    // Blank assignments resolve to the transaction's Originating Office.
+    // The fallback only applies to legacy transactions that have no origin.
+    return office?.name || office?.code || "User's Office";
+}
+
 function waitText(row) {
     const st = row.station || {};
     const who = (st.roles || []).map((r) => r.name || r.code).filter(Boolean).join(" / ");
     return `Waiting — handled at Station ${st.order_number} · ${st.name}${who ? ` (${who})` : ""}.`;
 }
 
-const runHeaders = [
-    { title: "From", key: "from_step", sortable: false },
-    { title: "To", key: "to_step", sortable: false },
-    { title: "Action", key: "action_code" },
-    { title: "Remarks", key: "remarks" },
-    { title: "Files", key: "files", sortable: false },
-    { title: "By", key: "performed_by", sortable: false },
-    { title: "At", key: "performed_at" },
-];
+const receiving = ref(false);
+const pendingReceipt = computed(
+    () => tx.value?.pending_receipt || (tx.value?.runs || []).find((r) => !r.received_at) || null,
+);
+
+// Safety net: fail visibly when the transaction type itself is unfinished.
+// Counts outgoing routes of the CURRENT step in the PINNED workflow version.
+const outgoingRoutesCount = computed(() => {
+    const cid = tx.value?.current_step?.id;
+    if (cid == null) return 0;
+    return (tx.value?.workflow_routes || []).filter((r) => Number(r.from_step_id) === Number(cid)).length;
+});
+const noOutgoingRoutes = computed(() => {
+    if (!tx.value || isDone.value || showFinalize.value || showCompleteStep.value || pendingReceipt.value) return false;
+    if (!Array.isArray(tx.value?.workflow_routes)) return false;
+    return outgoingRoutesCount.value === 0;
+});
+const workflowsLink = computed(() => {
+    const id = tx.value?.transaction_type?.id;
+    return id ? `/admin/workflows?type=${id}` : '/admin/workflows';
+});
+// Roles allowed on the current step (from station checklist) — shown when
+// routes exist but the viewer still has no actions (role mismatch).
+const currentStepRoles = computed(() => {
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    return (entry?.step?.roles || []).map((r) => r.name || r.code).filter(Boolean);
+});
+
+// Destination station of the pending receipt (current step, effective
+// office already resolved by the API) for the "waiting at ..." caption.
+const pendingReceiptStation = computed(() => {
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    const office = entry?.step?.office?.name;
+    const who = currentStepRoles.value.join(' / ');
+    const base = office || 'the receiving office';
+    return who ? `${base} (${who})` : base;
+});
+
+// Mirrors the server's receive gate (RoutingEngine::userCanWorkOnStep):
+// superadmin, the effective office's office admin, or a role holder in
+// that office. Blank assignments follow the Originating Office; only a
+// legacy transaction with no origin keeps role-only access. Everyone else
+// gets a 403, so don't offer it.
+const canReceivePending = computed(() => {
+    if (!pendingReceipt.value || !tx.value) return false;
+    const u = auth.user.value;
+    if (!u) return false;
+    if (isSuperadmin()) return true;
+
+    const entry = (tx.value?.station_checklist || []).find(
+        (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),
+    );
+    const step = entry?.step;
+    if (!step) return false;
+
+    const destOfficeId = step.office_id ?? null;
+    const userOfficeId = u.office?.id ?? u.office_id ?? null;
+    const isOfficeAdmin =
+        userOfficeId != null && (u.roles || []).some((r) => r.code === 'admin');
+
+    if (isOfficeAdmin && destOfficeId != null && Number(destOfficeId) === Number(userOfficeId)) {
+        return true;
+    }
+
+    const stepRoleCodes = new Set((step.roles || []).map((r) => r.code));
+    const hasRole = [...myRoleCodes.value].some((c) => stepRoleCodes.has(c));
+    if (!hasRole) return false;
+    // No resolved office means a legacy transaction with no Originating
+    // Office; keep its blank/end-user stations role-only.
+    if (destOfficeId == null) return true;
+    return userOfficeId != null && Number(destOfficeId) === Number(userOfficeId);
+});
+
+async function receiveStep() {
+    receiving.value = true;
+    executeError.value = "";
+    // Snapshot the pending run before claiming: a backward arrival
+    // (returns / jump-backs) auto-opens Proceed with its return reason
+    // shown under the modal title. Forward receives just open Proceed.
+    const pend = pendingReceipt.value;
+    const fromOrd = Number(pend?.from_step?.order_number);
+    const toOrd = Number(pend?.to_step?.order_number);
+    const wasBackward = Number.isFinite(fromOrd) && Number.isFinite(toOrd) && fromOrd > toOrd;
+    const retRemarks = (pend?.remarks || '').trim();
+    try {
+        const { tx: fresh, meta } = await receive(route.params.id);
+        tx.value = fresh;
+        availableActions.value = meta?.available_actions || [];
+        visitedStepIds.value = meta?.visited_step_ids || [];
+        // Drop stale selections from the previous station, then pre-select
+        // the next step when it is the only forward route — otherwise the
+        // modal opens with no action and Proceed stays disabled no matter
+        // how complete the requirements are. Returns/jumps are never
+        // auto-picked; multiple forward routes stay a manual choice.
+        pruneSelectedRoute();
+        const forwards = (availableActions.value || []).filter((a) => !a.is_return_route);
+        if (selectedRouteId.value == null && forwards.length === 1) {
+            selectedRouteId.value = forwards[0].route_id;
+        }
+        // Claimed — drop straight into the Proceed modal when an onward
+        // action exists so receiving flows into proceeding in one gesture.
+        autoReturnInfo.value = (wasBackward && retRemarks)
+            ? { remarks: retRemarks, sender: pend?.performed_by?.name || '', fromStep: pend?.from_step || null }
+            : null;
+        if ((availableActions.value || []).length) openProceed();
+    } catch (e) {
+        executeError.value = formatApiError(e, "Receive failed.");
+    } finally {
+        receiving.value = false;
+    }
+}
 
 function componentFor(type) {
     switch (type) {
@@ -879,13 +1324,71 @@ const flatStationItems = computed(() => {
     return out;
 });
 
-const missingRequiredLabels = computed(() => {
-    const out = (tx.value?.current_step_requirements ?? [])
-        .filter((r) => r?.pivot?.is_required && !r.checked)
+const missingRequiredUploadLabels = computed(() => {
+    if (isReturnSelected.value || isReturnMode.value) return [];
+    return (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_required || r?.pivot?.is_upload_required)
+        .filter((r) => {
+            const existing = (r.attachments || []).length;
+            const staged = (stagedReqFileCount(r) || 0);
+            return existing + staged === 0;
+        })
         .map((r) => r.definition?.name)
         .filter(Boolean);
-    return out;
 });
+
+const missingRequiredTickLabels = computed(() => {
+    if (isReturnSelected.value || isReturnMode.value) return [];
+    // Every required requirement (tick-only AND upload rows like AR/Payroll)
+    // must be ticked as physically verified; uploads are gated separately.
+    return (tx.value?.current_step_requirements ?? [])
+        .filter((r) => r?.pivot?.is_required)
+        .filter((r) => !r.checked)
+        .map((r) => r.definition?.name)
+        .filter(Boolean);
+});
+
+const missingRequiredChecklistLabels = computed(() => {
+    if (isReturnSelected.value || isReturnMode.value) return [];
+    if (skipReview.value) return [];
+    return (effectiveChecklist.value ?? [])
+        .filter((c) => c.is_required && !c.checked)
+        .map((c) => c.name)
+        .filter(Boolean);
+});
+
+// Complete Step gating: required = predecessor ticked (prev_checked).
+// Items the previous station left unticked stay optional here.
+// Plus same required files + required data as Proceed so Complete
+// cannot bypass uploads or station info.
+const missingRequiredCompleteLabels = computed(() => {
+    return (effectiveChecklist.value ?? [])
+        .filter((c) => c.prev_checked && !c.checked)
+        .map((c) => c.name)
+        .filter(Boolean);
+});
+const completeBlocked = computed(() =>
+    missingRequiredCompleteLabels.value.length > 0 ||
+    missingRequiredUploadLabels.value.length > 0 ||
+    missingRequiredTickLabels.value.length > 0 ||
+    missingRequiredFields.value.length > 0 ||
+    missingRequiredStepDataLabels.value.length > 0,
+);
+function completeBlockMessage() {
+    const parts = [];
+    if (missingRequiredUploadLabels.value.length) parts.push("Missing files: " + missingRequiredUploadLabels.value.join(", "));
+    if (missingRequiredTickLabels.value.length) parts.push("Unticked required items: " + missingRequiredTickLabels.value.join(", "));
+    if (missingRequiredCompleteLabels.value.length) parts.push("Required checklist items not completed: " + missingRequiredCompleteLabels.value.join(", "));
+    if (missingRequiredFields.value.length) parts.push("Required station info missing: " + missingRequiredFields.value.join(", "));
+    if (missingRequiredStepDataLabels.value.length) parts.push("Required step data missing: " + missingRequiredStepDataLabels.value.join(", "));
+    return parts.join(" ");
+}
+
+// Instant staged-file counts from the open wizard (uploads persist server-side
+// immediately; this is only for the pre-refresh badge on page 1).
+function stagedReqFileCount(r) {
+    return wizardRef.value?.getReqFiles?.(r.definition.id)?.length ?? 0;
+}
 
 // Required station-info fields still empty in the draft form. These fail
 // server-side validation on Proceed (e.g. Request Title, Office Name,
@@ -898,6 +1401,22 @@ const missingRequiredFields = computed(() => {
         const empty = v === null || v === undefined || v === "" ||
             (Array.isArray(v) && v.length === 0);
         if (empty) out.push(row.definition.name);
+    }
+    return out;
+});
+
+// Required step-data values (receipt number, etc.) still empty in the
+// draft. These fail server-side validation on Proceed, so warn and block
+// Proceed until filled. Skipped on returns, like the other wizard gates.
+const missingRequiredStepDataLabels = computed(() => {
+    if (isReturnSelected.value || isReturnMode.value) return [];
+    const out = [];
+    for (const row of tx.value?.current_step_data ?? []) {
+        if (!row?.definition?.is_required) continue;
+        const v = stepDataForm.value?.[row.definition.code];
+        if (v === null || v === undefined || String(v).trim() === "") {
+            out.push(row.definition.display_name || row.definition.code);
+        }
     }
     return out;
 });
@@ -918,48 +1437,87 @@ async function load() {
         tx.value = res.tx;
         availableActions.value = res.meta?.available_actions ?? [];
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        returnReviewTicks.value = {};
         hydrateForm();
+        hydrateStepDataForm();
 
         const allIds = new Set(
             (availableActions.value || []).map((a) => a.route_id),
         );
         if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
     } catch (e) {
-        error.value = e?.response?.data?.message || "Failed to load transaction.";
+        // Plain-language messages instead of the server's raw text
+        // ("Forbidden.", "No query results for model ...").
+        const status = e?.response?.status;
+        if (status === 404) {
+            error.value = "This transaction was not found. It may have been deleted.";
+        } else if (status === 403) {
+            error.value =
+                "You don't have access to this transaction. It isn't at a step for your role and office.";
+        } else {
+            error.value = e?.response?.data?.message || "Failed to load transaction.";
+        }
     } finally {
         loading.value = false;
     }
 }
 
 function openProceed() {
+    isCompleting.value = false;
     remarks.value = "";
-    // Return actions autofill every transaction file so the user sees
-    // what will travel back. Forward actions start empty on first visits;
-    // on re-walks into an already-passed station, prefill this station's
-    // previous files (station info values are already pre-filled, since
-    // field values persist per transaction).
-    const destVisited = (() => {
-        const id = selectedAction.value?.to_step?.id;
-        if (id === null || id === undefined) return false;
-        return (visitedStepIds.value || []).map(Number).includes(Number(id));
-    })();
-    proceedAttachments.value = isReturnSelected.value
-        ? [...returnAttachments()]
-        : destVisited
-            ? [...currentStepAttachments()]
-            : [];
+    // Available-action returns (return routes and backward jumps alike)
+    // open the same modal as the in-modal Return button: return mode.
+    const returning = isReturnAction.value;
+    // Additional files start empty on Return — only what the user adds
+    // there is listed; forwards use their own default (see
+    // proceedDefaultAttachments below).
+    proceedAttachments.value = returning ? [] : proceedDefaultAttachments();
+    attachmentName.value = "";
     executeError.value = "";
-    // Skip page 1 when there are no requirements — go straight to checklist/remarks.
-    wizardStep.value = hasProceedRequirements.value ? 1 : 2;
+    wizardMode.value = returning ? 'return' : 'proceed';
+    if (returning) {
+        // Same staging as the in-modal Return: land on Requirements,
+        // the checklist page is skipped.
+        const hasReqPage = (tx.value?.current_step_requirements || []).length > 0
+            || (tx.value?.current_step_data || []).length > 0;
+        wizardStep.value = hasReqPage ? 2 : 1;
+    } else {
+        // Single-page mode (step 1 → step 2): everything happens on the
+        // Requirements page (now page 2). Otherwise start on Review (page 1).
+        wizardStep.value = skipReview.value ? 2 : 1;
+    }
+    wizardRef.value?.clearReqFiles?.();
+    remarksDialog.value = true;
+}
+
+// Complete Step on the last station: checklist modal, then finalize.
+// Checklist shows even with no outgoing routes; gating is prev_checked only.
+function openComplete() {
+    isCompleting.value = true;
+    remarks.value = "";
+    proceedAttachments.value = [];
+    attachmentName.value = "";
+    executeError.value = "";
+    error.value = "";
+    wizardMode.value = 'proceed';
+    // Checklist on page 1 when items exist; otherwise jump to page 2.
+    const hasList = (effectiveChecklist.value || []).length > 0;
+    wizardStep.value = (!hasList || isSingleStepProceed.value) ? 2 : 1;
+    // Single-step (no requirements) with checklist: stay on Review page.
+    if (hasList && isSingleStepProceed.value) wizardStep.value = 1;
     wizardRef.value?.clearReqFiles?.();
     remarksDialog.value = true;
 }
 
 // Files previously saved on the current station, for prefill when
-// re-proceeding through already-passed stations.
+// re-proceeding through already-passed stations. Move-level only:
+// requirement files already show in their requirement sections above,
+// so they are excluded from the below-remarks list.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
-    return (tx.value?.attachments || []).filter((a) => Number(a.workflow_step_id) === cur);
+    return (tx.value?.attachments || [])
+        .filter((a) => Number(a.workflow_step_id) === cur)
+        .filter((a) => a.requirement_definition_id == null || Number(a.requirement_definition_id) === 0);
 }
 
 // Re-fetch tx without wiping staged station-info `form` (uploads and
@@ -985,6 +1543,56 @@ async function onWizardToggle(req, checked) {
     if (!req?.definition?.id) return;
     if (checked && !req.checked) await checkRequirement(req.definition.id);
     else if (!checked && req.checked) await uncheckRequirement(req.definition.id);
+}
+
+async function onWizardChecklistToggle(item, checked) {
+    if (!item?.id) return;
+    if (String(item.id).startsWith('return-')) {
+        returnReviewTicks.value = { ...(returnReviewTicks.value || {}), [item.id]: !!checked };
+        return;
+    }
+    if (checked && !item.checked) await checkChecklistItem(item.id);
+    else if (!checked && item.checked) await uncheckChecklistItem(item.id);
+}
+
+async function checkChecklistItem(itemId) {
+    savingChecklist.value = true;
+    savingChecklistItemId.value = itemId;
+    error.value = "";
+    try {
+        const res = await api.post(
+            `/api/transactions/${route.params.id}/checklist/${itemId}/check`,
+        );
+        tx.value = res.data.data ?? res.data;
+        availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Checklist check failed.";
+    } finally {
+        savingChecklist.value = false;
+        savingChecklistItemId.value = null;
+    }
+}
+
+async function uncheckChecklistItem(itemId) {
+    savingChecklist.value = true;
+    savingChecklistItemId.value = itemId;
+    error.value = "";
+    try {
+        const res = await api.delete(
+            `/api/transactions/${route.params.id}/checklist/${itemId}/check`,
+        );
+        tx.value = res.data.data ?? res.data;
+        availableActions.value = res.data.meta?.available_actions ?? [];
+        visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
+        pruneSelectedRoute();
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Checklist uncheck failed.";
+    } finally {
+        savingChecklist.value = false;
+        savingChecklistItemId.value = null;
+    }
 }
 
 async function executeSelected() {
@@ -1023,6 +1631,7 @@ async function executeSelected() {
             remarks: remarks.value || null,
             field_values: payloadFields,
             attachment_ids: (proceedAttachments.value || []).map((a) => a.id),
+            step_data: { ...(stepDataForm.value || {}) },
         });
 
         tx.value = res.tx;
@@ -1031,10 +1640,13 @@ async function executeSelected() {
         remarksDialog.value = false;
         wizardStep.value = 1;
         proceedAttachments.value = [];
+        attachmentName.value = "";
+        returnReviewTicks.value = {};
         // New station, new outgoing routes — force a fresh selection so the
         // closed dropdown never shows the previous route's raw id.
         selectedRouteId.value = null;
         hydrateForm();
+        hydrateStepDataForm();
     } catch (e) {
         const msg = formatApiError(e, "Execute failed.");
         error.value = msg;
@@ -1044,23 +1656,50 @@ async function executeSelected() {
     }
 }
 
-// Finalize the process on the last station. No requirements — the
-// backend enforces end-step + once-only. Afterwards view-only.
+// Complete Step on the last station. Validates required files + data
+// like Proceed, then saves staged station info with finalize.
 const jumpDialog = ref(false);
 async function finalizeTx() {
     if (saving.value) return;
+    if (isCompleting.value && completeBlocked.value) {
+        error.value = completeBlockMessage() || "Complete the required items first.";
+        executeError.value = error.value;
+        return;
+    }
     saving.value = true;
     error.value = "";
     try {
-        const res = await finalizeApi(route.params.id);
+        const payloadFields = { ...form.value };
+        for (const row of tx.value?.current_step_fields ?? []) {
+            const def = row.definition;
+            if (def.type === "multiselect" && !Array.isArray(payloadFields[def.code])) {
+                payloadFields[def.code] = [];
+            }
+            if ((def.type === "number" || def.type === "currency") && payloadFields[def.code] !== null && payloadFields[def.code] !== "") {
+                payloadFields[def.code] = Number(payloadFields[def.code]);
+            }
+            if (def.type === "boolean") {
+                payloadFields[def.code] = !!payloadFields[def.code];
+            }
+        }
+        const res = await finalizeApi(route.params.id, {
+            field_values: payloadFields,
+            step_data: { ...(stepDataForm.value || {}) },
+        });
         tx.value = res.tx;
         availableActions.value = res.meta?.available_actions ?? [];
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         selectedRouteId.value = null;
         hydrateForm();
+        hydrateStepDataForm();
         finalizeDialog.value = false;
+        remarksDialog.value = false;
+        isCompleting.value = false;
+        wizardStep.value = 1;
     } catch (e) {
-        error.value = formatApiError(e, "Finalize failed.");
+        const msg = formatApiError(e, "Finalize failed.");
+        error.value = msg;
+        executeError.value = msg;
     } finally {
         saving.value = false;
     }
@@ -1071,27 +1710,74 @@ function openJump() {
     jumpDialog.value = true;
 }
 
-async function confirmJump(remarksText) {
+async function confirmJump(payload) {
     jumpDialog.value = false;
-    await gotoStation(remarksText);
+    await gotoStation(payload);
+    if (!error.value) {
+        remarksDialog.value = false;
+        wizardMode.value = 'proceed';
+        isCompleting.value = false;
+        wizardStep.value = 1;
+    }
 }
 
-async function gotoStation(remarksText) {
+// In-modal Return with a jump picked goes direct — no second dialog.
+// Uses the reason + flag pills already entered in this modal.
+async function returnViaJump() {
+    if (!isJumpSelected.value || !jumpStepId.value || saving.value) return;
+    await gotoStation({ remarks: (remarks.value || '').trim() || null, flagged: [...(returnFlags.value || [])] });
+    if (!error.value) {
+        remarksDialog.value = false;
+        wizardMode.value = 'proceed';
+        isCompleting.value = false;
+        wizardStep.value = 1;
+    }
+}
+
+async function gotoStation(payload) {
     if (!isJumpSelected.value || !jumpStepId.value || saving.value) return;
     saving.value = true;
     error.value = "";
     try {
+        const remarks = typeof payload === "string" ? payload : payload?.remarks;
+        const flagged = payload && typeof payload === "object" && Array.isArray(payload.flagged) ? payload.flagged : [];
         const res = await gotoStationApi(route.params.id, {
             to_step_id: jumpStepId.value,
-            remarks: remarksText || null,
+            remarks: remarks || null,
+            flagged_items: flagged,
         });
         tx.value = res.tx;
         availableActions.value = res.meta?.available_actions ?? [];
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         selectedRouteId.value = null;
         hydrateForm();
+        hydrateStepDataForm();
     } catch (e) {
         error.value = formatApiError(e, "Jump failed.");
+    } finally {
+        saving.value = false;
+    }
+}
+// Proceed modal → "Return to Step N": the previous station's items were
+// missing, so send it back there with remarks (goto, reason recorded).
+async function returnForMissing({ toStepId, remarks }) {
+    if (saving.value) return;
+    saving.value = true;
+    executeError.value = "";
+    try {
+        const res = await gotoStationApi(route.params.id, {
+            to_step_id: toStepId,
+            remarks,
+            reason: "missing_requirements",
+        });
+        tx.value = res.tx;
+        availableActions.value = res.meta?.available_actions ?? [];
+        visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        selectedRouteId.value = null;
+        hydrateForm();
+        remarksDialog.value = false;
+    } catch (e) {
+        executeError.value = formatApiError(e, "Return failed.");
     } finally {
         saving.value = false;
     }
@@ -1172,39 +1858,81 @@ function labelForAction(a) {
 }
 
 const unifiedRouteOptions = computed(() => [
-    ...forwardActions.value.map((a) => ({
-        value: a.route_id,
-        route_id: a.route_id,
-        label: `Proceed → ${labelForAction(a)}`,
-    })),
-    ...returnActions.value.map((a) => ({
-        value: a.route_id,
-        route_id: a.route_id,
-        label: `Return → ${labelForAction(a)}`,
-    })),
+    { value: '__clear', label: 'CANCEL', kind: 'clear', verb: 'Cancel', detail: '' },
+    ...forwardActions.value.map((a) => {
+        const n = a?.to_step?.order_number ?? a?.to_step_id;
+        const name = a?.to_step?.name ?? labelForAction(a);
+        const hasStep = n != null && n !== '';
+        return {
+            value: a.route_id,
+            route_id: a.route_id,
+            label: `Proceed → ${labelForAction(a)}`,
+            kind: 'proceed',
+            verb: hasStep ? `Proceed to Step ${n}` : 'Proceed',
+            detail: hasStep ? String(name) : labelForAction(a),
+        };
+    }),
+    ...returnActions.value.map((a) => {
+        const n = a?.to_step?.order_number ?? a?.to_step_id;
+        const name = a?.to_step?.name ?? labelForAction(a);
+        const hasStep = n != null && n !== '';
+        return {
+            value: a.route_id,
+            route_id: a.route_id,
+            label: `Return → ${labelForAction(a)}`,
+            kind: 'return',
+            verb: hasStep ? `Return to Step ${n}` : 'Return',
+            detail: hasStep ? String(name) : labelForAction(a),
+        };
+    }),
     ...jumpRouteOptions.value,
 ]);
 
-// Jump targets: visited stations BEHIND the current one, ordered by
-// station number. Values are "jump:<stepId>" strings so they never
-// collide with numeric route ids. Forward moves always go step by step
-// through the assigned routes — never by jump.
+// Jump targets: any visited step except the current one, ordered by
+// step number. Behind = Return, ahead = quick Resend (e.g. 1 -> 3 after
+// a 3 -> 1 return, remarks-only). Values are "jump:<stepId>" strings so
+// they never collide with numeric route ids. Normal forward progress still
+// goes step by step through the assigned routes. Recorded as Returned
+// (backward) or Resent (forward) in history.
 const jumpRouteOptions = computed(() => {
+    // Locked until received — backend rejects jumps on pending receipt.
+    if (pendingReceipt.value) return [];
     const visited = new Set((visitedStepIds.value || []).map((v) => Number(v)));
     const cur = Number(tx.value?.current_step?.id);
     const curOrder = Number(
         (tx.value?.workflow_steps || []).find((s) => Number(s.id) === cur)?.order_number ?? NaN,
     );
+    // Forward targets already reachable via a normal Proceed route are
+    // hidden here so the list never shows both "Proceed → 2" and
+    // "Resend to Step 2" for the same step.
+    const forwardDestIds = new Set(
+        (forwardActions.value || [])
+            .map((a) => Number(a?.to_step?.id ?? a?.to_step_id))
+            .filter((v) => Number.isFinite(v)),
+    );
     return (tx.value?.workflow_steps || [])
-        .filter((s) => visited.has(Number(s.id)) && Number(s.order_number) < curOrder)
+        .filter((s) => {
+            const id = Number(s.id);
+            if (!visited.has(id) || id === cur) return false;
+            const forward = Number.isFinite(curOrder) && Number(s.order_number) > curOrder;
+            if (forward && forwardDestIds.has(id)) return false;
+            return true;
+        })
         .sort((a, b) => (Number(a.order_number) || 0) - (Number(b.order_number) || 0))
-        .map((s) => ({
-            value: `jump:${s.id}`,
-            to_step_id: s.id,
-            to_number: s.order_number ?? s.id,
-            is_jump: true,
-            label: `Go to Station ${s.order_number} · ${s.name || s.code || ''}`.trim(),
-        }));
+        .map((s) => {
+            const forward = Number.isFinite(curOrder) && Number(s.order_number) > curOrder;
+            return {
+                value: `jump:${s.id}`,
+                to_step_id: s.id,
+                to_number: s.order_number ?? s.id,
+                is_jump: true,
+                is_forward: forward,
+                label: `${forward ? 'Resend to' : 'Return to'} Step ${s.order_number} · ${s.name || s.code || ''}`.trim(),
+                kind: forward ? 'resend' : 'return',
+                verb: `${forward ? 'Resend to' : 'Return to'} Step ${s.order_number}`,
+                detail: s.name || s.code || '',
+            };
+        });
 });
 
 const selectedJumpOption = computed(() =>
@@ -1213,15 +1941,15 @@ const selectedJumpOption = computed(() =>
 
 const jumpDestinationLabel = computed(() => {
     const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(jumpStepId.value));
-    if (!s) return 'the selected station';
-    return `Station ${s.order_number} · ${s.name || s.code || ''}`.trim();
+    if (!s) return 'the selected step';
+    return `Step ${s.order_number} · ${s.name || s.code || ''}`.trim();
 });
 
 const jumpCurrentLabel = computed(() => {
     const c = tx.value?.current_step;
-    if (!c) return 'current station';
+    if (!c) return 'current step';
     const match = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(c.id));
-    return `Station ${match?.order_number ?? ''} · ${c.name || c.code || ''}`.trim();
+    return `Step ${match?.order_number ?? ''} · ${c.name || c.code || ''}`.trim();
 });
 
 const selectedActionLabel = computed(() => {
@@ -1239,15 +1967,96 @@ const selectedAction = computed(() => {
 const selectedStepNumber = computed(
     () => selectedAction.value?.to_step?.order_number ?? selectedAction.value?.to_step_id ?? "",
 );
+const isJumpForward = computed(() => !!selectedJumpOption.value?.is_forward);
+// True for any backward move: return-route selection or backward jump.
+// Drives the orange (warning) button styling on return actions.
+const isReturnAction = computed(() => isReturnSelected.value || (isJumpSelected.value && !isJumpForward.value));
+const isResendAction = computed(() => isJumpSelected.value && isJumpForward.value);
+// In-modal Return picker: real return routes + visited previous stations
+// (backward jumps). Excludes forward/resend so Return never offers Step 1
+// when Step 2 is the nearer previous station.
+const returnPickerOptions = computed(() => {
+    const routes = (returnActions.value || []).map((a) => {
+        const n = a?.to_step?.order_number ?? a?.to_step_id;
+        const name = a?.to_step?.name ?? labelForAction(a);
+        return {
+            value: a.route_id,
+            route_id: a.route_id,
+            label: `Return to Step ${n} · ${name}`,
+            kind: 'return',
+            verb: `Return to Step ${n}`,
+            detail: String(name),
+        };
+    });
+    const jumps = (jumpRouteOptions.value || [])
+        .filter((o) => !o.is_forward)
+        .map((o) => ({ ...o, kind: 'return' }));
+    return [...routes, ...jumps];
+});
+const returnSubmitDisabled = computed(() =>
+    !selectedRouteId.value || !isReturnAction.value || !(remarks.value || '').trim() || missingRequiredFields.value.length > 0 || saving.value,
+);
 const mainActionButtonLabel = computed(() => {
     if (!selectedRouteId.value) return "Proceed";
     if (isJumpSelected.value) {
         const n = selectedJumpOption.value?.to_number ?? "";
-        return n !== "" ? `Go to Station ${n}` : "Go to Station";
+        const verb = isJumpForward.value ? "Resend to Step" : "Return to Step";
+        return n !== "" ? `${verb} ${n}` : verb;
     }
     if (!selectedAction.value) return "Proceed";
-    if (isReturnSelected.value) return `Return to Station ${selectedStepNumber.value}`;
-    return `Proceed to Station ${selectedStepNumber.value}`;
+    if (isReturnSelected.value) return `Return to Step ${selectedStepNumber.value}`;
+    return `Proceed to Step ${selectedStepNumber.value}`;
+});
+// Action-bar button keeps the verb only (destination is shown in the
+// graphic above it): Proceed / Return / Resend.
+const actionButtonLabel = computed(() => {
+    if (!selectedRouteId.value) return "Proceed";
+    if (isJumpSelected.value) return isJumpForward.value ? "Resend" : "Return";
+    if (!selectedAction.value) return "Proceed";
+    if (isReturnSelected.value) return "Return";
+    return "Proceed";
+});
+
+// Proceed modal title: Proceeding to "stepname" (office code). Both the
+// name and office come from the destination step's effective office
+// (blank assignments resolve to the Originating Office).
+function destStepForTitle() {
+    if (isJumpSelected.value) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(jumpStepId.value));
+        if (s) return s;
+        return null;
+    }
+    const direct = selectedAction.value?.to_step;
+    const routeId = Number(selectedRouteId.value);
+    const route = (tx.value?.workflow_routes || []).find((r) => Number(r.id) === routeId);
+    const toId = direct?.id ?? route?.to_step_id ?? selectedAction.value?.to_step_id;
+    if (toId != null) {
+        const s = (tx.value?.workflow_steps || []).find((x) => Number(x.id) === Number(toId));
+        if (s) return { ...direct, ...s, office: s.office ?? direct?.office ?? null };
+    }
+    return direct ?? null;
+}
+function proceedTitle(prefix) {
+    const dest = destStepForTitle();
+    const n = dest?.order_number ?? selectedStepNumber.value ?? "";
+    const name = dest?.name || dest?.code || (n !== "" && n != null ? `Step ${n}` : "");
+    if (!name) return "Proceed";
+    // Show the destination station's effective office, not the current
+    // station's. Legacy no-origin stations add no suffix.
+    const office = String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
+    return office ? `${prefix} "${name}" (${office})` : `${prefix} "${name}"`;
+}
+
+// Single-line Proceed modal title: destination step name + office.
+const proceedModalTitle = computed(() => {
+    if (!selectedRouteId.value) return "Proceed";
+    if (isJumpSelected.value) {
+        if (!selectedJumpOption.value) return "Return";
+        return proceedTitle(isJumpForward.value ? "Resend to" : "Return to");
+    }
+    if (!selectedAction.value) return "Proceed";
+    if (isReturnSelected.value) return proceedTitle("Return to");
+    return proceedTitle("Proceeding to");
 });
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so
@@ -1293,6 +2102,7 @@ function displayValue(v) {
 // Prune a superadmin-deleted attachment from every local list so the UI
 // stays in sync without a full reload (which would wipe staged form input).
 function removeAttachment(id) {
+    wizardRef.value?.removeReqFile?.(id);
     proceedAttachments.value = (proceedAttachments.value || []).filter((a) => a.id !== id);
     checkAttachments.value = (checkAttachments.value || []).filter((a) => a.id !== id);
     if (tx.value?.attachments) tx.value.attachments = tx.value.attachments.filter((a) => a.id !== id);
@@ -1322,5 +2132,34 @@ onMounted(load);
 <style scoped>
 .row-dim {
     opacity: 0.55;
+}
+
+/* Slim inner scroll: keeps scrolling inside the curved modal. */
+.proceed-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    padding-right: 8px;
+}
+.proceed-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.proceed-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+}
+.proceed-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+/* Header meta split: vertical divider between Type and Step on sm+ only
+   (stacked rows get the horizontal v-divider instead). */
+@media (min-width: 600px) {
+    .meta-divide {
+        border-left: 1px solid rgba(0, 0, 0, 0.12);
+    }
+    html.dark .meta-divide {
+        border-left-color: rgba(255, 255, 255, 0.12);
+    }
 }
 </style>

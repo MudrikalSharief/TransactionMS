@@ -16,9 +16,13 @@ class UpsertWorkflowStepRequest extends FormRequest
             'code' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9_]+$/'],
             'name' => ['required', 'string', 'max:200'],
             'stage' => ['nullable', 'string', 'max:120'],
+            // Blank means User's Office (the transaction's Originating Office),
+            // so it is valid for any step, including end steps.
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
             'sla_minutes' => ['required', 'integer', 'min:0'],
             'is_start' => ['sometimes', 'boolean'],
             'is_end' => ['sometimes', 'boolean'],
+            'is_end_user' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', 'exists:roles,id'],
         ];

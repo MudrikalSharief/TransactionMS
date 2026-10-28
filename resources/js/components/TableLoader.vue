@@ -1,22 +1,30 @@
 <template>
-    <div class="table-loader d-flex flex-column align-center justify-center" :style="{ minHeight: boxHeight + 'px' }">
-        <div class="orbit">
-            <span class="orbit-ring outer" />
-            <span class="orbit-ring middle" />
-            <v-avatar color="grey-darken-3" size="56" class="orbit-core">
-                <v-icon color="white" size="30">{{ icon }}</v-icon>
-            </v-avatar>
-            <span class="orbit-dot d1" />
-            <span class="orbit-dot d2" />
-            <span class="orbit-dot d3" />
-        </div>
+    <!-- No-shift loader: mirrors the loaded 7/page table anatomy exactly so
+         swapping loader <-> table never moves surrounding layout.
+         head (34) = thead height, body (rows x 60) = data rows, foot =
+         footer height. Totals 510 by default = .table-stage min-height. -->
+    <div class="table-loader d-flex flex-column" :style="{ minHeight: totalHeight + 'px' }">
+        <div v-if="!compact" class="loader-head" aria-hidden="true" />
+        <div class="loader-body d-flex flex-column align-center justify-center" :style="compact ? null : { minHeight: bodyHeight + 'px' }">
+            <div class="orbit">
+                <span class="orbit-ring outer" />
+                <span class="orbit-ring middle" />
+                <v-avatar color="#005EED" size="56" class="orbit-core">
+                    <v-icon color="white" size="30">{{ icon }}</v-icon>
+                </v-avatar>
+                <span class="orbit-dot d1" />
+                <span class="orbit-dot d2" />
+                <span class="orbit-dot d3" />
+            </div>
 
-        <div class="mt-5 text-subtitle-1 font-weight-bold loader-text">
-            Loading {{ label }}<span class="dots"><span>.</span><span>.</span><span>.</span></span>
+            <div class="mt-5 text-subtitle-1 font-weight-bold loader-text">
+                Loading {{ label }}<span class="dots"><span>.</span><span>.</span><span>.</span></span>
+            </div>
+            <div :key="tipIndex" class="text-caption text-medium-emphasis font-weight-bold tip-fade">
+                {{ tips[tipIndex % tips.length] }}
+            </div>
         </div>
-        <div :key="tipIndex" class="text-caption text-medium-emphasis font-weight-bold tip-fade">
-            {{ tips[tipIndex % tips.length] }}
-        </div>
+        <div v-if="!compact" class="loader-foot" aria-hidden="true" :style="{ height: footHeight + 'px' }" />
     </div>
 </template>
 
@@ -27,9 +35,25 @@ const props = defineProps({
     label: { type: String, default: 'records' },
     icon: { type: String, default: 'mdi-database-sync' },
     compact: { type: Boolean, default: false },
+    // Row count the loader stands in for (7/page tabs). Body reserves
+    // rows x 60px, matching --v-table-row-height.
+    rows: { type: Number, default: 7 },
+    // Footer reserve. 56 matches v-data-table-footer (compact select +
+    // padding); pages with a custom bottom slot pass their slot height
+    // instead (e.g. Transactions page-slot = 62).
+    footerHeight: { type: Number, default: 56 },
 })
 
+// Design tokens shared with app.css: header 34 + row 60.
+const HEAD_H = 34
+const ROW_H = 60
+
 const boxHeight = props.compact ? 220 : 360
+const bodyHeight = props.rows * ROW_H
+const footHeight = props.footerHeight
+const totalHeight = props.compact
+    ? boxHeight
+    : HEAD_H + bodyHeight + footHeight
 
 const tips = [
     'Fetching the latest rows',
@@ -55,7 +79,22 @@ onUnmounted(() => {
 <style scoped>
 .table-loader {
     width: 100%;
-    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Anatomy spacers: transparent reserves matching the loaded table's
+   thead (34px) and footer so the swap is pixel-identical. */
+.loader-head {
+    height: 34px;
+    flex: 0 0 auto;
+}
+
+.loader-body {
+    flex: 1 1 auto;
+}
+
+.loader-foot {
+    flex: 0 0 auto;
 }
 
 .orbit {
@@ -76,21 +115,21 @@ onUnmounted(() => {
 .orbit-ring.outer {
     inset: 0;
     border: 5px solid #e5e7eb;
-    border-top-color: #424242;
-    border-right-color: #616161;
+    border-top-color: #005EED;
+    border-right-color: #4D94FF;
     animation: orbit-spin 1.1s linear infinite;
 }
 
 .orbit-ring.middle {
     inset: 16px;
-    border: 3px dashed #9e9e9e;
+    border: 3px dashed #8FBBFF;
     opacity: 0.8;
     animation: orbit-spin-rev 2.4s linear infinite;
 }
 
 .orbit-core {
     animation: core-pulse 1.8s ease-in-out infinite;
-    box-shadow: 0 4px 14px rgba(66, 66, 66, 0.4);
+    box-shadow: 0 4px 14px rgba(0, 94, 237, 0.4);
 }
 
 .orbit-dot {
@@ -98,7 +137,7 @@ onUnmounted(() => {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #424242;
+    background: #005EED;
 }
 
 .orbit-dot.d1 {
@@ -110,14 +149,14 @@ onUnmounted(() => {
 .orbit-dot.d2 {
     bottom: 10px;
     right: 16px;
-    background: #757575;
+    background: #4D94FF;
     animation: dot-bob 1.4s ease-in-out 0.25s infinite;
 }
 
 .orbit-dot.d3 {
     top: 52px;
     right: 2px;
-    background: #9e9e9e;
+    background: #8FBBFF;
     animation: dot-bob 1.4s ease-in-out 0.5s infinite;
 }
 
@@ -131,7 +170,7 @@ onUnmounted(() => {
     margin-left: 3px;
     animation: dot-bounce 1.2s ease-in-out infinite;
     font-weight: 800;
-    color: #424242;
+    color: #005EED;
 }
 
 .dots span:nth-child(2) {

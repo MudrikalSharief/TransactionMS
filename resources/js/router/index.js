@@ -1,30 +1,63 @@
 import { createRouter as _createRouter, createWebHistory } from "vue-router";
 import Login from "@/pages/Login.vue";
-import Dashboard from "@/pages/Dashboard.vue";
+// Lazy-load everything below so /login (and first paint on slow devices /
+// bad networks) only downloads the shell + login chunk. Each page becomes
+// its own async chunk via Vite code-splitting.
+const Dashboard = () => import("@/pages/Dashboard.vue");
 
-import AdminUsers from "@/pages/admin/Users.vue";
-import AdminRoles from "@/pages/admin/Roles.vue";
-import AdminOffices from "@/pages/admin/Offices.vue";
-import AdminOfficeSteps from "@/pages/admin/OfficeSteps.vue";
-import AdminTransactionTypes from "@/pages/admin/TransactionTypes.vue";
-import AdminGovernmentReferences from "@/pages/admin/GovernmentReferences.vue";
-import AdminWorkflows from "@/pages/admin/Workflows.vue";
-import AdminFields from "@/pages/admin/Fields.vue";
-import AdminStepFields from "@/pages/admin/StepFields.vue";
+const AdminUsers = () => import("@/pages/admin/Users.vue");
+const AdminRoles = () => import("@/pages/admin/Roles.vue");
+const AdminOffices = () => import("@/pages/admin/Offices.vue");
+const AdminOfficeSteps = () => import("@/pages/admin/OfficeSteps.vue");
+const AdminTransactionTypes = () => import("@/pages/admin/TransactionTypes.vue");
+const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
+const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
+const AdminFields = () => import("@/pages/admin/Fields.vue");
+const AdminStepFields = () => import("@/pages/admin/StepFields.vue");
 
-import AdminRequirements from "@/pages/admin/Requirements.vue";
-import AdminStepRequirements from "@/pages/admin/StepRequirements.vue";
-import AdminRequirementsIndex from "@/pages/admin/RequirementsIndex.vue";
+const AdminRequirements = () => import("@/pages/admin/Requirements.vue");
+const AdminStepRequirements = () => import("@/pages/admin/StepRequirements.vue");
+const AdminRequirementOverview = () =>
+    import("@/pages/admin/RequirementOverview.vue");
+const AdminStepData = () => import("@/pages/admin/StepData.vue");
+const AdminStepDataOverview = () =>
+    import("@/pages/admin/StepDataOverview.vue");
+const AdminStepChecklist = () => import("@/pages/admin/StepChecklist.vue");
+const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue");
 
-import TransactionsList from "@/pages/transactions/TransactionList.vue";
-import TransactionDetail from "@/pages/transactions/TransactionDetail.vue";
+const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
+const TransactionDetail = () => import("@/pages/transactions/TransactionDetail.vue");
 
-import MyTransactionsList from "@/pages/my/MyTransactionList.vue";
-import MyTransactionDetail from "@/pages/my/MyTransactionDetail.vue";
+const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
 
-import Help from "@/pages/Help.vue";
+const Help = () => import("@/pages/Help.vue");
 
-import { useAuth } from "@/composables/useAuth";
+// User portal (every role except superadmin/admin) and the read-only viewer
+// tracking pages.
+const PortalHome = () => import("@/pages/portal/PortalHome.vue");
+const PortalTransactions = () => import("@/pages/portal/PortalTransactions.vue");
+const PortalApprovals = () => import("@/pages/portal/PortalApprovals.vue");
+const MyProfile = () => import("@/pages/portal/PortalProfile.vue");
+const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
+const TrackList = () => import("@/pages/track/TrackList.vue");
+const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
+
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import { anyStagingDirty } from "@/composables/useWorkflowStaging";
+import { confirm } from "@/composables/useConfirm";
+import { toast } from "@/composables/useToast";
+
+// Workflow editing spans these pages; moving between them preserves the
+// staged bucket, so only leaving the whole area should warn.
+function isWorkflowArea(route) {
+    const path = route?.path ?? "";
+    return (
+        path === "/admin/workflows" ||
+        path.startsWith("/admin/workflows/") ||
+        path === "/admin/requirements" ||
+        path.startsWith("/admin/requirements/")
+    );
+}
 
 export function createRouter() {
     const router = _createRouter({
@@ -40,65 +73,152 @@ export function createRouter() {
             },
 
             {
+                path: "/portal",
+                name: "portal",
+                component: PortalHome,
+                meta: { requiresAuth: true, title: "Home", kind: "staff" },
+            },
+            {
+                path: "/portal/transactions",
+                name: "portal.transactions",
+                component: PortalTransactions,
+                meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
+            },
+            {
+                // Same page in archive mode: completed transactions only.
+                path: "/portal/history",
+                name: "portal.history",
+                component: PortalTransactions,
+                meta: { requiresAuth: true, title: "Transaction History", kind: "staff", history: true },
+            },
+            {
+                // My Profile: every signed-in account (viewers are sent back
+                // to tracking by the guard below).
+                path: "/profile",
+                name: "profile",
+                component: MyProfile,
+                meta: { requiresAuth: true, title: "My Profile" },
+            },
+            {
+                // Clerk approvals list (same access rule as /approvals).
+                path: "/portal/approvals",
+                name: "portal.approvals",
+                component: PortalApprovals,
+                meta: { requiresAuth: true, title: "Task", kind: "staff" },
+            },
+            {
+                // Short opening animation for viewers; `bare` hides the app chrome.
+                path: "/track/welcome",
+                name: "track.welcome",
+                component: TrackWelcome,
+                meta: { requiresAuth: true, title: "Welcome", kind: "viewer", bare: true },
+            },
+            {
+                path: "/track",
+                name: "track",
+                component: TrackList,
+                meta: { requiresAuth: true, title: "Track Transactions", kind: "viewer" },
+            },
+            {
+                path: "/track/:id",
+                name: "track.detail",
+                component: TrackDetail,
+                meta: { requiresAuth: true, title: "Track Transaction", kind: "viewer" },
+            },
+
+            {
                 path: "/admin/users",
                 component: AdminUsers,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
+            },
+            // Office admins: same Users page, limited to their own office.
+            {
+                path: "/office/users",
+                name: "office.users",
+                component: AdminUsers,
+                meta: { requiresAuth: true, officeScope: true },
             },
             {
                 path: "/admin/roles",
                 component: AdminRoles,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/offices",
                 component: AdminOffices,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/offices/:officeId/steps",
                 name: "admin.office-steps",
                 component: AdminOfficeSteps,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/transaction-types",
                 component: AdminTransactionTypes,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, officeAdmin: true },
             },
             {
                 path: "/admin/government-references",
                 component: AdminGovernmentReferences,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/workflows",
                 component: AdminWorkflows,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/fields",
                 component: AdminFields,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
 
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/fields",
                 name: "admin.step-fields",
                 component: AdminStepFields,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
 
             {
                 path: "/admin/workflows/:workflowId/requirements",
-                name: "admin.requirements",
+                name: "admin.workflow-requirements",
                 component: AdminRequirements,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/requirements",
                 name: "admin.step-requirements",
                 component: AdminStepRequirements,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
+            },
+            {
+                path: "/admin/workflows/:workflowId/steps/:stepId/requirements/overview",
+                name: "admin.step-requirements-overview",
+                component: AdminRequirementOverview,
+                meta: {
+                    requiresAuth: true,
+                    superadmin: true,
+                    title: "Requirement Overview",
+                },
+            },
+            {
+                path: "/admin/workflows/:workflowId/steps/:stepId/step-data",
+                name: "admin.step-data",
+                component: AdminStepData,
+                meta: { requiresAuth: true, superadmin: true },
+            },
+            {
+                path: "/admin/workflows/:workflowId/steps/:stepId/step-data/overview",
+                name: "admin.step-data-overview",
+                component: AdminStepDataOverview,
+                meta: {
+                    requiresAuth: true,
+                    superadmin: true,
+                    title: "Step Data Overview",
+                },
             },
 
             {
@@ -115,19 +235,23 @@ export function createRouter() {
                 path: "/admin/requirements",
                 name: "admin.requirements",
                 component: AdminRequirementsIndex,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, superadmin: true },
             },
             {
+                // My Transactions was retired in favour of the shared
+                // Transactions list; keep old bookmarks working.
                 path: "/my/transactions",
-                name: "my.transactions",
-                component: MyTransactionsList,
-                meta: { requiresAuth: true },
+                redirect: "/transactions",
             },
             {
                 path: "/my/transactions/:id",
-                name: "my.transaction.detail",
-                component: MyTransactionDetail,
-                meta: { requiresAuth: true },
+                redirect: (to) => `/transactions/${to.params.id}`,
+            },
+            {
+                path: "/approvals",
+                name: "approvals",
+                component: ApprovalInbox,
+                meta: { requiresAuth: true, title: "Approvals" },
             },
             {
                 path: "/help",
@@ -138,18 +262,65 @@ export function createRouter() {
         ],
     });
 
-    router.beforeEach(async (to) => {
+    router.beforeEach(async (to, from) => {
         const auth = useAuth();
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
         if (to.name === "login" && auth.user.value)
+            return homePathFor(auth.user.value);
+
+        // Each kind of account lives in its own set of pages.
+        if (auth.user.value) {
+            const kind = userKind(auth.user.value);
+            if (kind === "viewer") {
+                // Right after sign-in (login pushes "dashboard") they get the
+                // welcome animation. Otherwise read-only: tracking pages and
+                // Help only.
+                if (to.name === "dashboard") return "/track/welcome";
+                if (to.meta.kind !== "viewer" && to.name !== "help") return "/track";
+            } else if (to.meta.kind && to.meta.kind !== kind) {
+                return homePathFor(auth.user.value);
+            } else if (kind === "staff" && to.name === "dashboard") {
+                return "/portal";
+            }
+        }
+        if ((to.name === "approvals" || to.name === "portal.approvals") && !canUseApprovals(auth.user.value))
             return { name: "dashboard" };
+        const isSuperadmin = isSuperadminUser(auth.user.value);
+        if (to.meta.superadmin && !isSuperadmin) return { name: "dashboard" };
+        if (to.meta.officeAdmin && !isSuperadmin && !isOfficeAdminUser(auth.user.value))
+            return { name: "dashboard" };
+        // /office/* is the office admin's own area (the API enforces the same).
+        if (to.meta.officeScope && !isOfficeAdminUser(auth.user.value)) return { name: "dashboard" };
+        // Staged workflow edits live only in memory until Save version.
+        // They survive navigation between workflow pages, so only warn when
+        // actually leaving the workflow editing area.
+        const leavingWorkflow = isWorkflowArea(from) && !isWorkflowArea(to);
+        if (leavingWorkflow && anyStagingDirty()) {
+            const leave = await confirm({
+                title: "Leave this page?",
+                message:
+                    "You have unsaved workflow changes. They will stay in memory until you save, discard, or reload.",
+                confirmLabel: "Leave",
+                cancelLabel: "Stay",
+            });
+            if (!leave) return false;
+        }
         return true;
     });
 
-    router.afterEach((to) => {
-        const base = "TransactionMS Management System";
-        document.title = to.meta?.title ? `${base} | ${to.meta.title}` : `${base} | Dashboard`;
+    router.afterEach((to, from, failure) => {
+        const base = "TransactionMS";
+        document.title = to.meta?.title ? `${base} | ${to.meta.title}` : base;
+        if (failure) return;
+        // Re-entering the workflow area with a dirty bucket: remind the user
+        // that their earlier Leave did not discard the staged changes.
+        const returningToWorkflow = !isWorkflowArea(from) && isWorkflowArea(to);
+        if (returningToWorkflow && anyStagingDirty()) {
+            toast.warning(
+                "Unsaved workflow changes are still staged. Save or discard them before leaving again.",
+            );
+        }
     });
 
     return router;
