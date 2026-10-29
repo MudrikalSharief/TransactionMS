@@ -88,10 +88,18 @@
                 <div class="tf-sep" aria-hidden="true"></div>
                 <div class="tf-info">
                     <div class="tf-social">
-                        <span v-for="s in socials" :key="s.label" class="tf-soc" :aria-label="s.label" :title="s.label">
-                            <svg v-if="s.svg" viewBox="0 0 24 24" width="10" height="10" aria-hidden="true"><path :d="s.svg" fill="currentColor" /></svg>
-                            <v-icon v-else size="12">{{ s.icon }}</v-icon>
-                        </span>
+                        <a
+                            v-for="s in socials"
+                            :key="s.label"
+                            class="tf-soc"
+                            :href="s.href"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :aria-label="s.label"
+                            :title="s.label"
+                        >
+                            <v-icon size="12">{{ s.icon }}</v-icon>
+                        </a>
                     </div>
                     <a class="tf-line" href="mailto:info@zamboangacity.gov.ph">
                         <v-icon size="12">mdi-email-outline</v-icon>info@zamboangacity.gov.ph
@@ -116,8 +124,7 @@
             </div>
             <div class="tf-credit">
                 <span class="tf-credit-line" aria-hidden="true"></span>
-                <v-icon size="12">mdi-monitor</v-icon>
-                <span>Developed By <b>City Hall Computer Service Division</b> 2026</span>
+                <span>Developed by <b>Computer Services Division · Mayor's Office</b></span>
                 <span class="tf-credit-line" aria-hidden="true"></span>
             </div>
         </div>
@@ -142,14 +149,10 @@ const shrubs = [
 ];
 const columns = [488, 508, 528, 562, 582, 602];
 
-// Icons only for now: add each account's link here when it is known.
-const X_LOGO = "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z";
+// Only the verified City Government accounts/links.
 const socials = [
-    { label: "Facebook", icon: "mdi-facebook" },
-    { label: "X", svg: X_LOGO },
-    { label: "Instagram", icon: "mdi-instagram" },
-    { label: "YouTube", icon: "mdi-youtube" },
-    { label: "LinkedIn", icon: "mdi-linkedin" },
+    { label: "Facebook", icon: "mdi-facebook", href: "https://www.facebook.com/zambocitygovt/" },
+    { label: "Official website", icon: "mdi-web", href: "https://zamboangacity.gov.ph/" },
 ];
 </script>
 
@@ -209,8 +212,10 @@ const socials = [
     background:
         radial-gradient(120% 70% at 50% 135%, rgba(37, 99, 235, 0.55) 0%, transparent 60%),
         linear-gradient(180deg, var(--tf-navy) 0%, var(--tf-deep) 100%);
-    /* Extra top room so the seal row clears the building. */
-    padding: 30px 24px 10px;
+    /* Extra top room so the seal row clears the building; the bottom room
+       keeps the credit row above the curved swoosh (::after), which
+       otherwise draws a line straight through it. */
+    padding: 30px 24px 40px;
     text-align: center;
 }
 /* Lighter blue swoosh along the bottom edge. */
@@ -270,7 +275,13 @@ const socials = [
     border-radius: 50%;
     background: #fff;
     color: var(--tf-navy);
+    text-decoration: none;
     box-shadow: 0 0 8px -2px rgba(147, 197, 253, 0.55);
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+a.tf-soc:hover {
+    background: #BFDBFE;
+    transform: translateY(-1px);
 }
 .tf-line {
     display: inline-flex;
@@ -310,7 +321,8 @@ a.tf-line:hover {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin-top: 5px;
+    /* Clear breathing room between the Terms/Privacy row and this credit. */
+    margin-top: 16px;
     font-size: 0.72rem;
     color: rgba(255, 255, 255, 0.9);
 }

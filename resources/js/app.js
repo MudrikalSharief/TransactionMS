@@ -21,6 +21,8 @@ if (import.meta.hot) {
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   const idle = window.requestIdleCallback?.bind(window) ?? ((fn) => setTimeout(fn, 3000))
   idle(() => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {})
+    // updateViaCache: 'none' so a new sw.js rolls out on the next visit
+    // instead of waiting out the browser's HTTP cache for the script.
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {})
   })
 }

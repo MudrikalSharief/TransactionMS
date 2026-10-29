@@ -2,6 +2,13 @@ import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { useAuth } from '@/composables/useAuth'
 import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
+import { warmOfficeIcons } from '@/utils/officeIcons'
+
+// Every type row carries the offices allowed to file it, each with icon_url;
+// flatten them so warmOfficeIcons() sees a plain office list.
+function typeOffices(rows) {
+  return (rows || []).flatMap((type) => type?.offices || [])
+}
 
 export function useTransactionTypes() {
   const { api } = useApi()
@@ -15,6 +22,8 @@ export function useTransactionTypes() {
   const _cached = readCache(key())
   const items = ref(_cached ?? [])
   const loading = ref(_cached == null)
+  // Warm the icons of the offices column from cached rows.
+  warmOfficeIcons(typeOffices(_cached))
 
   // Instant illusion: cached rows paint with no loader flash, then the
   // network refreshes silently in the background.
@@ -23,12 +32,14 @@ export function useTransactionTypes() {
     const quiet = silent || cached != null
     if (cached != null) {
       items.value = cached
+      warmOfficeIcons(typeOffices(cached))
       loading.value = false // painted: drop the loader, refresh silently
     }
     if (!quiet) loading.value = true
     try {
       const res = await api.get('/api/admin/transaction-types')
       items.value = res.data.data ?? res.data
+      warmOfficeIcons(typeOffices(items.value))
       writeCache(key(), items.value)
     } finally {
       if (!quiet) loading.value = false

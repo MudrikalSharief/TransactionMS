@@ -975,6 +975,20 @@ const summaryQuery = computed(() => ({
     ...(officeFilter.value?.length ? { offices: [...officeFilter.value].sort((a, b) => a - b) } : {}),
 }))
 
+// One key for both the setup paint and refreshes. storedUserId() covers the
+// first render before auth.init() has restored the session.
+const summaryCacheKey = () =>
+    scopedKey(
+        `${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`,
+        auth.user.value?.id ?? storedUserId(),
+    )
+
+// Paint the last summary during setup (not onMounted) so switching back to
+// the Dashboard or reloading shows the tiles/chart immediately, then the
+// network refresh below replaces them silently.
+const _cachedSummary = readCache(summaryCacheKey())
+if (_cachedSummary != null) summary.value = _cachedSummary
+
 let summaryRequest = 0
 async function loadSummary() {
     if (!canSeeSummary.value) return
@@ -982,7 +996,7 @@ async function loadSummary() {
     // Instant illusion: last summary for this period/office paints at once
     // (template already dims stale tiles via .summary-stale), then the
     // network refreshes silently. Spinner only shows with zero cached data.
-    const cacheKey = scopedKey(`${CacheKeys.summary}:${JSON.stringify(summaryQuery.value)}`, auth.user.value?.id)
+    const cacheKey = summaryCacheKey()
     const cached = readCache(cacheKey)
     if (cached != null && mine === summaryRequest) summary.value = cached
     const quiet = cached != null

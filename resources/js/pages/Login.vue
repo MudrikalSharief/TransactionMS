@@ -12,8 +12,8 @@
                         class="seal"
                         :src="'/tms-logo-128.png'"
                         alt="Transaction Management System emblem, Local Government of Zamboanga City"
-                        width="76"
-                        height="79"
+                        width="60"
+                        height="62"
                     />
                 </span>
                 <span class="brand-rule" aria-hidden="true"></span>
@@ -535,7 +535,7 @@ async function guestLogin() {
     background: #ffffff;
     display: flex;
     flex-direction: column;
-    padding: 40px 48px;
+    padding: 28px 40px;
     border-right: 1px solid #d5dbe8;
     min-width: 0;
 }
@@ -554,8 +554,8 @@ async function guestLogin() {
     flex: none;
     display: grid;
     place-items: center;
-    width: 84px;
-    height: 84px;
+    width: 68px;
+    height: 68px;
     animation: brand-settle 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 /* Faint dotted gold ring behind the emblem, like its engraved rim. */
@@ -568,8 +568,8 @@ async function guestLogin() {
 }
 .seal {
     position: relative;
-    width: 76px;
-    height: 79px;
+    width: 60px;
+    height: 62px;
     object-fit: contain;
     filter: drop-shadow(0 6px 10px rgba(22, 48, 124, 0.22));
 }
@@ -577,7 +577,7 @@ async function guestLogin() {
 .brand-rule {
     flex: none;
     width: 1.5px;
-    height: 62px;
+    height: 50px;
     background: linear-gradient(180deg, transparent, var(--emblem-gold) 18%, var(--emblem-gold) 82%, transparent);
     transform-origin: top center;
     animation: brand-rule 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
@@ -596,7 +596,7 @@ async function guestLogin() {
 }
 .brand-name {
     margin: 0;
-    font-size: 28px;
+    font-size: 26px;
     line-height: 1.05;
     font-weight: 800;
     letter-spacing: -0.015em;
@@ -611,9 +611,9 @@ async function guestLogin() {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 6px 0 0;
+    margin: 4px 0 0;
     font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-style: italic;
     color: #4a5670;
 }
@@ -672,19 +672,19 @@ async function guestLogin() {
 
 .panel {
     margin: auto 0;
-    padding: 40px 0;
+    padding: 24px 0;
     width: 100%;
 }
 .panel h2 {
-    margin: 0 0 6px;
-    font-size: 28px;
+    margin: 0 0 4px;
+    font-size: 26px;
     font-weight: 700;
     letter-spacing: -0.015em;
 }
 .sub {
-    margin: 0 0 28px;
+    margin: 0 0 18px;
     color: #5b6780;
-    font-size: 15px;
+    font-size: 14px;
 }
 
 .error {
@@ -694,10 +694,10 @@ async function guestLogin() {
     background: #fdecea;
     color: #b42318;
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 10px 12px;
     font-size: 14px;
     font-weight: 500;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 }
 .error .v-icon {
     font-size: 20px;
@@ -705,13 +705,13 @@ async function guestLogin() {
 }
 
 .field {
-    margin-bottom: 20px;
+    margin-bottom: 14px;
 }
 .field label {
     display: block;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
-    margin: 0 0 8px;
+    margin: 0 0 6px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
@@ -729,7 +729,7 @@ async function guestLogin() {
 }
 .control input {
     width: 100%;
-    height: 52px;
+    height: 46px;
     border: 1.5px solid #d5dbe8;
     border-radius: 12px;
     background: #f3f5fb;
@@ -776,11 +776,11 @@ async function guestLogin() {
 
 .toggle {
     position: absolute;
-    right: 6px;
+    right: 5px;
     top: 50%;
     transform: translateY(-50%);
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border: 0;
     background: none;
     border-radius: 10px;
@@ -803,7 +803,7 @@ async function guestLogin() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 16px 0 44px;
+    margin: 12px 0 26px;
     font-size: 14px;
 }
 .check {
@@ -830,7 +830,7 @@ async function guestLogin() {
 
 .btn {
     width: 100%;
-    height: 54px;
+    height: 48px;
     border: 0;
     border-radius: 12px;
     background: #16307C;
@@ -866,7 +866,7 @@ async function guestLogin() {
 }
 
 .btn-guest {
-    margin-top: 22px;
+    margin-top: 14px;
     background: #ffffff;
     color: #1E40AF;
     border: 1.5px solid #1E40AF;
@@ -878,9 +878,9 @@ async function guestLogin() {
     font-size: 22px;
 }
 .guest-note {
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     text-align: center;
-    font-size: 13px;
+    font-size: 12.5px;
     color: #5b6780;
 }
 .spin-dark {
@@ -903,9 +903,9 @@ async function guestLogin() {
 }
 
 .help {
-    margin: 20px 0 0;
+    margin: 14px 0 0;
     text-align: center;
-    font-size: 14px;
+    font-size: 13.5px;
     color: #5b6780;
 }
 
@@ -934,10 +934,10 @@ async function guestLogin() {
     background: #e7f5ec;
     color: #1d6b3c;
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 10px 12px;
     font-size: 14px;
     font-weight: 500;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 }
 .notice .v-icon {
     font-size: 20px;
@@ -946,7 +946,7 @@ async function guestLogin() {
 /* Selects match the text inputs, with their own chevron. */
 .control select {
     width: 100%;
-    height: 52px;
+    height: 46px;
     border: 1.5px solid #d5dbe8;
     border-radius: 12px;
     background:
@@ -985,7 +985,7 @@ async function guestLogin() {
 }
 
 footer {
-    font-size: 12.5px;
+    font-size: 12px;
     color: #16307C;
     display: flex;
     justify-content: center;
@@ -1071,6 +1071,53 @@ footer {
     }
 }
 
+/* Short laptop screens: trim the lockup and spacing further so the
+   sign-in form fits the viewport without scrolling. */
+@media (max-height: 760px) and (min-width: 861px) {
+    .side {
+        padding: 20px 32px;
+    }
+    .brand-mark {
+        width: 56px;
+        height: 56px;
+    }
+    .seal {
+        width: 50px;
+        height: 52px;
+    }
+    .brand-rule {
+        height: 42px;
+    }
+    .brand-name {
+        font-size: 23px;
+    }
+    .panel {
+        padding: 12px 0;
+    }
+    .field {
+        margin-bottom: 10px;
+    }
+    .control input,
+    .control select {
+        height: 42px;
+    }
+    .row {
+        margin: 8px 0 18px;
+    }
+    .btn {
+        height: 44px;
+    }
+    .btn-guest {
+        margin-top: 10px;
+    }
+    .guest-note {
+        margin-top: 6px;
+    }
+    .help {
+        margin-top: 10px;
+    }
+}
+
 @media (max-width: 860px) {
     .login-shell {
         grid-template-columns: 1fr;
@@ -1079,7 +1126,7 @@ footer {
         display: none;
     }
     .side {
-        padding: 28px 22px;
+        padding: 22px 18px;
         border-right: 0;
     }
 }
@@ -1087,28 +1134,28 @@ footer {
 /* Phones: a tighter lockup so the city line never reaches the edge. */
 @media (max-width: 440px) {
     .brand {
-        gap: 12px;
+        gap: 10px;
     }
     .brand-mark {
-        width: 68px;
-        height: 68px;
+        width: 58px;
+        height: 58px;
     }
     .seal {
-        width: 60px;
-        height: 62px;
+        width: 52px;
+        height: 54px;
     }
     .brand-rule {
-        height: 52px;
+        height: 44px;
     }
     .brand-city {
         font-size: 9.5px;
         letter-spacing: 0.12em;
     }
     .brand-name {
-        font-size: 24px;
+        font-size: 22px;
     }
     .brand-motto {
-        font-size: 12.5px;
+        font-size: 12px;
     }
 }
 
