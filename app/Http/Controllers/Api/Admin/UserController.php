@@ -33,6 +33,7 @@ class UserController extends Controller
             // Created by a superadmin, so approved from the start.
             $user = User::create([
                 'name' => $data['name'],
+                'username' => $data['username'] ?? null,
                 'email' => $data['email'],
                 'office_id' => $data['office_id'] ?? null,
                 'Contact_number' => $data['contact_number'] ?? null,
@@ -51,6 +52,7 @@ class UserController extends Controller
             $audit->log($request, 'users.create', $user, [
                 'payload' => [
                     'name' => $data['name'],
+                    'username' => $user->username,
                     'email' => $data['email'],
                     'office_id' => $data['office_id'] ?? null,
                     'is_active' => $user->is_active,
@@ -69,6 +71,7 @@ class UserController extends Controller
         return DB::transaction(function () use ($request, $user, $data, $audit) {
             $before = [
                 'name' => $user->name,
+                'username' => $user->username,
                 'email' => $user->email,
                 'office_id' => $user->office_id,
                 'is_active' => (bool) $user->is_active,
@@ -76,6 +79,9 @@ class UserController extends Controller
             ];
 
             $user->name = $data['name'];
+            if (array_key_exists('username', $data)) {
+                $user->username = $data['username'];
+            }
             $user->email = $data['email'];
             $user->is_active = $data['is_active'] ?? $user->is_active;
 
@@ -101,6 +107,7 @@ class UserController extends Controller
 
             $after = [
                 'name' => $user->name,
+                'username' => $user->username,
                 'email' => $user->email,
                 'office_id' => $user->office_id,
                 'is_active' => (bool) $user->is_active,

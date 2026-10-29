@@ -14,6 +14,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name',
+        'username',
         'email',
         'office_id',
         'Contact_number',
@@ -35,6 +36,39 @@ class User extends Authenticatable
     ];
 
     /** Signed up on the login page and not yet approved by an admin. */
+    /**
+     * Username format, shared by sign-up and the admin user forms:
+     * 3-30 lowercase letters, numbers, dots or underscores, starting and
+     * ending with a letter or number. No "@", so sign-in can tell a
+     * username from an email.
+     */
+    public static function usernameRules(bool $required, ?int $ignoreId = null): array
+    {
+        return [
+            $required ? 'required' : 'nullable',
+            'string',
+            'min:3',
+            'max:30',
+            'regex:/^[a-z0-9](?:[a-z0-9._]*[a-z0-9])?$/',
+            \Illuminate\Validation\Rule::unique('users', 'username')->ignore($ignoreId),
+        ];
+    }
+
+    public const USERNAME_MESSAGES = [
+        'username.required' => 'Choose a username.',
+        'username.min' => 'Use at least 3 characters for the username.',
+        'username.max' => 'Use at most 30 characters for the username.',
+        'username.regex' => 'Use lowercase letters, numbers, dots or underscores (start and end with a letter or number).',
+        'username.unique' => 'That username is already taken.',
+    ];
+
+    /** Usernames are stored lowercase and trimmed; blank means none. */
+    public static function normalizeUsername(?string $value): ?string
+    {
+        $v = strtolower(trim((string) $value));
+        return $v === '' ? null : $v;
+    }
+
     public function isPendingApproval(): bool
     {
         return $this->approved_at === null;

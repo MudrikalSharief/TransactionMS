@@ -83,6 +83,7 @@
       >
         <template v-slot:[`item.name`]="{ item }">
           <span class="us-name">{{ item.name }}</span>
+          <span v-if="item.username" class="us-handle">@{{ item.username }}</span>
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
@@ -357,6 +358,34 @@
             />
             <div v-if="errors.name" id="nu-name-err" class="nu-err">
               {{ errors.name }}
+            </div>
+          </div>
+
+          <div class="nu-field" :class="{ 'is-bad': errors.username }">
+            <label class="nu-label" for="nu-username">
+              Username <span class="nu-opt">(optional)</span>
+            </label>
+            <input
+              id="nu-username"
+              ref="usernameInput"
+              v-model="form.username"
+              class="nu-input"
+              type="text"
+              maxlength="30"
+              placeholder="e.g. juan.delacruz"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              :aria-invalid="!!errors.username"
+              :aria-describedby="errors.username ? 'nu-username-err' : 'nu-username-hint'"
+              :disabled="saving"
+              @input="onUsernameInput"
+            />
+            <div v-if="errors.username" id="nu-username-err" class="nu-err">
+              {{ errors.username }}
+            </div>
+            <div v-else id="nu-username-hint" class="nu-hint">
+              They can sign in with this or their email.
             </div>
           </div>
 
@@ -749,6 +778,7 @@ const filtered = computed(() => {
     : (users.value || []).filter((u) =>
         [
           u.name,
+          u.username,
           u.email,
           u.contact_number,
           (u.roles || []).map((r) => r.name).join(' '),
@@ -799,7 +829,17 @@ async function reject(item) {
 const formError = ref('')
 const errors = ref(blankErrors())
 const nameInput = ref(null)
+const usernameInput = ref(null)
 const emailInput = ref(null)
+
+// Same format the server enforces (App\Models\User::usernameRules).
+const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._]*[a-z0-9])?$/
+
+// Usernames are lowercase with no spaces; tidy as they type.
+function onUsernameInput() {
+  form.value.username = form.value.username.toLowerCase().replace(/\s+/g, '')
+  clearError('username')
+}
 const contactInput = ref(null)
 const passwordInput = ref(null)
 const roleGroup = ref(null)
@@ -811,6 +851,7 @@ function blankForm() {
   return {
     id: null,
     name: '',
+    username: '',
     email: '',
     contact_number: '',
     password: '',
@@ -824,6 +865,7 @@ function blankForm() {
 function blankErrors() {
   return {
     name: '',
+    username: '',
     email: '',
     contact_number: '',
     password: '',
@@ -897,6 +939,7 @@ function openEdit(item) {
   form.value = {
     id: item.id,
     name: item.name || '',
+    username: item.username || '',
     email: item.email || '',
     contact_number: item.contact_number || '',
     password: '',
@@ -957,6 +1000,11 @@ function validate() {
 
   if (!name) next.name = 'Enter the user’s name.'
 
+  const username = form.value.username.trim()
+  if (username && (username.length < 3 || !USERNAME_RE.test(username))) {
+    next.username = 'Use 3–30 lowercase letters, numbers, dots or underscores (start and end with a letter or number).'
+  }
+
   if (!email) next.email = 'Enter an email address.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.'
 
@@ -981,6 +1029,10 @@ async function focusFirstError() {
 
   if (errors.value.name) {
     nameInput.value?.focus()
+    return
+  }
+  if (errors.value.username) {
+    usernameInput.value?.focus()
     return
   }
   if (errors.value.email) {
@@ -1047,6 +1099,8 @@ async function save() {
   try {
     const payload = {
       name: form.value.name.trim(),
+      // Blank clears it (the account then signs in by email only).
+      username: form.value.username.trim().toLowerCase() || null,
       email: form.value.email.trim(),
       contact_number: String(form.value.contact_number || '').trim() || null,
       role_ids: form.value.role_ids.map((id) => Number(id)),
@@ -1430,6 +1484,14 @@ html.dark .us-page {
     line-height: 1.4;
     overflow-wrap: anywhere;
     white-space: normal;
+}
+/* Username under the name, when the account has one. */
+.us-handle {
+    display: block;
+    color: var(--us-muted);
+    font-size: 12.5px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
 }
 .us-dash {
     color: var(--us-muted);
@@ -1932,6 +1994,12 @@ html.dark .nu-card {
   color: var(--nu-err);
   font-size: 12.5px;
   font-weight: 600;
+  line-height: 1.3;
+}
+.nu-hint {
+  margin: 6px 2px 0;
+  color: var(--nu-muted);
+  font-size: 12.5px;
   line-height: 1.3;
 }
 

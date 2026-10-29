@@ -39,15 +39,18 @@ class RegistrationController extends Controller
 
     public function register(Request $request, AuditService $audit): JsonResponse
     {
+        // Sign-ups choose a username (they can sign in with it or the email).
+        $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'username' => User::usernameRules(true),
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'contact_number' => ['required', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'],
             'password' => ['required', 'string', 'min:8'],
             'office_id' => ['required', 'integer', 'exists:offices,id'],
             'role_ids' => ['required', 'array', 'min:1'],
             'role_ids.*' => ['integer', Rule::exists('roles', 'id')->whereNotIn('code', self::NOT_OFFERED)],
-        ], [
+        ], User::USERNAME_MESSAGES + [
             'email.unique' => 'An account with this email already exists.',
             'contact_number.regex' => 'Enter a valid contact number, for example 09171234567.',
             'office_id.required' => 'Choose your office.',
@@ -58,6 +61,7 @@ class RegistrationController extends Controller
         DB::transaction(function () use ($request, $data, $audit) {
             $user = User::create([
                 'name' => $data['name'],
+                'username' => $data['username'],
                 'email' => $data['email'],
                 'Contact_number' => $data['contact_number'],
                 'office_id' => $data['office_id'],
@@ -70,6 +74,7 @@ class RegistrationController extends Controller
             $audit->log($request, 'users.register', $user, [
                 'payload' => [
                     'name' => $data['name'],
+                    'username' => $data['username'],
                     'email' => $data['email'],
                     'office_id' => $data['office_id'],
                     'role_ids' => $data['role_ids'],

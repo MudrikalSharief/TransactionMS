@@ -96,12 +96,13 @@ export function useAuth() {
         return revalidate();
     }
 
-    async function login({ email, password, remember = false }) {
+    // `login` is the username or email the person typed.
+    async function login({ login, password, remember = false }) {
         // Drop any previous user's painted session first: init() must await
         // the network and paint THIS user, never flash the last one.
         invalidateCache(CacheKeys.authUser);
         await csrf();
-        const res = await api.post("/api/auth/login", { email, password, remember });
+        const res = await api.post("/api/auth/login", { login, password, remember });
         // First page after sign-in shows the approvals notice (clerks). Mark
         // it before init(): the notice reacts as soon as the user is set.
         if (res.data?.user?.id) markLoginNotice(res.data.user.id);
