@@ -39,21 +39,24 @@ class OfficeAdminController extends Controller
 
     public function storeUser(Request $request, AuditService $audit)
     {
+        $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'username' => User::usernameRules(false),
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', $this->assignableRoleRule()],
-        ]);
+        ], User::USERNAME_MESSAGES);
         $officeId = (int) $request->user()->office_id;
 
         return DB::transaction(function () use ($request, $data, $officeId, $audit) {
             // Created by the office admin, so approved from the start.
             $user = User::create([
                 'name' => $data['name'],
+                'username' => $data['username'] ?? null,
                 'email' => $data['email'],
                 'office_id' => $officeId,
                 'Contact_number' => $data['contact_number'] ?? null,
@@ -68,6 +71,7 @@ class OfficeAdminController extends Controller
             $audit->log($request, 'office.users.create', $user, [
                 'payload' => [
                     'name' => $data['name'],
+                    'username' => $user->username,
                     'email' => $data['email'],
                     'office_id' => $officeId,
                     'is_active' => $user->is_active,
@@ -83,25 +87,33 @@ class OfficeAdminController extends Controller
     {
         $this->assertManageable($request, $user);
 
+        if ($request->has('username')) {
+            $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
+        }
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'username' => User::usernameRules(false, $user->id),
             'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:8'],
             'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', $this->assignableRoleRule()],
-        ]);
+        ], User::USERNAME_MESSAGES);
 
         return DB::transaction(function () use ($request, $user, $data, $audit) {
             $before = [
                 'name' => $user->name,
+                'username' => $user->username,
                 'email' => $user->email,
                 'is_active' => (bool) $user->is_active,
                 'role_ids' => $user->roles()->pluck('roles.id')->all(),
             ];
 
             $user->name = $data['name'];
+            if (array_key_exists('username', $data)) {
+                $user->username = $data['username'];
+            }
             $user->email = $data['email'];
             $user->is_active = $data['is_active'] ?? $user->is_active;
             if (array_key_exists('contact_number', $data)) {
@@ -121,6 +133,7 @@ class OfficeAdminController extends Controller
                 'before' => $before,
                 'after' => [
                     'name' => $user->name,
+                    'username' => $user->username,
                     'email' => $user->email,
                     'is_active' => (bool) $user->is_active,
                     'role_ids' => $user->roles->pluck('id')->all(),

@@ -266,8 +266,15 @@ export function createRouter() {
         const auth = useAuth();
         if (!auth.initialized.value) await auth.init();
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
-        if (to.name === "login" && auth.user.value)
+        if (to.name === "login" && auth.user.value) {
+            // Viewer (shared guest): the browser's Back button to the login
+            // page signs out, same as the "Back to login" button.
+            if (userKind(auth.user.value) === "viewer") {
+                await auth.logout();
+                return true;
+            }
             return homePathFor(auth.user.value);
+        }
 
         // Each kind of account lives in its own set of pages.
         if (auth.user.value) {

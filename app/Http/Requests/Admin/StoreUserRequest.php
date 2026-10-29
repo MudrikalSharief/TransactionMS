@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreUserRequest extends FormRequest
@@ -11,10 +12,21 @@ class StoreUserRequest extends FormRequest
         return true; 
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge(['username' => User::normalizeUsername($this->input('username'))]);
+    }
+
+    public function messages(): array
+    {
+        return User::USERNAME_MESSAGES;
+    }
+
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:120'],
+            'username' => User::usernameRules(false),
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'],

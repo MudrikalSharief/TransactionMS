@@ -19,21 +19,26 @@ class AuthController extends Controller
     {
         $data = $request->validated();
 
+        // Username or email: an "@" means email (usernames can't hold one).
+        $login = trim((string) ($data['login'] ?? $data['email']));
+        $field = str_contains($login, '@') ? 'email' : 'username';
+        $value = $field === 'username' ? User::normalizeUsername($login) : $login;
+
         $credentials = [
-            'email' => $data['email'],
+            $field => $value,
             'password' => $data['password'],
         ];
 
         $remember = (bool) ($data['remember'] ?? false);
 
-        if (!Auth::guard('web')->validate($credentials)) {
+        if ($value === null || !Auth::guard('web')->validate($credentials)) {
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 422);
         }
 
         // Only a correct password reveals that the account is still waiting.
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where($field, $value)->first();
         if ($user?->isPendingApproval()) {
             return response()->json([
                 'message' => 'Your account is waiting for approval. You can sign in once an administrator approves it.',

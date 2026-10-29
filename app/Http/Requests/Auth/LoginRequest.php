@@ -11,12 +11,23 @@ class LoginRequest extends FormRequest
         return true;
     }
 
+    // `login` is an email or a username; `email` is still accepted from
+    // older callers.
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
+            'login' => ['required_without:email', 'nullable', 'string', 'max:190'],
+            'email' => ['required_without:login', 'nullable', 'string', 'max:190'],
             'password' => ['required', 'string'],
             'remember' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'login.required_without' => 'Enter your username or email.',
+            'email.required_without' => 'Enter your username or email.',
         ];
     }
 }
