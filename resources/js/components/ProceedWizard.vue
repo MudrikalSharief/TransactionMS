@@ -1,183 +1,206 @@
 <template>
-    <div>
-        <v-stepper v-if="showChecklist && hasProceedContent && !singlePage" v-model="step" flat hide-actions alt-labels :class="`wizard-stepper mb-2 is-step-${step}`">
-            <v-stepper-header>
-                <v-stepper-item :value="1" title="Review" subtitle="Checklist & proceed" :color="step === 1 ? 'warning' : '#FDE68A'" class="review-step">
-                    <template #icon="{ hasCompleted }">
-                        <v-icon v-if="hasCompleted">mdi-check</v-icon>
-                    </template>
-                </v-stepper-item>
-                <v-divider class="wizard-connector" aria-hidden="true" />
-                <v-stepper-item :value="2" title="Requirements" subtitle="Upload files" :color="step === 2 ? 'primary' : '#BFDBFE'" class="req-step">
-                    <template #icon="{ hasCompleted }">
-                        <v-icon v-if="hasCompleted">mdi-check</v-icon>
-                    </template>
-                </v-stepper-item>
-            </v-stepper-header>
-        </v-stepper>
+    <div class="pm-wizard">
+        <!-- Two-step wizard indicator: Review → Requirements. Tabs are a
+             read-only indicator; Back/Next in the modal footer drive it. -->
+        <div
+            v-if="showChecklist && hasProceedContent && !singlePage && hasRequirementPage"
+            class="pm-tabs"
+            :class="{ 'is-return': isReturnSelected }"
+            role="tablist"
+            aria-label="Proceed steps"
+        >
+            <button
+                type="button"
+                class="pm-tab"
+                :class="{ 'is-active': step === 1 }"
+                role="tab"
+                :aria-selected="step === 1"
+                @click="goToStep(1)"
+            >Review</button>
+            <button
+                type="button"
+                class="pm-tab"
+                :class="{ 'is-active': step === 2 }"
+                role="tab"
+                :aria-selected="step === 2"
+                :disabled="requirementsTabDisabled"
+                :title="requirementsTabDisabled ? 'Complete the required Review items first.' : ''"
+                @click="goToStep(2)"
+            >Requirements</button>
+        </div>
+
+        <!-- Return destination selector sits below the Review/Requirements
+             tabs but above the page content. -->
+        <slot name="after-tabs" />
 
         <v-window v-model="step">
-            <!-- PAGE 1: review — requirements status + checklist ticks.
-                 First page in two-page mode; the only page in single-step
-                 (checklist-only) mode where its footer allows Proceed. -->
-            <v-window-item v-if="showChecklist && !singlePage" :value="1">
+            <!-- PAGE 1: review — previous context, return flags and checklist. -->
+            <v-window-item v-if="showChecklist && !singlePage" :value="1" data-pm-page="1">
                 <!-- Single-step fallback: no requirements, so station info lives here -->
-                <template v-if="!hasRequirements && ((fields || []).length || (stepData || []).length)">
-                    <div class="text-subtitle-2 font-weight-bold mb-2">Station info</div>
-                    <StepInfoFields :fields="fields" :form="form" />
-                    <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" :modern="modern" />
-                    <v-divider class="my-3" />
-                </template>
+                <section v-if="!hasRequirements && ((fields || []).length || (stepData || []).length)" class="pm-section">
+                    <div class="pm-sh"><h3>Station information</h3></div>
+                    <StepInfoFields :fields="fields" :form="form" modern />
+                    <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" modern />
+                </section>
 
-                <!-- Previous station remarks (last move only, read-only). Hidden when no remarks.
-                     When flagged returns show, the remark lives inside the orange card below instead. -->
-                <v-card v-if="prevContext && hasPrevRemarks && !flaggedChecklist.length" rounded="lg" border variant="outlined" class="pa-3 mb-3">
-                    <div class="text-subtitle-2 font-weight-bold">
-                        Remarks from {{ prevStepTitle }}
+                <!-- Previous station remarks (last move only, read-only). -->
+                <section v-if="prevContext && hasPrevRemarks && !flaggedChecklist.length" class="pm-section">
+                    <div class="pm-sh"><h3>From {{ prevStepTitle }}</h3></div>
+                    <div class="pm-note">
+                        <v-icon size="18">mdi-message-text-outline</v-icon>
+                        <div style="min-width: 0">
+                            <b>Remarks</b>
+                            <div>{{ prevRemarksText }}</div>
+                            <div v-if="prevRunBy" class="pm-hint">{{ prevRunBy }}</div>
+                        </div>
                     </div>
-                    <div v-if="prevRunBy" class="text-caption text-medium-emphasis mb-2">{{ prevRunBy }}</div>
-                    <div class="text-body-2">{{ prevRemarksText }}</div>
-                </v-card>
+                </section>
 
-                <!-- Previous station data (last move only, read-only). Independent of remarks. -->
-                <v-card v-if="hasPrevDataRows" rounded="lg" border variant="outlined" class="pa-3 mb-3">
-                    <div class="text-subtitle-2 font-weight-bold">
-                        Data from {{ prevStepTitle }}
+                <!-- Previous station data (last move only, read-only). -->
+                <section v-if="hasPrevDataRows" class="pm-section">
+                    <div class="pm-sh"><h3>Data from {{ prevStepTitle }}</h3></div>
+                    <div class="pm-note">
+                        <v-icon size="18">mdi-table</v-icon>
+                        <div style="min-width: 0; flex: 1">
+                            <div v-for="f in prevFieldRows" :key="f.code || f.name" class="pm-data-row">
+                                <span>{{ f.name }}</span>
+                                <span>{{ displayPrevValue(f.value) }}</span>
+                            </div>
+                            <div v-for="d in prevStepDataRows" :key="d.code || d.name" class="pm-data-row">
+                                <span>{{ d.name }}</span>
+                                <span>{{ displayPrevValue(d.value) }}</span>
+                            </div>
+                        </div>
                     </div>
-                    <template v-if="prevFieldRows.length">
-                        <div v-for="f in prevFieldRows" :key="f.code || f.name" class="d-flex ga-2 py-1">
-                            <span class="text-caption text-medium-emphasis" style="min-width: 140px">{{ f.name }}</span>
-                            <span class="text-body-2">{{ displayPrevValue(f.value) }}</span>
+                </section>
+
+                <!-- Flagged-on-return card (with the returning remarks when present). -->
+                <section v-if="flaggedChecklist.length" class="pm-section">
+                    <div class="pm-warn-card">
+                        <template v-if="prevContext && hasPrevRemarks">
+                            <div class="pm-warn-title">
+                                <v-icon size="17">mdi-message-alert-outline</v-icon>
+                                Remarks from {{ prevStepTitle }}
+                            </div>
+                            <p style="color: var(--pm-ink)">{{ prevRemarksText }}</p>
+                            <div v-if="prevRunBy" class="pm-hint" style="margin-bottom: 12px">{{ prevRunBy }}</div>
+                        </template>
+                        <div class="pm-warn-title">
+                            <v-icon size="17">mdi-flag-outline</v-icon>
+                            Flagged on return
                         </div>
-                    </template>
-                    <template v-if="prevStepDataRows.length">
-                        <v-divider v-if="prevFieldRows.length" class="my-2" />
-                        <div v-for="d in prevStepDataRows" :key="d.code || d.name" class="d-flex ga-2 py-1">
-                            <span class="text-caption text-medium-emphasis" style="min-width: 140px">{{ d.name }}</span>
-                            <span class="text-body-2">{{ displayPrevValue(d.value) }}</span>
+                        <p>The returning station flagged these items for re-check.</p>
+                        <div class="pm-flag-row">
+                            <span
+                                v-for="c in flaggedChecklist"
+                                :key="c.id ?? c.name"
+                                class="pm-flag-pill is-on"
+                            >
+                                <v-icon size="13">mdi-flag</v-icon>
+                                {{ c.name }}
+                                <a
+                                    v-for="a in viewableFiles(c)"
+                                    :key="`flag-eye-${c.id ?? c.name}-${a.id}`"
+                                    :href="fileViewUrl(a)"
+                                    target="_blank"
+                                    rel="noopener"
+                                    style="color: inherit; display: inline-flex"
+                                    :title="`View ${a.original_name}`"
+                                    @click.stop
+                                ><v-icon size="14">mdi-eye-outline</v-icon></a>
+                            </span>
                         </div>
-                    </template>
-                </v-card>
+                    </div>
+                </section>
 
                 <!-- Checklist: tick to confirm. Required ticks block Proceed. -->
-                <div v-if="flaggedChecklist.length" class="mb-3">
-                    <v-card rounded="lg" variant="tonal" color="warning" class="pa-3">
-                        <template v-if="prevContext && hasPrevRemarks">
-                            <div class="text-subtitle-1 font-weight-bold" style="color: #92400E">Remarks from {{ prevStepTitle }}</div>
-                            <div v-if="prevRunBy" class="text-caption text-medium-emphasis mb-2">{{ prevRunBy }}</div>
-                            <div class="text-body-2" style="color: #000">{{ prevRemarksText }}</div>
-                            <v-divider class="my-3" />
-                        </template>
-                        <div class="text-subtitle-2 font-weight-bold" style="color: #92400E">Flagged on return</div>
-                        <div class="text-caption text-medium-emphasis mb-2">The returning station flagged these items for re-check:</div>
-                        <div class="d-flex flex-wrap ga-1 align-center">
-                            <template v-for="c in flaggedChecklist" :key="c.id ?? c.name">
-                                <v-tooltip v-if="viewableFiles(c).length" location="top" max-width="320">
-                                    <template #activator="{ props }">
-                                        <v-chip
-                                            v-bind="props"
-                                            size="small"
-                                            variant="flat"
-                                            color="warning"
-                                            rounded="lg"
-                                        ><v-icon start size="x-small">mdi-flag</v-icon>{{ c.name }}
-                                            <a
-                                                v-for="a in viewableFiles(c)"
-                                                :key="`flag-eye-${c.id ?? c.name}-${a.id}`"
-                                                :href="fileViewUrl(a)"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="ml-1 d-inline-flex align-center"
-                                                style="color: inherit"
-                                                :title="`View ${a.original_name}`"
-                                                @click.stop
-                                            ><v-icon size="x-small">mdi-eye</v-icon></a>
-                                        </v-chip>
-                                    </template>
-                                    <div v-for="a in viewableFiles(c)" :key="`flag-tip-${c.id ?? c.name}-${a.id}`" class="mb-1">
-                                        <div class="font-weight-bold">{{ a.original_name }}</div>
-                                        <div class="text-caption">{{ formatPrevSize(a.size_bytes) }}<span v-if="a.uploaded_by?.name"> · {{ a.uploaded_by.name }}</span><span v-if="a.created_at"> · {{ new Date(a.created_at).toLocaleString() }}</span></div>
-                                        <div v-if="a.requirement?.name || a.label" class="text-caption">{{ a.requirement?.name || a.label }}</div>
-                                    </div>
-                                </v-tooltip>
-                                <v-chip
-                                    v-else
-                                    size="small"
-                                    variant="flat"
-                                    color="warning"
-                                    rounded="lg"
-                                ><v-icon start size="x-small">mdi-flag</v-icon>{{ c.name }}</v-chip>
-                            </template>
-                        </div>
-                    </v-card>
-                </div>
-                <div v-if="modern" class="text-h6 font-weight-bold mb-3">Review</div>
-                <div class="d-flex justify-space-between align-baseline mb-1">
-                    <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">Checklist</div>
-                    <div v-if="modern && (checklist || []).length" class="text-body-2" :class="checklistComplete ? 'text-success' : 'text-medium-emphasis'">
-                        {{ verifiedChecklistCount }} of {{ (checklist || []).length }} verified
+                <section class="pm-section">
+                    <div class="pm-sh">
+                        <h3>Checklist</h3>
+                        <span
+                            v-if="(checklist || []).length"
+                            class="pm-count"
+                            :style="checklistComplete ? 'color: var(--pm-ok)' : ''"
+                        >{{ verifiedChecklistCount }} of {{ (checklist || []).length }} verified</span>
                     </div>
-                </div>
-                <div v-if="modern && (checklist || []).length && !isReturnSelected" class="text-body-2 text-medium-emphasis mb-2">
-                    Tick each box when you have seen the hard copies. Required items must be ticked.
-                </div>
-                <div v-if="isReturnSelected" class="text-caption text-medium-emphasis mb-2">
-                    Return action — checklist not required.
-                </div>
-                <div v-else-if="!(checklist || []).length" class="text-caption text-medium-emphasis mb-2">
-                    No checklist items for this station.
-                </div>
-                <div v-else>
-                    <div v-if="!modern" class="text-caption text-medium-emphasis mb-2">
-                        Tick each item as done. Required items must be ticked before you can Proceed.
-                    </div>
-                    <div
-                        v-for="c in (checklist || [])"
-                        :key="c.id"
-                        class="d-flex align-center ga-2 py-1"
-                    >
-                        <v-checkbox
-                            :model-value="!!c.checked"
-                            :label="c.name"
-                            density="compact"
-                            hide-details="auto"
-                            style="flex: 1 1 auto"
-                            :disabled="saving || savingChecklist"
-                            :loading="savingChecklist && savingChecklistItemId === c.id"
-                            @update:model-value="(v) => emit('toggle-checklist', c, v)"
-                        />
-                        <v-btn
-                            v-for="a in viewableFiles(c)"
-                            :key="a.id"
-                            size="x-small"
-                            variant="tonal"
-                            color="info"
-                            rounded="0"
-                            :href="fileViewUrl(a)"
-                            target="_blank"
-                            rel="noopener"
-                            :title="`View ${a.original_name}`"
-                            @click.stop
+                    <p v-if="isReturnSelected" class="pm-hint">Return action — checklist not required.</p>
+                    <p v-else-if="!(checklist || []).length" class="pm-hint">No checklist items for this station.</p>
+                    <p v-else class="pm-hint">Tick each box when you have seen the hard copies. Required items must be ticked.</p>
+
+                    <div v-if="!isReturnSelected && (checklist || []).length" class="pm-checks pm-checks--single">
+                        <div
+                            v-for="c in (checklist || [])"
+                            :key="c.id"
+                            class="pm-check pm-check--stack"
+                            :class="{ 'is-open': checklistFilesOpen(c) }"
+                            :data-pm-task="c.name"
                         >
-                            <v-icon start size="x-small">mdi-eye</v-icon>View
-                        </v-btn>
+                            <div class="pm-check-row">
+                                <label class="pm-check-main">
+                                    <input
+                                        type="checkbox"
+                                        :checked="!!c.checked"
+                                        :disabled="saving || savingChecklist"
+                                        @change="emit('toggle-checklist', c, $event.target.checked)"
+                                    />
+                                    <span class="pm-box"><v-icon size="14">mdi-check</v-icon></span>
+                                    <span class="pm-nm" :title="c.name">{{ c.name }}</span>
+                                </label>
+                                <span class="pm-tag" :class="c.is_required ? 'r' : 'o'">{{ c.is_required ? 'Required' : 'Optional' }}</span>
+                                <v-progress-circular
+                                    v-if="savingChecklist && savingChecklistItemId === c.id"
+                                    size="14"
+                                    indeterminate
+                                    color="primary"
+                                />
+                                <button
+                                    v-if="checklistFiles(c).length"
+                                    type="button"
+                                    class="pm-file-toggle"
+                                    :aria-expanded="checklistFilesOpen(c) ? 'true' : 'false'"
+                                    :title="checklistFilesOpen(c) ? `Hide files for ${c.name}` : `View files for ${c.name}`"
+                                    @click="toggleChecklistFiles(c)"
+                                >
+                                    <v-icon size="14">mdi-paperclip</v-icon>
+                                    {{ checklistFiles(c).length }} file{{ checklistFiles(c).length === 1 ? '' : 's' }}
+                                    <v-icon size="16" class="pm-file-toggle-chevron">mdi-chevron-down</v-icon>
+                                </button>
+                            </div>
+                            <div v-if="checklistFiles(c).length && checklistFilesOpen(c)" class="pm-check-files">
+                                <AttachmentList
+                                    :items="checklistFiles(c)"
+                                    :tx-id="txId"
+                                    :is-admin="isAdmin"
+                                    redesign
+                                    hide-delete
+                                    :show-details="false"
+                                    action="view"
+                                    :redesign-limit="checklistFiles(c).length"
+                                />
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </section>
 
                 <!-- Previous step's Additional files (last move only, view-only). -->
-                <div v-if="hasPrevFiles" class="mt-3">
-                    <div class="text-subtitle-2 font-weight-bold mb-2">Additional files</div>
+                <section v-if="hasPrevFiles" class="pm-section">
+                    <div class="pm-sh">
+                        <h3>Previous files</h3>
+                        <span class="pm-count">{{ (prevContext?.attachments || []).length }} file{{ (prevContext?.attachments || []).length === 1 ? '' : 's' }}</span>
+                    </div>
                     <AttachmentList
                         :items="prevContext?.attachments || []"
                         :tx-id="txId"
                         :is-admin="false"
-                        detailed
+                        redesign
                         group-by-label
+                        collapsible-groups
+                        :groups-open-by-default="false"
                         hide-delete
                         :show-details="false"
                         action="view"
                     />
-                </div>
+                </section>
 
                 <!-- Single-step mode only (no requirements): remarks + move
                      attachments live here so checklist-only flows can Proceed. -->
@@ -208,126 +231,151 @@
                 />
             </v-window-item>
 
-            <!-- PAGE 2: current-step requirements + per-item uploads + station info.
-                 Last page in two-page mode; the only page in single-page mode
-                 (step 1 → step 2, no checklist): remarks + move attachments
-                 render below so it never shows a second screen. -->
-            <v-window-item v-if="hasRequirements || hasStepData || !showChecklist" :value="singlePage ? 1 : 2">
-                <template v-if="(fields || []).length">
-                    <div :class="numberedSection ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'" class="mb-2">{{ numberedSection && sectionNumbers.info ? `Step ${sectionNumbers.info}: ` : '' }}Station info</div>
-                    <StepInfoFields :fields="fields" :form="form" />
-
-                    <v-divider class="my-3" />
-                </template>
-                <StepDataFields v-model:form="stepDataForm" :step-data="stepData" :saving="saving" :modern="modern" :numbered="numberedSection" :start-number="sectionNumbers.dataStart" />
-                <div v-if="tickRequirements.length" class="d-flex justify-space-between align-baseline mb-2">
-                    <div :class="modern ? 'text-h6 font-weight-bold' : 'text-subtitle-2 font-weight-bold'">{{ numberedSection && sectionNumbers.reqs ? `Step ${sectionNumbers.reqs}: ` : '' }}{{ isCompleting ? 'Requirements to Complete step' : (isReturnSelected ? 'Requirements to return' : 'Requirements to proceed') }}</div>
-                    <div v-if="modern && (requirements || []).length && requiredTotalCount > 0" class="text-body-2 text-success">
-                        {{ requiredTickedCount }} of {{ requiredTotalCount }} required ticked
+            <!-- PAGE 2: requirements + per-item uploads + station info. -->
+            <v-window-item v-if="hasRequirements || hasStepData || !showChecklist || isCompleting" :value="singlePage ? 1 : 2" data-pm-page="2">
+                <!-- Requirement ticks (forward moves only; Return carries
+                     files/flags without re-verifying requirements). -->
+                <section v-if="!isReturnSelected && tickRequirements.length" class="pm-section">
+                    <div class="pm-sh">
+                        <h3>{{ requirementTitle }}</h3>
+                        <span v-if="requiredTotalCount > 0" class="pm-count">{{ requiredTickedCount }} of {{ requiredTotalCount }} required ticked</span>
+                        <span v-else class="pm-count">{{ checkedTickCount }} of {{ tickRequirements.length }} ticked</span>
                     </div>
-                </div>
-                <div v-if="modern && (requirements || []).length" class="text-body-2 text-medium-emphasis mb-2">
-                    Tick each box when it is done. Items marked Required must be ticked.
-                </div>
-
-                <div v-if="tickRequirements.length" class="d-flex flex-column ga-3">
-                    <!-- Tick group: current verify tick. Ticking a required
-                        row unlocks its section below. -->
-                    <div v-if="tickRequirements.length" class="d-flex flex-column">
+                    <p class="pm-hint">Tick each box when it is done. Items marked Required must be ticked.</p>
+                    <div class="pm-checks">
                         <div
                             v-for="r in tickRequirements"
                             :key="r.definition.id"
-                            class="d-flex align-center ga-2 py-1"
+                            class="pm-check"
+                            :data-pm-task="r.definition.name"
                         >
-                            <v-checkbox
-                                :model-value="!!r.checked"
-                                :label="r.definition.name"
-                                density="compact"
-                                hide-details="auto"
-                                style="flex: 0 1 auto"
-                                :disabled="saving || savingChecklist"
-                                :loading="savingChecklist && savingRequirementId === r.definition.id"
-                                @update:model-value="(v) => emit('toggle-requirement', r, v)"
+                            <label class="pm-check-main">
+                                <input
+                                    type="checkbox"
+                                    :checked="!!r.checked"
+                                    :disabled="saving || savingChecklist"
+                                    @change="emit('toggle-requirement', r, $event.target.checked)"
+                                />
+                                <span class="pm-box"><v-icon size="14">mdi-check</v-icon></span>
+                                <span class="pm-nm" :title="r.definition.name">{{ r.definition.name }}</span>
+                            </label>
+                            <span class="pm-tag" :class="r?.pivot?.is_required ? 'r' : 'o'">{{ r?.pivot?.is_required ? 'Required' : 'Optional' }}</span>
+                            <span v-if="r.flagged_on_return" class="pm-flag">
+                                <v-icon size="12">mdi-flag</v-icon> Flagged
+                            </span>
+                            <v-progress-circular
+                                v-if="savingChecklist && savingRequirementId === r.definition.id"
+                                size="14"
+                                indeterminate
+                                color="primary"
                             />
-                            <v-chip v-if="r?.pivot?.is_required" :size="modern ? 'small' : 'x-small'" variant="tonal" :color="r.checked ? 'success' : 'error'" :rounded="modern ? 'pill' : 'lg'"><v-icon v-if="r.checked && !modern" start size="x-small">mdi-check</v-icon>Required</v-chip>
-                            <v-chip v-else :size="modern ? 'small' : 'x-small'" :variant="modern ? 'outlined' : 'tonal'" color="grey" :rounded="modern ? 'pill' : 'lg'">{{ modern ? 'Optional' : 'optional' }}</v-chip>
-                            <v-chip v-if="r.flagged_on_return" :size="modern ? 'small' : 'x-small'" variant="flat" color="warning" :rounded="modern ? 'pill' : 'lg'"><v-icon start size="x-small">mdi-flag</v-icon>flagged on return</v-chip>
                         </div>
                     </div>
-                    <v-card
-                        v-if="uploadFirstRequirements.length"
-                        rounded="lg"
-                        border
-                        variant="outlined"
-                        class="pa-3"
-                    >
+                </section>
+
+                <!-- Requirement uploads (forward moves only). -->
+                <section v-if="!isReturnSelected && uploadFirstRequirements.length" class="pm-section">
+                    <div class="pm-sh">
+                        <h3>{{ uploadSectionTitle }}</h3>
+                        <span v-if="requiredUploadCount > 0" class="pm-count">{{ attachedUploadCount }} of {{ requiredUploadCount }} required attached</span>
+                        <span v-else class="pm-count">Optional uploads</span>
+                    </div>
+                    <div class="pm-upload-list">
                         <div
-                            v-for="(r, idx) in uploadFirstRequirements"
+                            v-for="r in uploadFirstRequirements"
                             :key="r.definition.id"
+                            class="pm-upload"
+                            :class="uploadStateClass(r)"
+                            :data-pm-task="r.definition.name"
                         >
-                            <v-divider v-if="idx > 0" class="my-3" />
-                            <div :style="isUploadLocked(r) ? 'opacity: 0.6' : ''">
-                        <!-- Upload rows: status flip chip. Tick-only rows: optional chip. -->
-                        <div class="d-flex align-center ga-2 mb-2">
-                            <span class="font-weight-medium text-body-1">{{ r.definition.name }}</span>
-                            <v-spacer />
-                            <v-chip v-if="uploadRequired(r)" size="x-small" variant="tonal" :color="hasReqFiles(r) ? 'success' : 'error'" rounded="lg">
-                                <v-icon start size="x-small">{{ hasReqFiles(r) ? 'mdi-check' : 'mdi-upload' }}</v-icon>{{ hasReqFiles(r) ? 'file uploaded' : 'upload required' }}
-                            </v-chip>
-                            <v-chip v-else size="x-small" :variant="modern ? 'outlined' : 'tonal'" color="grey" rounded="lg">optional</v-chip>
-                            <v-chip
-                                v-if="mergedReqAttachments(r).length"
-                                size="x-small"
-                                variant="tonal"
-                                color="grey-darken-3"
-                                rounded="lg"
-                            >
-                                <v-icon start size="x-small">mdi-paperclip</v-icon>{{ mergedReqAttachments(r).length }}
-                            </v-chip>
-                        </div>
-                        <!-- Picker above, uploaded files at the bottom. -->
-                        <AttachmentUploader
-                            :tx-id="txId"
-                            :is-admin="isAdmin"
-                            :requirement-id="r.definition.id"
-                            :model-value="getReqFiles(r.definition.id)"
-                            :hint-text="uploadRequired(r) ? reqHintText(r) : ''"
-                            :hint-type="reqHintType(r)"
-                            :show-list="false"
-                            minimal
-                            :show-header="false"
-                            file-action="download"
-                            :disabled="isUploadLocked(r) || saving || savingChecklist"
-                            @update:model-value="(files) => setReqFiles(r.definition.id, files)"
-                            @uploaded="() => emit('requirement-uploaded', r.definition.id)"
-                            @deleted="(id) => emit('attachment-deleted', id)"
-                        />
-                        <div v-if="showExistingBtn" class="d-flex align-center ga-2 mt-2 mb-3">
-                            <v-btn
-                                size="small"
-                                variant="tonal"
-                                rounded="0"
-                                prepend-icon="mdi-history"
+                            <AttachmentUploader
+                                :tx-id="txId"
+                                :is-admin="isAdmin"
+                                :requirement-id="r.definition.id"
+                                :model-value="getReqFiles(r.definition.id)"
+                                :show-list="false"
+                                minimal
+                                :show-header="false"
+                                file-action="download"
+                                redesign
                                 :disabled="isUploadLocked(r) || saving || savingChecklist"
-                                @click="openExisting(r)"
-                            >Existing files</v-btn>
-                            <span class="text-caption text-medium-emphasis">from {{ prevStepLabel }}</span>
+                                @update:model-value="(files) => setReqFiles(r.definition.id, files)"
+                                @uploaded="() => emit('requirement-uploaded', r.definition.id)"
+                                @deleted="(id) => emit('attachment-deleted', id)"
+                            >
+                                <template #header="{ open, uploading, disabled }">
+                                    <div class="pm-uh">
+                                        <span class="pm-sico">
+                                            <v-icon size="17">{{ uploadIcon(r) }}</v-icon>
+                                        </span>
+                                        <div class="pm-ut">
+                                            <b :title="r.definition.name">{{ r.definition.name }}</b>
+                                            <span class="pm-meta">
+                                                {{ uploadRequired(r) ? 'Required' : 'Optional' }}
+                                                <i>{{ uploadFileLabel(r) }}</i>
+                                            </span>
+                                        </div>
+                                        <button
+                                            v-if="showExistingBtn"
+                                            type="button"
+                                            class="pm-lnk"
+                                            :disabled="disabled"
+                                            @click="openExisting(r)"
+                                        >
+                                            <v-icon size="15">mdi-history</v-icon>
+                                            Reuse
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="pm-lnk"
+                                            :disabled="disabled"
+                                            @click="open"
+                                        >
+                                            <v-icon v-if="!uploading" size="15">mdi-paperclip</v-icon>
+                                            {{ uploading ? 'Uploading…' : (hasReqFiles(r) ? 'Add more' : 'Choose files') }}
+                                        </button>
+                                    </div>
+                                </template>
+                            </AttachmentUploader>
+
+                            <p v-if="uploadRequired(r) && reqHintText(r)" class="pm-hint is-error">{{ reqHintText(r) }}</p>
+
+                            <AttachmentList
+                                v-if="mergedReqAttachments(r).length"
+                                :items="mergedReqAttachments(r)"
+                                :tx-id="txId"
+                                :is-admin="isAdmin"
+                                :current-step-id="currentStepId"
+                                mark-old-files
+                                redesign
+                                :show-details="false"
+                                action="download"
+                                @deleted="(id) => onReqAttachmentDeleted(r, id)"
+                            />
+                            <p v-else class="pm-empty">No file uploaded yet.</p>
                         </div>
-                        <AttachmentList
-                            :items="mergedReqAttachments(r)"
-                            :tx-id="txId"
-                            :is-admin="isAdmin"
-                            :current-step-id="currentStepId"
-                            mark-old-files
-                            detailed
-                            :show-details="false"
-                            action="download"
-                            @deleted="(id) => onReqAttachmentDeleted(r, id)"
-                        />
-                            </div>
-                        </div>
-                    </v-card>
-                </div>
+                    </div>
+                </section>
+
+                <!-- Station info -->
+                <section v-if="(fields || []).length" class="pm-section">
+                    <div class="pm-sh"><h3>Station information</h3></div>
+                    <StepInfoFields :fields="fields" :form="form" modern />
+                </section>
+
+                <!-- Step data -->
+                <section v-if="(stepData || []).length" class="pm-section">
+                    <div class="pm-sh"><h3>Step data</h3></div>
+                    <StepDataFields
+                        v-model:form="stepDataForm"
+                        :step-data="stepData"
+                        :saving="saving"
+                        modern
+                        :numbered="numberedSection"
+                        :start-number="sectionNumbers.dataStart"
+                    />
+                </section>
+
                 <ProceedFooter
                     v-model:remarks="remarks"
                     v-model:proceed-attachments="proceedAttachments"
@@ -355,123 +403,14 @@
             </v-window-item>
         </v-window>
 
-        <v-dialog v-model="existingDialog" max-width="700" scrollable>
-            <v-card rounded="xl" style="overflow: hidden">
-                <v-card-title class="px-6 pt-5 pb-4">
-                    <div class="d-flex align-center ga-3">
-                        <v-avatar color="grey-darken-3" rounded="lg" size="40">
-                            <v-icon color="white">mdi-history</v-icon>
-                        </v-avatar>
-                        <div class="text-h6 font-weight-bold" style="line-height: 1.25">
-                            Select file from {{ prevStepLabel }}
-                        </div>
-                    </div>
-                    <div class="text-caption text-medium-emphasis mt-1">
-                        Reuse a file without re-uploading
-                    </div>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="px-6 pt-4 pb-2">
-                    <div v-if="existingForAdditional" class="text-body-2 mb-2">
-                        Link a file already uploaded in
-                        <b>{{ prevStepLabel }}</b> into your Additional files without re-uploading.
-                    </div>
-                    <div v-else class="text-body-2 mb-2">
-                        Link a file already uploaded for
-                        <b>{{ existingTarget?.definition?.name }}</b> without re-uploading.
-                    </div>
-                    <v-text-field
-                        v-model="existingSearch"
-                        label="Search files"
-                        placeholder="File name, requirement, uploader…"
-                        variant="outlined"
-                        density="compact"
-                        hide-details="auto"
-                        prepend-inner-icon="mdi-magnify"
-                        class="mb-3"
-                    />
-                    <v-alert v-if="existingError" type="error" variant="tonal" density="compact" class="mb-3">
-                        {{ existingError }}
-                    </v-alert>
-                    <div v-if="filteredExisting.length" class="d-flex flex-column ga-2">
-                        <template v-for="(row, i) in groupedExisting" :key="row.kind === 'sep' ? `sep-${i}` : row.file.id">
-                            <div v-if="row.kind === 'sep'" class="d-flex align-center ga-2 mt-1">
-                                <v-divider />
-                                <span class="text-caption text-medium-emphasis text-no-wrap flex-shrink-0">Additional files</span>
-                                <v-divider />
-                            </div>
-                            <div
-                                v-else
-                                class="d-flex align-center ga-2 pa-3 rounded"
-                                style="border: 1px solid rgba(0,0,0,0.12)"
-                            >
-                                <v-icon color="error">{{ 'mdi-file-document' }}</v-icon>
-                                <div class="flex-1-1" style="min-width: 0">
-                                    <div class="text-body-2 text-truncate font-weight-medium">{{ row.file.original_name }}</div>
-                                    <div class="d-flex flex-wrap align-center ga-1 my-1">
-                                        <v-chip
-                                            v-if="sourceStepLabel(row.file)"
-                                            size="x-small"
-                                            variant="tonal"
-                                            color="grey-darken-3"
-                                            rounded="lg"
-                                        ><v-icon start size="x-small">mdi-source-branch</v-icon>{{ sourceStepLabel(row.file) }}</v-chip>
-                                        <v-chip
-                                            v-if="row.file.requirement?.name"
-                                            size="x-small"
-                                            variant="flat"
-                                            color="blue-grey"
-                                            rounded="lg"
-                                        >{{ row.file.requirement.name }}</v-chip>
-                                        <v-chip
-                                            v-if="row.file.label"
-                                            size="x-small"
-                                            variant="flat"
-                                            color="blue-grey"
-                                            rounded="lg"
-                                        >{{ row.file.label }}</v-chip>
-                                    </div>
-                                    <div class="text-caption text-medium-emphasis">
-                                        {{ formatPrevSize(row.file.size_bytes) }}
-                                        <span v-if="row.file.uploader?.name || row.file.uploaded_by?.name"> · {{ row.file.uploader?.name || row.file.uploaded_by?.name }}</span>
-                                    </div>
-                                </div>
-                                <v-btn
-                                    size="x-small"
-                                    variant="text"
-                                    color="grey-darken-1"
-                                    icon="mdi-eye-outline"
-                                    :title="`View ${row.file.original_name}`"
-                                    :href="fileViewUrl(row.file)"
-                                    target="_blank"
-                                    rel="noopener"
-                                    :disabled="!fileViewUrl(row.file)"
-                                    @click.stop
-                                />
-                                <v-btn
-                                    size="small"
-                                    variant="tonal"
-                                    rounded="0"
-                                    color="grey-darken-3"
-                                    :loading="existingSavingId === row.file.id"
-                                    :disabled="existingSavingId !== null"
-                                    @click="selectExisting(row.file)"
-                                >Use file</v-btn>
-                            </div>
-                        </template>
-                    </div>
-                    <div v-else class="text-caption text-medium-emphasis">No files found in {{ prevStepLabel }}.</div>
-                    <v-alert type="info" variant="tonal" density="compact" class="mt-3">
-                        Linked files stay owned by {{ prevStepLabel }}. You can remove the reference from your step,
-                        but only the previous step's delete removes it everywhere — then this requirement shows as missing again.
-                    </v-alert>
-                </v-card-text>
-                <v-divider />
-                <v-card-actions class="justify-end px-6 py-4">
-                    <v-btn variant="text" :disabled="existingSavingId !== null" @click="existingDialog = false">Close</v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
+        <ExistingFilePicker
+            v-model:open="existingDialog"
+            :files="eligiblePrevFiles"
+            :step-label="prevStepLabel"
+            :saving-id="existingSavingId"
+            :error="existingError"
+            @use="selectExisting"
+        />
     </div>
 </template>
 
@@ -481,6 +420,7 @@ import StepInfoFields from '@/components/StepInfoFields.vue'
 import StepDataFields from '@/components/StepDataFields.vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import AttachmentList from '@/components/AttachmentList.vue'
+import ExistingFilePicker from '@/components/ExistingFilePicker.vue'
 import ProceedFooter from '@/components/ProceedFooter.vue'
 import { useApi } from '@/composables/useApi'
 import { fileViewUrl, isOfficeDoc } from '@/composables/useFileView'
@@ -517,10 +457,12 @@ const props = defineProps({
     selectedRouteId: { type: [Number, String, null], default: null },
     isReturnSelected: { type: Boolean, default: false },
     // True when the modal is completing the last station (Complete Step).
-    // Switches copy like "Requirements to Complete step".
     isCompleting: { type: Boolean, default: false },
     // False for step 1 → step 2: requirements only, checklist hidden entirely.
     showChecklist: { type: Boolean, default: true },
+    // Lock the Requirements tab until the Review page's required items are
+    // ticked (forward Proceed / Complete Step; Return leaves it enabled).
+    requirementsTabDisabled: { type: Boolean, default: false },
     missingRequiredUploadLabels: { type: Array, default: () => [] },
     missingRequiredTickLabels: { type: Array, default: () => [] },
     missingRequiredChecklistLabels: { type: Array, default: () => [] },
@@ -552,6 +494,20 @@ const props = defineProps({
 const hasRequirements = computed(() => (props.requirements || []).length > 0)
 // Per-step text data present on this station (receipt number, etc.).
 const hasStepData = computed(() => (props.stepData || []).length > 0)
+// The second window item only exists when there is something after Review.
+// Keep the tab strip in sync so clicking a tab can never land on a blank page.
+const hasRequirementPage = computed(
+    () => hasRequirements.value || hasStepData.value || !props.showChecklist || props.isCompleting,
+)
+
+// Tabs behave like Back/Next. Requirements are locked while required Review
+// checklist items remain unticked; Return never locks because its checklist
+// is informational only.
+function goToStep(next) {
+    if (next === 2 && props.requirementsTabDisabled) return
+    if (!hasRequirementPage.value) return
+    step.value = next
+}
 // Header counter (visual only): ticked / total. Gating still uses parents' missingRequired*.
 const checkedRequirementsCount = computed(() => (props.requirements || []).filter((r) => !!r.checked).length)
 const requirementsComplete = computed(
@@ -579,6 +535,7 @@ const requiredTotalCount = computed(() => (props.requirements || []).filter((r) 
 const requiredTickedCount = computed(
     () => (props.requirements || []).filter((r) => !!r?.pivot?.is_required && !!r.checked).length,
 )
+const checkedTickCount = computed(() => (props.requirements || []).filter((r) => !!r.checked).length)
 
 // Checklist verify counter ("1 of 3 verified").
 const verifiedChecklistCount = computed(() => (props.checklist || []).filter((c) => !!c.checked).length)
@@ -587,6 +544,27 @@ const checklistComplete = computed(
 )
 // Items the previous station flagged when returning this work.
 const flaggedChecklist = computed(() => (props.checklist || []).filter((c) => !!c.flagged_on_return))
+
+// Per-checklist-item file disclosure. Files are view-only here (the
+// checklist mirrors the previous station's evidence); each row inside the
+// expanded list owns its own View button.
+const expandedChecklistFiles = ref({})
+function checklistKey(c) {
+    return String(c?.id ?? c?.name ?? '')
+}
+function checklistFiles(c) {
+    return c?.attachments || []
+}
+function checklistFilesOpen(c) {
+    return !!expandedChecklistFiles.value[checklistKey(c)]
+}
+function toggleChecklistFiles(c) {
+    const key = checklistKey(c)
+    expandedChecklistFiles.value = {
+        ...expandedChecklistFiles.value,
+        [key]: !expandedChecklistFiles.value[key],
+    }
+}
 
 // Previous station context (last move only, read-only) shown above Checklist.
 const prevStepTitle = computed(() => {
@@ -664,6 +642,24 @@ const uploadFirstRequirements = computed(() => [...tickRequirements.value].sort(
     (a, b) => (uploadRequired(a) ? 0 : 1) - (uploadRequired(b) ? 0 : 1),
 ))
 
+// Section copy adapts to the action mode while keeping the mockup headings.
+const requirementTitle = computed(() => {
+    if (props.isCompleting) return 'Requirement — complete step'
+    if (props.isReturnSelected) return 'Requirement — return'
+    return 'Requirement'
+})
+const uploadSectionTitle = computed(() => {
+    if (props.isCompleting) return 'Requirement Upload — complete step'
+    if (props.isReturnSelected) return 'Requirement Upload — return'
+    return 'Requirement Upload'
+})
+const attachedUploadCount = computed(
+    () => uploadFirstRequirements.value.filter((r) => uploadRequired(r) && hasReqFiles(r)).length,
+)
+const requiredUploadCount = computed(
+    () => uploadFirstRequirements.value.filter((r) => uploadRequired(r)).length,
+)
+
 const emit = defineEmits([
     'toggle-requirement',
     'toggle-checklist',
@@ -698,6 +694,28 @@ function reqHintText(r) {
 
 function reqHintType(r) {
     return 'error'
+}
+
+// Mockup upload-card states: locked (tick first), blocked (required but
+// empty), complete (has at least one file) or optional/neutral.
+function uploadStateClass(r) {
+    if (isUploadLocked(r)) return 'is-locked'
+    if (hasReqFiles(r)) return 'is-ok'
+    if (uploadRequired(r)) return 'is-block'
+    return 'is-opt'
+}
+
+function uploadIcon(r) {
+    if (isUploadLocked(r)) return 'mdi-lock-outline'
+    if (hasReqFiles(r)) return 'mdi-check'
+    if (uploadRequired(r)) return 'mdi-upload-outline'
+    return 'mdi-paperclip'
+}
+
+function uploadFileLabel(r) {
+    const n = mergedReqAttachments(r).length
+    if (!n) return 'No file yet'
+    return n === 1 ? '1 file' : `${n} files`
 }
 
 // Single list above the input: server files + staged session files,
@@ -794,14 +812,12 @@ const { api } = useApi()
 const existingDialog = ref(false)
 const existingTarget = ref(null)
 const existingForAdditional = ref(false)
-const existingSearch = ref('')
 const existingError = ref('')
 const existingSavingId = ref(null)
 
 function openExisting(r) {
     existingTarget.value = r
     existingForAdditional.value = false
-    existingSearch.value = ''
     existingError.value = ''
     existingSavingId.value = null
     existingDialog.value = true
@@ -810,71 +826,9 @@ function openExisting(r) {
 function openExistingAdditional() {
     existingTarget.value = null
     existingForAdditional.value = true
-    existingSearch.value = ''
     existingError.value = ''
     existingSavingId.value = null
     existingDialog.value = true
-}
-
-const filteredExisting = computed(() => {
-    const q = String(existingSearch.value || '').trim().toLowerCase()
-    if (!q) return eligiblePrevFiles.value
-    return eligiblePrevFiles.value.filter((a) => {
-        const hay = [
-            a.original_name,
-            a.label,
-            a.requirement?.name,
-            a.requirement?.code,
-            a.uploader?.name,
-            a.uploaded_by?.name,
-            sourceStepLabel(a),
-        ].filter(Boolean).join(' ').toLowerCase()
-        return hay.includes(q)
-    })
-})
-
-// Proceed-level (Additional files) rows carry a label and no requirement;
-// requirement-bound rows carry requirement_definition_id.
-function isAdditionalFile(f) {
-    return !f?.requirement_definition_id
-}
-
-const existingReqFiles = computed(() => filteredExisting.value.filter((f) => !isAdditionalFile(f)))
-const existingAdditionalFiles = computed(() => filteredExisting.value.filter(isAdditionalFile))
-
-// Picker order: requirement files first, then a labelled separator,
-// then Additional files at the bottom. The separator always shows above
-// Additional files whenever that section is non-empty.
-const groupedExisting = computed(() => {
-    const rows = existingReqFiles.value.map((f) => ({ kind: 'file', file: f }))
-    if (existingAdditionalFiles.value.length) {
-        rows.push({ kind: 'sep' })
-        for (const f of existingAdditionalFiles.value) rows.push({ kind: 'file', file: f })
-    }
-    return rows
-})
-
-// "Step N · Station name" for a previous-step file card. Resolves the
-// order number from workflowSteps (the API step payload has no
-// order_number); falls back to the dialog-level prevStepLabel.
-function sourceStepLabel(f) {
-    const match = (props.workflowSteps || []).find(
-        (s) => Number(s.id) === Number(f?.workflow_step_id),
-    )
-    if (match) {
-        const n = match.order_number
-        const name = match.name || match.code || f?.step?.name || ''
-        return `Step ${n}${name ? ` · ${name}` : ''}`
-    }
-    if (f?.step?.name) return f.step.name
-    return prevStepLabel.value
-}
-
-function formatPrevSize(b) {
-    const n = Number(b || 0)
-    if (n < 1024) return `${n} B`
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-    return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
 
 async function selectExisting(f) {
@@ -913,49 +867,3 @@ async function selectExisting(f) {
 
 defineExpose({ clearReqFiles, getReqFiles, removeReqFile })
 </script>
-
-<style scoped>
-.wizard-stepper {
-    background: transparent;
-}
-
-/* Animated broken-line connector between Review (orange) and Requirements (blue).
-   Uses Vuetify's own divider layout so Review/Requirements stay aligned. */
-.wizard-stepper .wizard-connector {
-    border: 0 !important;
-    border-top: 0 !important;
-    min-height: 2px;
-    height: 2px;
-    background-color: transparent !important;
-    background-image: linear-gradient(to right, currentColor 55%, transparent 45%) !important;
-    background-size: 10px 2px !important;
-    background-repeat: repeat-x !important;
-    opacity: 0.6;
-    animation: wizard-dash-move 1.2s linear infinite;
-}
-@keyframes wizard-dash-move {
-    from { background-position-x: 0; }
-    to { background-position-x: 20px; }
-}
-
-/* Stepper circles: Review orange, Requirements blue. Pale opposite state
-   enforced via step-bound classes (Vuetify ignores color on inactive). */
-.wizard-stepper .review-step {
-    --v-stepper-item-color: var(--v-theme-warning);
-}
-.wizard-stepper .req-step {
-    --v-stepper-item-color: var(--v-theme-primary);
-}
-.wizard-stepper.is-step-1 :deep(.req-step .v-avatar),
-.wizard-stepper.is-step-1 :deep(.req-step .v-stepper-item__avatar) {
-    background-color: #BFDBFE !important;
-    border-color: #BFDBFE !important;
-    color: #16307C !important;
-}
-.wizard-stepper.is-step-2 :deep(.review-step .v-avatar),
-.wizard-stepper.is-step-2 :deep(.review-step .v-stepper-item__avatar) {
-    background-color: #FDE68A !important;
-    border-color: #FDE68A !important;
-    color: #92400E !important;
-}
-</style>

@@ -1,17 +1,24 @@
 <template>
-    <v-dialog v-model="open" max-width="800" scrollable>
-        <v-card rounded="xl" style="overflow: hidden">
-            <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
-            <v-card-title>
-                {{ proceedModalTitle }}
-                <div v-if="tx" class="text-caption text-medium-emphasis">
-                    {{ tx.reference_number }} · {{ tx.title || 'N/A' }} · at {{ tx.current_step?.name }}
-                </div>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="proceed-scroll">
-                    <ReturnBanner :info="null" />
-                    <TableLoader v-if="loading" label="transaction" compact />
+    <v-dialog v-model="open" max-width="560">
+        <v-card class="pm-dialog" flat>
+            <ProceedModalHeader
+                :tx="tx"
+                prefix="Proceeding to"
+                :destination-name="headerDestinationName"
+                :destination-office="headerDestinationOffice"
+                :fallback-title="proceedModalTitle"
+                @close="open = false"
+            >
+                <template #actions>
+                    <button v-if="tx" type="button" class="pm-head-link" @click="openTransaction">
+                        Open transaction
+                    </button>
+                </template>
+            </ProceedModalHeader>
+
+            <div class="pm-body">
+                <ReturnBanner :info="null" />
+                <TableLoader v-if="loading" label="transaction" compact />
 
                 <template v-else-if="tx">
                     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">
@@ -33,8 +40,9 @@
                             label="Proceed to"
                             variant="outlined"
                             density="compact"
-                            rounded="0"
-                            class="mb-3"
+                            class="pm-select mb-4"
+                            data-pm-task="Destination"
+                            hide-details
                             @update:model-value="resetWizardForRoute"
                         />
 
@@ -58,6 +66,7 @@
                             :selected-route-id="selectedRouteId"
                             :is-return-selected="false"
                             :show-checklist="!skipReview"
+                            :requirements-tab-disabled="requirementsTabBlocked"
                             :missing-required-upload-labels="missingRequiredUploadLabels"
                             :missing-required-tick-labels="missingRequiredTickLabels"
                             :missing-required-checklist-labels="missingRequiredChecklistLabels"
@@ -67,6 +76,7 @@
                             :saving-checklist="savingChecklist"
                             :saving-checklist-item-id="savingChecklistItemId"
                             :saving-requirement-id="savingRequirementId"
+                            modern
                             remarks-placeholder="Explain what you changed or fixed"
                             attachments-title="Additional files"
                             @toggle-requirement="onRequirementToggle"
@@ -81,18 +91,23 @@
                 <v-alert v-else-if="error" type="error" variant="tonal" density="compact">
                     {{ error }}
                 </v-alert>
-            </v-card-text>
-            <v-divider />
-            <v-card-actions class="justify-end">
-                <v-btn v-if="tx" variant="text" prepend-icon="mdi-open-in-new" @click="openTransaction">Open transaction</v-btn>
-                <v-spacer />
-                <v-btn variant="text" @click="open = false">Cancel</v-btn>
-                <template v-if="tx && selectedRouteId">
-                    <v-btn v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview" variant="text" @click="wizardStep = 1">Back</v-btn>
-                    <v-btn v-if="wizardStep === 1 && !isSingleStepProceed && !skipReview" color="grey-darken-3" rounded="0" :disabled="saving || savingChecklist" @click="goWizardNext">Next</v-btn>
-                    <v-btn v-if="wizardStep === 2 || skipReview || isSingleStepProceed" color="grey-darken-3" rounded="0" :loading="saving" :disabled="missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0 || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0" @click="executeSelected">Proceed</v-btn>
-                </template>
-            </v-card-actions>
+            </div>
+
+            <ProceedModalFooter
+                v-if="tx && !loading"
+                :tasks="approvalTasks"
+                :busy="saving"
+                primary-label="Proceed"
+                :primary-disabled="approvalBlocked"
+                :show-back="showWizardBack"
+                :show-next="showWizardNext"
+                :show-primary="showWizardPrimary"
+                :next-disabled="saving || savingChecklist || requirementsTabBlocked"
+                @cancel="open = false"
+                @back="wizardStep = 1"
+                @next="goWizardNext"
+                @primary="executeSelected"
+            />
         </v-card>
     </v-dialog>
 </template>
@@ -107,8 +122,9 @@ import { useRouter } from "vue-router";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useApi } from "@/composables/useApi";
 import ProceedWizard from "@/components/ProceedWizard.vue";
+import ProceedModalHeader from "@/components/ProceedModalHeader.vue";
+import ProceedModalFooter from "@/components/ProceedModalFooter.vue";
 import ReturnBanner from "@/components/ReturnBanner.vue";
-import StepBadge from "@/components/StepBadge.vue";
 import TableLoader from "@/components/TableLoader.vue";
 
 const open = defineModel("open", { default: false });
@@ -205,6 +221,14 @@ const proceedModalTitle = computed(() => {
     return office ? `Proceeding to "${name}" (${office})` : `Proceeding to "${name}"`;
 });
 
+// Header pieces: destination name and office rendered separately so the
+// title can emphasize the station and keep the office as a suffix.
+const headerDestination = computed(() => destStepForTitle());
+const headerDestinationName = computed(() => headerDestination.value?.name || headerDestination.value?.code || "");
+const headerDestinationOffice = computed(() =>
+    String(headerDestination.value?.office?.code ?? headerDestination.value?.office?.name ?? "").trim(),
+);
+
 // Step 1 → step 2 shows requirements only (same rule as the transaction page).
 const isFirstStepTransition = computed(() =>
     Number(tx.value?.current_step?.order_number) === 1 &&
@@ -236,6 +260,8 @@ const missingRequiredChecklistLabels = computed(() => {
         .map((c) => c.name)
         .filter(Boolean);
 });
+// Requirements tab/Next stay locked until the Review checklist is done.
+const requirementsTabBlocked = computed(() => missingRequiredChecklistLabels.value.length > 0);
 
 // Every required requirement (tick-only AND upload rows like AR/Payroll)
 // must be ticked as physically verified; uploads are gated separately.
@@ -271,6 +297,63 @@ const missingRequiredStepDataLabels = computed(() => {
     }
     return out;
 });
+
+// Footer readiness line: every blocker as a clickable chip. The footer
+// dedupes labels; the primary button keeps the stricter gating below.
+const approvalTasks = computed(() => {
+    if (tx.value && forwardActions.value.length === 0) {
+        return [{ label: 'No forward action available' }];
+    }
+    const out = [];
+    if (!selectedRouteId.value && forwardActions.value.length > 1) {
+        out.push({ label: 'Destination' });
+    }
+    // Checklist lives on Review; uploads, ticks, station info and step data
+    // live on Requirements. Page hints flip lazy wizard pages; kinds pick
+    // the matching section when a name is both a tick and an upload card.
+    // Ticks come first so a row missing both lands on the tick that
+    // unlocks its upload.
+    out.push(
+        ...missingRequiredChecklistLabels.value.map((label) => ({
+            label, page: 1, kind: 'check',
+        })),
+    );
+    out.push(
+        ...missingRequiredTickLabels.value.map((label) => ({
+            label, page: 2, kind: 'tick',
+        })),
+    );
+    out.push(
+        ...missingRequiredUploadLabels.value.map((label) => ({
+            label, page: 2, kind: 'upload',
+        })),
+    );
+    out.push(
+        ...[
+            ...missingRequiredFields.value,
+            ...missingRequiredStepDataLabels.value,
+        ].map((label) => ({ label, page: 2, kind: 'field' })),
+    );
+    return out;
+});
+const approvalBlocked = computed(() =>
+    missingRequiredUploadLabels.value.length > 0 ||
+    missingRequiredTickLabels.value.length > 0 ||
+    missingRequiredChecklistLabels.value.length > 0 ||
+    missingRequiredFields.value.length > 0 ||
+    missingRequiredStepDataLabels.value.length > 0,
+);
+
+// Footer navigation follows the same two-page rules as the old card actions.
+const showWizardBack = computed(() =>
+    wizardStep.value === 2 && !isSingleStepProceed.value && !skipReview.value,
+);
+const showWizardNext = computed(() =>
+    !!selectedRouteId.value && wizardStep.value === 1 && !isSingleStepProceed.value && !skipReview.value,
+);
+const showWizardPrimary = computed(() =>
+    !!selectedRouteId.value && (wizardStep.value === 2 || skipReview.value || isSingleStepProceed.value),
+);
 
 function hydrateForm() {
     const next = {};
@@ -455,24 +538,3 @@ function openTransaction() {
     router.push(`/transactions/${props.txId}`);
 }
 </script>
-
-<style scoped>
-/* Slim inner scroll: keeps scrolling inside the curved modal. */
-.proceed-scroll {
-    max-height: 70vh;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
-    padding-right: 8px;
-}
-.proceed-scroll::-webkit-scrollbar {
-    width: 4px;
-}
-.proceed-scroll::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.25);
-    border-radius: 999px;
-}
-.proceed-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-</style>

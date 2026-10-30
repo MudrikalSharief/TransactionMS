@@ -17,7 +17,7 @@
                 v-bind="activatorProps"
                 type="button"
                 class="ad-trigger"
-                :class="{ 'is-open': open }"
+                :class="{ 'is-open': open, 'is-invalid': invalid }"
                 :disabled="disabled"
                 role="combobox"
                 aria-haspopup="listbox"
@@ -25,13 +25,17 @@
                 :aria-controls="menuId"
                 :aria-activedescendant="open && act >= 0 ? optionId(act) : undefined"
                 :aria-label="label"
+                :aria-invalid="invalid ? 'true' : 'false'"
                 @keydown="onKeydown"
             >
                 <span class="ad-tile ad-tile-lg" :class="toneClass(selected?.kind)">
                     <v-icon size="22">{{ selected ? kindIcon(selected.kind) : 'mdi-gesture-tap' }}</v-icon>
                 </span>
                 <span class="ad-txt">
-                    <span class="ad-cap">{{ label }}</span>
+                    <span class="ad-cap">
+                        {{ label }}
+                        <span v-if="required" class="ad-req">Required</span>
+                    </span>
                     <span class="ad-val" :class="{ 'is-muted': !selected }">{{ selected ? selected.verb : placeholder }}</span>
                 </span>
                 <v-icon class="ad-chev" :class="{ 'is-open': open }" size="20">mdi-chevron-down</v-icon>
@@ -75,6 +79,11 @@ const props = defineProps({
     // unifiedRouteOptions rows: { value, verb, detail, kind }.
     items: { type: Array, default: () => [] },
     disabled: { type: Boolean, default: false },
+    // Validation styling for required pickers (e.g. Return destination).
+    invalid: { type: Boolean, default: false },
+    // Shows a Required badge beside the label without forcing validation
+    // styling; the parent still owns the gate.
+    required: { type: Boolean, default: false },
     label: { type: String, default: 'Select action' },
     placeholder: { type: String, default: 'Choose an action' },
 });
@@ -192,6 +201,21 @@ function onKeydown(e) {
     border-color: #1d3fae;
     box-shadow: 0 0 0 4px rgba(29, 63, 174, 0.28);
 }
+
+.ad-trigger.is-invalid {
+    border-color: #c62828;
+}
+
+.ad-trigger.is-invalid .ad-cap,
+.ad-trigger.is-invalid .ad-val.is-muted {
+    color: #c62828;
+}
+
+.ad-trigger.is-invalid:focus-visible,
+.ad-trigger.is-invalid.is-open {
+    border-color: #c62828;
+    box-shadow: 0 0 0 4px rgba(198, 40, 40, 0.18);
+}
 .ad-trigger:disabled {
     opacity: 0.6;
     cursor: default;
@@ -231,6 +255,20 @@ function onKeydown(e) {
     font-weight: 600;
     color: #5b6780;
     margin-bottom: 2px;
+}
+
+.ad-req {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 99px;
+    background: #fde8e8;
+    color: #c62828;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
 }
 .ad-val {
     display: block;
@@ -319,6 +357,18 @@ html.dark .ad-trigger.is-open {
     border-color: #8aa1ff;
     box-shadow: 0 0 0 4px rgba(138, 161, 255, 0.35);
 }
+
+html.dark .ad-trigger.is-invalid,
+html.dark .ad-trigger.is-invalid:focus-visible,
+html.dark .ad-trigger.is-invalid.is-open {
+    border-color: #ff8a80;
+    box-shadow: 0 0 0 4px rgba(255, 138, 128, 0.2);
+}
+
+html.dark .ad-trigger.is-invalid .ad-cap,
+html.dark .ad-trigger.is-invalid .ad-val.is-muted {
+    color: #ff8a80;
+}
 html.dark .ad-trigger:disabled:hover {
     border-color: #2b3558;
 }
@@ -327,6 +377,11 @@ html.dark .ad-chev,
 html.dark .ad-d,
 html.dark .ad-val.is-muted {
     color: #9aa7c4;
+}
+
+html.dark .ad-req {
+    background: #4a1f22;
+    color: #ff8a80;
 }
 html.dark .tone-blue { background: #25306a; color: #8aa1ff; }
 html.dark .tone-amber { background: #4a3510; color: #ffbf47; }
