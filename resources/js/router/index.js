@@ -62,6 +62,15 @@ function isWorkflowArea(route) {
 export function createRouter() {
     const router = _createRouter({
         history: createWebHistory(),
+        // Pages share one scrolling document, so without this a tab/page
+        // switch opens at the previous page's scroll offset (often halfway
+        // down). Back/forward keeps the browser's saved position, and hash
+        // links still jump to their anchor.
+        scrollBehavior(to, from, savedPosition) {
+            if (savedPosition) return savedPosition;
+            if (to.hash) return { el: to.hash, behavior: "smooth" };
+            return { top: 0 };
+        },
         routes: [
             { path: "/login", name: "login", component: Login },
 

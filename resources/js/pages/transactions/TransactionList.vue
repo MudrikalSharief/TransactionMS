@@ -100,6 +100,9 @@
                 class="tl-office-icon"
                 :src="officeIcon(item.office)"
                 :alt="`${item.office?.name || 'Office'} icon`"
+                width="22"
+                height="22"
+                decoding="async"
               />
               <span
                 v-else
