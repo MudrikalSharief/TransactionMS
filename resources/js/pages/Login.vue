@@ -123,7 +123,7 @@
                             </label>
 
                             <button class="btn" :class="{ loading }" type="submit" :disabled="!canSubmit">
-                                <span v-if="loading" class="spin" aria-hidden="true"></span>
+                                <span v-if="loading" class="spin motion-keep" aria-hidden="true"></span>
                                 <span>{{ loading ? "Signing in…" : "Sign in" }}</span>
                                 <v-icon v-if="!loading" class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
                             </button>
@@ -145,7 +145,7 @@
                             @click="guestLogin"
                         >
                             <span class="track-chip" aria-hidden="true">
-                                <span v-if="guestLoading" class="spin spin-dark"></span>
+                                <span v-if="guestLoading" class="spin spin-dark motion-keep"></span>
                                 <v-icon v-else>mdi-map-marker-path</v-icon>
                             </span>
                             <span class="track-text">
@@ -326,7 +326,7 @@
                             </div>
 
                             <button class="btn" :class="{ loading: registering }" type="submit" :disabled="!canRegister">
-                                <span v-if="registering" class="spin" aria-hidden="true"></span>
+                                <span v-if="registering" class="spin motion-keep" aria-hidden="true"></span>
                                 <span>{{ registering ? "Sending request…" : "Request account" }}</span>
                                 <v-icon v-if="!registering" class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
                             </button>
@@ -344,6 +344,19 @@
                  artwork's bottom edge across the form panel. -->
             <footer>
                 <span>City Government of Zamboanga</span>
+                <!-- Animations on/off for slow devices; the same setting as
+                     the sidebar button (useMotion.js). -->
+                <button
+                    type="button"
+                    class="motion-switch"
+                    role="switch"
+                    :aria-checked="motionEnabled ? 'true' : 'false'"
+                    :title="motionEnabled ? 'Turn animations off (faster on slow devices)' : 'Turn animations on'"
+                    @click="toggleMotion"
+                >
+                    <span class="motion-track" aria-hidden="true"><i /></span>
+                    Animations {{ motionEnabled ? "on" : "off" }}
+                </button>
                 <svg class="skyline" viewBox="0 0 480 110" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
                     <path class="sky-wave" d="M0 92 C120 70 260 112 480 78 L480 110 L0 110 Z" />
                     <g class="sky-city">
@@ -368,7 +381,7 @@
 
         <div
             v-if="loading && pointer.seen"
-            class="spin-cursor"
+            class="spin-cursor motion-keep"
             :style="{ transform: `translate3d(${pointer.x}px, ${pointer.y}px, 0)` }"
             aria-hidden="true"
         ></div>
@@ -381,6 +394,10 @@ import { useRouter } from "vue-router";
 import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import LoginHero from "@/components/login/LoginHero.vue";
+import { useMotion } from "@/composables/useMotion";
+
+// Animations on/off (footer switch; shared with the sidebar button).
+const { motionEnabled, toggleMotion } = useMotion();
 
 const router = useRouter();
 const auth = useAuth();
@@ -1291,6 +1308,8 @@ footer {
     display: flex;
     align-items: flex-end;
     justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
     height: 104px;
     margin: 0 -52px;
     padding: 0 52px 16px;
@@ -1303,6 +1322,60 @@ footer {
 footer span {
     position: relative;
     z-index: 1;
+}
+
+/* Animations switch: a small pill like the sign-in tabs. */
+.motion-switch {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: -4px;
+    padding: 4px 10px 4px 5px;
+    border: 1px solid #d6e0f0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--navy);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.motion-switch:hover {
+    border-color: #9fb5dc;
+}
+.motion-switch:focus-visible {
+    outline: 3px solid rgba(47, 111, 235, 0.35);
+    outline-offset: 2px;
+}
+.motion-track {
+    position: relative;
+    width: 26px;
+    height: 15px;
+    border-radius: 999px;
+    background: #c9d3e4;
+    transition: background 0.2s ease;
+}
+.motion-track i {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 36, 102, 0.35);
+    transition: transform 0.2s ease;
+}
+.motion-switch[aria-checked="true"] .motion-track {
+    background: var(--focus);
+}
+.motion-switch[aria-checked="true"] .motion-track i {
+    transform: translateX(11px);
 }
 
 /* Skyline + wave along the bottom, very faint. */

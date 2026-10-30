@@ -277,6 +277,23 @@
                             {{ isDark ? "LIGHT" : "DARK" }}
                         </span>
                     </v-btn>
+                    <!-- Animations on/off for slow devices (useMotion.js). -->
+                    <v-btn
+                        :icon="rail"
+                        size="small"
+                        :variant="motionEnabled ? 'tonal' : 'flat'"
+                        color="primary"
+                        density="comfortable"
+                        :aria-pressed="motionEnabled ? 'false' : 'true'"
+                        :aria-label="motionEnabled ? 'Turn animations off' : 'Turn animations on'"
+                        v-tooltip="motionEnabled ? 'Animations on · click to turn off (faster on slow devices)' : 'Animations off · click to turn on'"
+                        @click="toggleMotion"
+                    >
+                        <v-icon>{{ motionEnabled ? "mdi-motion-play-outline" : "mdi-motion-pause-outline" }}</v-icon>
+                        <span v-if="!rail" class="ml-1 text-caption font-weight-bold">
+                            {{ motionEnabled ? "ANIM ON" : "ANIM OFF" }}
+                        </span>
+                    </v-btn>
                     <v-btn
                         :icon="rail"
                         size="small"
@@ -354,6 +371,7 @@ import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
 import OfflineBar from "@/components/OfflineBar.vue";
+import { useMotion } from "@/composables/useMotion";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
 import AppFooter from "@/components/AppFooter.vue";
 import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
@@ -856,6 +874,9 @@ const onVisible = () => {
 const theme = useTheme();
 const THEME_KEY = "lgu-tx:theme";
 const isDark = computed(() => theme.global.name.value === "pixivDark");
+
+// ---- Animations on/off (sidebar button; shared with the login page) ----
+const { motionEnabled, toggleMotion } = useMotion();
 
 function applyTheme(name) {
     theme.change(name);

@@ -16,6 +16,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 
+    {{-- Animations on/off before the first paint (same rule as
+         resources/js/composables/useMotion.js), so a slow device never
+         starts animating while the app loads. --}}
+    <script>
+        (function () {
+            var s = null;
+            try { s = localStorage.getItem('lgu-tx:motion'); } catch (e) {}
+            var c = navigator.connection || {};
+            var weak = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+                c.saveData || c.effectiveType === 'slow-2g' || c.effectiveType === '2g' ||
+                (navigator.deviceMemory && navigator.deviceMemory <= 2) ||
+                (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+            if (s === 'off' || (s !== 'on' && weak)) document.documentElement.classList.add('no-motion');
+        })();
+    </script>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>

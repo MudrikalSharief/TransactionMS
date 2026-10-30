@@ -10,6 +10,26 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+/* ---- Animations off (useMotion.js toggle) ----
+   Every animation and transition finishes at once, so things land in
+   their final state (nothing is left hidden mid-fade) and nothing loops.
+   Loading spinners keep turning so progress still shows: Vuetify's, and
+   any custom loader marked `motion-keep`. */
+html.no-motion :not(.motion-keep, .motion-keep *, .v-progress-circular *, .v-progress-linear *),
+html.no-motion :not(.motion-keep, .motion-keep *)::before,
+html.no-motion :not(.motion-keep, .motion-keep *)::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+}
+/* No moving page backgrounds or drifting shadows either. */
+html.no-motion {
+    scroll-behavior: auto !important;
+}
+
 /* ---- Brand gradient: black -> blue (#1A1F2B -> #005EED) ----
    One source for every filled "base colour" surface (primary buttons, active
    nav item, header rules). Flat uses of the blue read from the theme's
