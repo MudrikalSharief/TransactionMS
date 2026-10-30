@@ -1,6 +1,73 @@
 <template>
     <div v-if="items?.length">
-        <div v-if="detailed && groupByLabel" class="d-flex flex-column ga-3 px-1 py-1">
+        <div v-if="redesign" class="pm-files">
+            <template v-if="groupByLabel">
+                <div v-for="g in labelGroups" :key="g.key" class="pm-file-group">
+                    <button
+                        v-if="collapsibleGroups && g.files.length > 1"
+                        type="button"
+                        class="pm-group-head is-toggle"
+                        :aria-expanded="groupOpen(g) ? 'true' : 'false'"
+                        @click="toggleGroup(g)"
+                    >
+                        <b :title="g.title">{{ g.title }}</b>
+                        <span class="pm-tag o">{{ g.files.length }} file{{ g.files.length === 1 ? '' : 's' }}</span>
+                        <v-icon class="pm-group-chev" size="16">mdi-chevron-down</v-icon>
+                    </button>
+                    <div v-else class="pm-group-head">
+                        <b :title="g.title">{{ g.title }}</b>
+                        <span class="pm-tag o">{{ g.files.length }} file{{ g.files.length === 1 ? '' : 's' }}</span>
+                    </div>
+                    <div class="d-flex flex-column ga-1">
+                        <ProceedFileRow
+                            v-for="a in groupFiles(g)"
+                            :key="a.id"
+                            :title="a.original_name"
+                            :subtitle="fileSubtitle(a)"
+                            :ext-label="fileExtLabel(a)"
+                            :ext-class="fileExtClass(a)"
+                            :view-url="fileViewUrl(a)"
+                            :linked="isLinked(a)"
+                            :old-file="isOldFile(a)"
+                            :can-remove="canRemove(a)"
+                            :remove-title="removeTitle(a)"
+                            :deleting="deletingId === a.id"
+                            :disabled="deletingId !== null"
+                            @delete="askDelete(a)"
+                        />
+                    </div>
+                </div>
+            </template>
+            <template v-else>
+                <ProceedFileRow
+                    v-for="a in visibleRedesignFiles"
+                    :key="a.id"
+                    :title="a.original_name"
+                    :subtitle="fileSubtitle(a)"
+                    :ext-label="fileExtLabel(a)"
+                    :ext-class="fileExtClass(a)"
+                    :label="displayLabel(a)"
+                    :view-url="fileViewUrl(a)"
+                    :linked="isLinked(a)"
+                    :old-file="isOldFile(a)"
+                    :can-remove="canRemove(a)"
+                    :remove-title="removeTitle(a)"
+                    :deleting="deletingId === a.id"
+                    :disabled="deletingId !== null"
+                    @delete="askDelete(a)"
+                />
+                <button
+                    v-if="!redesignExpanded && items.length > redesignLimit"
+                    type="button"
+                    class="pm-toggle"
+                    @click="redesignExpanded = true"
+                >
+                    <v-icon size="16">mdi-chevron-down</v-icon>
+                    Show {{ items.length - redesignLimit }} more file{{ items.length - redesignLimit === 1 ? '' : 's' }}
+                </button>
+            </template>
+        </div>
+        <div v-else-if="detailed && groupByLabel" class="d-flex flex-column ga-3 px-1 py-1">
             <v-card
                 v-for="g in labelGroups"
                 :key="g.key"
@@ -392,6 +459,7 @@ import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
 import { fileViewUrl } from "@/composables/useFileView";
 import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
+import ProceedFileRow from "@/components/ProceedFileRow.vue";
 
 const props = defineProps({
     items: { type: Array, default: () => [] },
@@ -421,9 +489,11 @@ const props = defineProps({
     // When true with detailed, files group into one big card per batch
     // name (used by the Proceed modal Additional-files list only).
     groupByLabel: { type: Boolean, default: false },
-    // When true, hides all delete buttons (view-only display of
-    // previous-step files in the Proceed Review page).
-    hideDelete: { type: Boolean, default: false },
+    // Grouped redesign lists can collapse each name group. Previous files
+    // start collapsed; Additional files start expanded so new uploads are
+    // visible immediately.
+    collapsibleGroups: { type: Boolean, default: false },
+    groupsOpenByDefault: { type: Boolean, default: true },
     // When true, hides all delete buttons (view-only display of
     // previous-step files in the Proceed Review page).
     hideDelete: { type: Boolean, default: false },
@@ -439,6 +509,11 @@ const props = defineProps({
     // When true with the default chip list, files render inside one
     // mother card per step (All transaction files card below history).
     groupByStep: { type: Boolean, default: false },
+    // Proceed-modal file rows: extension tile, name, size/date, view and
+    // remove buttons. Uses the same delete confirmation flow as the chips.
+    redesign: { type: Boolean, default: false },
+    // Rows shown before the "Show N more files" toggle in redesign mode.
+    redesignLimit: { type: Number, default: 4 },
 });
 const emit = defineEmits(["deleted"]);
 
@@ -448,6 +523,11 @@ const deletingId = ref(null);
 const deleteError = ref("");
 const confirmDialog = ref(false);
 const pendingDelete = ref(null);
+const redesignExpanded = ref(false);
+const visibleRedesignFiles = computed(() => {
+    if (!props.redesign || props.groupByLabel || redesignExpanded.value) return props.items || [];
+    return (props.items || []).slice(0, Math.max(1, props.redesignLimit));
+});
 
 // Step-locked evidence: any signed-in worker may remove a file uploaded
 // on the current step before it moves forward (wrong-file replace). The
@@ -540,6 +620,27 @@ const labelGroups = computed(() => {
     }
     return groups;
 });
+
+// Per-label disclosure state for grouped redesign lists.
+const expandedGroups = ref({});
+function groupOpen(g) {
+    const key = String(g?.key ?? '');
+    return expandedGroups.value[key] ?? props.groupsOpenByDefault;
+}
+// Collapsed groups still preview their first file. A single-file group has
+// nothing to expand, so it always renders in full.
+function groupFiles(g) {
+    const files = g?.files || [];
+    if (!props.collapsibleGroups || files.length <= 1 || groupOpen(g)) return files;
+    return files.slice(0, 1);
+}
+function toggleGroup(g) {
+    const key = String(g?.key ?? '');
+    expandedGroups.value = {
+        ...expandedGroups.value,
+        [key]: !groupOpen(g),
+    };
+}
 
 function reqLabel(a) {
     if (displayLabel(a)) return displayLabel(a);
@@ -680,5 +781,31 @@ function formatSize(b) {
     if (n < 1024) return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
     return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileExt(a) {
+    const name = String(a?.original_name || "");
+    const ext = (name.split(".").pop() || "").toLowerCase();
+    return ext && ext !== name.toLowerCase() ? ext : "";
+}
+
+function fileExtLabel(a) {
+    const ext = fileExt(a);
+    return ext ? ext.slice(0, 5).toUpperCase() : "FILE";
+}
+
+function fileExtClass(a) {
+    const ext = fileExt(a);
+    if (ext === "pdf") return "pdf";
+    if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)) return "img";
+    if (["doc", "docx", "odt", "rtf"].includes(ext)) return "doc";
+    if (["xls", "xlsx", "ods", "csv"].includes(ext)) return "xls";
+    return "";
+}
+
+function fileSubtitle(a) {
+    const size = formatSize(a?.size_bytes);
+    const date = uploadTooltipDate(a);
+    return `${size} · ${date}`;
 }
 </script>

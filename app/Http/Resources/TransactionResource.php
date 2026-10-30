@@ -541,6 +541,14 @@ class TransactionResource extends JsonResource
 
         $performer = $lastRun->relationLoaded('performer') ? $lastRun->performer : null;
 
+        // Only files stamped to this move left the previous station with it.
+        // Unlinked uploads sitting on the same step are drafts/stale files,
+        // not part of what the previous step sent.
+        $attachments = collect($station['attachments'] ?? [])
+            ->filter(fn ($a) => (int) ($a['step_run_id'] ?? 0) === (int) $lastRun->id)
+            ->values()
+            ->all();
+
         return [
             'step' => [
                 'id' => $prevStepId,
@@ -556,7 +564,7 @@ class TransactionResource extends JsonResource
             ],
             'fields' => $fields,
             'step_data' => $stepData,
-            'attachments' => array_values($station['attachments'] ?? []),
+            'attachments' => $attachments,
         ];
     }
 

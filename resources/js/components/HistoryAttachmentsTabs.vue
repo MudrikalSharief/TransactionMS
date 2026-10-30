@@ -75,12 +75,16 @@ const emit = defineEmits(['deleted'])
 
 const tab = ref(0)
 
-// Previous Transaction files: files of the steps before the current one.
-// The server already limits non-admins to the previous step (step file
-// rule), so here only the current step's own uploads are left out.
+// Previous Transaction files: files that actually travelled with a move.
+// Unlinked uploads (step_run_id null) are drafts/stale files that never left
+// their station, so they must not appear as previous transaction files.
+// The server already limits non-admins to the previous step (step file rule).
 const previousFiles = computed(() =>
     (props.attachments || []).filter(
-        (a) => props.currentStepId == null || String(a.workflow_step_id) !== String(props.currentStepId),
+        (a) =>
+            a.step_run_id !== null &&
+            a.step_run_id !== undefined &&
+            (props.currentStepId == null || String(a.workflow_step_id) !== String(props.currentStepId)),
     ),
 )
 </script>

@@ -1,42 +1,64 @@
 <template>
-    <div>
-        <!-- Return mode: received checklist as tappable pills above remarks.
-             Tapping toggles structured flags (stored on the run, never in
-             the text) — tap again to remove. -->
-        <div v-if="isReturnSelected && (checklist || []).length" class="mb-3">
-            <v-divider class="my-3" />
-            <div class="text-subtitle-2 font-weight-bold mb-1">Documentary requirements for return</div>
-            <div class="text-caption text-medium-emphasis mb-2">Tap items to flag them for the next station — tap again to remove.</div>
-            <div class="d-flex flex-wrap ga-1">
-                <v-chip
+    <div class="pm-extra">
+        <!-- Return mode: received checklist as tappable flags. Tapping toggles
+             structured flags (stored on the run, never in the text). -->
+        <div v-if="isReturnSelected && (checklist || []).length" class="pm-warn-card">
+            <div class="pm-warn-title">
+                <v-icon size="17">mdi-flag-outline</v-icon>
+                Documentary requirements for return
+            </div>
+            <p>Tap items to flag them for the next station — tap again to remove.</p>
+            <div class="pm-flag-row">
+                <button
                     v-for="c in (checklist || [])"
                     :key="flagKey(c)"
-                    size="small"
-                    :variant="isFlagged(c) ? 'flat' : 'outlined'"
-                    :color="isFlagged(c) ? 'warning' : 'grey-darken-1'"
-                    rounded="lg"
-                    class="flag-pill"
+                    type="button"
+                    class="pm-flag-pill"
+                    :class="{ 'is-on': isFlagged(c) }"
                     :title="isFlagged(c) ? `${c.name} — tap to unflag` : `${c.name} — tap to flag`"
                     @click="toggleFlag(c)"
-                ><v-icon start size="x-small">{{ isFlagged(c) ? 'mdi-check' : 'mdi-plus' }}</v-icon>{{ c.name }}</v-chip>
+                >
+                    <v-icon size="14">{{ isFlagged(c) ? 'mdi-check' : 'mdi-plus' }}</v-icon>
+                    {{ c.name }}
+                </button>
             </div>
         </div>
-        <div :class="{ 'd-flex flex-column': modern }">
-            <div :class="{ 'order-2': modern }">
-                <div class="text-subtitle-2 font-weight-bold mb-2">{{ remarksLabel }}</div>
-                <v-textarea
-                    :model-value="remarks"
-                    :label="remarksLabel"
-                    :placeholder="remarksPlaceholder"
-                    rows="3"
-                    variant="outlined"
-                    density="comfortable"
-                    @update:model-value="(v) => emit('update:remarks', v)"
-                />
+
+        <!-- Remarks -->
+        <div class="pm-dis" :class="{ 'is-open': remarksOpen }" data-pm-task="Remarks|Return reason">
+            <button type="button" class="pm-dsb" :class="{ 'is-open': remarksOpen }" @click="remarksOpen = !remarksOpen">
+                <v-icon size="18">mdi-text-box-outline</v-icon>
+                <span>
+                    {{ remarksTitle }}
+                    <span v-if="remarksRequired" class="pm-tag w" style="margin-left: 6px">Required</span>
+                    <span v-else class="pm-opt">(optional)</span>
+                </span>
+                <span v-if="remarksPreview" class="pm-dv">{{ remarksPreview }}</span>
+                <v-icon size="18">mdi-chevron-down</v-icon>
+            </button>
+            <div v-if="remarksOpen" class="pm-dp">
+                <textarea
+                    class="pm-textarea"
+                    :value="remarks"
+                    :placeholder="remarksPlaceholder || 'Explain what you changed or fixed.'"
+                    :aria-label="remarksLabel"
+                    @input="emit('update:remarks', $event.target.value)"
+                ></textarea>
             </div>
-            <div :class="{ 'order-1': modern }">
-                <div class="text-subtitle-2 font-weight-bold mb-2">{{ attachmentsTitle }}</div>
-                <div class="text-caption text-medium-emphasis mb-2">Input file name</div>
+        </div>
+
+        <!-- Additional files -->
+        <div class="pm-dis" :class="{ 'is-open': filesOpen }">
+            <button type="button" class="pm-dsb" :class="{ 'is-open': filesOpen }" @click="filesOpen = !filesOpen">
+                <v-icon size="18">mdi-paperclip</v-icon>
+                <span>
+                    {{ attachmentsTitle }}
+                    <span class="pm-opt">(optional)</span>
+                </span>
+                <span v-if="(proceedAttachments || []).length" class="pm-dv">{{ fileCountLabel }}</span>
+                <v-icon size="18">mdi-chevron-down</v-icon>
+            </button>
+            <div v-if="filesOpen" class="pm-dp">
                 <AttachmentUploader
                     :tx-id="txId"
                     :is-admin="isAdmin"
@@ -48,7 +70,9 @@
                     list-show-eye
                     list-detailed
                     list-group-by-label
+                    list-collapsible-groups
                     show-label-input
+                    redesign
                     :show-existing-btn="showExistingBtn"
                     :existing-disabled="existingDisabled"
                     @update:model-value="(files) => emit('update:proceedAttachments', files)"
@@ -58,13 +82,16 @@
                 />
             </div>
         </div>
-        <v-alert v-if="executeError" type="error" variant="tonal" class="mt-3">
+
+        <div v-if="executeError" class="pm-alert">
+            <v-icon size="17">mdi-alert-circle-outline</v-icon>
             {{ executeError }}
-        </v-alert>
+        </div>
     </div>
 </template>
 
 <script setup>
+import { computed, ref, watch } from 'vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 
 // Remarks + move-level attachments below the wizard pages. Rendered once
@@ -74,18 +101,13 @@ const remarks = defineModel('remarks', { default: '' })
 const proceedAttachments = defineModel('proceedAttachments', { default: () => [] })
 const attachmentName = defineModel('attachmentName', { default: '' })
 // Structured return flags: [{requirement_definition_id, code, name}].
-// Two-way bound to the page via ProceedWizard; sent as flagged_items on
-// execute. Never written into the remarks text, so they cannot be erased.
 const flagged = defineModel('flagged', { default: () => [] })
 
-defineProps({
+const props = defineProps({
     txId: { type: [Number, String], required: true },
     isAdmin: { type: Boolean, default: false },
     isReturnSelected: { type: Boolean, default: false },
-    // Received checklist (current_step_checklist): drives the return
-    // flag-cards above remarks. Empty outside return mode.
     checklist: { type: Array, default: () => [] },
-    // False in single-page mode (step 1 → step 2): requirements only.
     showChecklist: { type: Boolean, default: true },
     missingRequiredUploadLabels: { type: Array, default: () => [] },
     missingRequiredTickLabels: { type: Array, default: () => [] },
@@ -95,10 +117,7 @@ defineProps({
     remarksLabel: { type: String, default: 'Remarks (optional)' },
     remarksPlaceholder: { type: String, default: '' },
     attachmentsTitle: { type: String, default: 'Additional files' },
-    // Redesign flag: Additional-files block renders before remarks (mockup order).
     modern: { type: Boolean, default: false },
-    // Shows the inline "Existing files" reuse button beside Add file
-    // (visible step 2+ only when the previous step has files).
     showExistingBtn: { type: Boolean, default: false },
     existingDisabled: { type: Boolean, default: false },
 })
@@ -111,10 +130,41 @@ const emit = defineEmits([
     'open-existing',
 ])
 
+const remarksRequired = computed(() => {
+    const label = String(props.remarksLabel || '').toLowerCase()
+    return label.includes('required') && !label.includes('optional')
+})
+
+// Keep the caller's label ("Reason for returning", "Reply to …") while the
+// Required/Optional tag carries the suffix. Falls back to plain Remarks.
+const remarksTitle = computed(() => {
+    const title = String(props.remarksLabel || '')
+        .replace(/\((?:required|optional)\)/gi, '')
+        .trim()
+    return title || 'Remarks'
+})
+
+const remarksOpen = ref(false)
+const filesOpen = ref(false)
+
+// Open required remarks automatically; optional sections start collapsed.
+watch(remarksRequired, (required) => {
+    if (required) remarksOpen.value = true
+}, { immediate: true })
+
+const remarksPreview = computed(() => {
+    const text = String(remarks.value || '').replace(/\s+/g, ' ').trim()
+    if (!text) return ''
+    return text.length > 48 ? `${text.slice(0, 48)}…` : text
+})
+
+const fileCountLabel = computed(() => {
+    const n = (proceedAttachments.value || []).length
+    return n === 1 ? '1 file' : `${n} files`
+})
+
 // Return flag pills: each checklist item toggles a structured entry in
 // the `flagged` model (matched by requirement code, name fallback).
-// Entries travel as flagged_items on execute — never in the remarks text,
-// so they cannot be erased by editing.
 function flagKey(c) {
     const code = String(c?.code || '').trim().toLowerCase()
     if (code) return `code:${code}`
@@ -147,14 +197,7 @@ function toggleFlag(c) {
 </script>
 
 <style scoped>
-/* Flag pills invite tapping: pointer cursor plus a hover lift/shadow so
-   they read as pressable buttons, not static labels. */
-.flag-pill {
-    cursor: pointer;
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-.flag-pill:hover {
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
-    transform: translateY(-1px);
+.pm-extra {
+    margin-top: 4px;
 }
 </style>
