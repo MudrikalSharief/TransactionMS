@@ -4,7 +4,7 @@
  * - /build/assets/* (Vite content-hashed: immutable) -> cache-first.
  *   Zero network on Ctrl+R; deploys are safe because new builds get new URLs
  *   and index HTML is ALWAYS fetched fresh (never cached here).
- * - Static images (/zamboanga-seal.png, /loginpage.jpg, /favicon.ico) and
+ * - Static images (/zamboanga-seal.png, /favicon.ico) and
  *   Google Fonts (CSS + woff2) -> cache-first, so the shell paints offline-fast.
  * - Office icons (/images/offices/*, /storage/offices/icons/*) ->
  *   stale-while-revalidate. These are what the transactions list paints on
@@ -19,13 +19,12 @@
  * asset changes, or when the build's chunk graph changes (old hashed URLs
  * never re-request, so a fresh cache keeps storage tidy).
  */
-const CACHE = 'trmf-static-v4';
+const CACHE = 'trmf-static-v5';
 const FONT_CACHE = 'trmf-fonts-v1';
 const ICON_CACHE = 'trmf-office-icons-v1';
 
 const STATIC_ASSETS = [
   '/zamboanga-seal.png',
-  '/loginpage.jpg',
   '/favicon.ico',
 ];
 

@@ -22,6 +22,12 @@ SELECT code, name FROM transaction_types;
 SELECT transaction_type_id, version, status FROM workflow_definitions ORDER BY transaction_type_id, version;
 ```
 
+## Check the code
+```bash
+npm run lint   # finds unused code and likely mistakes in resources/js and public/sw.js
+```
+Rules are in `eslint.config.js`. No output means nothing was found.
+
 ## Login check
 - Super admin: `vinzmuloc@gmail.com / admin123`
 - Role test: `gso@lgu.test / admin123`, `cbo@lgu.test / admin123`, etc.

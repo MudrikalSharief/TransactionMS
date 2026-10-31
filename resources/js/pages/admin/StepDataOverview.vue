@@ -1023,14 +1023,6 @@ onBeforeUnmount(() => {
     box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
 }
 
-.ro-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 380px;
-    padding: 16px 0;
-}
-
 .ro-bar {
     display: flex;
     align-items: center;
@@ -1354,11 +1346,6 @@ onBeforeUnmount(() => {
 .ro-tag-o {
     background: var(--ro-field);
     color: var(--ro-muted);
-}
-
-.ro-tag-u {
-    background: var(--ro-blue-bg);
-    color: var(--ro-blue);
 }
 
 .ro-none {

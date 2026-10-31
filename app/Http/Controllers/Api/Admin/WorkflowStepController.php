@@ -27,19 +27,6 @@ class WorkflowStepController extends Controller
         return WorkflowStepResource::collection($steps);
     }
 
-    /**
-     * Optional: fetch a single step (handy for StepFields pages / sanity checks).
-     * Not required by your current routes, but safe to include.
-     */
-    public function show(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep)
-    {
-        if ((int) $workflowStep->workflow_definition_id !== (int) $workflowDefinition->id) {
-            abort(404);
-        }
-
-        return new WorkflowStepResource($workflowStep->load(['roles', 'office']));
-    }
-
     public function store(
         UpsertWorkflowStepRequest $request,
         WorkflowDefinition $workflowDefinition,

@@ -8,7 +8,7 @@
         <div class="lh-frame">
             <img
                 class="lh-img"
-                :src="'/login-hero.webp'"
+                :src="'/login-hero.webp?v=3'"
                 alt=""
                 width="1536"
                 height="1024"

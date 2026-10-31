@@ -724,7 +724,6 @@ import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
 import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
-import ReturnBanner from '@/components/ReturnBanner.vue';
 import StepBadge from '@/components/StepBadge.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
@@ -1259,27 +1258,6 @@ async function receiveStep() {
     } finally {
         receiving.value = false;
     }
-}
-
-function componentFor(type) {
-    switch (type) {
-        case "textarea":
-            return "v-textarea";
-        case "select":
-            return "v-select";
-        case "multiselect":
-            return "v-select";
-        case "boolean":
-            return "v-switch";
-        default:
-            return "v-text-field";
-    }
-}
-
-function inputTypeFor(type) {
-    if (type === "number" || type === "currency") return "number";
-    if (type === "date") return "date";
-    return "text";
 }
 
 function hydrateForm() {

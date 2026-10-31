@@ -1,6 +1,7 @@
 <template>
     <v-row v-if="(fields || []).length">
         <v-col v-for="row in fields" :key="row.definition.id" cols="12" md="6">
+            <!-- eslint-disable vue/no-mutating-props -- form is the page's shared draft, changed in place on purpose -->
             <component
                 :is="componentFor(row.definition.type)"
                 v-model="form[row.definition.code]"
@@ -12,6 +13,7 @@
                 :error-messages="isEmpty(row) ? ['* required'] : []"
                 clearable
             />
+            <!-- eslint-enable vue/no-mutating-props -->
         </v-col>
     </v-row>
 </template>

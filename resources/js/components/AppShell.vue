@@ -1030,49 +1030,9 @@ onUnmounted(() => {
         display: none;
     }
 }
-.nav-logout {
-    color: #e8eefc !important;
-}
-.nav-logout:hover {
-    background: rgba(255, 255, 255, 0.12);
-}
 .brand-click {
     cursor: pointer;
     user-select: none;
-}
-/* Viewer "Back to login": navy pill, fills on hover; icon only on phones. */
-.track-exit {
-    border-width: 1.5px;
-    text-transform: none;
-    letter-spacing: 0.01em;
-}
-/* On the navy app bar: white outline, fills light on hover. */
-.track-exit:hover {
-    background: rgba(255, 255, 255, 0.14);
-}
-.track-exit :deep(.v-icon) {
-    transition: transform 0.15s ease;
-}
-.track-exit:hover :deep(.v-icon) {
-    transform: translateX(-2px);
-}
-@media (max-width: 599px) {
-    .track-exit :deep(.v-icon--start) {
-        margin-inline-end: 0;
-    }
-}
-/* Compact sidebar: tighter rows so all items fit without scrolling */
-.nav-compact :deep(.v-list-item) {
-    min-height: 36px !important;
-    padding-top: 2px;
-    padding-bottom: 2px;
-}
-.nav-compact :deep(.v-list-item-title) {
-    font-size: 0.78rem;
-    line-height: 1.2;
-}
-.nav-compact :deep(.v-list-item__prepend .v-icon) {
-    font-size: 1.1rem;
 }
 /* Keep the APPROVALS badge on the icon, clear of the title */
 .approvals-badge :deep(.v-badge__badge) {

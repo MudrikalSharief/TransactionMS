@@ -86,11 +86,6 @@ function rowKey(r) {
 }
 
 // Module-level helpers (safe outside setup: no composition API used).
-export function stagingIsDirty(typeId) {
-    const b = buckets.get(String(typeId))
-    return !!b?.dirty
-}
-
 export function anyStagingDirty() {
     for (const b of buckets.values()) if (b.dirty) return true
     return false
@@ -642,18 +637,6 @@ function sourceRowFor(rows, row) {
     })
 }
 
-export function changedCounts(typeId) {
-    const details = collectChanges(typeId)
-    return {
-        steps: details.steps.length,
-        routes: details.routes.length,
-        requirements: details.requirements.length,
-        checklists: details.checklists.length,
-        fields: details.fields.length,
-        stepData: details.stepData.length,
-    }
-}
-
 export function changedDetails(typeId) {
     return collectChanges(typeId)
 }
@@ -1112,7 +1095,6 @@ export function useWorkflowStaging() {
         setChecklist,
         setFields,
         setStepData,
-        changedCounts,
         changedDetails,
         discard,
         markClean,

@@ -552,11 +552,6 @@ const props = defineProps({
 const hasRequirements = computed(() => (props.requirements || []).length > 0)
 // Per-step text data present on this station (receipt number, etc.).
 const hasStepData = computed(() => (props.stepData || []).length > 0)
-// Header counter (visual only): ticked / total. Gating still uses parents' missingRequired*.
-const checkedRequirementsCount = computed(() => (props.requirements || []).filter((r) => !!r.checked).length)
-const requirementsComplete = computed(
-    () => (props.requirements || []).length > 0 && checkedRequirementsCount.value >= (props.requirements || []).length,
-)
 const hasProceedContent = computed(
     () => hasRequirements.value || hasStepData.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
 )
@@ -696,7 +691,7 @@ function reqHintText(r) {
     return ''
 }
 
-function reqHintType(r) {
+function reqHintType() {
     return 'error'
 }
 

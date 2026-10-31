@@ -1984,11 +1984,6 @@ import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import AppToast from "@/components/AppToast.vue";
 import SlaDurationInput from "@/components/SlaDurationInput.vue";
-import {
-    wfStatusColor,
-    wfStatusIcon,
-    wfStatusLabel,
-} from "@/utils/workflowStatus";
 
 const { defs, loading, fetchDefinitions, createDraft, publish, makeLive } =
     useWorkflows();
@@ -2082,44 +2077,6 @@ onBeforeUnmount(() => {
 const saving = ref(false);
 const route = useRoute();
 const router = useRouter();
-
-const guideSections = [
-    {
-        title: "TRANSACTION TYPES",
-        rows: [
-            {
-                term: "TRANSACTION TYPE",
-                text: "CURRENT = LIVE FLOW, DRAFT = EDITABLE, PREVIOUS = RETIRED",
-            },
-            {
-                term: "STATUS",
-                text: "DRAFT = EDITABLE, PUBLISHED = LIVE, ARCHIVED = RETIRED",
-            },
-            { term: "NAME", text: "TRANSACTION TYPE LABEL" },
-        ],
-    },
-    {
-        title: "STEPS",
-        rows: [
-            { term: "FLAGS", text: "START = FIRST STEP, END = FINAL STEP" },
-            { term: "SLA (MIN)", text: "TARGET MINUTES TO FINISH THE STEP" },
-            { term: "STAGE", text: "WHICH OFFICE / PHASE HANDLES IT" },
-        ],
-    },
-    {
-        title: "ROUTES",
-        rows: [
-            {
-                term: "FROM → TO",
-                text: "FORWARD ONLY: WHICH STEP MOVES TO WHICH ON AN ACTION",
-            },
-            {
-                term: "GOING BACK",
-                text: "JUMP TO A VISITED STATION (RECORDED AS RETURNED)",
-            },
-        ],
-    },
-];
 
 const roleOptions = computed(
     () =>
@@ -2673,83 +2630,9 @@ function isLiveDef(def) {
     );
 }
 
-const historyDefs = computed(() =>
-    (defs.value || []).filter(
-        (d) => !activeDef.value || Number(d.id) !== Number(activeDef.value.id),
-    ),
-);
-
 function selectEffective() {
     activeDef.value =
         draftDef.value || currentDef.value || defs.value[0] || null;
-}
-
-// Staged editing: dialogs mutate the working copy only. Nothing reaches
-// the network until Save version (bulk apply). No draft is created, no
-// publish attempted — the viewed/working rows ARE the edit target.
-function workingRouteFor(route) {
-    if (!route) return route;
-    const rows = tableRoutes.value || [];
-    const byId = rows.find((r) => String(r.id) === String(route.id));
-    if (byId) return byId;
-    const stepsOf = (id) =>
-        (tableSteps.value || []).find((s) => String(s.id) === String(id))?.code;
-    const from = stepsOf(route.from_step_id);
-    const to = stepsOf(route.to_step_id);
-    return (
-        rows.find((r) => {
-            const rf = (tableSteps.value || []).find(
-                (s) => String(s.id) === String(r.from_step_id),
-            )?.code;
-            const rt = (tableSteps.value || []).find(
-                (s) => String(s.id) === String(r.to_step_id),
-            )?.code;
-            return (
-                rf === from && rt === to && r.action_code === route.action_code
-            );
-        }) || route
-    );
-}
-
-async function viewDef(def) {
-    if (!def) return;
-    const t = selectedTypeId.value;
-    // Tables render the working copy; viewing history while staged would
-    // show one version and edit another — confirm first (staging survives
-    // a "view anyway", reseed only happens when clean).
-    if (t && staging.isDirty(t)) {
-        const viewAnyway = await confirm({
-            title: "View this version?",
-            message:
-                "You have unsaved staged changes. View this version anyway? Your staged edits stay until you Save or Discard.",
-            confirmLabel: "View anyway",
-            cancelLabel: "Stay",
-        });
-        if (!viewAnyway) return;
-    }
-    selectEffective();
-    return activeDef.value;
-}
-
-// Publish the working draft. A flow missing start/end stays a draft
-// with a plain message instead of an error (mid-construction state).
-async function goLive() {
-    await fetchDefinitions(selectedTypeId.value);
-    selectEffective();
-    try {
-        await publish(activeDef.value.id, {});
-        await fetchDefinitions(selectedTypeId.value);
-        selectEffective();
-        notice.value = "Saved — live for new transactions.";
-    } catch (e) {
-        const msg = e?.response?.data?.message || "";
-        if (e?.response?.status === 422 && /start step|end step/i.test(msg)) {
-            notice.value =
-                "Saved as draft — add a start and an end step to go live.";
-        } else {
-            throw e;
-        }
-    }
 }
 
 // Add Step: staged into the working copy only — the draft is created (or
@@ -2810,25 +2693,6 @@ async function editStep(item) {
             e?.response?.data?.message || "Failed to prepare step form.";
     } finally {
         saving.value = false;
-    }
-}
-
-async function goStepFields(item) {
-    error.value = "";
-    notice.value = "";
-    try {
-        const oldSteps = activeDef.value?.steps || [];
-        const fresh = stepInDraft(oldSteps, item);
-        const q = selectedTypeId.value
-            ? { type: Number(selectedTypeId.value) }
-            : {};
-        router.push({
-            path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/fields`,
-            query: q,
-        });
-    } catch (e) {
-        error.value =
-            e?.response?.data?.message || "Failed to open step fields.";
     }
 }
 

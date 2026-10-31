@@ -9,6 +9,22 @@
                     <v-icon color="#005EED">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
                 </v-avatar>
                 <span class="text-h6 font-weight-bold">{{ isHistory ? "Transaction History" : "Transactions" }}</span>
+                <!-- Lit label: how many of the clerk's transactions are due. Red
+                     glow when any is past its time limit, amber when some are
+                     almost due, unlit when none. Opens the Task page. -->
+                <button
+                    v-if="showDue"
+                    type="button"
+                    class="due-lamp"
+                    :class="dueTone"
+                    :title="dueTitle"
+                    :aria-label="dueTitle"
+                    @click="router.push('/portal/approvals')"
+                >
+                    <span class="due-dot" aria-hidden="true"></span>
+                    <b>{{ dueCount }}</b>
+                    <span v-if="!xs" class="due-text">{{ dueCount === 1 ? "due transaction" : "due transactions" }}</span>
+                </button>
                 <v-spacer />
                 <v-btn
                     variant="outlined"
@@ -268,6 +284,7 @@ import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
+import { useDueCount } from "@/composables/useDueCount";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import TableLoader from "@/components/TableLoader.vue";
 import StepProgress from "@/components/StepProgress.vue";
@@ -291,6 +308,17 @@ const hasApprovals = computed(() => canUseApprovals(user.value));
 // Transaction History (/portal/history) is this page in archive mode:
 // completed rows only. The normal page lists open rows only.
 const isHistory = computed(() => !!route.meta.history);
+
+// Due label (clerks, on the live list only; History has nothing pending).
+const showDue = computed(() => hasApprovals.value && !isHistory.value);
+const { pastDue, almostDue } = useDueCount({ enabled: showDue });
+const dueCount = computed(() => pastDue.value + almostDue.value);
+const dueTone = computed(() => (pastDue.value ? "is-past" : almostDue.value ? "is-almost" : "is-none"));
+const dueTitle = computed(() =>
+    dueCount.value
+        ? `${pastDue.value} past due, ${almostDue.value} almost due. Open Task.`
+        : "No transactions are due right now.",
+);
 const tab = ref(isHistory.value || hasApprovals.value || route.query.tab === "office" ? "office" : "action");
 const items = ref([]);
 const loading = ref(true);
@@ -519,5 +547,56 @@ useSmartPoll(() => {
 .lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
 .lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
     color: #ffffff !important;
+}
+
+/* Lit "due" label in the header: glows red when something is past due. */
+.due-lamp {
+    --lamp: #8a94a6;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 14px 0 12px;
+    border: 1px solid color-mix(in srgb, var(--lamp) 55%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--lamp) 12%, rgb(var(--v-theme-surface)));
+    color: var(--lamp);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.due-lamp b {
+    font-size: 1rem;
+}
+.due-lamp.is-past {
+    --lamp: #e5322d;
+}
+.due-lamp.is-almost {
+    --lamp: #d97a00;
+}
+.due-lamp.is-past,
+.due-lamp.is-almost {
+    box-shadow: 0 0 14px color-mix(in srgb, var(--lamp) 45%, transparent);
+    animation: due-glow 2.2s ease-in-out infinite;
+}
+.due-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--lamp);
+}
+.due-lamp.is-past .due-dot,
+.due-lamp.is-almost .due-dot {
+    box-shadow: 0 0 9px 2px var(--lamp);
+}
+.due-lamp:focus-visible {
+    outline: 2px solid var(--lamp);
+    outline-offset: 2px;
+}
+@keyframes due-glow {
+    50% {
+        box-shadow: 0 0 24px 3px color-mix(in srgb, var(--lamp) 55%, transparent);
+    }
 }
 </style>

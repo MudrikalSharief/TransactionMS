@@ -6,7 +6,6 @@ Centered card on pastel gradient, seal `/zamboanga-seal.png`, email + password (
 ## Dashboard (`pages/Dashboard.vue`)
 - Greeting by Manila hour + `{stats.mine} in my queue` chip
 - 3 stat cards: Transaction Types, Transactions (superadmin: all, else = mine), My Transactions
-- 2 donut charts (`DonutChart.vue`): by type, by step
 - Recent Activity (4 newest, click -> `/transactions/:id` if superadmin else `/my/transactions/:id`)
 - Data via `useCache` (`transactionTypes/myTransactions/transactions`)
 

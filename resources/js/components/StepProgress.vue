@@ -272,15 +272,6 @@ function moveFor(s) {
 </script>
 
 <style scoped>
-.step-label {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.35;
-    overflow-wrap: break-word;
-    font-size: 0.85rem;
-}
 .step-link {
     flex: 1 1 24px;
     min-width: 16px;

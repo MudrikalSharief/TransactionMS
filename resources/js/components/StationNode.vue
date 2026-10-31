@@ -394,14 +394,6 @@ const avatarLetter = computed(() => String(moveBy.value || '?').trim().charAt(0)
     color: #9ca0a8;
     margin-bottom: 8px;
 }
-.hover-sec-label {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #9ca0a8;
-    margin-bottom: 8px;
-}
 .hover-muted { font-size: 13px; color: #9ca0a8; }
 .hover-panel {
     background: #25282d;

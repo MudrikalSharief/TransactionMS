@@ -17,7 +17,7 @@
 ## Frontend layout (`resources/js/`)
 - `app.js`: mounts `AppShell.vue` with router + Vuetify
 - `router/index.js`: `/login`, `/ (dashboard)`, `/transactions`, `/transactions/:id`, `/my/transactions`, `/my/transactions/:id`, `/admin/* (users, roles, transaction-types, workflows, fields, requirements, gov-references, step-fields, step-requirements)`. Guard: `init() once via GET /api/auth/me`, redirect to `login` if `requiresAuth` and no user.
-- `composables/`: `useApi (axios + csrf())`, `useAuth (user, init, login, logout)`, `useTransactions, useMyTransactions, useTransactionTypes, useWorkflows, useAdminUsers, useRoles, useFieldDefinitions, useRequirementDefinitions, useStepFields, useStepRequirements, useGovernmentReferences, useCache`
+- `composables/`: `useApi (axios + csrf())`, `useAuth (user, init, login, logout)`, `useTransactions, useMyTransactions, useTransactionTypes, useWorkflows, useAdminUsers, useRoles, useFieldDefinitions, useRequirementDefinitions, useStepRequirements, useGovernmentReferences, useCache`
 - `components/AppShell.vue`: app bar (search, Manila clock, weather `/api/weather` -> Open-Meteo `6.9214,122.0790`, user chip, logout) + rail drawer. Hides chrome on `login`.
 - `pages/`: `Login.vue`, `Dashboard.vue`, `transactions/TransactionList|Detail.vue`, `my/MyTransactionList|Detail.vue`, `admin/*.vue`
 - `plugins/vuetify.js`: `pixivLight` theme (`primary #0096FA`), mdi icons
