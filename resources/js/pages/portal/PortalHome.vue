@@ -122,7 +122,7 @@
                         <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                             <v-icon color="#005EED" size="20">mdi-office-building-outline</v-icon>
                         </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">In My Office</span>
+                        <span class="text-subtitle-1 font-weight-bold">Office Transactions</span>
                         <v-spacer />
                         <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openList('office')">
                             View all
