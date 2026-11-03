@@ -310,7 +310,7 @@
             </template>
         </v-navigation-drawer>
 
-        <v-main class="app-main">
+        <v-main class="app-main" :class="{ 'app-main--fit': showAuthUi && route.meta?.fit }">
             <OfflineBar />
             <!-- The tracker's flag backdrop behind every page; the viewer
                  pages draw their own (search dims it as results appear). -->
@@ -326,7 +326,7 @@
                 <router-view />
             </template>
             <div v-if="showAuthUi" class="app-foot-spacer" aria-hidden="true"></div>
-            <AppFooter v-if="showAuthUi" />
+            <AppFooter v-if="showAuthUi" :fit="!!route.meta?.fit" />
         </v-main>
 
         <v-dialog v-model="confirmLogout" max-width="640">
@@ -356,6 +356,7 @@
         <ConfirmDialog />
         <AppToaster />
         <LoginApprovalNotice />
+        <LoginOverdueNotice />
     </v-app>
 </template>
 
@@ -370,6 +371,7 @@ import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
+import LoginOverdueNotice from "@/components/LoginOverdueNotice.vue";
 import OfflineBar from "@/components/OfflineBar.vue";
 import { useMotion } from "@/composables/useMotion";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
@@ -452,7 +454,7 @@ const navGroups = computed(() => {
             });
         }
         // Completed transactions move here from Transactions.
-        work.push({ title: "Transaction History", icon: "mdi-archive-outline", to: "/portal/history" });
+        work.push({ title: "Transaction Archive", icon: "mdi-archive-outline", to: "/portal/history" });
         return [
             { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
             { title: "Work", items: work },
@@ -596,7 +598,7 @@ const searchPages = computed(() => {
             ...(showApprovals.value
                 ? [{ title: "Task", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
                 : []),
-            { title: "Transaction History", subtitle: "Page", icon: "mdi-archive-outline", to: "/portal/history" },
+            { title: "Transaction Archive", subtitle: "Page", icon: "mdi-archive-outline", to: "/portal/history" },
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
     }

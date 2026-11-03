@@ -78,14 +78,14 @@ export function createRouter() {
                 path: "/",
                 name: "dashboard",
                 component: Dashboard,
-                meta: { requiresAuth: true, title: "Dashboard" },
+                meta: { requiresAuth: true, title: "Dashboard", fit: true },
             },
 
             {
                 path: "/portal",
                 name: "portal",
                 component: PortalHome,
-                meta: { requiresAuth: true, title: "Home", kind: "staff" },
+                meta: { requiresAuth: true, title: "Home", kind: "staff", fit: true },
             },
             {
                 path: "/portal/transactions",
@@ -98,7 +98,7 @@ export function createRouter() {
                 path: "/portal/history",
                 name: "portal.history",
                 component: PortalTransactions,
-                meta: { requiresAuth: true, title: "Transaction History", kind: "staff", history: true },
+                meta: { requiresAuth: true, title: "Transaction Archive", kind: "staff", history: true },
             },
             {
                 // My Profile: every signed-in account (viewers are sent back

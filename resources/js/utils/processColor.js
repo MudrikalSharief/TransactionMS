@@ -38,3 +38,14 @@ export function isPastLimit(tx) {
     if (!limit || !since || tx?.is_done) return false
     return Date.now() - new Date(since).getTime() > limit * 60000
 }
+
+// Open papers near or past their station's time limit: 'overdue' once the
+// limit has passed, 'due' with a quarter or less of it left, else null.
+export function dueState(tx, now = Date.now()) {
+    const limit = Number(tx?.current_step?.sla_minutes || 0)
+    const since = tx?.entered_at || tx?.created_at
+    if (!limit || !since || tx?.is_done) return null
+    const left = new Date(since).getTime() + limit * 60000 - now
+    if (left < 0) return 'overdue'
+    return left <= limit * 60000 * 0.25 ? 'due' : null
+}

@@ -1,12 +1,11 @@
 <template>
-    <div>
-        <v-row align="stretch">
-            <!-- Welcome: who you are, which office, which roles -->
-            <v-col cols="12">
+    <div class="fit-page">
+        <!-- Welcome: who you are, which office, which roles -->
+        <div>
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel">
                     <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 lgu-head">
-                        <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                            <v-icon color="#005EED" size="24">mdi-home-city-outline</v-icon>
+                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                            <v-icon color="#005EED" size="20">mdi-home-city-outline</v-icon>
                         </v-avatar>
                         <!-- The header stays one line: on phones the name and office
                              shorten with "…", role chips hide and the button
@@ -18,6 +17,18 @@
                             </div>
                         </div>
                         <v-spacer />
+                        <!-- Period drives the number cards and the graph. -->
+                        <v-select
+                            v-model="period"
+                            :items="periodOptions"
+                            label="Period"
+                            prepend-inner-icon="mdi-calendar-range"
+                            variant="outlined"
+                            density="compact"
+                            rounded="lg"
+                            hide-details
+                            class="home-period"
+                        />
                         <v-chip
                             v-for="r in user?.roles || []"
                             :key="r.code"
@@ -53,10 +64,9 @@
                         role. Ask an administrator to assign your office.
                     </v-alert>
                 </v-card>
-            </v-col>
+        </div>
 
-            <!-- Numbers for the user's office / role -->
-            <v-col cols="12">
+        <!-- Numbers for the user's office / role -->
                 <div class="portal-tiles">
                     <StatCard
                         v-for="tile in tiles"
@@ -72,21 +82,21 @@
                         @activate="tile.go"
                     />
                 </div>
-            </v-col>
 
+        <div class="dash-grid">
             <!-- Weekly transactions per process, limited to the account's
                  office and role (needs an office to have anything to show). -->
-            <v-col v-if="user?.office" cols="12" :lg="hasApprovals ? 8 : 12" class="d-flex">
-                <ProcessGraphCard />
-            </v-col>
+            <div v-if="user?.office" class="dash-slot" :style="{ '--span': hasApprovals ? 8 : 12 }">
+                <ProcessGraphCard :period="period" />
+            </div>
 
             <!-- Waiting on my role: end users only. Clerks have the Approvals
                  page for this, so it would be a duplicate there. -->
-            <v-col v-if="!hasApprovals" cols="12" lg="6" class="d-flex">
+            <div v-if="!hasApprovals" class="dash-slot" style="--span: 6">
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
-                    <v-card-title class="d-flex align-center pa-4 lgu-head">
-                        <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                            <v-icon color="#005EED" size="24">mdi-tray-full</v-icon>
+                    <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                            <v-icon color="#005EED" size="20">mdi-tray-full</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
                         <v-spacer />
@@ -94,23 +104,23 @@
                             View all
                         </v-btn>
                     </v-card-title>
-                    <v-card-text class="pa-2">
+                    <v-card-text v-fit-body="'action'" class="pa-1 dash-body">
                         <TxMiniList
-                            :rows="actionRows"
+                            :rows="actionRows.slice(0, rows('action', LIST_ROW_PX, SUMMARY_ROWS))"
                             :loading="loading"
                             empty="Nothing is waiting on you right now."
                             @open="(tx) => router.push(`/my/transactions/${tx.id}`)"
                         />
                     </v-card-text>
                 </v-card>
-            </v-col>
+            </div>
 
-            <!-- In my office (oldest 3 first); full width when it is the only list -->
-            <v-col cols="12" :lg="hasApprovals ? (user?.office ? 4 : 12) : 6" class="d-flex">
+            <!-- In my office (oldest first); full width when it is the only list -->
+            <div class="dash-slot" :style="{ '--span': hasApprovals ? (user?.office ? 4 : 12) : 6 }">
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
-                    <v-card-title class="d-flex align-center pa-4 lgu-head">
-                        <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                            <v-icon color="#005EED" size="24">mdi-office-building-outline</v-icon>
+                    <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                            <v-icon color="#005EED" size="20">mdi-office-building-outline</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">In My Office</span>
                         <v-spacer />
@@ -118,41 +128,50 @@
                             View all
                         </v-btn>
                     </v-card-title>
-                    <v-card-text class="pa-2">
+                    <v-card-text v-fit-body="'office'" class="pa-1 dash-body">
                         <TxMiniList
-                            :rows="officeRows"
+                            :rows="officeRows.slice(0, rows('office', LIST_ROW_PX, SUMMARY_ROWS))"
                             :loading="loading"
                             empty="No transactions in your office yet."
                             @open="(tx) => router.push(`/transactions/${tx.id}`)"
                         />
                     </v-card-text>
                 </v-card>
-            </v-col>
-        </v-row>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
+import { useFitScreen } from "@/composables/useFitScreen";
 import StatCard from "@/components/StatCard.vue";
 import TxMiniList from "@/components/portal/TxMiniList.vue";
 import ProcessGraphCard from "@/components/portal/ProcessGraphCard.vue";
+import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
 
 const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 const { xs } = useDisplay();
+const { vFitBody, rows } = useFitScreen();
 
 const loading = ref(true);
 const summary = ref(null);
 const actionTotal = ref(0);
 const actionRows = ref([]);
 const officeRows = ref([]);
+
+// Period filter (same options as the admin Dashboard): the In process,
+// Completed and Created by me cards and the graph follow it. The
+// "Needs my action" queue and the lists always show what is open now.
+const period = ref("all");
+const periodOptions = computed(() => dashPeriodOptions());
 
 const canCreate = computed(() => user.value?.office != null);
 // Clerks (anyone who may approve) work from the Approvals page, so the
@@ -202,36 +221,55 @@ function openList(tab) {
     router.push({ path: "/portal/transactions", query: { tab } });
 }
 
-// Home is a summary: each list shows at most 3 rows, the oldest first
-// (ascending by creation time). The lists come newest-first from the server,
-// so the oldest rows sit on the last page(s): read page 1 for the total,
-// then the last page, plus the one before it when the last page is short.
+// Home is a summary: each list shows the rows that fit its card (3 on small
+// screens), the oldest first (ascending by creation time). The lists come
+// newest-first from the server, so the oldest rows sit on the last page(s):
+// read page 1 for the total, then the last page, plus the one before it when
+// the last page is short.
 const SUMMARY_ROWS = 3;
+const FETCH_ROWS = 12;
+const LIST_ROW_PX = 46;
 
 const byCreatedAsc = (a, b) =>
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || Number(a.id) - Number(b.id);
 
 async function oldestRows(url) {
-    const params = { per_page: SUMMARY_ROWS };
+    const params = { per_page: FETCH_ROWS };
     const first = await api.get(url, { params });
     const total = first.data?.meta?.total ?? (first.data?.data ?? []).length;
     const last = first.data?.meta?.last_page ?? 1;
     let rows = first.data?.data ?? [];
     if (last > 1) {
-        const pages = total % SUMMARY_ROWS ? [last - 1, last] : [last];
+        const pages = total % FETCH_ROWS ? [last - 1, last] : [last];
         const res = await Promise.all(pages.map((page) => api.get(url, { params: { ...params, page } })));
         rows = res.flatMap((r) => r.data?.data ?? []);
     }
-    return { rows: [...rows].sort(byCreatedAsc).slice(0, SUMMARY_ROWS), total };
+    return { rows: [...rows].sort(byCreatedAsc).slice(0, FETCH_ROWS), total };
 }
 
+// Latest request wins, so a quick period switch never shows older numbers.
+let summaryRequest = 0;
+const fetchSummary = () => api.get("/api/portal/summary", { params: { period: period.value } });
+
+async function loadSummary() {
+    const mine = ++summaryRequest;
+    try {
+        const res = await fetchSummary();
+        if (mine === summaryRequest) summary.value = res.data;
+    } catch {
+        /* keep the last numbers; the next poll retries */
+    }
+}
+watch(period, loadSummary);
+
 async function load() {
+    const mine = ++summaryRequest;
     const [sum, queue, office] = await Promise.allSettled([
-        api.get("/api/portal/summary"),
+        fetchSummary(),
         hasApprovals.value ? Promise.resolve({ rows: [], total: 0 }) : oldestRows("/api/transactions"),
         oldestRows("/api/admin/transactions"),
     ]);
-    if (sum.status === "fulfilled") summary.value = sum.value.data;
+    if (sum.status === "fulfilled" && mine === summaryRequest) summary.value = sum.value.data;
     if (queue.status === "fulfilled") {
         actionRows.value = queue.value.rows;
         actionTotal.value = queue.value.total;
@@ -255,9 +293,13 @@ useSmartPoll(load);
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+.home-period {
+    flex: 0 1 210px;
+    min-width: 150px;
+}
 .portal-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
 }
 </style>
