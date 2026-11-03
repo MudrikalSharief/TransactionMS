@@ -686,8 +686,13 @@
                         <div class="sd-prev-title">Previous data</div>
                         <div class="sd-prev-sub">
                             Select a data field from
-                            {{ previousStep?.name || "the previous step" }} to
-                            reuse it in {{ selectedStep?.name || "this step" }}.
+                            <span class="sd-step-chip">{{
+                                stepLabel(previousStep, "the previous step")
+                            }}</span>
+                            to reuse it in
+                            <span class="sd-step-chip">{{
+                                stepLabel(selectedStep, "this step")
+                            }}</span>.
                         </div>
                     </div>
                     <v-btn
@@ -1500,6 +1505,14 @@ const previousStep = computed(() =>
         ? orderedSteps.value[selectedStepIndex.value - 1]
         : null,
 );
+
+function stepLabel(step, fallback) {
+    if (!step) return fallback;
+    const n = step.order_number;
+    const name = step.name || step.code || "";
+    if (n === null || n === undefined || n === "") return name || fallback;
+    return `Step ${n}${name ? ` · ${name}` : ""}`;
+}
 
 function isFieldOnStep(item) {
     return (items.value || []).some(
@@ -2365,6 +2378,21 @@ onBeforeUnmount(() => {
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.sd-step-chip {
+    display: inline-block;
+    max-width: 100%;
+    padding: 2px 8px;
+    margin: 0 1px;
+    border: 1px solid rgba(var(--v-theme-primary), 0.28);
+    background: rgba(var(--v-theme-primary), 0.1);
+    color: rgb(var(--v-theme-primary));
+    font-weight: 700;
+    line-height: 1.45;
+    vertical-align: baseline;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .sd-prev-x {
