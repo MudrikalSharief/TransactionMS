@@ -11,6 +11,7 @@ const AdminOffices = () => import("@/pages/admin/Offices.vue");
 const AdminOfficeSteps = () => import("@/pages/admin/OfficeSteps.vue");
 const AdminTransactionTypes = () => import("@/pages/admin/TransactionTypes.vue");
 const AdminReports = () => import("@/pages/admin/Reports.vue");
+const AdminActivityLog = () => import("@/pages/admin/ActivityLog.vue");
 const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
 const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
 const AdminFields = () => import("@/pages/admin/Fields.vue");
@@ -174,6 +175,12 @@ export function createRouter() {
                 path: "/admin/reports",
                 component: AdminReports,
                 meta: { requiresAuth: true, officeAdmin: true, title: "Reports" },
+            },
+            {
+                // Activity log (read-only); setup changes for superadmins only.
+                path: "/admin/activity",
+                component: AdminActivityLog,
+                meta: { requiresAuth: true, officeAdmin: true, title: "Activity Log" },
             },
             {
                 path: "/admin/government-references",
