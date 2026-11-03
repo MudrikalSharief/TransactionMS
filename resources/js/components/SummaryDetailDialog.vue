@@ -113,6 +113,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { motionOff } from '@/composables/useMotion'
 import { useDisplay, useTheme } from 'vuetify'
 import { useApi } from '@/composables/useApi'
 import { fetchSummaryRows, rowView, summaryMeta } from '@/composables/useSummaryRows'
@@ -201,8 +202,7 @@ const revealed = ref(false)
 const shownCount = ref(0)
 let closing = null
 
-const reduceMotion = () =>
-    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+const reduceMotion = () => motionOff()
 
 const panelEl = () => panelRef.value?.$el ?? panelRef.value
 

@@ -225,6 +225,7 @@ import {
     watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { motionOff } from "@/composables/useMotion";
 import { useApi } from "@/composables/useApi";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import LoadingVeil from "@/components/LoadingVeil.vue";
@@ -898,10 +899,7 @@ function onMiniPointerUp(event) {
 }
 
 function scrollBehavior() {
-    if (typeof window === "undefined") return "auto";
-    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth";
+    return motionOff() ? "auto" : "smooth";
 }
 
 function onMiniKeydown(event) {

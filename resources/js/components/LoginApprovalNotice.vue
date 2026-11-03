@@ -114,7 +114,7 @@ import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals, userKind } from "@/composables/useAuth";
-import { takeLoginNotice, approvalsSeenAt, markApprovalsSeen } from "@/composables/useLoginNotice";
+import { takeLoginNotice, approvalsSeenAt, markApprovalsSeen, trayBusy } from "@/composables/useLoginNotice";
 
 const route = useRoute();
 const router = useRouter();
@@ -228,21 +228,27 @@ watch(
         const u = user.value;
         if (!id || userKind(u) !== "staff" || !canUseApprovals(u)) return;
         if (!takeLoginNotice(id)) return;
+        trayBusy.value = true;
         try {
             rows.value = await loadAll();
         } catch {
+            trayBusy.value = false;
             return;
         }
         seenAt.value = approvalsSeenAt(id);
         now.value = Date.now();
         if (total.value > 0) open.value = true;
-        else markApprovalsSeen(id);
+        else {
+            markApprovalsSeen(id);
+            trayBusy.value = false;
+        }
     },
     { immediate: true },
 );
 
 function markSeen() {
     if (user.value?.id) markApprovalsSeen(user.value.id, now.value);
+    trayBusy.value = false;
 }
 
 function openApprovals() {

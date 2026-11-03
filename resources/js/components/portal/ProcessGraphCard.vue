@@ -3,23 +3,13 @@
          the server lets this account see: its office's transactions plus
          rows waiting on one of its roles at its office. -->
     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
-        <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 lgu-head">
-            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                <v-icon color="#005EED" size="24">mdi-chart-bar</v-icon>
+        <v-card-title class="d-flex align-center ga-2 lgu-head dash-head">
+            <v-avatar color="white" rounded="0" size="34" class="lgu-head-avatar">
+                <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
             </v-avatar>
-            <span class="text-subtitle-1 font-weight-bold">{{ title }}</span>
+            <span class="text-subtitle-1 font-weight-bold dash-head-title">{{ title }}</span>
             <v-spacer />
-            <v-select
-                v-model="period"
-                :items="monthOptions"
-                label="Month"
-                prepend-inner-icon="mdi-calendar-blank-outline"
-                variant="outlined"
-                density="compact"
-                rounded="lg"
-                hide-details
-                class="graph-filter"
-            />
+            <!-- The period comes from the Home page's Period filter. -->
             <v-select
                 v-model="processFilter"
                 :items="processOptions"
@@ -42,12 +32,12 @@
                 </template>
             </v-select>
         </v-card-title>
-        <v-card-text class="pa-3 d-flex flex-column" style="flex: 1 1 auto">
+        <v-card-text class="pa-2 d-flex flex-column dash-body">
             <GroupedBarChart
                 :series="series"
-                :group-labels="weekLabels"
+                :group-labels="groupLabels"
                 :loading="loading"
-                :height="190"
+                :height="fit ? 80 : 190"
                 :empty-text="emptyText"
                 :aria-label="ariaLabel"
             />
@@ -61,10 +51,18 @@ import { useTheme } from 'vuetify'
 import { useApi } from '@/composables/useApi'
 import { useAuth } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
+import { useFitScreen } from '@/composables/useFitScreen'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
+import { periodBuckets, periodLabel as labelOf, periodStart, bucketIndexOf, bucketUnit } from '@/utils/dashPeriod'
+
+// 'all' | 'this_week' | 'YYYY-MM' (the Home page's Period filter).
+const props = defineProps({
+    period: { type: String, default: 'all' },
+})
 
 const { api } = useApi()
 const { user } = useAuth()
+const { fit } = useFitScreen()
 
 // Same palette as the admin dashboard graph; gray is the folded "Other" bar.
 const SERIES_PALETTE = {
@@ -74,9 +72,8 @@ const SERIES_PALETTE = {
 const OTHER_PROCESSES = 'Other processes'
 const OTHER_COLOR = '#898781'
 const MAX_PROCESS_BARS = SERIES_PALETTE.light.length
-const DAY_MS = 86400000
 // The list endpoint pages newest first; stop once a page reaches before the
-// chosen month (or at this many pages).
+// period's start (or at this many pages).
 const PER_PAGE = 100
 const MAX_PAGES = 10
 
@@ -88,57 +85,23 @@ const title = computed(() =>
     officeCode.value ? `${officeCode.value} Transactions per Process` : 'Transactions per Process',
 )
 
-const monthValue = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-const monthOptions = computed(() => {
-    const now = new Date()
-    return Array.from({ length: 12 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        return { title: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }), value: monthValue(d) }
-    })
-})
-const period = ref(monthValue(new Date()))
-const periodLabel = computed(() => monthOptions.value.find((o) => o.value === period.value)?.title || period.value)
+const periodLabel = computed(() => labelOf(props.period))
 
-function weekLabel(start, endExclusive) {
-    const last = new Date(endExclusive.getTime() - DAY_MS)
-    const md = (d) => d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
-    if (last.getTime() <= start.getTime()) return md(start)
-    return start.getMonth() === last.getMonth() ? `${md(start)}–${last.getDate()}` : `${md(start)}–${md(last)}`
-}
-
-// Calendar weeks of the chosen month (1–7, 8–14, …), never past today.
-const weeks = computed(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const endOfToday = new Date(today.getTime() + DAY_MS)
-    const [y, m] = period.value.split('-').map(Number)
-    const monthEnd = new Date(y, m, 1)
-    const out = []
-    for (let start = new Date(y, m - 1, 1); start < monthEnd && start < endOfToday;) {
-        const end = new Date(Math.min(start.getTime() + 7 * DAY_MS, monthEnd.getTime()))
-        out.push({ start, end, label: weekLabel(start, end) })
-        start = end
-    }
-    return out
-})
-const weekLabels = computed(() => weeks.value.map((w) => w.label))
-
-function weekIndexOf(tx) {
-    if (!tx.created_at) return -1
-    const t = new Date(tx.created_at).getTime()
-    return weeks.value.findIndex((w) => t >= w.start.getTime() && t < w.end.getTime())
-}
-
-// ---- Data: the account's visible transactions for the chosen month ----
+// ---- Data: the account's visible transactions for the period ----
 const rows = ref([])
 const loading = ref(true)
 let request = 0
 
+// One bar group per day (this week), week (a month) or month (all time).
+const oldest = computed(() => rows.value.reduce((o, tx) => (tx.created_at && (!o || tx.created_at < o) ? tx.created_at : o), null))
+const groups = computed(() => periodBuckets(props.period, { oldest: oldest.value }))
+const groupLabels = computed(() => groups.value.map((g) => g.label))
+const unit = computed(() => bucketUnit(props.period, groups.value))
+
 async function load({ quiet = false } = {}) {
     const mine = ++request
     if (!quiet) loading.value = true
-    const [y, m] = period.value.split('-').map(Number)
-    const monthStart = new Date(y, m - 1, 1).getTime()
+    const monthStart = periodStart(props.period)?.getTime() ?? -Infinity
     const collected = []
     try {
         for (let page = 1; page <= MAX_PAGES; page++) {
@@ -157,19 +120,19 @@ async function load({ quiet = false } = {}) {
     }
 }
 
-watch(period, () => load())
+watch(() => props.period, () => load())
 onMounted(() => load())
 useSmartPoll(() => load({ quiet: true }))
 
-// Per-process weekly counts, busiest first.
+// Per-process counts per bar group, busiest first.
 const ranking = computed(() => {
     const byName = new Map()
     for (const tx of rows.value) {
-        const wi = weekIndexOf(tx)
+        const wi = bucketIndexOf(groups.value, tx.created_at)
         if (wi < 0) continue
         const name = tx.transaction_type?.name || tx.transaction_type_name
         if (!name) continue
-        if (!byName.has(name)) byName.set(name, weeks.value.map(() => 0))
+        if (!byName.has(name)) byName.set(name, groups.value.map(() => 0))
         byName.get(name)[wi]++
     }
     return [...byName.entries()]
@@ -206,7 +169,7 @@ const series = computed(() => {
         out.push({
             label: OTHER_PROCESSES,
             color: OTHER_COLOR,
-            values: weeks.value.map((_, wi) => rest.reduce((s, p) => s + p.values[wi], 0)),
+            values: groups.value.map((_, wi) => rest.reduce((s, p) => s + p.values[wi], 0)),
         })
     }
     return out
@@ -218,13 +181,22 @@ const emptyText = computed(() =>
         : `No transactions in ${periodLabel.value}`,
 )
 const ariaLabel = computed(() =>
-    `${officeCode.value ? officeCode.value + ' t' : 'T'}ransactions per process per week, ${periodLabel.value}`,
+    `${officeCode.value ? officeCode.value + ' t' : 'T'}ransactions per process per ${unit.value}, ${periodLabel.value}`,
 )
 </script>
 
 <style scoped>
+/* The filters give up width before the title does. */
 .graph-filter {
-    flex: 0 1 240px;
-    min-width: 160px;
+    flex: 0 20 224px;
+    min-width: 120px;
+}
+.graph-filter :deep(.v-field__input) {
+    font-size: 0.875rem;
+}
+@container (max-width: 720px) {
+    .graph-filter :deep(.v-field__prepend-inner) {
+        display: none;
+    }
 }
 </style>

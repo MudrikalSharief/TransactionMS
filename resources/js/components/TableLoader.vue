@@ -3,7 +3,7 @@
          swapping loader <-> table never moves surrounding layout.
          head (34) = thead height, body (rows x 60) = data rows, foot =
          footer height. Totals 510 by default = .table-stage min-height. -->
-    <div class="table-loader d-flex flex-column" :style="{ minHeight: totalHeight + 'px' }">
+    <div class="table-loader motion-keep d-flex flex-column" :style="{ minHeight: totalHeight + 'px' }">
         <div v-if="!compact" class="loader-head" aria-hidden="true" />
         <div class="loader-body d-flex flex-column align-center justify-center" :style="compact ? null : { minHeight: bodyHeight + 'px' }">
             <div class="orbit">

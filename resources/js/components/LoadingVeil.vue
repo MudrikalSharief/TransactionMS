@@ -9,7 +9,7 @@
     <transition name="veil-fade">
         <div
             v-if="show"
-            class="page-veil"
+            class="page-veil motion-keep"
             role="status"
             aria-live="polite"
             :aria-label="`Loading ${label}`"

@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { useAuth } from '@/composables/useAuth'
 import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, storedUserId, slimTx } from '@/composables/useCache'
+import { warmOfficeIcons } from '@/utils/officeIcons'
 
 export function useTransactions() {
   const { api } = useApi()
@@ -15,6 +16,9 @@ export function useTransactions() {
   const _cached = readCache(key())
   const items = ref(_cached ?? [])
   const loading = ref(_cached == null)
+  // Warm the originating-office icons from cached rows immediately, so the
+  // table's first paint reuses the service-worker/browser cache.
+  warmOfficeIcons((_cached ?? []).map((tx) => tx?.office))
   // Server pagination meta (Laravel paginator). Tables bind to items;
   // meta drives total/pages without rendering unpaged thousands of rows.
   const meta = ref({ total: 0, page: 1, lastPage: 1, perPage: 25 })
@@ -23,6 +27,7 @@ export function useTransactions() {
     const raw = res.data
     const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : []
     items.value = rows
+    warmOfficeIcons(rows.map((tx) => tx?.office))
     if (raw && typeof raw === 'object' && (raw.meta || raw.total !== undefined)) {
       meta.value = {
         total: raw.meta?.total ?? raw.total ?? rows.length,
@@ -47,6 +52,7 @@ export function useTransactions() {
       const cached = readCache(key())
       if (cached != null) {
         items.value = cached
+        warmOfficeIcons(cached.map((tx) => tx?.office))
         meta.value = { total: cached.length, page: 1, lastPage: 1, perPage: per_page }
         loading.value = false // painted: drop the loader, refresh silently
         painted = true

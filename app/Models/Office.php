@@ -22,6 +22,46 @@ class Office extends Model
         'is_active' => 'boolean',
     ];
 
+    /** @var array<string, int|null> Per-request mtime cache (one stat per icon). */
+    private static array $iconVersions = [];
+
+    /**
+     * Public URL for the uploaded icon, versioned with the file's mtime.
+     *
+     * The query string lets the browser/service worker keep an icon forever
+     * (see public/sw.js) while a freshly uploaded replacement gets a new URL
+     * and is picked up immediately. Returns null when there is no icon.
+     */
+    public function iconUrl(): ?string
+    {
+        if (!$this->icon_path) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        $url = $disk->url($this->icon_path);
+        $version = $this->iconVersion($this->icon_path);
+
+        return $version ? $url . '?v=' . $version : $url;
+    }
+
+    private function iconVersion(string $path): ?int
+    {
+        if (array_key_exists($path, self::$iconVersions)) {
+            return self::$iconVersions[$path];
+        }
+
+        try {
+            $version = Storage::disk('public')->lastModified($path);
+        } catch (\Throwable) {
+            // Missing/unreadable file: still expose the URL so the frontend
+            // can fall back to its static icon map.
+            $version = null;
+        }
+
+        return self::$iconVersions[$path] = $version;
+    }
+
     /**
      * Slim {id, code, name, icon_url} projection for tables, chips and step
      * payloads. Including icon_url means every page that renders an office
@@ -37,9 +77,7 @@ class Office extends Model
             'id' => $office->id,
             'code' => $office->code,
             'name' => $office->name,
-            'icon_url' => $office->icon_path
-                ? Storage::disk('public')->url($office->icon_path)
-                : null,
+            'icon_url' => $office->iconUrl(),
         ];
     }
 

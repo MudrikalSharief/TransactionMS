@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { readCache, writeCache, invalidateCache, CacheKeys } from '@/composables/useCache'
+import { warmOfficeIcons } from '@/utils/officeIcons'
 
 export function useOffices() {
   const { api } = useApi()
@@ -9,6 +10,9 @@ export function useOffices() {
   const _cached = readCache(CacheKeys.offices)
   const items = ref(_cached ?? [])
   const loading = ref(_cached == null)
+  // Warm the office icons (Offices table, pickers, dialogs) from cached rows
+  // before the first paint, so they come from the browser/SW cache.
+  warmOfficeIcons(_cached)
 
   // Instant illusion: cached offices paint with no loader flash, then the
   // network refreshes silently in the background.
@@ -17,12 +21,14 @@ export function useOffices() {
     const quiet = silent || cached != null
     if (cached != null) {
       items.value = cached
+      warmOfficeIcons(cached)
       loading.value = false // painted: drop the loader, refresh silently
     }
     if (!quiet) loading.value = true
     try {
       const res = await api.get('/api/admin/offices')
       items.value = res.data.data ?? res.data
+      warmOfficeIcons(items.value)
       writeCache(CacheKeys.offices, items.value)
     } finally {
       if (!quiet) loading.value = false

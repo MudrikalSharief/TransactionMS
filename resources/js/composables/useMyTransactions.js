@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
 import { readCache, writeCache, CacheKeys, scopedKey, storedUserId, slimTx } from "@/composables/useCache";
+import { warmOfficeIcons } from "@/utils/officeIcons";
 
 export function useMyTransactions() {
     const { api } = useApi();
@@ -16,6 +17,7 @@ export function useMyTransactions() {
         const raw = res.data;
         const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
         items.value = rows;
+        warmOfficeIcons(rows.map((tx) => tx?.office));
         if (raw && typeof raw === "object" && (raw.meta || raw.total !== undefined)) {
             meta.value = {
                 total: raw.meta?.total ?? raw.total ?? rows.length,
@@ -36,6 +38,7 @@ export function useMyTransactions() {
             const cached = readCache(key());
             if (cached != null) {
                 items.value = cached;
+                warmOfficeIcons(cached.map((tx) => tx?.office));
                 meta.value = { total: cached.length, page: 1, lastPage: 1, perPage: per_page };
                 loading.value = false; // painted: drop the loader, refresh silently
                 painted = true;

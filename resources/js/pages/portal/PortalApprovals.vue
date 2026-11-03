@@ -16,7 +16,7 @@
                     :color="rows.length ? 'error' : 'success'"
                     class="font-weight-bold"
                 >
-                    {{ rows.length }} waiting
+                    {{ rows.length }} pending {{ rows.length === 1 ? "task" : "tasks" }}
                 </v-chip>
                 <v-spacer />
                 <v-btn

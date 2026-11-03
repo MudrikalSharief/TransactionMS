@@ -16,15 +16,12 @@
                 @load="loaded = true"
             />
 
+            <!-- A light glides round the orbit ring with a fading blue tail,
+                 lighting each bead as it passes (ringLight.js). Hidden where
+                 the ring runs behind the buttons and the tower. -->
+            <canvas ref="orbitEl" class="lh-orbit" aria-hidden="true" />
+
             <div class="lh-fx" aria-hidden="true">
-                <!-- light dots on the orbit ring -->
-                <!-- ring beads light up one at a time, in order round the ring -->
-                <span
-                    v-for="(d, i) in dots"
-                    :key="`d${i}`"
-                    class="lh-dot"
-                    :style="{ ...at(d[0], d[1], 66, 66), animationDuration: `${dots.length * DOT_STEP}s`, animationDelay: `${i * DOT_STEP}s` }"
-                />
                 <!-- headline accent bar -->
                 <span class="lh-bar" :style="at(1079, 257, 128, 8)" />
                 <!-- twinkles -->
@@ -44,12 +41,15 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
+import { useMotion } from "@/composables/useMotion";
+import { createRingLight } from "./ringLight.js";
 
 const W = 1536;
 const H = 1024;
 
 const loaded = ref(false);
+const orbitEl = ref(null);
 
 // Centre (x, y), size (w x h) in picture pixels -> percent of the frame.
 function at(x, y, w, h) {
@@ -64,18 +64,28 @@ function at(x, y, w, h) {
 // The modules shown on the buttons in the artwork.
 const modules = ["Procurement", "Payroll", "Budget", "Disbursement", "Permits", "Records"];
 
-// The ring's 8 beads as drawn in the artwork, clockwise from the top-left
-// of the tower. Each lights up for one DOT_STEP in turn and trails off.
-const dots = [
-    [435, 222], [598, 220], [923, 394], [868, 624], [605, 763], [230, 671], [130, 596], [106, 359],
-];
-const DOT_STEP = 0.12; // seconds per bead: fast, so the light reads as a running dashed line
-
 // [x, y, size, delay]
 const sparkles = [
     [536, 132, 30, 0], [1180, 228, 26, 1.6], [300, 330, 22, 2.4],
     [960, 330, 24, 0.8], [1440, 560, 22, 3.1], [690, 880, 26, 1.2],
 ];
+
+// One lap of the ring takes LAP seconds, at an even speed.
+const LAP = 3;
+let light = null;
+
+// Animations off: the light rests at a bead instead of running.
+const { motionEnabled } = useMotion();
+
+onMounted(() => {
+    light = createRingLight(orbitEl.value, { lap: LAP });
+    if (motionEnabled.value) light.play();
+    else light.pause();
+});
+
+watch(motionEnabled, (on) => (on ? light?.play() : light?.pause()));
+
+onUnmounted(() => light?.stop());
 </script>
 
 <style scoped>
@@ -134,35 +144,19 @@ const sparkles = [
     inset: 0;
     pointer-events: none;
 }
+/* The running light (ringLight.js), covering the picture exactly. */
+.lh-orbit {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: none;
+}
 
 .lh-fx > span {
     position: absolute;
     transform: translate(-50%, -50%);
-}
-
-
-/* ---- ring beads ---- */
-/* Bright blue: a white-hot core, a vivid blue ring and a soft halo.
-   Duration (beads x step) and delay (index x step) are set per bead, so
-   they light in order round the ring. */
-.lh-dot {
-    border-radius: 50%;
-    /* One smooth gradient that fades to nothing: no hard rim, and the
-       glow stays clear of the buttons. */
-    background: radial-gradient(
-        circle,
-        #ffffff 0 11%,
-        #a8dcff 18%,
-        #2f8bff 30%,
-        rgba(30, 110, 255, 0.5) 42%,
-        rgba(30, 110, 255, 0.16) 56%,
-        rgba(30, 110, 255, 0) 68%
-    );
-    opacity: 0;
-    animation-name: bead;
-    animation-timing-function: ease-out;
-    animation-iteration-count: infinite;
-    will-change: transform, opacity;
 }
 
 /* ---- headline accent ---- */
@@ -184,15 +178,6 @@ const sparkles = [
     0%, 100% { opacity: 0.55; }
     50% { opacity: 1; }
 }
-/* 8 beads: each step is 12.5% of the cycle. Flash up, hold through its
-   step, then trail off during the next bead's step (gone by 25%), which
-   gives the running dashed-line look; dark until its turn comes round. */
-@keyframes bead {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
-    2% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-    9% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    25%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.75); }
-}
 @keyframes sparkle {
     0%, 60%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
     75% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(45deg); }
@@ -211,7 +196,6 @@ const sparkles = [
     .lh-frame {
         transition: none;
     }
-    .lh-dot,
     .lh-bar {
         animation: none;
         opacity: 0.8;

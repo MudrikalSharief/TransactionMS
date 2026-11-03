@@ -89,6 +89,7 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { motionOff } from "@/composables/useMotion";
 
 const router = useRouter();
 
@@ -153,7 +154,8 @@ function band(a, b, k, copies) {
 }
 const rings = [band(136, 6, 30, 5), band(156, 9, 22, 4), band(176, 5, 44, 3), band(192, 3, 60, 2)];
 
-const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Animations off (sidebar/login toggle, or a weak device): no fly-over.
+const reduced = motionOff();
 
 // Every animation waits for the seal, so nothing plays over an empty screen.
 const ready = ref(false);

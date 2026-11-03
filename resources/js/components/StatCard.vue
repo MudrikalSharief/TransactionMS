@@ -13,13 +13,13 @@
         <slot />
         <v-icon class="stat-watermark" aria-hidden="true">{{ icon }}</v-icon>
         <div class="stat-blob" aria-hidden="true" />
-        <div class="stat-disc"><v-icon size="40" color="white">{{ icon }}</v-icon></div>
+        <div class="stat-disc"><v-icon size="24" color="white">{{ icon }}</v-icon></div>
+        <div class="stat-value">
+            <v-progress-circular v-if="loading" indeterminate size="22" width="3" color="grey-darken-1" />
+            <template v-else>{{ value }}</template>
+        </div>
         <div class="stat-body">
             <span class="stat-badge">{{ label }}</span>
-            <div class="stat-value">
-                <v-progress-circular v-if="loading" indeterminate size="26" width="3" color="grey-darken-1" />
-                <template v-else>{{ value }}</template>
-            </div>
             <div class="stat-hint">{{ hint }}</div>
         </div>
         <div v-if="cta" class="stat-cta">
@@ -57,10 +57,10 @@ const emit = defineEmits(['activate'])
     position: relative;
     display: flex;
     align-items: center;
-    gap: 22px;
+    gap: 12px;
     min-width: 0;
-    min-height: 136px;
-    padding: 20px 26px;
+    min-height: 76px;
+    padding: 10px 16px;
     border-radius: 12px;
     border: 1px solid color-mix(in srgb, var(--stat-c) 45%, transparent);
     background: linear-gradient(105deg, var(--stat-from) 0%, var(--stat-to) 100%);
@@ -91,12 +91,12 @@ const emit = defineEmits(['activate'])
 /* big faded icon + soft circle on the right */
 .stat-watermark {
     position: absolute;
-    right: 26px;
+    right: 14px;
     top: 50%;
     z-index: -1;
-    font-size: 104px !important;
-    width: 104px;
-    height: 104px;
+    font-size: 60px !important;
+    width: 60px;
+    height: 60px;
     transform: translateY(-50%) rotate(-8deg);
     color: #fff;
     opacity: 0.38;
@@ -104,11 +104,11 @@ const emit = defineEmits(['activate'])
 }
 .stat-blob {
     position: absolute;
-    right: -60px;
-    top: -40px;
+    right: -36px;
+    top: -30px;
     z-index: -2;
-    width: 220px;
-    height: 220px;
+    width: 130px;
+    height: 130px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.18);
     pointer-events: none;
@@ -118,8 +118,8 @@ const emit = defineEmits(['activate'])
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    width: 76px;
-    height: 76px;
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
     background: var(--stat-c);
     box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--stat-c) 90%, transparent), inset 0 -4px 0 rgba(0, 0, 0, 0.08);
@@ -130,39 +130,41 @@ const emit = defineEmits(['activate'])
 }
 
 .stat-body {
+    flex: 1 1 0;
     min-width: 0;
 }
 .stat-badge {
     display: inline-block;
-    padding: 4px 16px;
+    padding: 1px 10px;
     border-radius: 999px;
     background: var(--stat-c);
     color: var(--stat-badge-ink);
-    font-size: 0.82rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     white-space: nowrap;
 }
 .stat-value {
-    min-height: 3rem;
-    margin-top: 4px;
-    font-size: 2.7rem;
+    flex: 0 0 auto;
+    font-size: 2rem;
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
     color: #111827;
 }
 .stat-hint {
-    font-size: 0.95rem;
-    line-height: 1.3;
+    margin-top: 2px;
+    font-size: 0.75rem;
+    line-height: 1.25;
     color: #1f2937;
 }
 
 .stat-cta {
     position: absolute;
-    right: 18px;
-    bottom: 8px;
-    font-size: 0.75rem;
+    right: 10px;
+    top: 5px;
+    font-size: 0.7rem;
     font-weight: 800;
     color: #111827;
     opacity: 0;
@@ -176,8 +178,6 @@ const emit = defineEmits(['activate'])
 }
 
 @media (max-width: 480px) {
-    .stat { gap: 14px; padding: 16px 18px; }
-    .stat-disc { width: 60px; height: 60px; }
     .stat-watermark { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

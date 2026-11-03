@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class TransactionTypeResource extends JsonResource
 {
@@ -21,9 +20,7 @@ class TransactionTypeResource extends JsonResource
                 'id' => $o->id,
                 'code' => $o->code,
                 'name' => $o->name,
-                'icon_url' => $o->icon_path
-                    ? Storage::disk('public')->url($o->icon_path)
-                    : null,
+                'icon_url' => $o->iconUrl(),
             ])->values()),
             // Ordered steps of the published workflow this type follows, for
             // the New Transaction dialog's flow preview. Only present when the
