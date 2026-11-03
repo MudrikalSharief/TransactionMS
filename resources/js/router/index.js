@@ -10,6 +10,7 @@ const AdminRoles = () => import("@/pages/admin/Roles.vue");
 const AdminOffices = () => import("@/pages/admin/Offices.vue");
 const AdminOfficeSteps = () => import("@/pages/admin/OfficeSteps.vue");
 const AdminTransactionTypes = () => import("@/pages/admin/TransactionTypes.vue");
+const AdminReports = () => import("@/pages/admin/Reports.vue");
 const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
 const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
 const AdminFields = () => import("@/pages/admin/Fields.vue");
@@ -167,6 +168,12 @@ export function createRouter() {
                 path: "/admin/transaction-types",
                 component: AdminTransactionTypes,
                 meta: { requiresAuth: true, officeAdmin: true },
+            },
+            {
+                // Monitoring report (read-only); office admins see their office's scope.
+                path: "/admin/reports",
+                component: AdminReports,
+                meta: { requiresAuth: true, officeAdmin: true, title: "Reports" },
             },
             {
                 path: "/admin/government-references",

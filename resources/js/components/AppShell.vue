@@ -464,6 +464,10 @@ const navGroups = computed(() => {
         ];
     }
     const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard", to: "/" }] };
+    // Monitoring pages (read-only) for superadmins and office admins.
+    if (isSuperadmin.value || isOfficeAdmin.value) {
+        overview.items.push({ title: "Reports", icon: "mdi-chart-box-outline", to: "/admin/reports" });
+    }
     if (isSuperadmin.value) {
         return [
             overview,
@@ -623,6 +627,9 @@ const searchPages = computed(() => {
     pages.push(
         { title: "Transactions", subtitle: "Page", icon: "mdi-swap-horizontal", to: "/transactions" }
     );
+    if (isSuperadmin.value || isOfficeAdmin.value) {
+        pages.push({ title: "Reports", subtitle: "Page · Monitoring", icon: "mdi-chart-box-outline", to: "/admin/reports" });
+    }
     if (isSuperadmin.value) {
         pages.push(
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
