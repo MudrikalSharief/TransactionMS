@@ -121,6 +121,8 @@
                         </div>
                     </template>
                     <span class="nav-sep" aria-hidden="true"></span>
+                    <!-- Bell (staff, clerks, admins); renders its own divider. -->
+                    <NotificationBell />
                     <!-- Viewers never signed in themselves (Track your Document
                          Process), so leaving is a plain "back", no confirmation. -->
                     <button
@@ -372,6 +374,7 @@ import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
 import LoginOverdueNotice from "@/components/LoginOverdueNotice.vue";
+import NotificationBell from "@/components/NotificationBell.vue";
 import OfflineBar from "@/components/OfflineBar.vue";
 import { useMotion } from "@/composables/useMotion";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
