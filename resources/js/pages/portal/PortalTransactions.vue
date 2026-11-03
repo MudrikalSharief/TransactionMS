@@ -104,7 +104,8 @@
                     style="max-width: 420px"
                 />
 
-                <!-- Filters: type and order. -->
+                <!-- Filters: type, order, and (Archive only) a From–To range
+                     on the created date, both days included. -->
                 <div class="filter-bar mb-3">
                     <v-select
                         v-model="filters.type"
@@ -117,6 +118,32 @@
                         clearable
                         class="fb-type"
                     />
+                    <template v-if="isHistory">
+                        <v-text-field
+                            v-model="filters.from"
+                            type="date"
+                            label="From"
+                            :max="filters.to || undefined"
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            clearable
+                            class="fb-date"
+                        />
+                        <v-text-field
+                            v-model="filters.to"
+                            type="date"
+                            label="To"
+                            :min="filters.from || undefined"
+                            variant="outlined"
+                            density="compact"
+                            rounded="0"
+                            hide-details
+                            clearable
+                            class="fb-date"
+                        />
+                    </template>
                     <!-- One box: click to switch between newest and oldest first. -->
                     <v-btn
                         variant="tonal"
@@ -321,11 +348,17 @@ const error = ref("");
 const search = ref("");
 const page = ref(1);
 
-// Filters: transaction type, newest/oldest, and "late" (overdue or due
-// only, set by the Pending overdue transactions button).
-const emptyFilters = () => ({ type: null, late: false, order: "desc" });
+// Filters: transaction type, newest/oldest, "late" (overdue or due only,
+// set by the Pending overdue transactions button) and, in the Archive, a
+// From–To range of created dates ("YYYY-MM-DD", both days included).
+const emptyFilters = () => ({ type: null, late: false, from: null, to: null, order: "desc" });
 const filters = ref({ ...emptyFilters(), late: !isHistory.value && route.query.late === "1" });
-const filtersActive = computed(() => !!(filters.value.type || filters.value.late));
+const filtersActive = computed(() => !!(filters.value.type || filters.value.late || filters.value.from || filters.value.to));
+// Local midnight of a "YYYY-MM-DD" day (new Date("YYYY-MM-DD") would be UTC).
+const dayStart = (ymd, addDays = 0) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, m - 1, d + addDays).getTime();
+};
 function clearFilters() {
     filters.value = { ...emptyFilters(), order: filters.value.order };
 }
@@ -370,10 +403,16 @@ watch(
 const shown = computed(() => {
     const q = String(search.value || "").trim().toLowerCase();
     const dir = filters.value.order === "asc" ? 1 : -1;
+    const from = isHistory.value && filters.value.from ? dayStart(filters.value.from) : null;
+    const to = isHistory.value && filters.value.to ? dayStart(filters.value.to, 1) : null;
     return scoped.value
         .filter((t) => {
             if (filters.value.type && typeName(t) !== filters.value.type) return false;
             if (filters.value.late && !dueState(t)) return false;
+            if (from != null || to != null) {
+                const at = new Date(t.created_at).getTime();
+                if ((from != null && at < from) || (to != null && at >= to)) return false;
+            }
             if (!q) return true;
             return [t.reference_number, t.title, typeName(t), t.office?.name, t.current_step?.name]
                 .some((v) => String(v || "").toLowerCase().includes(q));
@@ -537,6 +576,10 @@ useSmartPoll(() => {
 .fb-type {
     flex: 1 1 200px;
     max-width: 260px;
+}
+.fb-date {
+    flex: 1 1 160px;
+    max-width: 190px;
 }
 .late-btn {
     text-transform: none;

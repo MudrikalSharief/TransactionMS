@@ -122,7 +122,7 @@
                         <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                             <v-icon color="#005EED" size="20">mdi-office-building-outline</v-icon>
                         </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">In My Office</span>
+                        <span class="text-subtitle-1 font-weight-bold">Office Transactions</span>
                         <v-spacer />
                         <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openList('office')">
                             View all
@@ -188,6 +188,16 @@ const tiles = computed(() => [
         variant: "orange",
         go: () => openList("action"),
     },
+    // Life of a transaction, left to right: created, in process, completed.
+    {
+        key: "mine",
+        label: "Created by me",
+        value: summary.value?.created_by_me ?? 0,
+        hint: "Transactions you started",
+        icon: "mdi-account-edit",
+        variant: "info",
+        go: () => openList("office"),
+    },
     {
         key: "in_process",
         label: "In process",
@@ -204,15 +214,6 @@ const tiles = computed(() => [
         hint: "Office transactions finished",
         icon: "mdi-check-bold",
         variant: "success",
-        go: () => openList("office"),
-    },
-    {
-        key: "mine",
-        label: "Created by me",
-        value: summary.value?.created_by_me ?? 0,
-        hint: "Transactions you started",
-        icon: "mdi-account-edit",
-        variant: "info",
         go: () => openList("office"),
     },
 ].filter(Boolean));
