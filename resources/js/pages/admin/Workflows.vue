@@ -5,6 +5,12 @@
             label="workflow steps"
             icon="mdi-source-branch"
         />
+        <DepthNav
+            :levels="depthLevels"
+            :deeper="depthDeeper"
+            deeper-label="Steps"
+            class="mb-4"
+        />
         <v-card rounded="0" elevation="0" class="wf-page mb-4">
             <header class="wf-hd">
                 <div class="wf-badge" aria-hidden="true">
@@ -1982,6 +1988,8 @@ import { officeIcon } from "@/utils/officeIcons";
 import TableLoader from "@/components/TableLoader.vue";
 import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import DepthNav from "@/components/DepthNav.vue";
+import { buildWorkflowDepthLevels } from "@/utils/workflowDepth";
 import AppToast from "@/components/AppToast.vue";
 import SlaDurationInput from "@/components/SlaDurationInput.vue";
 import {
@@ -2266,6 +2274,15 @@ const selectedTypeShortName = computed(() => {
     );
     return t ? t.name : "";
 });
+
+const depthLevels = computed(() =>
+    buildWorkflowDepthLevels({
+        typeId: selectedTypeId.value,
+        typeName: selectedTypeShortName.value,
+        currentLabel: "Steps and Routes",
+        isWorkflows: true,
+    }),
+);
 
 const activeDefStatusLabel = computed(() => {
     const d = activeDef.value;
@@ -2813,25 +2830,6 @@ async function editStep(item) {
     }
 }
 
-async function goStepFields(item) {
-    error.value = "";
-    notice.value = "";
-    try {
-        const oldSteps = activeDef.value?.steps || [];
-        const fresh = stepInDraft(oldSteps, item);
-        const q = selectedTypeId.value
-            ? { type: Number(selectedTypeId.value) }
-            : {};
-        router.push({
-            path: `/admin/workflows/${activeDef.value.id}/steps/${fresh.id}/fields`,
-            query: q,
-        });
-    } catch (e) {
-        error.value =
-            e?.response?.data?.message || "Failed to open step fields.";
-    }
-}
-
 function liveEditableTarget() {
     // Requirements/step data apply to running papers immediately, so
     // open them on the published transaction type — not an open draft clone.
@@ -2843,6 +2841,31 @@ function stepOnDef(def, item) {
         (def?.steps || []).find((s) => s.code && s.code === item?.code) || item
     );
 }
+
+const depthDeeper = computed(() => {
+    const target = liveEditableTarget();
+    if (!target?.id) return [];
+    const query = selectedTypeId.value
+        ? { type: Number(selectedTypeId.value) }
+        : {};
+    return (flatStepRows.value || [])
+        .filter((step) => step?.id && typeof step.id !== "string")
+        .map((step) => {
+            const fresh = stepOnDef(target, step);
+            if (!fresh?.id) return null;
+            const n = step._num ?? step.order_number ?? "";
+            const name = step.name || step.code || "";
+            return {
+                key: `step-${step.id}`,
+                label: `Step ${n}${name ? ` · ${name}` : ""}`,
+                to: {
+                    path: `/admin/workflows/${target.id}/steps/${fresh.id}/requirements`,
+                    query,
+                },
+            };
+        })
+        .filter(Boolean);
+});
 
 async function goStepRequirements(item) {
     error.value = "";

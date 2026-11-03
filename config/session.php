@@ -156,7 +156,12 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    // Local/test: host-only cookies so localhost and 127.0.0.1 both work.
+    // Laragon exports SESSION_DOMAIN globally, which would otherwise pin the
+    // cookie to one host and make login fail from the other.
+    'domain' => in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)
+        ? null
+        : env('SESSION_DOMAIN'),
 
     /*
     |--------------------------------------------------------------------------

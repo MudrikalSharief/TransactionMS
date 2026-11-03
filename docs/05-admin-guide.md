@@ -22,8 +22,8 @@ One list, one Save button. Every edit (add/update/delete step or route) auto-dra
 - Routes: `from -> to, action_code, condition_expression (JsonLogic JSON), route_group, required_approvals_count` — forward-only (`is_return_route` retired; going back is done via jump to a visited station, recorded as Returned; old versions keep their return rows)
 - Pattern: linear forward `submit` chain (e.g. `validate_dtr -> finalize_payroll` on `approve`)
 
-## Fields (`Fields.vue` -> `StepFields.vue`)
-Library (`field_definitions`, global when `workflow_definition_id=null`) + per-step attach (`display_order, required_override`). Types: `text|textarea|number|date|boolean|select|multiselect` with min/max/options/validation_rules. PR library: `pr_number, request_title*, office_name*, request_amount*, drive_link*, dts_number*, remarks`.
+## Fields (`Fields.vue`)
+Library (`field_definitions`, global when `workflow_definition_id=null`). Types: `text|textarea|number|date|boolean|select|multiselect` with min/max/options/validation_rules. PR library: `pr_number, request_title*, office_name*, request_amount*, drive_link*, dts_number*, remarks`.
 
 ## Requirements (`Requirements*.vue` -> `StepRequirements.vue`)
 Live-editable: definitions scoped to workflow + per-step attach (`display_order, is_required`) apply to running transactions immediately. Deleting an item with existing checks is blocked (set inactive instead). PR: `signed_pr_pdf, drive_uploaded, dts_created, pr_encoded, city_admin_signed, treasurer_signed, doc_validated, earmark_completed` mapped to their owning steps.

@@ -1,5 +1,11 @@
 <template>
     <div class="sr-page">
+        <DepthNav
+            :levels="depthLevels"
+            :deeper="depthDeeper"
+            deeper-label="Step pages"
+            class="mb-4"
+        />
         <v-alert
             v-if="error"
             type="error"
@@ -52,7 +58,10 @@
             @discarded="loadAssigned"
         />
 
-        <p class="sr-lbl">Select step</p>
+        <p class="sr-lbl">
+            <v-icon size="14" aria-hidden="true">mdi-gesture-tap</v-icon>
+            Select step
+        </p>
 
         <div ref="stepMenuRef" class="sr-dd" @focusout="onStepMenuFocusOut">
             <button
@@ -76,20 +85,23 @@
                         selectedStep?.name ||
                         (stepsLoading ? "Loading steps…" : "Select a step")
                     }}</b>
-                    <small>{{
-                        selectedStep?.code || "No step selected"
-                    }}</small>
                 </span>
                 <span v-if="selectedStep" class="sr-count">
                     {{ countLabel(stepRequirementCount(selectedStep.id)) }}
                 </span>
-                <v-icon
-                    class="sr-chev"
-                    :class="{ 'sr-chev-open': stepMenuOpen }"
-                    size="20"
+                <span
+                    class="sr-change"
+                    :class="{ 'is-open': stepMenuOpen }"
+                    aria-hidden="true"
                 >
-                    mdi-chevron-down
-                </v-icon>
+                    <v-icon size="16">mdi-swap-horizontal</v-icon>
+                    <span class="sr-change-label">{{
+                        selectedStep ? "Change step" : "Select step"
+                    }}</span>
+                    <v-icon class="sr-change-chev" size="18"
+                        >mdi-chevron-down</v-icon
+                    >
+                </span>
             </button>
 
             <div
@@ -99,6 +111,7 @@
                 role="listbox"
                 aria-label="Steps"
             >
+                <div class="sr-menu-head" aria-hidden="true">Choose a step</div>
                 <button
                     v-for="(option, index) in stepOptions"
                     :key="option.id"
@@ -116,7 +129,6 @@
                     <span class="sr-option-n">{{ option.order_number }}</span>
                     <span class="sr-option-tx">
                         <b>{{ option.name }}</b>
-                        <small>{{ option.code }}</small>
                     </span>
                     <span class="sr-count">{{ countLabel(option.count) }}</span>
                     <v-icon
@@ -893,12 +905,15 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useRequirementDefinitions } from "@/composables/useRequirementDefinitions";
 import { useStepRequirements } from "@/composables/useStepRequirements";
+import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useToast } from "@/composables/useToast";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
+import DepthNav from "@/components/DepthNav.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
+import { buildWorkflowDepthLevels, workflowStepTo } from "@/utils/workflowDepth";
 
 const route = useRoute();
 const router = useRouter();
@@ -976,6 +991,60 @@ const selectedStep = computed(
             (step) => Number(step.id) === Number(selectedStepId.value),
         ) || null,
 );
+
+const { items: txTypes, fetchAll: fetchTxTypes } = useTransactionTypes();
+
+const selectedTypeName = computed(() => {
+    const t = (txTypes.value || []).find(
+        (x) => Number(x.id) === Number(typeId.value),
+    );
+    return t?.name || "";
+});
+
+const depthStepLabel = computed(() => {
+    const s = selectedStep.value;
+    if (!s) return "Step";
+    const n = s.order_number;
+    const name = s.name || s.code || "";
+    return `Step ${n ?? ""}${name ? ` · ${name}` : ""}`.trim();
+});
+
+const depthLevels = computed(() =>
+    buildWorkflowDepthLevels({
+        typeId: typeId.value,
+        typeName: selectedTypeName.value,
+        workflowId: workflowDefinitionId.value,
+        stepId: selectedStepId.value || stepIdFromUrl.value || null,
+        stepLabel: depthStepLabel.value,
+        currentLabel: "Requirements",
+    }),
+);
+
+const depthDeeper = computed(() => {
+    const wid = workflowDefinitionId.value;
+    const sid = selectedStepId.value || stepIdFromUrl.value;
+    if (!wid || !sid) return [];
+    const stepId = Number(sid);
+    return [
+        {
+            label: "Requirements",
+            to: workflowStepTo("admin.step-requirements", {
+                workflowId: wid,
+                stepId,
+                typeId: typeId.value,
+            }),
+            current: true,
+        },
+        {
+            label: "Step Data",
+            to: workflowStepTo("admin.step-data", {
+                workflowId: wid,
+                stepId,
+                typeId: typeId.value,
+            }),
+        },
+    ];
+});
 
 const orderedSteps = computed(() =>
     [...steps.value].sort((a, b) => {
@@ -2076,6 +2145,7 @@ onMounted(async () => {
     await Promise.allSettled([
         fetchReqs(workflowDefinitionId.value),
         loadSteps(),
+        fetchTxTypes(),
     ]);
     selectInitialStep();
     if (!selectedStepId.value) ready.value = true;
@@ -2143,6 +2213,9 @@ onBeforeUnmount(() => {
 }
 
 .sr-lbl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin: 0 0 10px;
     color: rgb(var(--v-theme-secondary));
     font-size: 12px;
@@ -2150,6 +2223,10 @@ onBeforeUnmount(() => {
     line-height: 1.2;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+.sr-lbl .v-icon {
+    color: rgb(var(--v-theme-primary));
 }
 
 /* ---- Step picker ---- */
@@ -2165,25 +2242,34 @@ onBeforeUnmount(() => {
     width: 100%;
     min-height: 68px;
     padding: 10px 14px 10px 10px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border: 2px solid rgba(var(--v-theme-primary), 0.35);
     border-radius: 0;
-    background: rgb(var(--v-theme-surface));
+    background: linear-gradient(
+        90deg,
+        rgba(var(--v-theme-primary), 0.07),
+        rgb(var(--v-theme-surface)) 30%
+    );
     color: rgb(var(--v-theme-on-surface));
     text-align: left;
     cursor: pointer;
+    box-shadow: 0 6px 18px -14px rgba(var(--v-theme-primary), 0.55);
     transition:
         border-color 0.15s,
-        box-shadow 0.15s;
+        box-shadow 0.15s,
+        background 0.15s;
 }
 
 .sr-trigger:hover:not(:disabled) {
-    border-color: rgba(var(--v-theme-primary), 0.45);
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 10px 24px -14px rgba(var(--v-theme-primary), 0.65);
 }
 
 .sr-trigger:focus-visible,
 .sr-trigger-open {
     border-color: rgb(var(--v-theme-primary));
-    box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.18);
+    box-shadow:
+        0 0 0 4px rgba(var(--v-theme-primary), 0.18),
+        0 10px 24px -14px rgba(var(--v-theme-primary), 0.65);
 }
 
 .sr-trigger:disabled {
@@ -2219,18 +2305,6 @@ onBeforeUnmount(() => {
     white-space: nowrap;
 }
 
-.sr-step-tx small {
-    display: block;
-    overflow: hidden;
-    margin-top: 2px;
-    color: rgb(var(--v-theme-secondary));
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12.5px;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .sr-count {
     flex: none;
     padding: 3px 10px;
@@ -2242,14 +2316,39 @@ onBeforeUnmount(() => {
     line-height: 1.2;
 }
 
-.sr-chev {
+.sr-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     flex: none;
-    color: rgb(var(--v-theme-secondary));
+    padding: 8px 10px;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.sr-change .v-icon {
+    color: inherit;
+}
+
+.sr-change-chev {
     transition: transform 0.2s;
 }
 
-.sr-chev-open {
+.sr-change.is-open .sr-change-chev {
     transform: rotate(180deg);
+}
+
+.sr-menu-head {
+    padding: 4px 8px 8px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .sr-menu {
@@ -2321,18 +2420,6 @@ onBeforeUnmount(() => {
     overflow: hidden;
     font-size: 14.5px;
     font-weight: 700;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sr-option-tx small {
-    display: block;
-    overflow: hidden;
-    margin-top: 2px;
-    color: rgb(var(--v-theme-secondary));
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2992,6 +3079,15 @@ html.dark .sr-ib-delete:hover {
         font-size: 11px;
     }
 
+    .sr-change-label {
+        display: none;
+    }
+
+    .sr-change {
+        gap: 4px;
+        padding: 8px;
+    }
+
     .sr-option {
         gap: 10px;
         padding: 8px;
@@ -3045,7 +3141,9 @@ html.dark .sr-ib-delete:hover {
 .req-sub {
     margin-top: 3px;
     font-size: 14px;
+    line-height: 1.45;
     color: rgb(var(--v-theme-secondary));
+    white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
 }

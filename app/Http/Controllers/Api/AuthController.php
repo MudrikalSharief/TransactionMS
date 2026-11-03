@@ -17,6 +17,10 @@ class AuthController extends Controller
 {
     public function login(LoginRequest $request): JsonResponse
     {
+        if (!$request->hasSession()) {
+            return $this->sessionMissingResponse();
+        }
+
         $data = $request->validated();
 
         // Username or email: an "@" means email (usernames can't hold one).
@@ -66,6 +70,10 @@ class AuthController extends Controller
      */
     public function guest(Request $request): JsonResponse
     {
+        if (!$request->hasSession()) {
+            return $this->sessionMissingResponse();
+        }
+
         $guest = User::where('email', config('auth.guest_email'))->first() ?? $this->createGuestAccount();
 
         // An existing account that was deactivated or given more roles is
@@ -88,6 +96,19 @@ class AuthController extends Controller
                 'email' => $guest->email,
             ],
         ]);
+    }
+
+    /**
+     * A stateless request reaching a session-auth endpoint means the browser
+     * host is missing from SANCTUM_STATEFUL_DOMAINS (or SESSION_DOMAIN points
+     * at a different host). Return a clear error instead of the framework's
+     * raw "Session store not set on request" exception.
+     */
+    private function sessionMissingResponse(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Session is not available. Open the app through the configured URL and check SANCTUM_STATEFUL_DOMAINS.',
+        ], 419);
     }
 
     private function createGuestAccount(): User

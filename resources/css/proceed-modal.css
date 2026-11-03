@@ -699,6 +699,46 @@ html.dark .pm-dialog,
     margin: 12px 0 0 52px;
 }
 
+/* Requirement-upload disclosure: the count sits at the header's right
+   edge, while a high-contrast chevron pill at the bottom toggles the list. */
+.pm-req-files-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+    color: var(--pm-muted);
+}
+
+.pm-req-files-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 28px;
+    margin: 8px auto 0;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--pm-blue) 35%, var(--pm-line));
+    border-radius: 999px;
+    background: var(--pm-blue-bg);
+    color: var(--pm-blue);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.pm-req-files-toggle:hover {
+    background: color-mix(in srgb, var(--pm-blue) 18%, var(--pm-panel));
+    border-color: var(--pm-blue);
+}
+
+.pm-req-files-toggle .v-icon {
+    transition: transform 0.16s ease;
+}
+
+.pm-req-files-toggle[aria-expanded="true"] .v-icon {
+    transform: rotate(180deg);
+}
+
 /* ---------- File rows ---------- */
 .pm-files {
     display: grid;
@@ -752,6 +792,62 @@ html.dark .pm-dialog,
 .pm-group-head[aria-expanded="true"] .pm-group-chev {
     transform: rotate(180deg);
 }
+
+/* Additional files: one tinted card per batch so multiple uploads read
+   as separate groups instead of one long list. */
+.pm-file-group.is-card {
+    --group-accent: var(--pm-blue);
+    border: 1px solid color-mix(in srgb, var(--group-accent) 24%, var(--pm-line));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--group-accent) 5%, var(--pm-panel));
+    padding: 10px;
+    overflow: hidden;
+}
+
+.pm-file-group.is-card + .pm-file-group.is-card {
+    margin-top: 10px;
+}
+
+.pm-file-group.is-card .pm-group-head {
+    width: auto;
+    margin: -10px -10px 8px;
+    padding: 8px 10px;
+    border-radius: 13px 13px 0 0;
+    background: color-mix(in srgb, var(--group-accent) 11%, var(--pm-panel));
+    border-bottom: 1px solid color-mix(in srgb, var(--group-accent) 22%, var(--pm-line));
+}
+
+.pm-file-group.is-card .pm-group-head b {
+    color: var(--group-accent);
+}
+
+.pm-file-group.is-card .pm-group-head.is-toggle:hover b {
+    color: var(--group-accent);
+    filter: brightness(0.88);
+}
+
+.pm-file-group.is-card .pm-group-head.is-toggle:focus-visible {
+    outline: 2px solid var(--group-accent);
+    outline-offset: -2px;
+}
+
+.pm-file-group.is-card .pm-group-head .pm-tag.o {
+    background: color-mix(in srgb, var(--group-accent) 14%, var(--pm-panel));
+    color: var(--group-accent);
+}
+
+.pm-file-group.is-card .pm-group-chev {
+    color: var(--group-accent);
+}
+
+.pm-file-group.is-card.pm-group-tone-0 { --group-accent: var(--pm-blue); }
+.pm-file-group.is-card.pm-group-tone-1 { --group-accent: var(--pm-ok); }
+.pm-file-group.is-card.pm-group-tone-2 { --group-accent: var(--pm-return-ink); }
+.pm-file-group.is-card.pm-group-tone-3 { --group-accent: #6d28d9; }
+.pm-file-group.is-card.pm-group-tone-4 { --group-accent: #0f766e; }
+
+html.dark .pm-file-group.is-card.pm-group-tone-3 { --group-accent: #c4b5fd; }
+html.dark .pm-file-group.is-card.pm-group-tone-4 { --group-accent: #5eead4; }
 
 .pm-file {
     min-width: 0;
