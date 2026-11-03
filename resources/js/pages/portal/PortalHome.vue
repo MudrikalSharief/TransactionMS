@@ -188,6 +188,16 @@ const tiles = computed(() => [
         variant: "orange",
         go: () => openList("action"),
     },
+    // Life of a transaction, left to right: created, in process, completed.
+    {
+        key: "mine",
+        label: "Created by me",
+        value: summary.value?.created_by_me ?? 0,
+        hint: "Transactions you started",
+        icon: "mdi-account-edit",
+        variant: "info",
+        go: () => openList("office"),
+    },
     {
         key: "in_process",
         label: "In process",
@@ -204,15 +214,6 @@ const tiles = computed(() => [
         hint: "Office transactions finished",
         icon: "mdi-check-bold",
         variant: "success",
-        go: () => openList("office"),
-    },
-    {
-        key: "mine",
-        label: "Created by me",
-        value: summary.value?.created_by_me ?? 0,
-        hint: "Transactions you started",
-        icon: "mdi-account-edit",
-        variant: "info",
         go: () => openList("office"),
     },
 ].filter(Boolean));
