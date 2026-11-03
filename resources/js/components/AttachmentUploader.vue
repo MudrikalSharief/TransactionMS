@@ -3,7 +3,7 @@
         <!-- Caller-owned picker/header (redesigned requirement cards put the
              title, status and Choose files action on one row). -->
         <slot name="header" :open="pick" :uploading="uploading" :disabled="pickerDisabled" />
-        <input v-if="$slots.header" ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
+        <input v-if="$slots.header" ref="fileInput" type="file" multiple :accept="ACCEPT_ATTR" class="d-none" @change="onNativePick" />
         <div v-if="!$slots.header && showHeader" class="d-flex align-center ga-2 mb-3">
             <div class="font-weight-bold text-body-1">
                 Upload files
@@ -77,7 +77,7 @@
                     @click="emit('open-existing')"
                 >Existing files</v-btn>
             </template>
-            <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
+            <input ref="fileInput" type="file" multiple :accept="ACCEPT_ATTR" class="d-none" @change="onNativePick" />
         </div>
         <!-- Minimal picker: small button + inline hint (used in grouped upload sections). -->
         <div v-else-if="!$slots.header && minimal" :class="redesign ? '' : 'd-flex align-center ga-2 mb-2'">
@@ -109,13 +109,14 @@
                 <v-icon size="x-small">{{ hintType === 'success' ? 'mdi-check' : 'mdi-alert-circle-outline' }}</v-icon>
                 {{ hintText }}
             </span>
-            <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
+            <input ref="fileInput" type="file" multiple :accept="ACCEPT_ATTR" class="d-none" @change="onNativePick" />
         </div>
         <v-file-input
             v-else-if="!$slots.header"
             v-model="picked"
             label="Choose files"
             multiple
+            :accept="ACCEPT_ATTR"
             show-size
             counter
             density="compact"
@@ -150,6 +151,58 @@
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 import AttachmentList from "@/components/AttachmentList.vue";
+
+// Keep these in sync with App\Http\Requests\Transactions\UploadAttachmentRequest.
+const ALLOWED_EXTENSIONS = new Set([
+    "pdf", "doc", "docx",
+    "png", "jpg", "jpeg", "webp", "bmp",
+    "txt", "md", "log", "csv",
+    "xls", "xlsx",
+]);
+const ALLOWED_MIME_TYPES = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.ms-word",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/bmp",
+    "image/x-ms-bmp",
+    "text/plain",
+    "text/markdown",
+    "text/x-markdown",
+    "text/x-log",
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+    "application/x-msexcel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    // Legacy Office files and browsers sometimes report this generic type.
+    // The backend performs the authoritative MIME check.
+    "application/octet-stream",
+]);
+const ACCEPT_ATTR =
+    ".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.bmp,.txt,.md,.log,.csv,.xls,.xlsx";
+
+function fileExtension(name) {
+    const value = String(name || "").toLowerCase();
+    const dot = value.lastIndexOf(".");
+    return dot >= 0 ? value.slice(dot + 1) : "";
+}
+
+function isAllowedFile(file) {
+    const ext = fileExtension(file?.name);
+    if (!ALLOWED_EXTENSIONS.has(ext)) return false;
+    const mime = String(file?.type || "").toLowerCase();
+    return !mime || ALLOWED_MIME_TYPES.has(mime);
+}
+
+function rejectionMessage(files) {
+    const names = files.slice(0, 3).map((f) => `"${f.name}"`).join(", ");
+    const more = files.length > 3 ? ` and ${files.length - 3} more` : "";
+    return `${names}${more} ${files.length === 1 ? "is" : "are"} not allowed. Only PDF, Word, images (no GIF), text, and Excel files can be uploaded.`;
+}
 
 const props = defineProps({
     txId: { type: [Number, String], required: true },
@@ -249,11 +302,17 @@ async function onPick(files) {
     }
     const label = String(props.fileLabel || '').trim();
     const queue = [...files];
+    const rejected = queue.filter((f) => !isAllowedFile(f));
+    const valid = queue.filter((f) => isAllowedFile(f));
+    if (rejected.length) {
+        uploadError.value = rejectionMessage(rejected);
+    }
     picked.value = [];
+    if (!valid.length) return;
     uploading.value = true;
     const done = [...props.modelValue];
     try {
-        for (const f of queue) {
+        for (const f of valid) {
             if (f.size > 20 * 1024 * 1024) {
                 uploadError.value = `"${f.name}" exceeds 20MB and was skipped.`;
                 continue;
