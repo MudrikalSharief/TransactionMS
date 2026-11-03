@@ -14,6 +14,18 @@
                     <template v-else>Transaction</template>
                 </span>
                 <v-spacer />
+                <!-- Tracking slip with a QR code, handed over with the paper. -->
+                <v-btn
+                    v-if="tx"
+                    variant="outlined"
+                    color="grey-darken-3"
+                    rounded="0"
+                    prepend-icon="mdi-printer-outline"
+                    class="mr-2"
+                    :loading="printingSlip"
+                    @click="printSlip"
+                    >Print slip</v-btn
+                >
                 <v-btn variant="text" @click="$router.push('/transactions')"
                     >Back</v-btn
                 >
@@ -730,12 +742,29 @@ import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
 import { fmtDateTime } from '@/utils/dates';
+import { printTrackingSlip } from '@/utils/trackingSlip';
+import { toast } from '@/composables/useToast';
 
 const route = useRoute();
 const { api } = useApi();
 const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
 
 const tx = ref(null);
+
+// Print the tracking slip (QR to the tracking page) in its own window.
+const printingSlip = ref(false);
+async function printSlip() {
+    if (!tx.value) return;
+    printingSlip.value = true;
+    try {
+        const opened = await printTrackingSlip(tx.value, { printedBy: auth.user.value?.name });
+        if (!opened) toast.warning("Allow pop-ups for this site to print the slip.");
+    } catch {
+        toast.error("The slip could not be prepared. Please try again.");
+    } finally {
+        printingSlip.value = false;
+    }
+}
 const availableActions = ref([]);
 const saving = ref(false);
 const loading = ref(true);
