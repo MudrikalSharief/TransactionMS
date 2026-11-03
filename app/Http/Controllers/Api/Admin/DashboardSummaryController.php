@@ -8,6 +8,7 @@ use App\Models\Office;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\OfficeScope;
+use App\Support\WorkingTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -172,14 +173,14 @@ class DashboardSummaryController extends Controller
         return $this->createdInPeriod($this->filtered(Transaction::onlyTrashed()));
     }
 
-    /** Minutes past the current station's SLA; 0 when on time or no SLA. */
+    /** Working minutes past the current station's SLA (weekends skipped); 0 when on time or no SLA. */
     private function overdueMinutes(Transaction $tx): int
     {
         $sla = (int) ($tx->state?->currentStep?->sla_minutes ?? 0);
         $enteredAt = $tx->state?->entered_at;
         if ($sla <= 0 || !$enteredAt) return 0;
 
-        return max(0, (int) $enteredAt->copy()->addMinutes($sla)->diffInMinutes(now(), false));
+        return max(0, WorkingTime::minutesBetween($enteredAt, now()) - $sla);
     }
 
     // ---- detail rows --------------------------------------------------------
@@ -212,7 +213,8 @@ class DashboardSummaryController extends Controller
             'current_step' => $step ? ['id' => $step->id, 'name' => $step->name, 'order_number' => (int) $step->order_number] : null,
             'handled_by' => $roles ?? [],
             'entered_at' => $enteredAt?->toIso8601String(),
-            'waiting_minutes' => $enteredAt ? (int) $enteredAt->diffInMinutes(now()) : null,
+            // Working minutes, so "waiting" compares directly with the limit.
+            'waiting_minutes' => $enteredAt ? WorkingTime::minutesBetween($enteredAt, now()) : null,
             'sla_minutes' => (int) ($step?->sla_minutes ?? 0),
             'overdue_minutes' => $this->overdueMinutes($tx),
         ];
