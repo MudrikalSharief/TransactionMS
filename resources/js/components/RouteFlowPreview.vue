@@ -57,7 +57,6 @@
             </v-avatar>
             <div class="flow-caption">
                 <div class="flow-caption-name font-weight-bold" :title="currentName || 'Current station'">{{ currentName || 'Current station' }}</div>
-                <v-chip size="x-small" variant="flat" color="primary" rounded="0" class="mt-1">You are here</v-chip>
             </div>
         </div>
 

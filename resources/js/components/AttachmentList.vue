@@ -2,7 +2,12 @@
     <div v-if="items?.length">
         <div v-if="redesign" class="pm-files">
             <template v-if="groupByLabel">
-                <div v-for="g in labelGroups" :key="g.key" class="pm-file-group">
+                <div
+                    v-for="(g, gi) in labelGroups"
+                    :key="g.key"
+                    class="pm-file-group"
+                    :class="groupCards ? ['is-card', `pm-group-tone-${gi % 5}`] : null"
+                >
                     <button
                         v-if="collapsibleGroups && g.files.length > 1"
                         type="button"
@@ -494,6 +499,8 @@ const props = defineProps({
     // visible immediately.
     collapsibleGroups: { type: Boolean, default: false },
     groupsOpenByDefault: { type: Boolean, default: true },
+    // Render each label group as its own tinted card (Additional files).
+    groupCards: { type: Boolean, default: false },
     // When true, hides all delete buttons (view-only display of
     // previous-step files in the Proceed Review page).
     hideDelete: { type: Boolean, default: false },

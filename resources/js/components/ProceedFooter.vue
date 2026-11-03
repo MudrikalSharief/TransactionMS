@@ -71,6 +71,7 @@
                     list-detailed
                     list-group-by-label
                     list-collapsible-groups
+                    list-group-cards
                     show-label-input
                     redesign
                     :show-existing-btn="showExistingBtn"

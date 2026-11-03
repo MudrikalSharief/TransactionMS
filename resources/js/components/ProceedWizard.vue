@@ -242,7 +242,7 @@
                         <span v-else class="pm-count">{{ checkedTickCount }} of {{ tickRequirements.length }} ticked</span>
                     </div>
                     <p class="pm-hint">Tick each box when it is done. Items marked Required must be ticked.</p>
-                    <div class="pm-checks">
+                    <div class="pm-checks pm-checks--single">
                         <div
                             v-for="r in tickRequirements"
                             :key="r.definition.id"
@@ -340,18 +340,37 @@
 
                             <p v-if="uploadRequired(r) && reqHintText(r)" class="pm-hint is-error">{{ reqHintText(r) }}</p>
 
-                            <AttachmentList
-                                v-if="mergedReqAttachments(r).length"
-                                :items="mergedReqAttachments(r)"
-                                :tx-id="txId"
-                                :is-admin="isAdmin"
-                                :current-step-id="currentStepId"
-                                mark-old-files
-                                redesign
-                                :show-details="false"
-                                action="download"
-                                @deleted="(id) => onReqAttachmentDeleted(r, id)"
-                            />
+                            <div v-if="mergedReqAttachments(r).length">
+                                <div v-if="mergedReqAttachments(r).length > 1" class="pm-req-files-head">
+                                    <v-icon size="14">mdi-paperclip</v-icon>
+                                    <span class="pm-tag o">{{ mergedReqAttachments(r).length }} files</span>
+                                </div>
+
+                                <AttachmentList
+                                    :items="visibleReqAttachments(r)"
+                                    :tx-id="txId"
+                                    :is-admin="isAdmin"
+                                    :current-step-id="currentStepId"
+                                    mark-old-files
+                                    redesign
+                                    :show-details="false"
+                                    action="download"
+                                    :redesign-limit="mergedReqAttachments(r).length"
+                                    @deleted="(id) => onReqAttachmentDeleted(r, id)"
+                                />
+
+                                <button
+                                    v-if="mergedReqAttachments(r).length > 1"
+                                    type="button"
+                                    class="pm-req-files-toggle"
+                                    :aria-expanded="reqFilesOpen(r) ? 'true' : 'false'"
+                                    :aria-label="reqFilesOpen(r) ? `Hide extra files for ${r.definition.name}` : `Show all files for ${r.definition.name}`"
+                                    :title="reqFilesOpen(r) ? `Hide extra files for ${r.definition.name}` : `Show all files for ${r.definition.name}`"
+                                    @click="toggleReqFiles(r)"
+                                >
+                                    <v-icon size="20">mdi-chevron-down</v-icon>
+                                </button>
+                            </div>
                             <p v-else class="pm-empty">No file uploaded yet.</p>
                         </div>
                     </div>
@@ -727,6 +746,29 @@ function mergedReqAttachments(r) {
     return [...server, ...staged.filter((a) => !seen.has(a.id))]
 }
 
+// Per-requirement file disclosure: collapsed lists keep the first file
+// visible, matching the Additional files group dropdown.
+const expandedReqFiles = ref({})
+
+function reqFilesKey(r) {
+    return String(r?.definition?.id ?? '')
+}
+function reqFilesOpen(r) {
+    return !!expandedReqFiles.value[reqFilesKey(r)]
+}
+function toggleReqFiles(r) {
+    const key = reqFilesKey(r)
+    expandedReqFiles.value = {
+        ...expandedReqFiles.value,
+        [key]: !expandedReqFiles.value[key],
+    }
+}
+function visibleReqAttachments(r) {
+    const all = mergedReqAttachments(r)
+    if (all.length <= 1 || reqFilesOpen(r)) return all
+    return all.slice(0, 1)
+}
+
 // Delete from the merged list: always delete the server row (staged
 // copies are already persisted on upload), and drop any staged copy so
 // the card never reappears or gets deleted twice.
@@ -775,6 +817,7 @@ function setReqFiles(id, files) {
 
 function clearReqFiles() {
     reqFiles.value = {}
+    expandedReqFiles.value = {}
 }
 
 function removeReqFile(id) {

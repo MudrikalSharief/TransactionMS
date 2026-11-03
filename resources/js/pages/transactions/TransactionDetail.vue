@@ -1,64 +1,55 @@
 <template>
     <div>
         <LoadingVeil :show="!tx && loading" label="transaction" icon="mdi-file-document-outline" />
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-            <v-card-title class="d-flex align-center pa-5 lgu-head">
-                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                    <v-icon color="#005EED">mdi-file-document</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">
-                    <template v-if="tx">
-                        Transaction: <b>{{ tx.reference_number }}</b>
-                        <span v-if="tx.title"> — {{ tx.title }}</span>
-                    </template>
-                    <template v-else>Transaction</template>
-                </span>
-                <v-spacer />
-                <v-btn variant="text" @click="$router.push('/transactions')"
-                    >Back</v-btn
-                >
-            </v-card-title>
-
-            <v-divider />
-
-            <v-card-text v-if="tx" class="pa-0">
-                <v-row no-gutters>
-                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3">
-                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
-                            <v-icon size="20">mdi-shape-outline</v-icon>
-                        </v-avatar>
-                        <div class="min-w-0">
-                            <div class="text-caption text-medium-emphasis">Transaction Type</div>
-                            <div class="text-body-1 font-weight-bold">{{ tx.transaction_type?.name }}</div>
-                        </div>
-                    </v-col>
-                    <v-divider class="d-sm-none" />
-                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3 meta-divide">
-                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
-                            <v-icon size="20">mdi-source-branch</v-icon>
-                        </v-avatar>
-                        <div class="min-w-0">
-                            <div class="text-caption text-medium-emphasis">Current Step</div>
-                            <div class="text-body-1 font-weight-bold">{{ tx.current_step?.name }}</div>
-                        </div>
-                    </v-col>
-                </v-row>
-
-                <v-alert v-if="error" type="error" variant="tonal" class="ma-4 mt-0">{{ error }}</v-alert>
-
-                <v-divider />
-
-            </v-card-text>
-
-            <v-card-text v-else class="pa-4">
-                <v-alert v-if="!loading && error" type="error" variant="tonal" class="mb-0">{{ error }}</v-alert>
-                <div v-else>
-                    <v-skeleton-loader type="heading" class="mb-2" />
-                    <v-skeleton-loader type="text" />
-                    <v-skeleton-loader type="text" />
+        <header class="tx-header mb-4">
+            <div class="tx-top">
+                <div class="tx-icon" aria-hidden="true">
+                    <v-icon size="22" color="white">mdi-file-document-outline</v-icon>
                 </div>
-            </v-card-text>
-        </v-card>
+                <div class="tx-title-wrap">
+                    <div class="tx-meta">
+                        <span class="tx-kicker">Transaction Type</span>
+                        <span
+                            class="tx-type"
+                            :title="tx?.transaction_type?.name || 'N/A'"
+                        >
+                            <v-icon size="14" aria-hidden="true">mdi-shape-outline</v-icon>
+                            <span class="tx-type-name">{{ tx?.transaction_type?.name || 'N/A' }}</span>
+                        </span>
+                    </div>
+                    <div class="tx-main">
+                        <h1 class="tx-name" :title="tx?.title || 'N/A'">
+                            {{ tx?.title || 'N/A' }}
+                        </h1>
+                        <div v-if="tx?.reference_number" class="tx-codebox">
+                            <span class="tx-code" :title="tx.reference_number">{{ tx.reference_number }}</span>
+                            <button
+                                type="button"
+                                class="tx-copy"
+                                :class="{ 'is-done': copied }"
+                                :aria-label="copied ? 'Copied' : 'Copy transaction code'"
+                                @click="copyReference"
+                            >
+                                <v-icon size="14" aria-hidden="true">{{ copied ? 'mdi-check' : 'mdi-content-copy' }}</v-icon>
+                                <span>{{ copied ? 'Copied' : 'Copy' }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    class="tx-back"
+                    aria-label="Back"
+                    @click="$router.push('/transactions')"
+                >
+                    <v-icon size="18" aria-hidden="true">mdi-arrow-left</v-icon>
+                    <span>Back</span>
+                </button>
+            </div>
+            <div v-if="error" class="tx-error">
+                <v-alert type="error" variant="tonal" rounded="0" class="ma-0">{{ error }}</v-alert>
+            </div>
+        </header>
 
         <!-- Covered by LoadingVeil above while the transaction loads. -->
 
@@ -185,6 +176,7 @@
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions && !showCompleteStep"
+                                    class="action-proceed-btn"
                                     :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'primary'"
                                     rounded="0"
                                     :append-icon="isReturnAction ? 'mdi-chevron-triple-left' : 'mdi-chevron-triple-right'"
@@ -682,7 +674,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed, watch } from "vue";
+import { onMounted, ref, computed, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
@@ -715,6 +707,41 @@ const saving = ref(false);
 const loading = ref(true);
 const error = ref("");
 const executeError = ref("");
+
+// Header reference-code copy feedback.
+const copied = ref(false);
+let copiedTimer = null;
+
+async function copyReference() {
+    const text = String(tx.value?.reference_number || "").trim();
+    if (!text) return;
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const el = document.createElement("textarea");
+            el.value = text;
+            el.setAttribute("readonly", "");
+            el.style.position = "fixed";
+            el.style.opacity = "0";
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand("copy");
+            el.remove();
+        }
+        copied.value = true;
+        clearTimeout(copiedTimer);
+        copiedTimer = setTimeout(() => {
+            copied.value = false;
+        }, 1600);
+    } catch {
+        // Clipboard access can be denied; leave the label unchanged.
+    }
+}
+
+watch(() => tx.value?.reference_number, () => {
+    copied.value = false;
+});
 
 function formatApiError(e, fallback) {
     const errs = e?.response?.data?.errors;
@@ -2265,21 +2292,245 @@ function removeAttachment(id) {
 }
 
 onMounted(load);
+onUnmounted(() => clearTimeout(copiedTimer));
 </script>
 
 <style scoped>
+/* The global brand gradient paints filled primary buttons dark. The
+   action-bar Proceed button is the blue primary action beside the picker,
+   so override the gradient locally (Return/Resend use their own colours). */
+.action-proceed-btn {
+    --tms-grad: linear-gradient(
+        rgb(var(--v-theme-primary)),
+        rgb(var(--v-theme-primary))
+    );
+}
+
 .row-dim {
     opacity: 0.55;
 }
 
-/* Header meta split: vertical divider between Type and Step on sm+ only
-   (stacked rows get the horizontal v-divider instead). */
-@media (min-width: 600px) {
-    .meta-divide {
-        border-left: 1px solid rgba(0, 0, 0, 0.12);
+/* ---------- Transaction header (reference design) ---------- */
+.tx-header {
+    --tx-panel: #fff;
+    --tx-ink: #14213d;
+    --tx-muted: #5b6780;
+    --tx-line: #d5dbe8;
+    --tx-field: #f4f6fb;
+    --tx-hover: #f3f6fc;
+    --tx-blue: #1d3fae;
+    --tx-blue-bg: #e8eeff;
+    --tx-ok: #1b7a3d;
+    --tx-ring: rgba(29, 63, 174, 0.28);
+    background: var(--tx-panel);
+    color: var(--tx-ink);
+    border: 1px solid var(--tx-line);
+    border-bottom: 3px solid var(--tx-blue);
+    box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
+    font-variant-numeric: tabular-nums;
+}
+
+html.dark .tx-header {
+    --tx-panel: #161e36;
+    --tx-ink: #eef2fb;
+    --tx-muted: #9aa7c4;
+    --tx-line: #2b3558;
+    --tx-field: #1c2645;
+    --tx-hover: #1d2745;
+    --tx-blue: #6f8cff;
+    --tx-blue-bg: #25306a;
+    --tx-ok: #3fbf6f;
+    --tx-ring: rgba(138, 161, 255, 0.38);
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.5);
+}
+
+.tx-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 24px;
+}
+
+.tx-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--tx-blue);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.tx-title-wrap {
+    min-width: 0;
+    flex: 1;
+}
+
+.tx-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tx-kicker {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tx-muted);
+}
+
+.tx-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    background: var(--tx-blue-bg);
+    color: var(--tx-blue);
+    padding: 2px 10px 2px 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.tx-type .v-icon {
+    color: inherit;
+    flex: none;
+}
+
+.tx-type-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tx-main {
+    display: flex;
+    align-items: center;
+    gap: 4px 14px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+}
+
+.tx-name {
+    margin: 0;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tx-codebox {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1.5px solid var(--tx-line);
+    background: var(--tx-field);
+    flex: none;
+    max-width: 100%;
+}
+
+.tx-code {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--tx-muted);
+}
+
+.tx-copy,
+.tx-back {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+.tx-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-left: 1.5px solid var(--tx-line);
+    background: var(--tx-panel);
+    color: var(--tx-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tx-copy:hover {
+    background: var(--tx-hover);
+    color: var(--tx-ink);
+}
+
+.tx-copy.is-done {
+    color: var(--tx-ok);
+}
+
+.tx-copy .v-icon {
+    color: inherit;
+}
+
+.tx-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border: 1.5px solid var(--tx-line);
+    background: var(--tx-panel);
+    color: var(--tx-ink);
+    font-size: 14px;
+    font-weight: 700;
+    flex: none;
+}
+
+.tx-back:hover {
+    background: var(--tx-hover);
+}
+
+.tx-back .v-icon {
+    color: inherit;
+}
+
+.tx-header button:focus-visible {
+    outline: 3px solid var(--tx-ring);
+    outline-offset: 2px;
+}
+
+.tx-error {
+    padding: 0 24px 16px;
+}
+
+@media (max-width: 640px) {
+    .tx-top {
+        padding: 12px 14px;
+        gap: 12px;
     }
-    html.dark .meta-divide {
-        border-left-color: rgba(255, 255, 255, 0.12);
+    .tx-name {
+        flex-basis: 100%;
+        font-size: 18px;
+    }
+    .tx-back span {
+        display: none;
+    }
+    .tx-back {
+        padding: 0 11px;
+    }
+    .tx-error {
+        padding: 0 14px 14px;
     }
 }
 </style>

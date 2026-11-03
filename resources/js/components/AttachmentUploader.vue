@@ -141,6 +141,7 @@
             :show-eye="listShowEye"
             :group-by-label="listGroupByLabel"
             :collapsible-groups="listCollapsibleGroups"
+            :group-cards="listGroupCards"
             :redesign="redesign"
             @deleted="onDeleted"
         />
@@ -236,6 +237,8 @@ const props = defineProps({
     // Collapse the grouped list by batch name. Additional files leave this
     // expanded by default so freshly uploaded rows stay visible.
     listCollapsibleGroups: { type: Boolean, default: false },
+    // Render each batch group as its own tinted card (Additional files).
+    listGroupCards: { type: Boolean, default: false },
     // When true, renders an inline [Name][Add file] row owning the label
     // input (used by Other attachments instead of a separate Name field).
     showLabelInput: { type: Boolean, default: false },
