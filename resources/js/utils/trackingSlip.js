@@ -1,6 +1,7 @@
 // Printable tracking slip: handed over with the paper, its QR code opens the
-// transaction's tracking page. Built in a separate print window so the app
-// layout never prints; nothing is saved or sent anywhere.
+// transaction's tracking page. The slip is one self-contained HTML page:
+// shown in the preview dialog (iframe) and printed from a hidden iframe on
+// this page, so no pop-up window is needed. Nothing is saved or sent.
 import QRCode from 'qrcode'
 
 const esc = (v) =>
@@ -23,12 +24,9 @@ export function trackingUrl(tx) {
     return `${window.location.origin}/track/${tx.id}${ref}`
 }
 
-// Opens the slip and the print dialog. Returns false when the browser
-// blocked the window (the caller can tell the user to allow pop-ups).
-export async function printTrackingSlip(tx, { printedBy } = {}) {
-    const win = window.open('', '_blank', 'width=760,height=960')
-    if (!win) return false
-
+// The slip page (A5). Images are absolute or data URLs so it renders the
+// same inside an iframe's srcdoc.
+export async function buildSlipHtml(tx, { printedBy } = {}) {
     const url = trackingUrl(tx)
     const qr = await QRCode.toDataURL(url, { errorCorrectionLevel: 'M', margin: 1, width: 360 })
     const origin = window.location.origin
@@ -41,15 +39,18 @@ export async function printTrackingSlip(tx, { printedBy } = {}) {
         ['Current step', tx.current_step?.name || tx.current_step?.code || '—'],
     ]
 
-    win.document.write(`<!doctype html>
+    return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Tracking slip ${esc(tx.reference_number)}</title>
 <style>
   @page { size: A5 portrait; margin: 12mm; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif; color: #1d2433; }
+  html, body { margin: 0; background: #fff; }
+  body { font-family: "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif; color: #1d2433; padding: 16px; }
+  @media print { body { padding: 0; } }
   .slip { border: 2px solid #002D70; max-width: 560px; margin: 0 auto; }
-  .head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #002D70; color: #fff; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #002D70; color: #fff;
+          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .head img { width: 46px; height: 46px; border-radius: 50%; background: #fff; }
   .head small { display: block; opacity: .85; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
   .head b { font-size: 17px; }
@@ -88,11 +89,45 @@ export async function printTrackingSlip(tx, { printedBy } = {}) {
     </div>
     <div class="meta"><span>Printed ${esc(fmt(new Date().toISOString()))}</span><span>${printedBy ? `by ${esc(printedBy)}` : ''}</span></div>
   </div>
-  <script>
-    window.addEventListener('load', function () { window.focus(); window.print(); });
-    window.addEventListener('afterprint', function () { window.close(); });
-  <\/script>
-</body></html>`)
-    win.document.close()
-    return true
+</body></html>`
+}
+
+// Prints an HTML page from a hidden iframe on this page (no pop-up), once
+// its images have loaded. Resolves when the print dialog has been opened.
+export function printHtml(html) {
+    return new Promise((resolve, reject) => {
+        const frame = document.createElement('iframe')
+        frame.setAttribute('aria-hidden', 'true')
+        frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
+        const cleanup = () => setTimeout(() => frame.remove(), 1000)
+        frame.onload = async () => {
+            try {
+                const doc = frame.contentDocument
+                // Wait for the seal and QR images (a broken image never blocks).
+                await Promise.all(
+                    [...doc.images]
+                        .filter((img) => !img.complete)
+                        .map(
+                            (img) =>
+                                new Promise((done) => {
+                                    img.addEventListener('load', done, { once: true })
+                                    img.addEventListener('error', done, { once: true })
+                                }),
+                        ),
+                )
+                const win = frame.contentWindow
+                win.addEventListener('afterprint', cleanup, { once: true })
+                win.focus()
+                win.print()
+                // Some browsers never fire afterprint; remove the frame later anyway.
+                setTimeout(() => frame.isConnected && frame.remove(), 60000)
+                resolve()
+            } catch (e) {
+                frame.remove()
+                reject(e)
+            }
+        }
+        frame.srcdoc = html
+        document.body.appendChild(frame)
+    })
 }

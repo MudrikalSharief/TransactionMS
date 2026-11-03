@@ -14,7 +14,8 @@
                     <template v-else>Transaction</template>
                 </span>
                 <v-spacer />
-                <!-- Tracking slip with a QR code, handed over with the paper. -->
+                <!-- Tracking slip with a QR code, handed over with the paper:
+                     opens a preview, printed from there. -->
                 <v-btn
                     v-if="tx"
                     variant="outlined"
@@ -22,13 +23,13 @@
                     rounded="0"
                     prepend-icon="mdi-printer-outline"
                     class="mr-2"
-                    :loading="printingSlip"
-                    @click="printSlip"
+                    @click="slipOpen = true"
                     >Print slip</v-btn
                 >
                 <v-btn variant="text" @click="$router.push('/transactions')"
                     >Back</v-btn
                 >
+                <TrackingSlipDialog v-model="slipOpen" :tx="tx" :printed-by="auth.user.value?.name || ''" />
             </v-card-title>
 
             <v-divider />
@@ -742,29 +743,15 @@ import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
 import { fmtDateTime } from '@/utils/dates';
-import { printTrackingSlip } from '@/utils/trackingSlip';
-import { toast } from '@/composables/useToast';
+import TrackingSlipDialog from '@/components/TrackingSlipDialog.vue';
 
 const route = useRoute();
 const { api } = useApi();
 const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
 
 const tx = ref(null);
-
-// Print the tracking slip (QR to the tracking page) in its own window.
-const printingSlip = ref(false);
-async function printSlip() {
-    if (!tx.value) return;
-    printingSlip.value = true;
-    try {
-        const opened = await printTrackingSlip(tx.value, { printedBy: auth.user.value?.name });
-        if (!opened) toast.warning("Allow pop-ups for this site to print the slip.");
-    } catch {
-        toast.error("The slip could not be prepared. Please try again.");
-    } finally {
-        printingSlip.value = false;
-    }
-}
+// Tracking slip preview (QR to the tracking page), printed from the dialog.
+const slipOpen = ref(false);
 const availableActions = ref([]);
 const saving = ref(false);
 const loading = ref(true);
