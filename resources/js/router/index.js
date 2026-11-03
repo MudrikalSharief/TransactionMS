@@ -13,7 +13,6 @@ const AdminTransactionTypes = () => import("@/pages/admin/TransactionTypes.vue")
 const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
 const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
 const AdminFields = () => import("@/pages/admin/Fields.vue");
-const AdminStepFields = () => import("@/pages/admin/StepFields.vue");
 
 const AdminRequirements = () => import("@/pages/admin/Requirements.vue");
 const AdminStepRequirements = () => import("@/pages/admin/StepRequirements.vue");
@@ -172,13 +171,6 @@ export function createRouter() {
             {
                 path: "/admin/fields",
                 component: AdminFields,
-                meta: { requiresAuth: true, superadmin: true },
-            },
-
-            {
-                path: "/admin/workflows/:workflowId/steps/:stepId/fields",
-                name: "admin.step-fields",
-                component: AdminStepFields,
                 meta: { requiresAuth: true, superadmin: true },
             },
 

@@ -1655,12 +1655,6 @@
     "ast_hash": "ec9cd0f8ca7bd3d816d940bedc233034",
     "semantic_hash": "ec9cd0f8ca7bd3d816d940bedc233034"
   },
-  "resources/js/composables/useStepFields.js": {
-    "mtime": 1792410759.5717585,
-    "seen": 1793326337.7632313,
-    "ast_hash": "d779c5f074785260be1ab1d8f71d85dd",
-    "semantic_hash": "d779c5f074785260be1ab1d8f71d85dd"
-  },
   "resources/js/composables/useStepRequirements.js": {
     "mtime": 1792410759.5717585,
     "seen": 1793326337.7632332,
@@ -1752,9 +1746,9 @@
     "semantic_hash": ""
   },
   "resources/js/pages/admin/RequirementOverview.vue": {
-    "mtime": 1793353168.6426833,
-    "seen": 1793461967.2047532,
-    "ast_hash": "b324820c8c8d6da7daef6432eee446b1",
+    "mtime": 1793685345.3345187,
+    "seen": 1793685467.350778,
+    "ast_hash": "d01d76cce98cb1c18ce1bfdf7bac1c18",
     "semantic_hash": ""
   },
   "resources/js/pages/admin/Requirements.vue": {
@@ -1782,27 +1776,21 @@
     "semantic_hash": "40cacb97f5ed50fe00ab0091b5ea2560"
   },
   "resources/js/pages/admin/StepData.vue": {
-    "mtime": 1793062578.5156205,
-    "seen": 1793326337.7632756,
-    "ast_hash": "1f80e0ecbde197189e51c33dc5111b10",
-    "semantic_hash": "1f80e0ecbde197189e51c33dc5111b10"
-  },
-  "resources/js/pages/admin/StepDataOverview.vue": {
-    "mtime": 1793353168.644849,
-    "seen": 1793461967.204777,
-    "ast_hash": "3a16a33acb01bbdc4ba24ee2b402c1ec",
+    "mtime": 1793687575.0691583,
+    "seen": 1793687678.0790474,
+    "ast_hash": "c0efaf3711488e8ee8fc50f066a721bc",
     "semantic_hash": ""
   },
-  "resources/js/pages/admin/StepFields.vue": {
-    "mtime": 1792547414.579517,
-    "seen": 1793326337.76328,
-    "ast_hash": "08f8a3a51174b5d340c9d3c79275efd1",
-    "semantic_hash": "08f8a3a51174b5d340c9d3c79275efd1"
+  "resources/js/pages/admin/StepDataOverview.vue": {
+    "mtime": 1793685345.3355205,
+    "seen": 1793685467.350801,
+    "ast_hash": "7fd64ff0219373575db3ae7049c13533",
+    "semantic_hash": ""
   },
   "resources/js/pages/admin/StepRequirements.vue": {
-    "mtime": 1793353168.644849,
-    "seen": 1793461967.2047858,
-    "ast_hash": "cba943ec74919f1866291e647f4a2452",
+    "mtime": 1793687587.770564,
+    "seen": 1793687678.079055,
+    "ast_hash": "6fe234c05a974efed921a29f30fc8978",
     "semantic_hash": ""
   },
   "resources/js/pages/admin/TransactionTypes.vue": {
@@ -1818,9 +1806,9 @@
     "semantic_hash": ""
   },
   "resources/js/pages/admin/Workflows.vue": {
-    "mtime": 1793353168.651555,
-    "seen": 1793461967.2047985,
-    "ast_hash": "3b106421810ac3c7305682d8718e6a50",
+    "mtime": 1793685360.5041418,
+    "seen": 1793685467.3508155,
+    "ast_hash": "52f4a32d1ef199d437e9f84109a6d419",
     "semantic_hash": ""
   },
   "resources/js/pages/approvals/ApprovalInbox.vue": {
@@ -1890,9 +1878,9 @@
     "semantic_hash": ""
   },
   "resources/js/router/index.js": {
-    "mtime": 1793353168.6604125,
-    "seen": 1793461967.2048454,
-    "ast_hash": "ec852670002e86e0d3d2d1dd13e7ec7d",
+    "mtime": 1793685360.5309055,
+    "seen": 1793685467.35086,
+    "ast_hash": "d79c837dba03021b9c1bdd74ba590449",
     "semantic_hash": ""
   },
   "resources/js/utils/dates.js": {
@@ -2094,9 +2082,9 @@
     "semantic_hash": ""
   },
   "docs/02-architecture.md": {
-    "mtime": 1792410759.0213792,
-    "seen": 1793326557.0933232,
-    "ast_hash": "47ae0f618431e62fbd823854c7410b35",
+    "mtime": 1793685412.7192566,
+    "seen": 1793685467.3509893,
+    "ast_hash": "7ad06d7c9989ac349c222b0c262bac71",
     "semantic_hash": ""
   },
   "docs/03-auth-roles.md": {
@@ -2112,9 +2100,9 @@
     "semantic_hash": ""
   },
   "docs/05-admin-guide.md": {
-    "mtime": 1792410759.02404,
-    "seen": 1793326557.093336,
-    "ast_hash": "5cf84979fb95e0ec707a08c7980d1ea7",
+    "mtime": 1793685403.148878,
+    "seen": 1793685467.351,
+    "ast_hash": "6daf9bcf956703d8e9b0e7f249152cb2",
     "semantic_hash": ""
   },
   "docs/06-workflow-engine.md": {
@@ -2223,6 +2211,18 @@
     "mtime": 1793353168.6673963,
     "seen": 1793461967.2048602,
     "ast_hash": "222e9acd7358fe8cb72f5f1d0cab3d5a",
+    "semantic_hash": ""
+  },
+  "resources/js/components/DepthNav.vue": {
+    "mtime": 1793684463.5097308,
+    "seen": 1793684519.2268922,
+    "ast_hash": "211db4c0684ecffd0b61bf952be6c8b1",
+    "semantic_hash": ""
+  },
+  "resources/js/utils/workflowDepth.js": {
+    "mtime": 1793684080.5329351,
+    "seen": 1793684321.717226,
+    "ast_hash": "4057ddb54e45d432c5dee6b3c8c812bf",
     "semantic_hash": ""
   },
   "package-lock.json": {
