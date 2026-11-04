@@ -19,10 +19,20 @@ const fmt = (iso) =>
           })
         : '—'
 
+// The QR opens /scan/:id, which the router sends to the read-only tracking
+// page (signing in as the guest viewer when needed).
 export function trackingUrl(tx) {
     const ref = tx?.reference_number ? `?ref=${encodeURIComponent(tx.reference_number)}` : ''
-    return `${window.location.origin}/track/${tx.id}${ref}`
+    return `${window.location.origin}/scan/${tx.id}${ref}`
 }
+
+// Small icons for the footer contacts (Material Design Icons paths).
+const ICON = {
+    mail: 'M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6M20 6L12 11L4 6H20M20 18H4V8L12 13L20 8V18Z',
+    pin: 'M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z',
+    phone: 'M6.62,10.79C8.06,13.62 10.38,15.94 13.21,17.38L15.41,15.18C15.69,14.9 16.08,14.82 16.43,14.93C17.55,15.3 18.75,15.5 20,15.5A1,1 0 0,1 21,16.5V20A1,1 0 0,1 20,21A17,17 0 0,1 3,4A1,1 0 0,1 4,3H7.5A1,1 0 0,1 8.5,4C8.5,5.25 8.7,6.45 9.07,7.57C9.18,7.92 9.1,8.31 8.82,8.59L6.62,10.79Z',
+}
+const icon = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`
 
 // The slip page (A5). Images are absolute or data URLs so it renders the
 // same inside an iframe's srcdoc.
@@ -48,12 +58,17 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
   html, body { margin: 0; background: #fff; }
   body { font-family: "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif; color: #1d2433; padding: 16px; }
   @media print { body { padding: 0; } }
-  .slip { border: 2px solid #002D70; max-width: 560px; margin: 0 auto; }
-  .head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #002D70; color: #fff;
+  .slip { border: 2px solid #002D70; max-width: 560px; margin: 0 auto; overflow: hidden;
           -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .head img { width: 46px; height: 46px; border-radius: 50%; background: #fff; }
+  /* Header: city seal, title, system logo. */
+  .head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #002D70; color: #fff;
+          border-bottom: 3px solid #F2B33D; }
+  .head .mark { width: 46px; height: 46px; border-radius: 50%; background: #fff; object-fit: contain; flex: 0 0 auto; }
+  .head .title { flex: 1 1 auto; min-width: 0; }
   .head small { display: block; opacity: .85; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
   .head b { font-size: 17px; }
+  .head .sys { text-align: center; font-size: 8.5px; font-weight: 700; letter-spacing: .04em; opacity: .9; flex: 0 0 auto; }
+  .head .sys .mark { display: block; margin: 0 auto 2px; }
   .body { display: flex; gap: 16px; padding: 16px; }
   .info { flex: 1 1 auto; min-width: 0; }
   .ref-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b6475; }
@@ -64,15 +79,30 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
   .qr { flex: 0 0 150px; text-align: center; }
   .qr img { width: 150px; height: 150px; }
   .qr div { font-size: 11px; font-weight: 700; color: #002D70; }
-  .url { padding: 0 16px 10px; font-size: 10.5px; color: #5b6475; word-break: break-all; }
-  .foot { border-top: 2px solid #F2B33D; padding: 10px 16px; font-size: 11.5px; line-height: 1.45; }
-  .meta { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 12px; font-size: 10.5px; color: #5b6475; }
+  .url { padding: 0 16px 8px; font-size: 10.5px; color: #5b6475; word-break: break-all; }
+  .note { padding: 0 16px 6px; font-size: 11.5px; line-height: 1.45; }
+  .meta { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 4px; font-size: 10.5px; color: #5b6475; }
+  /* Footer: same design as the site footer (City Hall over a navy band
+     with gold and blue swooshes, contacts and the CSD credit). */
+  .tf-sky { position: relative; height: 84px; }
+  .tf-sky svg { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: 44px; }
+  .tf-sky img { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 270px; height: auto;
+                -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%);
+                mask-image: linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%); }
+  .tf-band { background: linear-gradient(180deg, #002D70 0%, #002056 100%); color: #fff; text-align: center; padding: 8px 14px 12px; }
+  .tf-contacts { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 10.5px; }
+  .tf-contacts span { display: inline-flex; align-items: center; gap: 4px; }
+  .tf-contacts svg { width: 11px; height: 11px; fill: #fff; }
+  .tf-rule { width: 60%; height: 1px; margin: 7px auto 6px; background: linear-gradient(90deg, transparent, rgba(147, 197, 253, .8), transparent); }
+  .tf-credit { font-size: 10.5px; color: rgba(255, 255, 255, .9); }
+  .tf-credit b { color: #fff; font-weight: 800; }
 </style></head>
 <body>
   <div class="slip">
     <div class="head">
-      <img src="${origin}/zamboanga-seal.png" alt="">
-      <div><small>City Government of Zamboanga</small><b>Transaction Tracking Slip</b></div>
+      <img class="mark" src="${origin}/zamboanga-seal.png" alt="City of Zamboanga official seal">
+      <div class="title"><small>City Government of Zamboanga</small><b>Transaction Tracking Slip</b></div>
+      <div class="sys"><img class="mark" src="${origin}/tms-logo-128.png" alt="TransactionMS logo">TransactionMS</div>
     </div>
     <div class="body">
       <div class="info">
@@ -83,11 +113,38 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
       <div class="qr"><img src="${qr}" alt="QR code to track this transaction"><div>Scan to track</div></div>
     </div>
     <div class="url">${esc(url)}</div>
-    <div class="foot">
-      Keep this slip. Scan the QR code or give the reference number to follow up on
-      where your document is and what step it is on.
+    <div class="note">
+      Keep this slip. Scan the QR code to see where your document is and what step it is on
+      (view only), or give the reference number when you follow up.
     </div>
     <div class="meta"><span>Printed ${esc(fmt(new Date().toISOString()))}</span><span>${printedBy ? `by ${esc(printedBy)}` : ''}</span></div>
+    <div class="tf-sky" aria-hidden="true">
+      <svg viewBox="0 0 1600 120" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sg" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stop-color="#F2B33D"/><stop offset=".32" stop-color="#F2B33D" stop-opacity="0"/>
+            <stop offset=".68" stop-color="#F2B33D" stop-opacity="0"/><stop offset="1" stop-color="#F2B33D"/>
+          </linearGradient>
+          <linearGradient id="sb" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stop-color="#2563EB"/><stop offset=".32" stop-color="#2563EB" stop-opacity="0"/>
+            <stop offset=".68" stop-color="#2563EB" stop-opacity="0"/><stop offset="1" stop-color="#2563EB"/>
+          </linearGradient>
+        </defs>
+        <path d="M0 10 C520 78 1080 78 1600 10" fill="none" stroke="url(#sg)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+        <path d="M0 20 C520 88 1080 88 1600 20" fill="none" stroke="url(#sb)" stroke-width="6" vector-effect="non-scaling-stroke"/>
+        <path d="M0 30 C520 98 1080 98 1600 30 L1600 120 L0 120 Z" fill="#002D70"/>
+      </svg>
+      <img src="${origin}/footer-hall.webp" alt="">
+    </div>
+    <div class="tf-band">
+      <div class="tf-contacts">
+        <span>${icon(ICON.mail)}info@zamboangacity.gov.ph</span>
+        <span>${icon(ICON.pin)}City Hall, Zamboanga City, Philippines</span>
+        <span>${icon(ICON.phone)}(062) 991-3371</span>
+      </div>
+      <div class="tf-rule"></div>
+      <div class="tf-credit">Developed by <b>City Hall Computer Service Division</b> - Mayor's Office</div>
+    </div>
   </div>
 </body></html>`
 }

@@ -136,6 +136,14 @@ export function createRouter() {
                 component: TrackDetail,
                 meta: { requiresAuth: true, title: "Track Transaction", kind: "viewer" },
             },
+            {
+                // QR code on the printed tracking slip. Never rendered: the
+                // guard below sends it on to the read-only tracking page.
+                path: "/scan/:id",
+                name: "scan",
+                component: { render: () => null },
+                meta: { scan: true },
+            },
 
             {
                 path: "/admin/users",
@@ -288,6 +296,25 @@ export function createRouter() {
     router.beforeEach(async (to, from) => {
         const auth = useAuth();
         if (!auth.initialized.value) await auth.init();
+
+        // Scanned tracking-slip QR: open that transaction's view-only
+        // tracking page. Not signed in: use the same read-only guest viewer
+        // as "Track your transaction" on the login page. Staff and admins
+        // already signed in get their usual transaction page.
+        if (to.meta.scan) {
+            const ref = to.query.ref ? { ref: String(to.query.ref) } : {};
+            if (!auth.user.value) {
+                try {
+                    await auth.loginAsGuest();
+                } catch {
+                    return { name: "login" };
+                }
+            }
+            return userKind(auth.user.value) === "viewer"
+                ? { path: `/track/${to.params.id}`, query: ref }
+                : `/transactions/${to.params.id}`;
+        }
+
         if (to.meta.requiresAuth && !auth.user.value) return { name: "login" };
         if (to.name === "login" && auth.user.value) {
             // Viewer (shared guest): the browser's Back button to the login
