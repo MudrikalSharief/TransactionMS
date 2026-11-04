@@ -76,11 +76,49 @@
         class="ofp-table"
       >
         <template v-slot:[`item.code`]="{ item }">
-          <span class="ofp-code" :title="item.code">{{ item.code }}</span>
+          <div v-if="editingCodeId === item.id" class="ofp-cell-edit">
+            <input
+              :ref="setCodeInput"
+              :value="codeDraft"
+              type="text"
+              class="ofp-inline-input ofp-mono"
+              maxlength="50"
+              spellcheck="false"
+              autocomplete="off"
+              aria-label="Edit office code"
+              :disabled="inlineSavingId != null"
+              @input="onCodeDraftInput"
+              @keyup.enter="saveCode(item)"
+              @keyup.esc="cancelCodeEdit"
+              @blur="saveCode(item)"
+            />
+            <span
+              v-if="inlineSavingId === item.id"
+              class="ofp-inline-spin"
+              aria-hidden="true"
+            />
+          </div>
+          <button
+            v-else
+            type="button"
+            class="ofp-cell-btn ofp-code-btn"
+            :disabled="!canManage || inlineSavingId != null"
+            title="Click to edit code"
+            @click="startCodeEdit(item)"
+          >
+            <span class="ofp-code" :title="item.code">{{ item.code }}</span>
+            <v-icon
+              v-if="canManage"
+              class="ofp-edit-hint"
+              size="14"
+              aria-hidden="true"
+              >mdi-pencil</v-icon
+            >
+          </button>
         </template>
 
         <template v-slot:[`item.name`]="{ item }">
-          <div class="ofp-name" :title="item.name">
+          <div v-if="editingNameId === item.id" class="ofp-name ofp-name-edit">
             <span
               class="ofp-av"
               :class="`ofp-h${hueOf(item)}`"
@@ -94,23 +132,175 @@
               />
               <span v-else class="ofp-av-text">{{ initialsOf(item) }}</span>
             </span>
-            <span class="ofp-name-text">{{ item.name }}</span>
+            <div class="ofp-cell-edit ofp-name-edit-wrap">
+              <input
+                :ref="setNameInput"
+                v-model="nameDraft"
+                type="text"
+                class="ofp-inline-input"
+                maxlength="120"
+                autocomplete="off"
+                aria-label="Edit office name"
+                :disabled="inlineSavingId != null"
+                @keyup.enter="saveName(item)"
+                @keyup.esc="cancelNameEdit"
+                @blur="saveName(item)"
+              />
+              <span
+                v-if="inlineSavingId === item.id"
+                class="ofp-inline-spin"
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+          <div v-else class="ofp-name" :title="item.name">
+            <div class="ofp-av-wrap">
+              <button
+                type="button"
+                class="ofp-av-btn"
+                aria-label="Change office icon"
+                :disabled="!canManage || inlineSavingId != null"
+                :title="canManage ? 'Click to change icon' : ''"
+                @click.stop="pickInlineIcon(item)"
+              >
+                <span
+                  class="ofp-av"
+                  :class="`ofp-h${hueOf(item)}`"
+                  aria-hidden="true"
+                >
+                  <img
+                    v-if="officeIcon(item)"
+                    class="ofp-av-img"
+                    :src="officeIcon(item)"
+                    alt=""
+                  />
+                  <span v-else class="ofp-av-text">{{ initialsOf(item) }}</span>
+                  <span
+                    v-if="iconUploadingId === item.id"
+                    class="ofp-av-spin"
+                    aria-hidden="true"
+                  />
+                  <span
+                    v-else-if="canManage"
+                    class="ofp-av-hint"
+                    aria-hidden="true"
+                  >
+                    <v-icon size="14">mdi-camera-outline</v-icon>
+                  </span>
+                </span>
+              </button>
+              <button
+                v-if="
+                  canManage &&
+                  item.icon_url &&
+                  iconUploadingId !== item.id
+                "
+                type="button"
+                class="ofp-av-remove"
+                aria-label="Remove office icon"
+                title="Remove icon"
+                :disabled="inlineSavingId != null"
+                @click.stop="removeInlineIcon(item)"
+              >
+                <v-icon size="12">mdi-close</v-icon>
+              </button>
+            </div>
+            <button
+              type="button"
+              class="ofp-cell-btn ofp-name-btn"
+              :disabled="!canManage || inlineSavingId != null"
+              title="Click to edit name"
+              @click="startNameEdit(item)"
+            >
+              <span class="ofp-name-text">{{ item.name }}</span>
+              <v-icon
+                v-if="canManage"
+                class="ofp-edit-hint"
+                size="14"
+                aria-hidden="true"
+                >mdi-pencil</v-icon
+              >
+            </button>
           </div>
         </template>
 
         <template v-slot:[`item.description`]="{ item }">
-          <span
-            v-if="item.description"
-            class="ofp-desc"
-            :title="item.description"
+          <div
+            v-if="editingDescId === item.id"
+            class="ofp-cell-edit ofp-desc-edit"
           >
-            {{ item.description }}
-          </span>
-          <span v-else class="ofp-dash">—</span>
+            <textarea
+              :ref="setDescInput"
+              v-model="descDraft"
+              class="ofp-desc-input"
+              rows="2"
+              maxlength="200"
+              aria-label="Edit office description"
+              :disabled="inlineSavingId != null"
+              @keydown.esc.prevent="cancelDescEdit"
+              @keydown.ctrl.enter.prevent="saveDescription(item)"
+              @keydown.meta.enter.prevent="saveDescription(item)"
+              @blur="saveDescription(item)"
+            ></textarea>
+            <div class="ofp-inline-hint">
+              Ctrl+Enter to save · Esc to cancel
+              <span
+                v-if="inlineSavingId === item.id"
+                class="ofp-inline-spin"
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="ofp-cell-btn ofp-desc-btn"
+            :disabled="!canManage || inlineSavingId != null"
+            title="Click to edit description"
+            @click="startDescEdit(item)"
+          >
+            <span
+              v-if="item.description"
+              class="ofp-desc"
+              :title="item.description"
+            >
+              {{ item.description }}
+            </span>
+            <span v-else class="ofp-dash">—</span>
+            <v-icon
+              v-if="canManage"
+              class="ofp-edit-hint"
+              size="14"
+              aria-hidden="true"
+              >mdi-pencil</v-icon
+            >
+          </button>
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
-          <span class="ofp-status" :class="{ 'is-off': !item.is_active }">
+          <button
+            v-if="canManage"
+            type="button"
+            class="ofp-switch"
+            :class="{ 'is-on': item.is_active }"
+            role="switch"
+            :aria-checked="item.is_active ? 'true' : 'false'"
+            :aria-label="`Set ${item.name} ${item.is_active ? 'inactive' : 'active'}`"
+            :disabled="inlineSavingId != null"
+            @click="toggleStatus(item)"
+          >
+            <span class="ofp-switch-track" aria-hidden="true">
+              <span class="ofp-switch-thumb" />
+            </span>
+            <span class="ofp-switch-label">{{
+              item.is_active ? 'Active' : 'Inactive'
+            }}</span>
+          </button>
+          <span
+            v-else
+            class="ofp-status"
+            :class="{ 'is-off': !item.is_active }"
+          >
             <span class="ofp-status-dot" aria-hidden="true" />
             {{ item.is_active ? 'Active' : 'Inactive' }}
           </span>
@@ -119,16 +309,6 @@
         <template v-slot:[`item.actions`]="{ item }">
           <div v-if="canManage" class="ofp-actions">
             <v-btn
-              class="ofp-ib is-edit"
-              icon="mdi-pencil"
-              aria-label="Edit office"
-              v-tooltip="'Edit office'"
-              size="small"
-              variant="outlined"
-              rounded="0"
-              @click="openEdit(item)"
-            />
-            <v-btn
               class="ofp-ib is-delete"
               icon="mdi-delete"
               aria-label="Delete office"
@@ -136,6 +316,7 @@
               size="small"
               variant="outlined"
               rounded="0"
+              :disabled="inlineSavingId != null"
               @click="removeRow(item)"
             />
           </div>
@@ -229,6 +410,15 @@
       <span class="ofp-sr-only" aria-live="polite">{{ rangeLabel }}</span>
     </footer>
   </v-card>
+
+  <input
+    ref="inlineIconInput"
+    class="ofp-file"
+    type="file"
+    accept="image/png,image/jpeg,image/webp"
+    tabindex="-1"
+    @change="onInlineIconPicked"
+  />
 
   <v-dialog
     v-model="dialog"
@@ -475,8 +665,8 @@ const headers = computed(() => {
       sort: compareText,
       headerProps: { 'aria-sort': ariaSort('name') },
     },
-    { title: 'Description', key: 'description', width: '28%', sortable: false },
-    { title: 'Status', key: 'is_active', width: '12%', sortable: false },
+    { title: 'Description', key: 'description', width: '27%', sortable: false },
+    { title: 'Status', key: 'is_active', width: '13%', sortable: false },
     { title: '', key: 'actions', width: '14%', sortable: false, align: 'end' },
   ]
 })
@@ -495,6 +685,348 @@ const iconFile = ref(null)
 const iconObjectUrl = ref('')
 const removeIcon = ref(false)
 const iconDragging = ref(false)
+
+// ---- Inline table editing ----
+const editingCodeId = ref(null)
+const codeDraft = ref('')
+const editingNameId = ref(null)
+const nameDraft = ref('')
+const editingDescId = ref(null)
+const descDraft = ref('')
+const inlineSavingId = ref(null)
+const inlineIconInput = ref(null)
+const iconTargetId = ref(null)
+const iconUploadingId = ref(null)
+
+let codeInputEl = null
+let nameInputEl = null
+let descInputEl = null
+
+function setCodeInput(el) {
+  codeInputEl = el
+}
+function setNameInput(el) {
+  nameInputEl = el
+}
+function setDescInput(el) {
+  descInputEl = el
+}
+
+function officePayload(item, overrides = {}) {
+  return {
+    code: String(item.code ?? '').toUpperCase(),
+    name: item.name ?? '',
+    description: item.description ?? '',
+    is_active: !!item.is_active,
+    ...overrides,
+  }
+}
+
+function replaceOffice(updated) {
+  if (updated?.id == null) return
+  const idx = (items.value || []).findIndex(
+    (o) => Number(o.id) === Number(updated.id)
+  )
+  if (idx >= 0) items.value[idx] = updated
+}
+
+function apiErrorMessage(e, fallback) {
+  const errs = e?.response?.data?.errors
+  if (errs) {
+    const first = Object.values(errs).flat()[0]
+    if (first) return Array.isArray(first) ? first[0] : String(first)
+  }
+  return e?.response?.data?.message || fallback
+}
+
+function validateCode(item, value) {
+  const code = String(value ?? '').trim().toUpperCase()
+  if (!code) return 'Enter an office code.'
+  if (!/^[A-Z][A-Z0-9_]*$/.test(code)) {
+    return 'Use uppercase snake case, starting with a letter (for example GENERAL_SERVICE_OFFICE).'
+  }
+  if (code.length > 50) return 'Keep the code to 50 characters or fewer.'
+  if (
+    (items.value || []).some(
+      (o) =>
+        String(o.id) !== String(item.id) &&
+        String(o.code ?? '').toUpperCase() === code
+    )
+  ) {
+    return 'This code is already used by another office.'
+  }
+  return ''
+}
+
+function validateName(value) {
+  const name = String(value ?? '').trim()
+  if (!name) return 'Enter the office name.'
+  if (name.length > 120) return 'Keep the name to 120 characters or fewer.'
+  return ''
+}
+
+function validateDescription(value) {
+  if (String(value ?? '').length > 200) {
+    return 'Keep the description to 200 characters or fewer.'
+  }
+  return ''
+}
+
+async function startCodeEdit(item) {
+  if (!canManage.value || inlineSavingId.value != null) return
+  editingCodeId.value = item.id
+  codeDraft.value = String(item.code ?? '').toUpperCase()
+  await nextTick()
+  codeInputEl?.focus()
+  codeInputEl?.select?.()
+}
+
+function onCodeDraftInput(event) {
+  codeDraft.value = String(event.target.value || '').toUpperCase()
+}
+
+function cancelCodeEdit() {
+  if (inlineSavingId.value != null) return
+  editingCodeId.value = null
+  codeDraft.value = ''
+}
+
+async function saveCode(item) {
+  if (editingCodeId.value !== item.id || inlineSavingId.value != null) return
+  const code = codeDraft.value.trim().toUpperCase()
+  const problem = validateCode(item, code)
+  if (problem) {
+    toast.error(problem)
+    codeInputEl?.focus()
+    return
+  }
+  if (code === String(item.code ?? '').toUpperCase()) {
+    editingCodeId.value = null
+    codeDraft.value = ''
+    return
+  }
+  inlineSavingId.value = item.id
+  try {
+    const updated = await update(item.id, officePayload(item, { code }))
+    replaceOffice(updated)
+    editingCodeId.value = null
+    codeDraft.value = ''
+    toast.success(`Office code changed to "${code}".`)
+  } catch (e) {
+    toast.error(apiErrorMessage(e, 'Could not update the office code.'))
+    inlineSavingId.value = null
+    await nextTick()
+    codeInputEl?.focus()
+  } finally {
+    inlineSavingId.value = null
+  }
+}
+
+async function startNameEdit(item) {
+  if (!canManage.value || inlineSavingId.value != null) return
+  editingNameId.value = item.id
+  nameDraft.value = item.name ?? ''
+  await nextTick()
+  nameInputEl?.focus()
+  nameInputEl?.select?.()
+}
+
+function cancelNameEdit() {
+  if (inlineSavingId.value != null) return
+  editingNameId.value = null
+  nameDraft.value = ''
+}
+
+async function saveName(item) {
+  if (editingNameId.value !== item.id || inlineSavingId.value != null) return
+  const name = nameDraft.value.trim()
+  const problem = validateName(name)
+  if (problem) {
+    toast.error(problem)
+    nameInputEl?.focus()
+    return
+  }
+  if (name === String(item.name ?? '').trim()) {
+    editingNameId.value = null
+    nameDraft.value = ''
+    return
+  }
+  inlineSavingId.value = item.id
+  try {
+    const updated = await update(item.id, officePayload(item, { name }))
+    replaceOffice(updated)
+    editingNameId.value = null
+    nameDraft.value = ''
+    toast.success(`Office "${name}" updated.`)
+  } catch (e) {
+    toast.error(apiErrorMessage(e, 'Could not update the office name.'))
+    inlineSavingId.value = null
+    await nextTick()
+    nameInputEl?.focus()
+  } finally {
+    inlineSavingId.value = null
+  }
+}
+
+async function startDescEdit(item) {
+  if (!canManage.value || inlineSavingId.value != null) return
+  editingDescId.value = item.id
+  descDraft.value = item.description ?? ''
+  await nextTick()
+  descInputEl?.focus()
+  const len = descInputEl?.value?.length ?? 0
+  descInputEl?.setSelectionRange?.(len, len)
+}
+
+function cancelDescEdit() {
+  if (inlineSavingId.value != null) return
+  editingDescId.value = null
+  descDraft.value = ''
+}
+
+async function saveDescription(item) {
+  if (editingDescId.value !== item.id || inlineSavingId.value != null) return
+  const description = String(descDraft.value || '').trim()
+  const problem = validateDescription(description)
+  if (problem) {
+    toast.error(problem)
+    descInputEl?.focus()
+    return
+  }
+  if (description === String(item.description ?? '').trim()) {
+    editingDescId.value = null
+    descDraft.value = ''
+    return
+  }
+  inlineSavingId.value = item.id
+  try {
+    const updated = await update(
+      item.id,
+      officePayload(item, { description })
+    )
+    replaceOffice(updated)
+    editingDescId.value = null
+    descDraft.value = ''
+    toast.success('Office description updated.')
+  } catch (e) {
+    toast.error(apiErrorMessage(e, 'Could not update the description.'))
+    inlineSavingId.value = null
+    await nextTick()
+    descInputEl?.focus()
+  } finally {
+    inlineSavingId.value = null
+  }
+}
+
+function pickInlineIcon(item) {
+  if (!canManage.value || inlineSavingId.value != null) return
+  iconTargetId.value = item.id
+  inlineIconInput.value?.click?.()
+}
+
+function onInlineIconPicked(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  const id = iconTargetId.value
+  iconTargetId.value = null
+  if (!file || id == null) return
+  const item = (items.value || []).find(
+    (o) => Number(o.id) === Number(id)
+  )
+  if (item) saveIcon(item, file)
+}
+
+async function saveIcon(item, file) {
+  const allowedMime = ['image/png', 'image/jpeg', 'image/webp'].includes(file.type)
+  const allowedExt = /\.(png|jpe?g|webp)$/i.test(file.name)
+  if (!allowedMime && !allowedExt) {
+    toast.error('Choose a PNG, JPG or WebP image.')
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    toast.error(
+      `That image is ${formatFileSize(file.size)}. Choose one up to 2 MB.`
+    )
+    return
+  }
+
+  const payload = new FormData()
+  payload.append('code', String(item.code ?? '').toUpperCase())
+  payload.append('name', item.name ?? '')
+  payload.append('description', item.description ?? '')
+  payload.append('is_active', item.is_active ? '1' : '0')
+  payload.append('icon', file)
+
+  inlineSavingId.value = item.id
+  iconUploadingId.value = item.id
+  try {
+    const updated = await update(item.id, payload)
+    replaceOffice(updated)
+    toast.success(`Icon updated for "${updated.name || item.name}".`)
+  } catch (e) {
+    toast.error(apiErrorMessage(e, 'Could not update the icon.'))
+  } finally {
+    inlineSavingId.value = null
+    iconUploadingId.value = null
+  }
+}
+
+async function removeInlineIcon(item) {
+  if (!canManage.value || inlineSavingId.value != null || !item.icon_url) {
+    return
+  }
+
+  const payload = new FormData()
+  payload.append('code', String(item.code ?? '').toUpperCase())
+  payload.append('name', item.name ?? '')
+  payload.append('description', item.description ?? '')
+  payload.append('is_active', item.is_active ? '1' : '0')
+  payload.append('remove_icon', '1')
+
+  inlineSavingId.value = item.id
+  iconUploadingId.value = item.id
+  try {
+    const updated = await update(item.id, payload)
+    replaceOffice(updated)
+    toast.success(`Icon removed for "${updated.name || item.name}".`)
+  } catch (e) {
+    toast.error(apiErrorMessage(e, 'Could not remove the icon.'))
+  } finally {
+    inlineSavingId.value = null
+    iconUploadingId.value = null
+  }
+}
+
+async function toggleStatus(item) {
+  if (!canManage.value || inlineSavingId.value != null) return
+  inlineSavingId.value = item.id
+  try {
+    const updated = await update(
+      item.id,
+      officePayload(item, { is_active: !item.is_active })
+    )
+    replaceOffice(updated)
+    toast.success(
+      updated.is_active
+        ? `Office "${updated.name}" activated.`
+        : `Office "${updated.name}" deactivated.`
+    )
+  } catch (e) {
+    toast.error(apiErrorMessage(e, 'Could not update the status.'))
+  } finally {
+    inlineSavingId.value = null
+  }
+}
+
+function resetInlineEditors() {
+  editingCodeId.value = null
+  editingNameId.value = null
+  editingDescId.value = null
+  codeDraft.value = ''
+  nameDraft.value = ''
+  descDraft.value = ''
+  iconTargetId.value = null
+}
 
 // Client-side search: master data is small, filter loaded rows by
 // code / name / description without extra requests.
@@ -563,17 +1095,23 @@ function clearSearch() {
 
 watch(search, () => {
   page.value = 1
+  resetInlineEditors()
 })
 watch(pageSize, () => {
   page.value = 1
+  resetInlineEditors()
 })
 watch(
   sortBy,
   () => {
     page.value = 1
+    resetInlineEditors()
   },
   { deep: true }
 )
+watch(page, () => {
+  resetInlineEditors()
+})
 watch(
   () => filtered.value.length,
   (length) => {
@@ -712,6 +1250,7 @@ function focusFirstError(errors = fieldErrors.value) {
 }
 
 function openCreate() {
+  if (inlineSavingId.value != null) return
   error.value = ''
   fieldErrors.value = {}
   dialogError.value = ''
@@ -722,6 +1261,7 @@ function openCreate() {
 }
 
 function openEdit(item) {
+  if (inlineSavingId.value != null) return
   error.value = ''
   fieldErrors.value = {}
   dialogError.value = ''
@@ -840,6 +1380,7 @@ async function save() {
 }
 
 async function removeRow(item) {
+  if (inlineSavingId.value != null) return
   error.value = ''
   try {
     await remove(item.id)
@@ -916,6 +1457,11 @@ html.dark .ofp-page {
 .ofp-page a:focus-visible {
   outline: 3px solid var(--ofp-ring);
   outline-offset: 2px;
+}
+/* Spinners stay round even though the page squares its controls. */
+.ofp-page .ofp-inline-spin,
+.ofp-page .ofp-av-spin::after {
+  border-radius: 50% !important;
 }
 
 /* ---- Header ---- */
@@ -1271,6 +1817,257 @@ html.dark .ofp-page {
 .ofp-dash {
   color: var(--ofp-line);
   font-weight: 700;
+}
+/* ---- Inline editing ---- */
+.ofp-file {
+  display: none;
+}
+.ofp-cell-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ofp-cell-btn:disabled {
+  opacity: 1;
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+  cursor: default;
+}
+.ofp-cell-btn:hover .ofp-code,
+.ofp-cell-btn:hover .ofp-name-text,
+.ofp-cell-btn:hover .ofp-desc {
+  color: var(--ofp-blue);
+}
+.ofp-edit-hint {
+  flex: none;
+  margin-left: auto;
+  color: var(--ofp-muted);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.ofp-cell-btn:hover .ofp-edit-hint,
+.ofp-cell-btn:focus-visible .ofp-edit-hint {
+  opacity: 0.85;
+  color: var(--ofp-blue);
+}
+.ofp-code-btn .ofp-code,
+.ofp-name-btn .ofp-name-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ofp-name-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ofp-name-edit-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ofp-desc-btn {
+  align-items: flex-start;
+}
+.ofp-desc-btn .ofp-desc,
+.ofp-desc-btn .ofp-dash {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ofp-av-btn {
+  display: inline-flex;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.ofp-av-btn:disabled {
+  cursor: default;
+}
+.ofp-av-wrap {
+  position: relative;
+  flex: none;
+}
+.ofp-av-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--ofp-err-bg);
+  background: var(--ofp-panel);
+  color: var(--ofp-err);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.ofp-av-wrap:hover .ofp-av-remove,
+.ofp-av-remove:focus-visible {
+  opacity: 1;
+}
+.ofp-av-remove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (hover: none) {
+  .ofp-av-remove {
+    opacity: 1;
+  }
+}
+.ofp-av {
+  position: relative;
+}
+.ofp-av-spin {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(var(--v-theme-surface), 0.72);
+}
+.ofp-av-spin::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ofp-line);
+  border-top-color: var(--ofp-blue);
+  animation: ofp-spin 0.7s linear infinite;
+}
+.ofp-av-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.ofp-av-btn:hover .ofp-av-hint,
+.ofp-av-btn:focus-visible .ofp-av-hint {
+  opacity: 1;
+}
+@keyframes ofp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ofp-cell-edit {
+  position: relative;
+}
+.ofp-inline-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px solid var(--ofp-blue);
+  border-radius: 0;
+  background: var(--ofp-panel);
+  color: var(--ofp-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ofp-ring);
+}
+.ofp-inline-input.ofp-mono {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.ofp-desc-input {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px;
+  border: 1.5px solid var(--ofp-blue);
+  border-radius: 0;
+  background: var(--ofp-panel);
+  color: var(--ofp-ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ofp-ring);
+  resize: vertical;
+}
+.ofp-inline-hint {
+  margin-top: 4px;
+  color: var(--ofp-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.ofp-inline-spin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ofp-line);
+  border-top-color: var(--ofp-blue);
+  border-radius: 50%;
+  animation: ofp-spin 0.7s linear infinite;
+}
+.ofp-inline-hint .ofp-inline-spin {
+  position: static;
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.ofp-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ofp-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ofp-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ofp-switch-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex: none;
+  border: 1px solid var(--ofp-line);
+  background: var(--ofp-field);
+  transition: background 0.15s, border-color 0.15s;
+}
+.ofp-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--ofp-muted);
+  transition: transform 0.15s, background 0.15s;
+}
+.ofp-switch.is-on .ofp-switch-track {
+  background: var(--ofp-ok-bg);
+  border-color: var(--ofp-ok);
+}
+.ofp-switch.is-on .ofp-switch-thumb {
+  background: var(--ofp-ok);
+  transform: translateX(14px);
+}
+.ofp-switch-label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ofp-switch.is-on .ofp-switch-label {
+  color: var(--ofp-ok);
 }
 .ofp-status {
   display: inline-flex;

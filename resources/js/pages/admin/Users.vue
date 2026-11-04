@@ -2558,7 +2558,7 @@ html.dark .us-page {
     height: 20px;
     flex: none;
     border: 1px solid var(--us-line);
-    border-radius: 999px;
+    border-radius: 0;
     background: var(--us-field);
     transition: background 0.15s, border-color 0.15s;
 }
@@ -2568,7 +2568,7 @@ html.dark .us-page {
     left: 2px;
     width: 14px;
     height: 14px;
-    border-radius: 50%;
+    border-radius: 0;
     background: var(--us-muted);
     transition: transform 0.15s, background 0.15s;
 }

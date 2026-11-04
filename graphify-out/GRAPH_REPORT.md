@@ -1,17 +1,17 @@
 # Graph Report - TransactionMS  (2026-11-04)
 
 ## Corpus Check
-- 376 files · ~293,464 words
+- 376 files · ~298,438 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 99 file(s) not represented in the graph (top: .frm 31, .MAD 24, .MAI 24)
 
 ## Summary
-- 4531 nodes · 7737 edges · 328 communities (183 shown, 145 thin omitted)
+- 4627 nodes · 7886 edges · 330 communities (185 shown, 145 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 485 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8f826e68`
+- Built from commit: `0de6f8da`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -39,13 +39,13 @@
 - Office
 - Offices.vue
 - PortalTransactions.vue
-- User.php
+- TransactionAttachment
 - Illuminate\Database\Schema\Blueprint
-- TransactionFinalizeController.php
+- Illuminate\Database\Eloquent\Relations\BelongsTo
 - AttachmentList.vue
 - SummaryDetailDialog.vue
 - TransactionList.vue
-- Illuminate\Http\Request
+- Controller
 - index.js
 - StepChecklist.vue
 - StationNode.vue
@@ -58,58 +58,60 @@
 - SlaDurationInput.vue
 - Roles.vue
 - Illuminate\Support\Facades\Schema
-- ref_composables
-- Role
-- Illuminate\Database\Eloquent\Relations\BelongsTo
+- vue
+- Illuminate\Database\Seeder
+- Illuminate\Database\Eloquent\Model
 - UserTransactionController.php
-- DashboardSummaryController
-- 1. Overview
+- Illuminate\Database\Eloquent\Builder
+- api.php
 - Fields.vue
 - TrackList.vue
-- ChecklistService
+- ApprovalController.php
+- TransactionEngine.php
 - SaveVersionDialog.vue
 - SummaryPopover.vue
 - Requirements.vue
 - DepthNav.vue
-- 6. Workflow Engine
+- docs/README.md
 - RouteFlowPreview.vue
 - fetchAll
 - OfficeRoleMatrixTest.php
-- Illuminate\Database\Migrations\Migration
+- 5. Admin Guide (superadmin only UI)
 - StepProgress.vue
 - ApprovalInbox.vue
+- TransactionTypeController.php
 - OfficeSteps.vue
 - PortalProfile.vue
-- Transaction
-- Illuminate\Http\JsonResponse
+- EndUserStepOfficeTest
+- DashboardSummaryController.php
 - AttachmentStepLockTest
-- TransactionController.php
-- Illuminate\Http\Resources\Json\JsonResource
+- DashboardSummaryController
+- PruneUnusedWorkflows.php
 - ActionDropdown.vue
 - Help.vue
 - PurchaseRequestSetupSeeder
-- Illuminate\Database\Eloquent\Builder
+- AppServiceProvider.php
 - LoginOverdueNotice.vue
 - AttachmentUploader.vue
 - jumpToPointer
 - NewTransactionDialog.vue
-- ProceedFooter.vue
+- TransactionController.php
 - stageBindings
 - PortalApprovals.vue
 - PortalHome.vue
 - history.js
-- TransactionType
+- AdminTransactionsAccessTest
 - OfficeScopedAccessTest
 - useStepData
 - JsonLogicEvaluator
 - TransactionHistory.vue
-- .mini
+- ViewerTrackingController.php
 - vue-router
 - DonutChart.vue
 - useAuth.js
 - useWorkflows
 - DashboardSummaryTest
-- ApprovalController
+- JumpBackDialog.vue
 - useTransactions
 - TrackDetail.vue
 - finalizeTx
@@ -121,6 +123,7 @@
 - useSummaryRows.js
 - useCache.js
 - useMyTransactions
+- ChecklistService.php
 - StagingSaveBar.vue
 - dashPeriod.js
 - ref_components
@@ -128,22 +131,22 @@
 - ProceedModalFooter.vue
 - useOffices
 - pruneSelectedRoute
-- Finish Transaction Button (future work)
+- AdminRoleAccessTest
 - TransactionTypeOfficeAccessTest
 - WorkflowStep
-- PortalController.php
+- .mini
 - formatApiError
 - uploadRequired
 - selectEffective
-- WorkflowStagingApplyTest
+- resetIconState
 - TransactionStepRunResource
 - 0001_01_01_000000_create_users_table.php
-- PruneUnusedWorkflows.php
+- Illuminate\Database\Eloquent\Relations\HasMany
 - openStepMenu
 - openStepMenu
 - blankErrors
 - buildUserPayload
-- .mini
+- 6. Workflow Engine
 - useMotion.js
 - ApprovalInboxTest
 - StepDataFields.vue
@@ -152,8 +155,8 @@
 - afterStagingChange
 - saveForm
 - destStepForTitle
-- resetIconState
-- vue
+- 1. Overview
+- useAdminUsers
 - checklistKey
 - WorkflowMakeLiveTest
 - bootstrap/app.php
@@ -163,28 +166,28 @@
 - useDashboardLayout
 - useLoginNotice.js
 - useRequirementDefinitions
-- JumpBackDialog.vue
+- StepDataController.php
 - TxMiniList.vue
 - openStepDialog
 - mascots/README.md
-- StepChecklistController
+- TransactionListResource
 - 8. Database
 - RoutingEngine.php
 - 2026_02_13_000007_add_parent_id_to_workflow_steps_table.php
 - ref_components
-- docs/README.md
 - applyIconFile
-- StoreUserRequest
+- apiErrorMessage
+- TransactionChecklistCheck
 - scheduleRefresh
-- useTransactionTypes
-- useFieldDefinitions
+- vue
+- .update
 - stageStepData
 - endHold
 - proceedDefaultAttachments
 - ProcessPie.vue
-- UpdateUserRequest
-- StoreFieldDefinitionRequest
-- AppServiceProvider.php
+- UpdateFieldDefinitionRequest
+- useTransactionTypes
+- apiErrorMessage
 - 0001_01_01_000001_create_cache_table.php
 - 2026_02_05_052702_add_is_active_to_users_table.php
 - 2026_02_09_063313_add_pivot_meta_to_field_definition_workflow_step_table.php
@@ -195,10 +198,10 @@
 - 2026_02_13_000005_add_parent_id_to_office_steps_table.php
 - 2026_02_13_000006_drop_parent_id_from_office_steps_table.php
 - 2026_02_13_000008_drop_parent_id_from_workflow_steps_table.php
-- FieldDefinition
+- StoreOfficeRequest
 - 2026_09_30_000001_add_is_done_to_transactions_table.php
 - workflowDepth.js
-- TransactionChecklistCheck
+- loadTemperature
 - 2026_10_01_120000_add_is_live_to_workflow_definitions_table.php
 - 2026_10_20_000001_add_is_end_user_to_workflow_steps_table.php
 - WorkflowDefinition
@@ -216,27 +219,26 @@
 - isSuperadmin
 - roles.js
 - 2026_10_03_000001_add_is_upload_required_to_step_requirements_table.php
-- TransactionRequirementCheck
+- RegistrationController.php
+- ApprovalController
 - 0001_01_01_000002_create_jobs_table.php
-- 2026_02_13_000010_readd_parent_id_to_workflow_steps_table.php
-- 2026_09_25_000001_add_office_id_to_workflow_steps_table.php
 - 2026_10_20_000001_fix_contact_number_on_users_table.php
-- WorkflowStepResource.php
-- 2026_10_26_000001_add_icon_path_to_offices_table.php
+- Finish Transaction Button (future work)
+- WorkflowStagingApplyTest
 - ChecklistTrackingGuide.vue
-- createTx
-- TransactionListResource
-- StoreRoleRequest
+- WorkflowSaveAsTest
+- 2026_02_13_000010_readd_parent_id_to_workflow_steps_table.php
+- liveDefOf
 - 3. Auth & Roles
-- StoreWorkflowDefinitionRequest
-- PublishWorkflowRequest
-- 2026_02_05_052705_create_roles_table.php
+- StoreRoleRequest
+- 2026_09_25_000001_add_office_id_to_workflow_steps_table.php
+- 2026_10_26_000001_add_icon_path_to_offices_table.php
 - 2026_02_05_052706_create_role_user_table.php
 - 2026_02_05_073807_create_transaction_types_table.php
 - 2026_02_05_080353_create_workflow_definitions_table.php
 - 2026_02_05_080353_create_workflow_steps_table.php
 - 2026_02_05_080354_create_workflow_routes_table.php
-- 2026_02_05_073808_create_government_references_table.php
+- PortalController
 - canInlineEdit
 - 2026_02_09_052516_create_field_values_table.php
 - 2026_10_06_000001_add_label_to_transaction_attachments_table.php
@@ -261,27 +263,27 @@
 - onHoldStart
 - labelForAction
 - officeIcons.js
-- Illuminate\Foundation\Http\FormRequest
+- scripts
 - destStepForTitle
 - labelForAction
-- loadTemperature
+- StoreWorkflowDefinitionRequest
 - AppToast.vue
 - TrackBackdrop.vue
 - installLiveUpdateBadge
-- useSmartPoll
+- StoreTransactionTypeRequest
 - clearFieldErrors
 - retrySteps
 - clearError
 - startLinks
 - dates.js
 - steps.js
-- SyncStepFieldsRequest
+- CreateDraftRequest
 - ConfirmActionDialog.vue
 - ProceedFileRow.vue
-- 2026_02_05_082654_create_transaction_states_table.php
+- PublishWorkflowRequest
 - isPrNumberRow
 - isViewable
-- PublishWorkflowDefinitionRequest
+- Illuminate\Foundation\Http\FormRequest
 - orderSlotLabel
 - stepFieldCount
 - cardSubtitle
@@ -290,37 +292,39 @@
 - formatSlaMinutes
 - isTmpRow
 - SyncStepRequirementsRequest
-- StoreGovernmentReferenceRequest
+- useFieldDefinitions
 - missingRequiredUploadLabels
-- 2026_02_05_082654_create_transaction_step_runs_table.php
+- StoreGovernmentReferenceRequest
 - UpdateGovernmentReferenceRequest
-- Illuminate\Http\Resources\Json\JsonResource
-- columns
-- UpdateOfficeRequest
-- UpdateRoleRequest
 - UpdateTransactionTypeRequest
-- SaveAsVersionRequest
+- columns
+- UpdateRoleRequest
+- UpdateOfficeRequest
 - UpsertWorkflowStepRequest
 - ProceedModalHeader.vue
 - CheckRequirementRequest
-- CreateTransactionRequest.php
-- Illuminate\Database\Eloquent\Model
+- applyTheme
+- compareText
 - loadAccounts
 - StatCard.vue
-- GotoStationRequest
+- CreateTransactionRequest.php
 - refreshOverview
-- applyTheme
+- 2026_02_05_052705_create_roles_table.php
 - 2026_02_05_052707_create_audit_logs_table.php
 - TransitionTransactionRequest
-- 2026_02_12_000740_create_transaction_requirement_checks_table.php
+- 2026_02_05_073808_create_government_references_table.php
 - scheduleRefresh
 - columns
-- 2026_09_30_000003_create_checklist_overrides_table.php
+- 2026_02_05_082654_create_transaction_states_table.php
 - 2026_02_11_084440_create_requirement_definitions_table.php
 - 2026_09_24_000001_create_office_transaction_type_table.php
+- 2026_02_05_082654_create_transaction_step_runs_table.php
+- 2026_02_12_000740_create_transaction_requirement_checks_table.php
+- 2026_09_30_000003_create_checklist_overrides_table.php
 - 2. Architecture
-- fmtDate
 - loadSummary
+- clearFieldError
+- officeIdsOf
 
 ## God Nodes (most connected - your core abstractions)
 1. `Transaction` - 125 edges
@@ -349,7 +353,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (328 total, 145 thin omitted)
+## Communities (330 total, 145 thin omitted)
 
 ### Community 0 - "TransactionDetail.vue"
 Cohesion: 0.02
@@ -388,8 +392,8 @@ Cohesion: 0.12
 Nodes (17): chips, displayedExtra, displayedReq, emit, extClass(), extLabel(), extOf(), extraAll (+9 more)
 
 ### Community 9 - "Transaction"
-Cohesion: 0.13
-Nodes (7): TransactionChecklistController, TransactionController, TransactionGotoController, TransactionReceiveController, TransactionRequirementController, TransactionResource, RoutingEngine
+Cohesion: 0.10
+Nodes (8): TransactionChecklistController, TransactionController, TransactionGotoController, TransactionReceiveController, TransactionRequirementController, TransactionResource, Transaction, RoutingEngine
 
 ### Community 10 - "ProceedWizard.vue"
 Cohesion: 0.04
@@ -400,13 +404,13 @@ Cohesion: 0.02
 Nodes (70): { api }, auth, busyId, canManage, contactInput, dialog, editingNameId, emailInput (+62 more)
 
 ### Community 12 - "TransactionTypes.vue"
-Cohesion: 0.04
-Nodes (42): askMakeLive(), auth, canManage, clearFieldError(), {
+Cohesion: 0.03
+Nodes (43): auth, canManage, codeDraft, {
     defs,
     loading: defsLoading,
     fetchDefinitions,
     makeLive,
-}, defsOf(), dialog, dialogError (+34 more)
+}, descDraft, dialog, dialogError, editingCodeId (+35 more)
 
 ### Community 13 - "ProcessGraphCard.vue"
 Cohesion: 0.08
@@ -417,15 +421,15 @@ Cohesion: 0.04
 Nodes (48): pestphp/pest-plugin, php-http/discovery, autoload, autoload-dev, psr-4, psr-4, config, allow-plugins (+40 more)
 
 ### Community 16 - "Office"
-Cohesion: 0.06
-Nodes (11): RequirementDefinition, StepRole, TransactionState, WorkflowRoute, AdminRoleAccessTest, ExampleTest, GuestLoginTest, {closure#1}() (+3 more)
+Cohesion: 0.07
+Nodes (12): Role, StepRole, TransactionState, TransactionType, {closure#1}(), User, WorkflowRoute, ExampleTest (+4 more)
 
 ### Community 17 - "RequirementsIndex.vue"
 Cohesion: 0.05
 Nodes (41): { api }, bindDialog, bindHeaders, bindOverrides, bindRows, bindSaving, bindStationIds, bindTarget (+33 more)
 
 ### Community 18 - "TransactionEngine"
-Cohesion: 0.12
+Cohesion: 0.13
 Nodes (7): {closure#10}(), FieldValidationService, {closure#1}(), {closure#2}(), {closure#3}(), TransactionEngine, Backend layout (`app/`)
 
 ### Community 19 - "ApprovalProceedDialog.vue"
@@ -437,20 +441,28 @@ Cohesion: 0.04
 Nodes (40): allTx, approvalBadge, approvalsBadgeLabel, auth, clock, confirmLogout, drawer, hasProfile (+32 more)
 
 ### Community 21 - "Office"
-Cohesion: 0.15
-Nodes (5): {closure#1}(), OfficeStepController, Office, OfficeStep, EndUserStepOfficeTest
+Cohesion: 0.17
+Nodes (5): {closure#1}(), OfficeStepController, {closure#1}(), Office, OfficeStep
 
 ### Community 22 - "Offices.vue"
-Cohesion: 0.05
-Nodes (34): auth, canManage, codeField, compareText(), descField, descriptionLength, dialog, dialogError (+26 more)
+Cohesion: 0.03
+Nodes (42): auth, canManage, codeDraft, codeField, descDraft, descField, descriptionLength, dialog (+34 more)
 
 ### Community 23 - "PortalTransactions.vue"
 Cohesion: 0.05
 Nodes (39): { api }, canCreate, clearFilters(), createError, dayStart(), dialog, emptyFilters(), endpoint() (+31 more)
 
+### Community 24 - "TransactionAttachment"
+Cohesion: 0.09
+Nodes (4): TransactionAttachmentController, TransactionAttachmentResource, TransactionAttachment, StepFileAccess
+
 ### Community 25 - "Illuminate\Database\Schema\Blueprint"
 Cohesion: 0.08
 Nodes (20): {closure#1}(), {closure#2}(), {closure#1}(), {closure#2}(), {closure#3}(), {closure#1}(), {closure#2}(), {closure#1}() (+12 more)
+
+### Community 26 - "Illuminate\Database\Eloquent\Relations\BelongsTo"
+Cohesion: 0.12
+Nodes (3): ChecklistOverride, FieldValue, TransactionStepData
 
 ### Community 27 - "AttachmentList.vue"
 Cohesion: 0.07
@@ -462,11 +474,7 @@ Nodes (34): accent, animateIn(), animateOut(), { api }, close(), contentRef, cou
 
 ### Community 29 - "TransactionList.vue"
 Cohesion: 0.04
-Nodes (37): auth, canManage, clientPages, currentPage, dateFrom, dateFromDraft, dateMenuOpen, dateTo (+29 more)
-
-### Community 30 - "Illuminate\Http\Request"
-Cohesion: 0.09
-Nodes (6): ViewerTrackingController, BlockViewer, EnsureOfficeAdmin, EnsureRole, EnsureTransactionOffice, EnsureViewer
+Nodes (44): auth, canManage, clientPages, createTx(), currentPage, dateFrom, dateFromDraft, dateMenuOpen (+36 more)
 
 ### Community 31 - "index.js"
 Cohesion: 0.18
@@ -489,8 +497,8 @@ Cohesion: 0.08
 Nodes (23): almostDue, { api }, chars(), dateChars, dueNow, fresh, greeting, initials (+15 more)
 
 ### Community 37 - "package.json"
-Cohesion: 0.09
-Nodes (27): @vitejs/plugin-vue@^6.0.4, devDependencies, concurrently@^9.0.1, eslint@^9.39.2, @eslint/js@^9.39.2, eslint-plugin-vue@^10.7.0, laravel-vite-plugin@^2.0.0, tailwindcss@^4.0.0 (+19 more)
+Cohesion: 0.11
+Nodes (24): @vitejs/plugin-vue@^6.0.4, devDependencies, concurrently@^9.0.1, eslint@^9.39.2, @eslint/js@^9.39.2, eslint-plugin-vue@^10.7.0, laravel-vite-plugin@^2.0.0, tailwindcss@^4.0.0 (+16 more)
 
 ### Community 38 - "LoginHero.vue"
 Cohesion: 0.16
@@ -505,32 +513,36 @@ Cohesion: 0.09
 Nodes (23): applyPreset(), applyTotal(), autoClearNotice, custom, days, daysInput, emit, emitTotal() (+15 more)
 
 ### Community 41 - "Roles.vue"
-Cohesion: 0.08
-Nodes (21): dialog, dialogError, error, fieldErrors, filtered, form, ghostRows, headers (+13 more)
+Cohesion: 0.05
+Nodes (37): apiErrorMessage(), codeDraft, descDraft, dialog, dialogError, editingCodeId, editingDescId, editingNameId (+29 more)
 
 ### Community 42 - "Illuminate\Support\Facades\Schema"
 Cohesion: 0.09
 Nodes (5): {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}(), {closure#1}()
 
-### Community 43 - "ref_composables"
+### Community 43 - "vue"
 Cohesion: 0.06
-Nodes (8): { toasts, dismiss }, { dialog, confirm, cancel }, scope, useApprovals(), useGovernmentReferences(), useRoles(), useStepChecklist(), useStepRequirements()
+Nodes (20): vue, props, props, senderLabel, stepLabel, badgeText, props, stepName (+12 more)
 
-### Community 44 - "Role"
+### Community 44 - "Illuminate\Database\Seeder"
 Cohesion: 0.09
-Nodes (9): {closure#1}(), Role, OfficeSeeder, StepAccountsSeeder, SuperAdminSeeder, UsersSeeder, ViewerGuestSeeder, {closure#1}() (+1 more)
+Nodes (7): OfficeSeeder, StepAccountsSeeder, SuperAdminSeeder, UsersSeeder, ViewerGuestSeeder, {closure#1}(), WorkflowSeeder
 
-### Community 45 - "Illuminate\Database\Eloquent\Relations\BelongsTo"
+### Community 45 - "Illuminate\Database\Eloquent\Model"
 Cohesion: 0.11
-Nodes (3): ChecklistOverride, FieldValue, TransactionStepData
+Nodes (5): AuditLog, FieldDefinition, GovernmentReference, TransactionRequirementCheck, Admin (`auth + EnsureRole:superadmin`, prefix `/admin`)
 
 ### Community 46 - "UserTransactionController.php"
-Cohesion: 0.08
-Nodes (4): {closure#8}(), UserTransactionController, CreateTransactionRequest, OfficeScope
+Cohesion: 0.07
+Nodes (5): {closure#13}(), {closure#8}(), UserTransactionController, CreateTransactionRequest, OfficeScope
 
-### Community 48 - "1. Overview"
-Cohesion: 0.25
-Nodes (6): RolesSeeder, 1. Overview, Glossary, Typical example (Procurement PR, 14 steps), User types, What it is
+### Community 47 - "Illuminate\Database\Eloquent\Builder"
+Cohesion: 0.15
+Nodes (6): {closure#3}(), {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}()
+
+### Community 48 - "api.php"
+Cohesion: 0.09
+Nodes (6): ViewerTrackingController, BlockViewer, EnsureOfficeAdmin, EnsureRole, EnsureTransactionOffice, EnsureViewer
 
 ### Community 49 - "Fields.vue"
 Cohesion: 0.09
@@ -540,9 +552,9 @@ Nodes (20): auth, canManage, deleteDialog, deleting, deletingNow, dialog, error,
 Cohesion: 0.08
 Nodes (23): active, { api }, error, fetchRows(), fmtDate(), goToPage(), headers, inputEl (+15 more)
 
-### Community 52 - "ChecklistService"
-Cohesion: 0.27
-Nodes (3): {closure#1}(), ChecklistService, {closure#10}()
+### Community 51 - "ApprovalController.php"
+Cohesion: 0.07
+Nodes (3): {closure#11}(), {closure#2}(), {closure#30}()
 
 ### Community 53 - "SaveVersionDialog.vue"
 Cohesion: 0.09
@@ -560,9 +572,9 @@ Nodes (16): { api }, dialog, error, form, headers, { items, loading, fetchAll },
 Cohesion: 0.08
 Nodes (23): barEl, currentIndex, currentLevel, deeperBtn, deeperMiniBtn, deeperOpen, depthLabel, depthTitle (+15 more)
 
-### Community 57 - "6. Workflow Engine"
-Cohesion: 0.33
-Nodes (5): 6. Workflow Engine, JsonLogic (`JsonLogicEvaluator.php`), Lifecycle, RoutingEngine (`app/Services/RoutingEngine.php`), Validation & Versioning & Audit
+### Community 57 - "docs/README.md"
+Cohesion: 0.10
+Nodes (15): 4. User Flow, Dashboard (`pages/Dashboard.vue`), Detail (`MyTransactionDetail.vue` / `TransactionDetail.vue`, ~470-600 lines), Lists, Login (`pages/Login.vue`), 7. API Reference (prefix `/api`), Auth (Sanctum cookie), Worker (auth) (+7 more)
 
 ### Community 58 - "RouteFlowPreview.vue"
 Cohesion: 0.13
@@ -576,7 +588,7 @@ Nodes (19): doDelete(), auth, canManage, dialog, error, form, headers, { items, 
 Cohesion: 0.22
 Nodes (5): {closure#2}(), {closure#3}(), {closure#4}(), {closure#6}(), OfficeRoleMatrixTest
 
-### Community 61 - "Illuminate\Database\Migrations\Migration"
+### Community 61 - "5. Admin Guide (superadmin only UI)"
 Cohesion: 0.13
 Nodes (12): GovernmentReferenceSeeder, TransactionTypeSeeder, 5. Admin Guide (superadmin only UI), Fields (`Fields.vue`), Government References (`admin/GovernmentReferences.vue`), Offices (ARCHIVED — hidden from UI, data kept), Requirements (`Requirements*.vue` -> `StepRequirements.vue`), Roles (`admin/Roles.vue`) (+4 more)
 
@@ -588,6 +600,10 @@ Nodes (15): currentIdx, detailById, moveByStep, ordered, positionLabel, props, s
 Cohesion: 0.12
 Nodes (17): approvalBadge, checkItems(), dialogOpen, dialogTxId, error, groups, guideSections, isPending() (+9 more)
 
+### Community 64 - "TransactionTypeController.php"
+Cohesion: 0.12
+Nodes (3): {closure#3}(), TransactionTypeController, TransactionTypeResource
+
 ### Community 65 - "OfficeSteps.vue"
 Cohesion: 0.11
 Nodes (15): auth, canManage, descendantsOf(), dialog, error, flatSteps, form, headers (+7 more)
@@ -596,13 +612,13 @@ Nodes (15): auth, canManage, descendantsOf(), dialog, error, flatSteps, form, he
 Cohesion: 0.12
 Nodes (19): { api, csrf }, auth, detailErrors, details, detailsChanged, firstErrors(), initials, load() (+11 more)
 
-### Community 67 - "Transaction"
-Cohesion: 0.09
-Nodes (10): {closure#10}(), {closure#11}(), {closure#3}(), {closure#4}(), {closure#7}(), {closure#9}(), {closure#11}(), {closure#30}() (+2 more)
+### Community 68 - "DashboardSummaryController.php"
+Cohesion: 0.22
+Nodes (6): {closure#10}(), {closure#11}(), {closure#3}(), {closure#4}(), {closure#7}(), {closure#9}()
 
-### Community 71 - "Illuminate\Http\Resources\Json\JsonResource"
-Cohesion: 0.09
-Nodes (4): TransactionAttachmentController, TransactionAttachmentResource, TransactionAttachment, StepFileAccess
+### Community 71 - "PruneUnusedWorkflows.php"
+Cohesion: 0.20
+Nodes (3): {closure#1}(), OrganizeAttachmentsByDate, PruneUnusedWorkflows
 
 ### Community 72 - "ActionDropdown.vue"
 Cohesion: 0.14
@@ -611,10 +627,6 @@ Nodes (14): act, choose(), emit, ICONS, isSelected(), menuWidth, onKeydown(), on
 ### Community 73 - "Help.vue"
 Cohesion: 0.13
 Nodes (16): activeContent, activeKey, adminSteps, anyVisible, auth, filteredAdmin, filteredNotes, filteredUser (+8 more)
-
-### Community 75 - "Illuminate\Database\Eloquent\Builder"
-Cohesion: 0.27
-Nodes (5): {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}()
 
 ### Community 76 - "LoginOverdueNotice.vue"
 Cohesion: 0.14
@@ -632,10 +644,6 @@ Nodes (8): glideToTarget(), jumpToPointer(), minimapMetrics(), onMiniKeydown(), 
 Cohesion: 0.14
 Nodes (14): close(), dlgRef, emit, flowSteps, officeBad, officeId, officeRef, onKeydown() (+6 more)
 
-### Community 80 - "ProceedFooter.vue"
-Cohesion: 0.14
-Nodes (16): attachmentName, emit, fileCountLabel, filesOpen, flagEntry(), flagged, flagKey(), isFlagged() (+8 more)
-
 ### Community 81 - "stageBindings"
 Cohesion: 0.15
 Nodes (17): addPreviousRequirement(), addRequirement(), afterBulkSaved(), enrichStagedRow(), isRequirementAssigned(), isRequirementCodeEditable(), loadAssigned(), normalizePreviousRequirement() (+9 more)
@@ -652,10 +660,6 @@ Nodes (21): actionRows, actionTotal, { api }, byCreatedAsc(), canCreate, fetchSu
 Cohesion: 0.18
 Nodes (10): ACTION_CONFIGS, detailStepText(), getActionConfig(), historyDateFmt, isCreateRun(), movementOf(), officeOf(), stepLabelOf() (+2 more)
 
-### Community 85 - "TransactionType"
-Cohesion: 0.10
-Nodes (5): {closure#3}(), TransactionTypeController, TransactionTypeResource, TransactionType, AdminTransactionsAccessTest
-
 ### Community 87 - "useStepData"
 Cohesion: 0.48
 Nodes (6): useStepData(), baseUrl(), create(), fetchAll(), remove(), update()
@@ -664,13 +668,9 @@ Nodes (6): useStepData(), baseUrl(), create(), fetchAll(), remove(), update()
 Cohesion: 0.14
 Nodes (9): actionFilter, actionOptions, boundToSteps(), boundToText(), emit, filtered, openIds, props (+1 more)
 
-### Community 90 - ".mini"
-Cohesion: 0.15
-Nodes (3): {closure#7}(), {closure#9}(), {closure#2}()
-
 ### Community 91 - "vue-router"
-Cohesion: 0.19
-Nodes (11): enterBtn, go(), leaving, MEDALS, onKey(), onLoaded(), onReady(), ready (+3 more)
+Cohesion: 0.16
+Nodes (13): vue-router@^5.0.2, vue-router, enterBtn, go(), leaving, MEDALS, onKey(), onLoaded() (+5 more)
 
 ### Community 92 - "DonutChart.vue"
 Cohesion: 0.16
@@ -680,9 +680,9 @@ Nodes (13): circumference, emit, hovered, hoverIndex, PALETTE, props, radius, se
 Cohesion: 0.21
 Nodes (12): canUseApprovals(), homePathFor(), initialized, isOfficeAdminUser(), isSuperadminUser(), useAuth(), init(), login() (+4 more)
 
-### Community 96 - "ApprovalController"
-Cohesion: 0.28
-Nodes (3): ApprovalController, {closure#1}(), {closure#2}()
+### Community 96 - "JumpBackDialog.vue"
+Cohesion: 0.07
+Nodes (32): close(), confirm(), dialogTitle, emit, flagEntry(), flagged, flagKey(), headerDestinationName (+24 more)
 
 ### Community 97 - "useTransactions"
 Cohesion: 0.18
@@ -705,8 +705,8 @@ Cohesion: 0.22
 Nodes (8): About Laravel, Code of Conduct, Contributing, Laravel Sponsors, Learning Laravel, License, Premium Partners, Security Vulnerabilities
 
 ### Community 104 - "vuetify"
-Cohesion: 0.16
-Nodes (12): dependencies, @mdi/font@^7.4.47, @mdi/js@^7.4.47, @mdi/svg@^7.4.47, vue@^3.5.27, vue-router@^5.0.2, vuetify@^3.11.8, @mdi/font (+4 more)
+Cohesion: 0.20
+Nodes (10): dependencies, @mdi/font@^7.4.47, @mdi/js@^7.4.47, @mdi/svg@^7.4.47, vue@^3.5.27, vuetify@^3.11.8, @mdi/font, @mdi/js (+2 more)
 
 ### Community 105 - "useSummaryRows.js"
 Cohesion: 0.27
@@ -717,7 +717,7 @@ Cohesion: 0.21
 Nodes (6): CacheKeys, isCached(), memory, readCache(), safeParse(), storedUserId()
 
 ### Community 107 - "useMyTransactions"
-Cohesion: 0.18
+Cohesion: 0.20
 Nodes (3): useMyTransactions(), applyPayload(), fetchAll()
 
 ### Community 109 - "StagingSaveBar.vue"
@@ -741,20 +741,16 @@ Cohesion: 0.25
 Nodes (10): cleanTasks, emit, focusTask(), hiddenTaskCount, props, ready, revealTask(), statusText (+2 more)
 
 ### Community 114 - "useOffices"
-Cohesion: 0.20
+Cohesion: 0.22
 Nodes (3): useOffices(), update(), withMethod()
 
 ### Community 115 - "pruneSelectedRoute"
 Cohesion: 0.22
 Nodes (11): checkChecklistItem(), checkRequirement(), confirmCheck(), confirmUncheck(), goWizardNext(), onWizardChecklistToggle(), onWizardToggle(), pruneSelectedRoute() (+3 more)
 
-### Community 116 - "Finish Transaction Button (future work)"
-Cohesion: 0.29
-Nodes (6): Acceptance, Backend, Data model, Finish Transaction Button (future work), Frontend, Rule
-
 ### Community 118 - "WorkflowStep"
-Cohesion: 0.11
-Nodes (6): {closure#1}(), StepDataController, StepFieldController, StepRequirementController, Controller, WorkflowStep
+Cohesion: 0.16
+Nodes (5): {closure#1}(), StepChecklistController, StepRequirementController, WorkflowStep, ChecklistService
 
 ### Community 120 - "formatApiError"
 Cohesion: 0.33
@@ -768,13 +764,17 @@ Nodes (10): attachedUploadCount, hasReqFiles(), isUploadLocked(), reqHintText(),
 Cohesion: 0.20
 Nodes (10): confirmMakeLive(), confirmSave(), discardStaged(), goLive(), publishDraft(), roleIdsWithEndUser(), seedFromActiveDef(), selectEffective() (+2 more)
 
+### Community 123 - "resetIconState"
+Cohesion: 0.33
+Nodes (7): focusField(), focusFirstError(), openCreate(), openEdit(), resetIconState(), save(), validateForm()
+
+### Community 124 - "TransactionStepRunResource"
+Cohesion: 0.21
+Nodes (3): {closure#36}(), {closure#37}(), TransactionStepRunResource
+
 ### Community 125 - "0001_01_01_000000_create_users_table.php"
 Cohesion: 0.33
 Nodes (3): {closure#1}(), {closure#2}(), {closure#3}()
-
-### Community 126 - "PruneUnusedWorkflows.php"
-Cohesion: 0.20
-Nodes (3): {closure#1}(), OrganizeAttachmentsByDate, PruneUnusedWorkflows
 
 ### Community 127 - "openStepMenu"
 Cohesion: 0.22
@@ -789,8 +789,12 @@ Cohesion: 0.25
 Nodes (9): applyServerErrors(), blankErrors(), blankForm(), closeDialog(), focusFirstError(), openCreate(), openEdit(), save() (+1 more)
 
 ### Community 130 - "buildUserPayload"
-Cohesion: 0.50
-Nodes (8): apiErrorMessage(), buildUserPayload(), itemOfficeId(), replaceUser(), saveName(), saveOffice(), saveRoles(), setUserStatus()
+Cohesion: 0.42
+Nodes (9): apiErrorMessage(), buildUserPayload(), canToggleStatus(), itemOfficeId(), replaceUser(), saveName(), saveOffice(), saveRoles() (+1 more)
+
+### Community 131 - "6. Workflow Engine"
+Cohesion: 0.33
+Nodes (5): 6. Workflow Engine, JsonLogic (`JsonLogicEvaluator.php`), Lifecycle, RoutingEngine (`app/Services/RoutingEngine.php`), Validation & Versioning & Audit
 
 ### Community 132 - "useMotion.js"
 Cohesion: 0.36
@@ -801,8 +805,8 @@ Cohesion: 0.32
 Nodes (4): form, hintFor(), statusFor(), unitFor()
 
 ### Community 135 - "Illuminate\Http\Request"
-Cohesion: 0.07
-Nodes (17): GovernmentReferenceController, RoleController, {closure#1}(), {closure#2}(), UserController, WorkflowDefinitionController, {closure#1}(), {closure#2}() (+9 more)
+Cohesion: 0.05
+Nodes (21): GovernmentReferenceController, OfficeController, RoleController, StepFieldController, {closure#1}(), {closure#2}(), UserController, {closure#1}() (+13 more)
 
 ### Community 136 - "useToast.js"
 Cohesion: 0.32
@@ -820,13 +824,9 @@ Nodes (8): carryFieldToSteps(), cleanPayload(), focusName(), insertNewFieldRow()
 Cohesion: 0.25
 Nodes (8): destStepForTitle(), jumpDestinationName, jumpDestinationOffice, modalHeaderDestinationName, modalHeaderDestinationOffice, proceedModalTitle, proceedTitle(), returnModalTitle
 
-### Community 140 - "resetIconState"
-Cohesion: 0.33
-Nodes (7): focusField(), focusFirstError(), openCreate(), openEdit(), resetIconState(), save(), validateForm()
-
-### Community 141 - "vue"
-Cohesion: 0.06
-Nodes (19): vue, props, props, senderLabel, stepLabel, badgeText, props, stepName (+11 more)
+### Community 140 - "1. Overview"
+Cohesion: 0.25
+Nodes (6): RolesSeeder, 1. Overview, Glossary, Typical example (Procurement PR, 14 steps), User types, What it is
 
 ### Community 142 - "checklistKey"
 Cohesion: 0.67
@@ -852,12 +852,8 @@ Nodes (5): readOrder(), useDashboardLayout(), move(), save(), shift()
 Cohesion: 0.18
 Nodes (5): approvalsSeenAt(), markApprovalsSeen(), SEEN(), trayBusy, txShownFor
 
-### Community 151 - "JumpBackDialog.vue"
-Cohesion: 0.15
-Nodes (16): close(), confirm(), dialogTitle, emit, flagEntry(), flagged, flagKey(), headerDestinationName (+8 more)
-
 ### Community 152 - "TxMiniList.vue"
-Cohesion: 0.33
+Cohesion: 0.50
 Nodes (3): emit, subtitle(), timeAgo()
 
 ### Community 153 - "openStepDialog"
@@ -880,21 +876,25 @@ Nodes (3): {closure#1}(), {closure#2}(), {closure#3}()
 Cohesion: 0.33
 Nodes (6): mergedReqAttachments(), reqFilesKey(), reqFilesOpen(), toggleReqFiles(), uploadFileLabel(), visibleReqAttachments()
 
-### Community 160 - "docs/README.md"
-Cohesion: 0.10
-Nodes (15): 4. User Flow, Dashboard (`pages/Dashboard.vue`), Detail (`MyTransactionDetail.vue` / `TransactionDetail.vue`, ~470-600 lines), Lists, Login (`pages/Login.vue`), 7. API Reference (prefix `/api`), Auth (Sanctum cookie), Worker (auth) (+7 more)
-
-### Community 161 - "applyIconFile"
+### Community 160 - "applyIconFile"
 Cohesion: 0.22
 Nodes (9): applyIconFile(), clearFieldError(), formatFileSize(), iconNote, onCodeInput(), onIconDrop(), onIconPicked(), removeIconImage() (+1 more)
+
+### Community 161 - "apiErrorMessage"
+Cohesion: 0.26
+Nodes (13): apiErrorMessage(), officePayload(), onInlineIconPicked(), removeInlineIcon(), replaceOffice(), saveCode(), saveDescription(), saveIcon() (+5 more)
 
 ### Community 163 - "scheduleRefresh"
 Cohesion: 0.40
 Nodes (6): apiError(), loadPage(), observeCols(), observeLayout(), scheduleRefresh(), syncMinimapLeft()
 
-### Community 164 - "useTransactionTypes"
-Cohesion: 0.38
-Nodes (3): typeOffices(), useTransactionTypes(), fetchAll()
+### Community 164 - "vue"
+Cohesion: 0.07
+Nodes (10): { toasts, dismiss }, { dialog, confirm, cancel }, scope, useApprovals(), useRoles(), useSmartPoll(), handleVisibility(), schedule() (+2 more)
+
+### Community 165 - ".update"
+Cohesion: 0.15
+Nodes (3): FieldDefinitionController, StoreFieldDefinitionRequest, SyncStepFieldsRequest
 
 ### Community 166 - "stageStepData"
 Cohesion: 0.40
@@ -912,6 +912,14 @@ Nodes (6): currentStepAttachments(), defaultForwardRouteId(), openProceed(), pro
 Cohesion: 0.29
 Nodes (7): arcs, ariaLabel, emit, hovered, props, setHover(), total
 
+### Community 171 - "useTransactionTypes"
+Cohesion: 0.38
+Nodes (3): typeOffices(), useTransactionTypes(), fetchAll()
+
+### Community 172 - "apiErrorMessage"
+Cohesion: 0.33
+Nodes (11): apiErrorMessage(), replaceType(), saveAllowedOffice(), saveCode(), saveDescription(), saveName(), toggleStatus(), typePayload() (+3 more)
+
 ### Community 179 - "processColor.js"
 Cohesion: 0.50
 Nodes (3): close(), dialog, useConfirmDialog()
@@ -920,9 +928,13 @@ Nodes (3): close(), dialog, useConfirmDialog()
 Cohesion: 0.80
 Nodes (4): buildWorkflowDepthLevels(), typeQuery(), workflowStepTo(), workflowsTo()
 
+### Community 187 - "loadTemperature"
+Cohesion: 0.67
+Nodes (3): iconForCode(), loadTemperature(), onVisible()
+
 ### Community 190 - "WorkflowDefinition"
 Cohesion: 0.06
-Nodes (15): FieldDefinitionController, {closure#1}(), WorkflowRouteController, WorkflowStepController, FieldDefinitionResource, WorkflowStepResource, WorkflowDefinition, {closure#1}() (+7 more)
+Nodes (16): {closure#1}(), WorkflowDefinitionController, WorkflowRouteController, WorkflowStepController, WorkflowDefinitionResource, WorkflowRouteResource, WorkflowStepResource, WorkflowDefinition (+8 more)
 
 ### Community 195 - "processColor.js"
 Cohesion: 0.28
@@ -944,33 +956,41 @@ Nodes (5): canReceivePending, canUncheck(), isSuperadmin(), rowProps(), rowRelev
 Cohesion: 0.50
 Nodes (4): FALLBACK_PALETTE, hashCode(), ROLE_COLORS, roleColorFor()
 
-### Community 207 - "0001_01_01_000002_create_jobs_table.php"
+### Community 207 - "RegistrationController.php"
+Cohesion: 0.10
+Nodes (5): AuthController, {closure#1}(), RegistrationController, StoreUserRequest, UpdateUserRequest
+
+### Community 209 - "0001_01_01_000002_create_jobs_table.php"
 Cohesion: 0.33
 Nodes (3): {closure#1}(), {closure#2}(), {closure#3}()
 
-### Community 208 - "2026_02_13_000010_readd_parent_id_to_workflow_steps_table.php"
-Cohesion: 0.33
-Nodes (3): {closure#1}(), {closure#2}(), {closure#3}()
+### Community 211 - "Finish Transaction Button (future work)"
+Cohesion: 0.29
+Nodes (6): Acceptance, Backend, Data model, Finish Transaction Button (future work), Frontend, Rule
 
 ### Community 213 - "ChecklistTrackingGuide.vue"
 Cohesion: 0.40
 Nodes (4): currentOrder, isCurrent(), props, stateOf()
 
-### Community 214 - "createTx"
-Cohesion: 0.40
-Nodes (5): createTx(), go(), goPage(), goToPage(), requestParams()
+### Community 215 - "2026_02_13_000010_readd_parent_id_to_workflow_steps_table.php"
+Cohesion: 0.33
+Nodes (3): {closure#1}(), {closure#2}(), {closure#3}()
+
+### Community 217 - "liveDefOf"
+Cohesion: 0.33
+Nodes (6): askMakeLive(), defsOf(), isLiveDef(), liveDefOf(), stepsOf(), workingRouteFor()
 
 ### Community 218 - "3. Auth & Roles"
 Cohesion: 0.33
 Nodes (5): 3. Auth & Roles, Default accounts (password `admin123`), Login flow, Roles, Dashboard()
 
 ### Community 228 - "canInlineEdit"
-Cohesion: 0.29
-Nodes (7): canInlineEdit(), canToggleStatus(), lockReason(), onOfficeMenuUpdate(), onRoleMenuUpdate(), startNameEdit(), statusLockReason()
+Cohesion: 0.33
+Nodes (6): canInlineEdit(), lockReason(), onOfficeMenuUpdate(), onRoleMenuUpdate(), startNameEdit(), statusLockReason()
 
 ### Community 231 - "RequirementDefinition"
 Cohesion: 0.12
-Nodes (4): RequirementDefinitionController, StoreRequirementDefinitionRequest, UpdateRequirementDefinitionRequest, RequirementDefinitionResource
+Nodes (5): RequirementDefinitionController, StoreRequirementDefinitionRequest, UpdateRequirementDefinitionRequest, RequirementDefinitionResource, RequirementDefinition
 
 ### Community 243 - "jumpToPointer"
 Cohesion: 0.43
@@ -1012,9 +1032,9 @@ Nodes (4): labelForAction(), returnPickerOptions, selectedActionLabel, unifiedRo
 Cohesion: 0.33
 Nodes (6): anyOfficeIcon, officeIcon(), officeIcons, resolved, warmed, warmOfficeIcons()
 
-### Community 254 - "Illuminate\Foundation\Http\FormRequest"
-Cohesion: 0.15
-Nodes (4): UpdateFieldDefinitionRequest, StoreOfficeRequest, StoreTransactionTypeRequest, CreateDraftRequest
+### Community 254 - "scripts"
+Cohesion: 0.67
+Nodes (3): scripts, build, dev
 
 ### Community 255 - "destStepForTitle"
 Cohesion: 0.67
@@ -1024,17 +1044,9 @@ Nodes (3): destStepForTitle(), headerDestination, proceedModalTitle
 Cohesion: 0.67
 Nodes (3): forwardOptions, labelForAction(), selectedActionLabel
 
-### Community 257 - "loadTemperature"
-Cohesion: 0.67
-Nodes (3): iconForCode(), loadTemperature(), onVisible()
-
 ### Community 258 - "AppToast.vue"
 Cohesion: 0.50
 Nodes (4): hide(), message, show(), visible
-
-### Community 261 - "useSmartPoll"
-Cohesion: 0.60
-Nodes (4): useSmartPoll(), handleVisibility(), schedule(), tick()
 
 ### Community 262 - "clearFieldErrors"
 Cohesion: 0.67
@@ -1052,9 +1064,9 @@ Nodes (4): clearError(), onPasswordInput(), onUsernameInput(), toggleRole()
 Cohesion: 0.67
 Nodes (3): goToHelp(), goToQueue(), startLinks
 
-### Community 299 - "Illuminate\Http\Resources\Json\JsonResource"
-Cohesion: 0.10
-Nodes (5): OfficeController, FieldValueResource, OfficeResource, WorkflowDefinitionResource, WorkflowRouteResource
+### Community 274 - "Illuminate\Foundation\Http\FormRequest"
+Cohesion: 0.19
+Nodes (3): PublishWorkflowDefinitionRequest, SaveAsVersionRequest, GotoStationRequest
 
 ### Community 300 - "columns"
 Cohesion: 0.50
@@ -1063,10 +1075,6 @@ Nodes (4): columns, hasOwn(), normalizeStagedRow(), sourceDef()
 ### Community 306 - "ProceedModalHeader.vue"
 Cohesion: 0.29
 Nodes (6): currentOrderValue, currentStep, emit, props, stepLabel, totalSteps
-
-### Community 309 - "Illuminate\Database\Eloquent\Model"
-Cohesion: 0.16
-Nodes (4): AuditLog, GovernmentReference, WorkflowStepData, Admin (`auth + EnsureRole:superadmin`, prefix `/admin`)
 
 ### Community 310 - "loadAccounts"
 Cohesion: 0.67
@@ -1084,9 +1092,13 @@ Nodes (6): apiError(), loadPage(), observeCols(), observeLayout(), scheduleRefre
 Cohesion: 0.40
 Nodes (5): columns, existedInSource(), hasOwn(), normalizeServerRow(), normalizeStagedRow()
 
-### Community 324 - "2. Architecture"
+### Community 327 - "2. Architecture"
 Cohesion: 0.50
 Nodes (3): 2. Architecture, Frontend layout (`resources/js/`), Stack
+
+### Community 335 - "officeIdsOf"
+Cohesion: 0.67
+Nodes (3): currentOfficeId(), officeIdsOf(), openEdit()
 
 ## Knowledge Gaps
 - **145 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
@@ -1095,7 +1107,7 @@ Nodes (3): 2. Architecture, Frontend layout (`resources/js/`), Stack
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Dashboard()` connect `3. Auth & Roles` to `index.js`?**
-  _High betweenness centrality (0.435) - this node is a cross-community bridge._
+  _High betweenness centrality (0.434) - this node is a cross-community bridge._
 - **Should `TransactionDetail.vue` be split into smaller, more focused modules?**
   _Cohesion score 0.017857142857142856 - nodes in this community are weakly interconnected._
 - **Should `Workflows.vue` be split into smaller, more focused modules?**
