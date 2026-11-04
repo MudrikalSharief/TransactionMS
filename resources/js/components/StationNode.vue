@@ -130,7 +130,7 @@
             <div v-if="showChecklistSection && move" class="hover-div" />
             <!-- Section C: moved (or creation for self-loop runs) -->
             <div v-if="move" class="hover-sec">
-                <div class="hover-moved-head"><span>{{ isSelfLoop ? 'Created' : 'Moved' }}</span><span v-if="moveAction" class="hover-act" :class="moveAction.cls">{{ moveAction.text }}</span></div>
+                <div class="hover-moved-head"><span>{{ isSelfLoop ? 'Created' : 'Route' }}</span><span v-if="moveAction" class="hover-act" :class="moveAction.cls">{{ moveAction.text }}</span></div>
                 <div v-if="!isSelfLoop" class="hover-trans">
                     <span class="hover-pill hover-pill-from">{{ moveFrom }}</span>
                     <v-icon size="small" aria-hidden="true">mdi-arrow-right</v-icon>

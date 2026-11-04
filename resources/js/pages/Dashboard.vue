@@ -800,6 +800,17 @@ watch(officeOptions, (options) => {
     }
 })
 
+// ---- Period filter ----
+// All time by default so pending work never hides on a week/month
+// rollover; switchable to this week (current Mon–Sun week) or one of the
+// last 12 months (Manila calendar). It drives the tiles, the By Process pie,
+// the graph and Recent Activity. Completed counts by finalize date, the rest
+// by created date (server side). Declared before the graph: its computeds
+// can run during setup when the transaction list is already cached (e.g.
+// clicking Dashboard from another page).
+const summaryPeriod = ref('all')
+const periodOptions = computed(() => dashPeriodOptions())
+
 // ---- Graph: the office's transactions per process over the Period filter ----
 // One group of bars per day (this week), week (a month) or month (all time),
 // never past today; see utils/dashPeriod.js.
@@ -921,13 +932,7 @@ const graphSeries = computed(() => {
 })
 
 // ---- Transaction Summary card (superadmin) ----
-// Period: all time by default so pending work never hides on a week/month
-// rollover; switchable to this week (current Mon–Sun week) or one of the
-// last 12 months (Manila calendar). It drives the tiles, the By Process pie,
-// the graph and Recent Activity.
-// Completed counts by finalize date, the rest by created date (server side).
-const summaryPeriod = ref('all')
-const periodOptions = computed(() => dashPeriodOptions())
+// (The Period filter, summaryPeriod, is declared above the graph.)
 
 const summary = ref(null)
 const summaryLoading = ref(false)
