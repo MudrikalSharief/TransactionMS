@@ -4,9 +4,7 @@
             <div class="dash-hello-text">
                 <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
                 <div class="dash-hello-sub">
-                    <v-icon size="15">mdi-calendar-today</v-icon>{{ todayLabel }}
-                    <template v-if="scopeLabel"><span class="dash-hello-dot" />{{ scopeLabel }}</template>
-                    <template v-if="refreshedLabel"><span class="dash-hello-dot" />Updated {{ refreshedLabel }}</template>
+                    <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>
             </div>
             <div class="dash-hello-actions">
@@ -594,12 +592,6 @@ const greeting = computed(() => {
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 })
 const firstName = computed(() => (auth.user.value?.name || '').trim().split(/\s+/)[0] || 'there')
-const todayLabel = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-const scopeLabel = computed(() => {
-    const u = auth.user.value
-    if (isSuperadmin.value) return 'All offices'
-    return u?.office?.name || u?.office?.code || ''
-})
 const refreshedLabel = computed(() =>
     refreshedAt.value ? refreshedAt.value.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }) : '',
 )

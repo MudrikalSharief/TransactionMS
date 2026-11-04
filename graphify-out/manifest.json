@@ -1200,9 +1200,9 @@
     "semantic_hash": ""
   },
   "resources/js/components/AppShell.vue": {
-    "mtime": 1793762996.0297587,
-    "seen": 1793763067.052175,
-    "ast_hash": "db8a02ece1b28d68efa59007eb6ec51c",
+    "mtime": 1793769330.0055199,
+    "seen": 1793769469.1901066,
+    "ast_hash": "9f63d6904c5e5b525d750de3991da15e",
     "semantic_hash": ""
   },
   "resources/js/components/AppToast.vue": {
@@ -1596,9 +1596,9 @@
     "semantic_hash": "cc8c73aab3528d91fc7b0652308bd7e1"
   },
   "resources/js/pages/Dashboard.vue": {
-    "mtime": 1793762996.0675745,
-    "seen": 1793763067.052644,
-    "ast_hash": "3c25ae7c4f3d4367849327ad17b53787",
+    "mtime": 1793768352.187006,
+    "seen": 1793769469.1904411,
+    "ast_hash": "bf4f18e3fdda8c0f536c4811d81b007c",
     "semantic_hash": ""
   },
   "resources/js/pages/Help.vue": {
@@ -1608,9 +1608,9 @@
     "semantic_hash": ""
   },
   "resources/js/pages/Login.vue": {
-    "mtime": 1793762996.0675745,
-    "seen": 1793763067.0526536,
-    "ast_hash": "067424f82c2fa2a9ed129017ac83537e",
+    "mtime": 1793768877.2431662,
+    "seen": 1793769469.1904511,
+    "ast_hash": "1dc8160e3633757c002dde39f3dc0934",
     "semantic_hash": ""
   },
   "resources/js/pages/admin/Fields.vue": {
@@ -1770,9 +1770,9 @@
     "semantic_hash": ""
   },
   "resources/js/router/index.js": {
-    "mtime": 1793762996.0835955,
-    "seen": 1793763067.0527632,
-    "ast_hash": "74ea0a2e2d10b5fac57c8a6a3b848889",
+    "mtime": 1793768364.3239253,
+    "seen": 1793769469.190565,
+    "ast_hash": "568faedb8aab89087ac60dc5442110b8",
     "semantic_hash": ""
   },
   "resources/js/utils/dates.js": {
