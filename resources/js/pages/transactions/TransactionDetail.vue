@@ -442,7 +442,7 @@
                             </div>
                         </template>
                     </v-data-table>
-                    <TableLoader v-if="loading" label="checklist" compact style="flex: 1 1 auto" />
+                    <TableLoader v-if="loading" label="checklist" icon="mdi-clipboard-check-outline" compact style="flex: 1 1 auto" />
                     </div>
                 </div>
             </v-card-text>

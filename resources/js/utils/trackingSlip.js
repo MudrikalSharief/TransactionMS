@@ -60,15 +60,19 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
   @media print { body { padding: 0; } }
   .slip { border: 2px solid #002D70; max-width: 560px; margin: 0 auto; overflow: hidden;
           -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  /* Header: city seal, title, system logo. */
-  .head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #002D70; color: #fff;
-          border-bottom: 3px solid #F2B33D; }
-  .head .mark { width: 46px; height: 46px; border-radius: 50%; background: #fff; object-fit: contain; flex: 0 0 auto; }
-  .head .title { flex: 1 1 auto; min-width: 0; }
-  .head small { display: block; opacity: .85; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-  .head b { font-size: 17px; }
-  .head .sys { text-align: center; font-size: 8.5px; font-weight: 700; letter-spacing: .04em; opacity: .9; flex: 0 0 auto; }
-  .head .sys .mark { display: block; margin: 0 auto 2px; }
+  /* Header: the city seal and the system logo mirror each other (same
+     white disc with a gold ring) around a centred title; navy from the
+     logo, gold from the seal. */
+  .head { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 12px; padding: 14px 16px;
+          background: linear-gradient(180deg, #0a3f94 0%, #002D70 55%, #002056 100%); color: #fff; text-align: center;
+          border-bottom: 3px solid #F2B33D; box-shadow: inset 0 3px 0 rgba(242, 179, 61, .55); }
+  .head .mark { width: 54px; height: 54px; border-radius: 50%; background: #fff; object-fit: contain; padding: 2px;
+                box-shadow: 0 0 0 2px #F2B33D, 0 0 10px rgba(242, 179, 61, .45); }
+  .head .title { min-width: 0; }
+  .head small { display: block; color: #F8D98A; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .head b { display: block; font-size: 19px; letter-spacing: .02em; margin: 2px 0 3px; }
+  .head .sys { display: inline-block; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .78);
+               border-top: 1px solid rgba(248, 217, 138, .55); padding-top: 3px; }
   .body { display: flex; gap: 16px; padding: 16px; }
   .info { flex: 1 1 auto; min-width: 0; }
   .ref-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b6475; }
@@ -101,8 +105,12 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
   <div class="slip">
     <div class="head">
       <img class="mark" src="${origin}/zamboanga-seal.png" alt="City of Zamboanga official seal">
-      <div class="title"><small>City Government of Zamboanga</small><b>Transaction Tracking Slip</b></div>
-      <div class="sys"><img class="mark" src="${origin}/tms-logo-128.png" alt="TransactionMS logo">TransactionMS</div>
+      <div class="title">
+        <small>City Government of Zamboanga</small>
+        <b>Transaction Tracking Slip</b>
+        <span class="sys">TransactionMS · Document Tracking</span>
+      </div>
+      <img class="mark" src="${origin}/tms-logo-128.png" alt="TransactionMS logo">
     </div>
     <div class="body">
       <div class="info">
