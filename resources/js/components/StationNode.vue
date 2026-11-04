@@ -54,7 +54,7 @@
                     size="small"
                     class="mt-3 font-weight-bold"
                 >
-                    You are Here
+                    Current Step
                 </v-chip>
             </div>
         </template>
@@ -190,7 +190,7 @@ const assignedOfficeLabel = computed(() => {
 });
 
 const badgeText = computed(() => {
-    if (props.state === 'current') return 'Current';
+    if (props.state === 'current') return 'Current Step';
     if (props.state === 'done') return 'Done';
     if (props.state === 'passed') return 'Passed';
     return 'Upcoming';

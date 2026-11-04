@@ -45,8 +45,18 @@ export function useTransactions() {
   // flash (loading stays false), then the network refreshes silently in
   // the background. Search/pages skip the cache so filtered results never
   // poison the default-view cache.
-  async function fetchAll({ silent = false, q = '', page = 1, per_page = 25 } = {}) {
-    const isDefault = !String(q || '').trim() && Number(page) === 1
+  async function fetchAll({
+    silent = false,
+    q = '',
+    page = 1,
+    per_page = 25,
+    transaction_type_id = null,
+    office_id = null,
+    date_from = '',
+    date_to = '',
+  } = {}) {
+    const hasFilters = !!transaction_type_id || !!office_id || !!date_from || !!date_to
+    const isDefault = !String(q || '').trim() && Number(page) === 1 && !hasFilters
     let painted = false
     if (isDefault) {
       const cached = readCache(key())
@@ -63,6 +73,10 @@ export function useTransactions() {
     try {
       const params = { page, per_page }
       if (String(q || '').trim()) params.q = String(q).trim()
+      if (transaction_type_id) params.transaction_type_id = transaction_type_id
+      if (office_id) params.office_id = office_id
+      if (date_from) params.date_from = date_from
+      if (date_to) params.date_to = date_to
       const res = await api.get('/api/admin/transactions', { params })
       applyPayload(res)
       if (isDefault) writeCache(key(), (items.value || []).map(slimTx))

@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\RoutingEngine;
 use App\Services\TransactionEngine;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
@@ -21,6 +22,10 @@ class TransactionController extends Controller
             'q' => ['nullable', 'string', 'max:200'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'transaction_type_id' => ['nullable', 'integer', 'exists:transaction_types,id'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         $perPage = (int) ($data['per_page'] ?? 25);
@@ -89,6 +94,34 @@ class TransactionController extends Controller
                 $w->where('reference_number', 'like', "%{$q}%")
                     ->orWhere('title', 'like', "%{$q}%");
             });
+        }
+
+        if (!empty($data['transaction_type_id'])) {
+            $query->where('transaction_type_id', (int) $data['transaction_type_id']);
+        }
+
+        if (!empty($data['office_id'])) {
+            $query->where('office_id', (int) $data['office_id']);
+        }
+
+        if (!empty($data['date_from'])) {
+            $query->where(
+                'created_at',
+                '>=',
+                Carbon::createFromFormat('Y-m-d', $data['date_from'], 'Asia/Manila')
+                    ->startOfDay()
+                    ->utc()
+            );
+        }
+
+        if (!empty($data['date_to'])) {
+            $query->where(
+                'created_at',
+                '<=',
+                Carbon::createFromFormat('Y-m-d', $data['date_to'], 'Asia/Manila')
+                    ->endOfDay()
+                    ->utc()
+            );
         }
 
         return TransactionListResource::collection($query->paginate($perPage));

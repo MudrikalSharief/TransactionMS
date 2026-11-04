@@ -35,6 +35,15 @@
             </button>
           </div>
           <button
+            v-if="hasFilters"
+            type="button"
+            class="tl-clear-filters"
+            @click="clearFilters"
+          >
+            <v-icon size="16">mdi-close</v-icon>
+            Clear filters
+          </button>
+          <button
             v-if="canManage"
             type="button"
             class="tl-add"
@@ -72,6 +81,221 @@
           class="tl-table"
           @click:row="(_, row) => go(row.item.id)"
         >
+          <template v-slot:[`header.type`]="{ column }">
+            <v-menu
+              v-model="typeMenuOpen"
+              location="bottom start"
+              :close-on-content-click="false"
+            >
+              <template #activator="{ props }">
+                <button
+                  v-bind="props"
+                  type="button"
+                  class="tl-th-filter"
+                  :class="{ 'is-active': !!filterType }"
+                  :title="
+                    filterType
+                      ? 'Filtered by transaction type'
+                      : 'Filter by transaction type'
+                  "
+                  @click.stop
+                >
+                  <span>{{ column.title }}</span>
+                  <v-icon size="16">{{
+                    filterType ? 'mdi-filter' : 'mdi-filter-outline'
+                  }}</v-icon>
+                </button>
+              </template>
+              <v-card
+                rounded="0"
+                style="min-width: 260px; max-width: 340px; max-height: 340px; overflow-y: auto"
+              >
+                <v-list density="compact" class="py-1">
+                  <v-list-subheader>Transaction Type</v-list-subheader>
+                  <v-list-item
+                    :active="!filterType"
+                    @click="setTypeFilter(null)"
+                  >
+                    <v-list-item-title>All types</v-list-item-title>
+                    <template #append>
+                      <v-icon v-if="!filterType" size="18">mdi-check</v-icon>
+                    </template>
+                  </v-list-item>
+                  <v-list-item
+                    v-for="t in types"
+                    :key="t.id"
+                    :active="filterType === t.id"
+                    @click="setTypeFilter(t.id)"
+                  >
+                    <v-list-item-title>{{ t.name }}</v-list-item-title>
+                    <template #append>
+                      <v-icon v-if="filterType === t.id" size="18"
+                        >mdi-check</v-icon
+                      >
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-menu>
+          </template>
+
+          <template v-slot:[`header.office`]="{ column }">
+            <v-menu
+              v-model="officeMenuOpen"
+              location="bottom start"
+              :close-on-content-click="false"
+            >
+              <template #activator="{ props }">
+                <button
+                  v-bind="props"
+                  type="button"
+                  class="tl-th-filter"
+                  :class="{ 'is-active': !!filterOffice }"
+                  :title="
+                    filterOffice
+                      ? 'Filtered by originating office'
+                      : 'Filter by originating office'
+                  "
+                  @click.stop
+                >
+                  <span>{{ column.title }}</span>
+                  <v-icon size="16">{{
+                    filterOffice ? 'mdi-filter' : 'mdi-filter-outline'
+                  }}</v-icon>
+                </button>
+              </template>
+              <v-card
+                rounded="0"
+                style="min-width: 260px; max-width: 340px; max-height: 340px; overflow-y: auto"
+              >
+                <v-list density="compact" class="py-1">
+                  <v-list-subheader>Originating Office</v-list-subheader>
+                  <v-list-item
+                    :active="!filterOffice"
+                    @click="setOfficeFilter(null)"
+                  >
+                    <v-list-item-title>All offices</v-list-item-title>
+                    <template #append>
+                      <v-icon v-if="!filterOffice" size="18"
+                        >mdi-check</v-icon
+                      >
+                    </template>
+                  </v-list-item>
+                  <v-list-item
+                    v-for="o in officeOptions"
+                    :key="o.id"
+                    :active="filterOffice === o.id"
+                    @click="setOfficeFilter(o.id)"
+                  >
+                    <template #prepend>
+                      <img
+                        v-if="o.icon"
+                        :src="o.icon"
+                        :alt="`${o.office?.name || 'Office'} icon`"
+                        width="22"
+                        height="22"
+                        decoding="async"
+                        style="width: 22px; height: 22px; object-fit: contain"
+                      />
+                      <v-icon v-else size="22">mdi-office-building-outline</v-icon>
+                    </template>
+                    <v-list-item-title>{{ o.label }}</v-list-item-title>
+                    <template #append>
+                      <v-icon v-if="filterOffice === o.id" size="18"
+                        >mdi-check</v-icon
+                      >
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-menu>
+          </template>
+
+          <template v-slot:[`header.created_at`]="{ column }">
+            <v-menu
+              v-model="dateMenuOpen"
+              location="bottom start"
+              :close-on-content-click="false"
+            >
+              <template #activator="{ props }">
+                <button
+                  v-bind="props"
+                  type="button"
+                  class="tl-th-filter"
+                  :class="{ 'is-active': !!(dateFrom || dateTo) }"
+                  :title="
+                    dateFrom || dateTo
+                      ? 'Filtered by created date'
+                      : 'Filter by created date'
+                  "
+                  @click.stop
+                >
+                  <span>{{ column.title }}</span>
+                  <v-icon size="16">{{
+                    dateFrom || dateTo
+                      ? 'mdi-filter'
+                      : 'mdi-filter-outline'
+                  }}</v-icon>
+                </button>
+              </template>
+              <v-card
+                rounded="0"
+                style="min-width: min(300px, calc(100vw - 24px))"
+              >
+                <div style="padding: 12px">
+                  <div
+                    style="
+                      margin-bottom: 8px;
+                      color: rgb(var(--v-theme-secondary));
+                      font-size: 11px;
+                      font-weight: 800;
+                      letter-spacing: 0.08em;
+                      text-transform: uppercase;
+                    "
+                  >
+                    Created date
+                  </div>
+                  <v-text-field
+                    v-model="dateFromDraft"
+                    type="date"
+                    label="From"
+                    variant="outlined"
+                    density="compact"
+                    hide-details
+                    class="mb-2"
+                    :max="dateToDraft || undefined"
+                  />
+                  <v-text-field
+                    v-model="dateToDraft"
+                    type="date"
+                    label="To"
+                    variant="outlined"
+                    density="compact"
+                    hide-details
+                    class="mb-3"
+                    :min="dateFromDraft || undefined"
+                  />
+                  <div class="d-flex justify-end ga-2">
+                    <v-btn
+                      variant="text"
+                      size="small"
+                      @click="clearDateFilter"
+                      >Clear</v-btn
+                    >
+                    <v-btn
+                      color="primary"
+                      variant="flat"
+                      rounded="0"
+                      size="small"
+                      @click="applyDateFilter"
+                      >Apply</v-btn
+                    >
+                  </div>
+                </div>
+              </v-card>
+            </v-menu>
+          </template>
+
           <template v-slot:[`item.reference_number`]="{ item }">
             <v-chip color="primary" variant="tonal" rounded="0" size="small" class="font-weight-bold">
               {{ item.reference_number || `#${item.id}` }}
@@ -161,8 +385,9 @@
 
           <template #no-data>
             <div class="tl-empty">
-              <template v-if="search.trim()">
-                <b>No matches</b> for “{{ search.trim() }}”. Try a different word.
+              <template v-if="search.trim() || hasFilters">
+                <b>No matches</b> for the current search or filters. Try
+                changing them.
               </template>
               <template v-else>
                 <b>No transactions yet.</b>
@@ -273,6 +498,30 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
+const filterType = ref(null)
+const filterOffice = ref(null)
+const dateFrom = ref('')
+const dateTo = ref('')
+const typeMenuOpen = ref(false)
+const officeMenuOpen = ref(false)
+const dateMenuOpen = ref(false)
+const dateFromDraft = ref('')
+const dateToDraft = ref('')
+
+const hasFilters = computed(
+  () => !!(filterType.value || filterOffice.value || dateFrom.value || dateTo.value)
+)
+
+function requestParams(pageNo) {
+  return {
+    q: search.value,
+    page: pageNo,
+    transaction_type_id: filterType.value || null,
+    office_id: filterOffice.value || null,
+    date_from: dateFrom.value || '',
+    date_to: dateTo.value || '',
+  }
+}
 
 const typeOptions = computed(() => {
   const myOfficeId = auth.user.value?.office?.id ?? null
@@ -299,7 +548,12 @@ const typeOptions = computed(() => {
 const officeOptions = computed(() =>
   (offices.value || [])
     .filter(o => o.is_active !== false && o.is_active !== 0)
-    .map(o => ({ id: o.id, label: `${o.name} (${o.code})` }))
+    .map(o => ({
+      id: o.id,
+      label: `${o.name} (${o.code})`,
+      office: o,
+      icon: officeIcon(o),
+    }))
 )
 
 const headers = [
@@ -358,18 +612,72 @@ watch(search, () => {
     page.value = 1
     tablePage.value = 1
     try {
-      await fetchAll({ q: search.value, page: 1 })
+      await fetchAll(requestParams(1))
     } catch {
       /* error banner stays from last load */
     }
   }, 400)
 })
 
+let filterTimer = null
+watch([filterType, filterOffice, dateFrom, dateTo], () => {
+  if (filterTimer) clearTimeout(filterTimer)
+  filterTimer = setTimeout(async () => {
+    page.value = 1
+    tablePage.value = 1
+    try {
+      await fetchAll(requestParams(1))
+    } catch {
+      /* error banner stays from last load */
+    }
+  }, 250)
+})
+
+function setTypeFilter(id) {
+  filterType.value = id
+  typeMenuOpen.value = false
+}
+
+function setOfficeFilter(id) {
+  filterOffice.value = id
+  officeMenuOpen.value = false
+}
+
+watch(dateMenuOpen, (open) => {
+  if (!open) return
+  dateFromDraft.value = dateFrom.value
+  dateToDraft.value = dateTo.value
+})
+
+function applyDateFilter() {
+  dateFrom.value = dateFromDraft.value
+  dateTo.value = dateToDraft.value
+  dateMenuOpen.value = false
+}
+
+function clearDateFilter() {
+  dateFromDraft.value = ''
+  dateToDraft.value = ''
+  dateFrom.value = ''
+  dateTo.value = ''
+  dateMenuOpen.value = false
+}
+
+function clearFilters() {
+  filterType.value = null
+  filterOffice.value = null
+  dateFrom.value = ''
+  dateTo.value = ''
+  typeMenuOpen.value = false
+  officeMenuOpen.value = false
+  dateMenuOpen.value = false
+}
+
 async function goToPage(p) {
   page.value = p
   tablePage.value = 1
   try {
-    await fetchAll({ q: search.value, page: p })
+    await fetchAll(requestParams(p))
   } catch {
     /* keep current rows */
   }
@@ -441,7 +749,7 @@ async function createTx(payload) {
     if (isSuperadmin.value) body.office_id = payload?.office_id ?? null
     const tx = await create(body)
     dialog.value = false
-    await fetchAll({ q: search.value, page: page.value })
+    await fetchAll(requestParams(page.value))
     go(tx.id)
   } catch (e) {
     const errs = e?.response?.data?.errors
@@ -458,7 +766,7 @@ onMounted(() => {
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
   fetchOffices().catch(() => {})
-  fetchAll({ q: search.value, page: page.value }).catch(() => {})
+  fetchAll(requestParams(page.value)).catch(() => {})
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,
@@ -467,7 +775,7 @@ useSmartPoll(async () => {
   // Skip while creating to avoid clobbering the dialog.
   if (saving.value || dialog.value) return
   try {
-    await fetchAll({ silent: true, q: search.value, page: page.value })
+    await fetchAll({ ...requestParams(page.value), silent: true })
   } catch {
     /* next tick retries */
   }
@@ -549,8 +857,9 @@ html.dark .tl-page {
 .tl-tools {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     margin-left: auto;
 }
 .tl-search {
@@ -646,6 +955,73 @@ html.dark .tl-page {
     margin: 16px 28px 0 !important;
     border-radius: 0 !important;
 }
+
+/* ---- Filters ---- */
+.tl-th-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    white-space: normal;
+    cursor: pointer;
+}
+.tl-th-filter span {
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.15;
+    white-space: normal;
+}
+.tl-th-filter .v-icon {
+    flex: none;
+    opacity: 1;
+    transition: color 0.15s;
+}
+.tl-th-filter:hover .v-icon,
+.tl-th-filter.is-active .v-icon {
+    color: var(--tl-blue);
+}
+.tl-th-filter.is-active {
+    color: var(--tl-blue);
+}
+.tl-table :deep(thead th .tl-th-filter .v-icon) {
+    color: var(--tl-muted) !important;
+    opacity: 1 !important;
+}
+.tl-table :deep(thead th .tl-th-filter:hover .v-icon),
+.tl-table :deep(thead th .tl-th-filter.is-active .v-icon) {
+    color: var(--tl-blue) !important;
+}
+.tl-clear-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 12px;
+    flex: none;
+    border: 1.5px solid var(--tl-line);
+    border-radius: 0;
+    background: var(--tl-panel);
+    color: var(--tl-muted);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.tl-clear-filters:hover {
+    background: var(--tl-hover);
+    color: var(--tl-ink);
+}
+
 .tl-wrap {
     min-width: 0;
     padding: 20px 28px 0;

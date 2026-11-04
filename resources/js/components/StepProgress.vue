@@ -7,7 +7,8 @@
             </div>
         </v-card-title>
         <v-divider />
-        <v-card-text class="pa-5" style="overflow-x: auto">
+        <v-card-text class="pa-5">
+            <div ref="trackEl" style="overflow-x: auto">
             <div v-if="!ordered.length" class="text-caption text-medium-emphasis pa-2">
                 Step details unavailable.
             </div>
@@ -21,6 +22,7 @@
                         :detail="detailFor(s)"
                         :move="moveFor(s)"
                         :viewer="viewer"
+                        :data-node="i"
                     />
                     <div
                         v-if="i < ordered.length - 1"
@@ -52,6 +54,7 @@
                         </template>
                     </div>
                 </template>
+            </div>
             </div>
         </v-card-text>
         <template v-if="$slots.actions">
@@ -156,6 +159,46 @@ const turnDone = computed(() => {
 // connector joins avatar to avatar whatever the label heights do.
 const snakeWrap = ref(null);
 const turnGeom = ref({ w: 0, y1: 0, y2: 0 });
+const trackEl = ref(null);
+
+// Center the current station in the horizontal tracker. The hover preview
+// opens with the current step at the edge; this puts it in the middle.
+function centerCurrentStep(smooth = false) {
+    nextTick(() => {
+        const run = () => {
+            const idx = currentIdx.value;
+            const container = trackEl.value;
+            if (idx < 0 || !container) return;
+            const node = container.querySelector(`[data-node="${idx}"]`);
+            if (!node) return;
+            const containerRect = container.getBoundingClientRect();
+            const nodeRect = node.getBoundingClientRect();
+            const target =
+                container.scrollLeft +
+                (nodeRect.left - containerRect.left) +
+                nodeRect.width / 2 -
+                container.clientWidth / 2;
+            const max = Math.max(
+                0,
+                container.scrollWidth - container.clientWidth,
+            );
+            const left = Math.max(0, Math.min(target, max));
+            if (typeof container.scrollTo === "function") {
+                container.scrollTo({
+                    left,
+                    behavior: smooth ? "smooth" : "auto",
+                });
+            } else {
+                container.scrollLeft = left;
+            }
+        };
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(run);
+        } else {
+            setTimeout(run, 0);
+        }
+    });
+}
 
 function measureTurn() {
     const reset = { w: 0, y1: 0, y2: 0 };
@@ -190,23 +233,41 @@ const turnPath = computed(() => {
 });
 
 let turnObserver = null;
+let trackObserver = null;
 
 watch([ordered, currentIdx, useSnake], () => {
     nextTick(measureTurn);
 });
 
+watch(currentIdx, () => centerCurrentStep(true));
+
 onMounted(() => {
     nextTick(measureTurn);
+    centerCurrentStep(false);
     window.addEventListener('resize', measureTurn);
     if (window.ResizeObserver) {
         turnObserver = new ResizeObserver(() => measureTurn());
         if (snakeWrap.value) turnObserver.observe(snakeWrap.value);
+
+        // The hover menu may mount the tracker before it has its final
+        // width; re-center once when the scroll container gets sized.
+        if (trackEl.value) {
+            trackObserver = new ResizeObserver((entries) => {
+                const width = entries[0]?.contentRect?.width ?? 0;
+                if (width <= 0) return;
+                centerCurrentStep(false);
+                trackObserver?.disconnect();
+                trackObserver = null;
+            });
+            trackObserver.observe(trackEl.value);
+        }
     }
 });
 
 onUnmounted(() => {
     window.removeEventListener('resize', measureTurn);
     if (turnObserver) turnObserver.disconnect();
+    if (trackObserver) trackObserver.disconnect();
 });
 
 function stateOf(i) {
