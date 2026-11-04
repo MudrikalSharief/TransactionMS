@@ -424,9 +424,6 @@ const props = defineProps({
     // When true, hides all delete buttons (view-only display of
     // previous-step files in the Proceed Review page).
     hideDelete: { type: Boolean, default: false },
-    // When true, hides all delete buttons (view-only display of
-    // previous-step files in the Proceed Review page).
-    hideDelete: { type: Boolean, default: false },
     // When true, the empty state renders as a centralized circle graphic
     // instead of plain text (used by the Attached Files tab only).
     centeredEmpty: { type: Boolean, default: false },

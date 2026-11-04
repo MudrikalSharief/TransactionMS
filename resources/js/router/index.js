@@ -24,7 +24,6 @@ const AdminRequirementOverview = () =>
 const AdminStepData = () => import("@/pages/admin/StepData.vue");
 const AdminStepDataOverview = () =>
     import("@/pages/admin/StepDataOverview.vue");
-const AdminStepChecklist = () => import("@/pages/admin/StepChecklist.vue");
 const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue");
 
 const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
