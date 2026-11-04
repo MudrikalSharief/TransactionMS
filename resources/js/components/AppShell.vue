@@ -260,8 +260,8 @@
                 </div>
                 <v-divider />
                 <div
-                    class="d-flex pa-2 drawer-footer"
-                    :class="rail ? 'flex-column align-center ga-1' : 'flex-row align-center justify-space-evenly ga-2'"
+                    class="d-flex pa-1 drawer-footer"
+                    :class="rail ? 'flex-column align-center ga-1' : 'flex-row align-center justify-space-evenly ga-1'"
                 >
                     <v-btn
                         :icon="rail"
@@ -1263,8 +1263,14 @@ onUnmounted(() => {
     }
 }
 /* Footer theme/help pair */
-.drawer-footer .v-btn {
+.drawer-footer {
     min-width: 0;
+    flex-wrap: nowrap;
+}
+.drawer-footer .v-btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding-inline: 6px;
     text-transform: none;
     letter-spacing: 0;
 }
