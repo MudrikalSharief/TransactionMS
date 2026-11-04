@@ -108,7 +108,7 @@ const socials = [
     position: relative;
     /* Width of the City Hall artwork (1000 x 310); everything below scales
        from it so the swooshes always meet the ground. */
-    --hw: clamp(252px, 38.6vw, 655px);
+    --hw: clamp(328px, 50.2vw, 852px);
     height: calc(var(--hw) * 0.31);
 }
 .tf-hall {
@@ -150,7 +150,7 @@ const socials = [
     /* Extra top room so the seal row clears the building; the bottom room
        keeps the credit row above the curved swoosh (::after), which
        otherwise draws a line straight through it. */
-    padding: 18px 22px 34px;
+    padding: 6px 18px 16px;
     text-align: center;
 }
 /* Lighter blue swoosh along the bottom edge. */
@@ -159,8 +159,8 @@ const socials = [
     position: absolute;
     left: -10%;
     right: -10%;
-    bottom: -42px;
-    height: 64px;
+    bottom: -52px;
+    height: 60px;
     border-radius: 50%;
     border-top: 3px solid rgba(96, 165, 250, 0.45);
     box-shadow: 0 -10px 40px -10px rgba(96, 165, 250, 0.5);
@@ -171,11 +171,11 @@ const socials = [
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 22px;
+    gap: 16px;
 }
 .tf-seal {
-    width: 71px;
-    height: 71px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 14px rgba(147, 197, 253, 0.45);
     flex: 0 0 auto;
@@ -193,20 +193,20 @@ const socials = [
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 5px;
+    gap: 3px;
     text-align: left;
 }
 .tf-social {
     display: flex;
     align-self: center;
-    gap: 9px;
-    margin-bottom: 3px;
+    gap: 8px;
+    margin-bottom: 1px;
 }
 .tf-soc {
     display: grid;
     place-items: center;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #fff;
     color: var(--tf-navy);
@@ -224,8 +224,8 @@ a.tf-soc:hover {
     gap: 7px;
     color: #fff;
     text-decoration: none;
-    font-size: 0.8rem;
-    line-height: 1.4;
+    font-size: 0.76rem;
+    line-height: 1.3;
 }
 a.tf-line:hover {
     color: #BFDBFE;
@@ -237,14 +237,14 @@ a.tf-line:hover {
 .tf-rule {
     width: min(340px, 80%);
     height: 1px;
-    margin: 12px auto 7px;
+    margin: 6px auto 4px;
     background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.7), transparent);
 }
 .tf-legal {
     display: flex;
     justify-content: center;
-    gap: 12px;
-    font-size: 0.7rem;
+    gap: 10px;
+    font-size: 0.66rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -259,8 +259,8 @@ a.tf-line:hover {
     justify-content: center;
     gap: 6px;
     /* Clear breathing room between the Terms/Privacy row and this credit. */
-    margin-top: 15px;
-    font-size: 0.78rem;
+    margin-top: 6px;
+    font-size: 0.74rem;
     color: rgba(255, 255, 255, 0.9);
 }
 .tf-credit b {
@@ -268,7 +268,7 @@ a.tf-line:hover {
     font-weight: 800;
 }
 .tf-credit-line {
-    width: 70px;
+    width: 60px;
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.8));
 }
@@ -286,66 +286,66 @@ a.tf-line:hover {
         margin-top: 0;
     }
     .tf--fit .tf-skyline {
-        --hw: clamp(200px, 26.9vh, 437px);
+        --hw: clamp(260px, 35vh, 568px);
     }
     .tf--fit .tf-band {
-        padding: clamp(3px, 0.7vh, 10px) 20px clamp(14px, 2vh, 22px);
+        padding: clamp(2px, 0.3vh, 5px) 18px clamp(8px, 1vh, 12px);
     }
     /* Keep the bottom swoosh below the credit row at the smaller padding. */
     .tf--fit .tf-band::after {
-        bottom: -54px;
+        bottom: -58px;
     }
     .tf--fit .tf-main {
-        gap: clamp(12px, 1.7vh, 22px);
+        gap: clamp(10px, 1.2vh, 14px);
     }
     .tf--fit .tf-seal {
-        width: clamp(40px, 5.9vh, 64px);
-        height: clamp(40px, 5.9vh, 64px);
+        width: clamp(28px, 3.8vh, 40px);
+        height: clamp(28px, 3.8vh, 40px);
     }
     .tf--fit .tf-info {
-        gap: clamp(1px, 0.35vh, 4px);
+        gap: 0;
     }
     .tf--fit .tf-social {
         margin-bottom: 1px;
     }
     .tf--fit .tf-soc {
-        width: clamp(17px, 2.2vh, 22px);
-        height: clamp(17px, 2.2vh, 22px);
+        width: clamp(13px, 1.5vh, 16px);
+        height: clamp(13px, 1.5vh, 16px);
     }
     .tf--fit .tf-line {
-        font-size: clamp(0.66rem, 1.25vh, 0.78rem);
-        line-height: 1.3;
+        font-size: clamp(0.6rem, 1.05vh, 0.68rem);
+        line-height: 1.15;
     }
     .tf--fit .tf-rule {
-        margin: clamp(3px, 0.8vh, 9px) auto clamp(2px, 0.45vh, 5px);
+        margin: clamp(1px, 0.3vh, 4px) auto clamp(1px, 0.2vh, 2px);
     }
     .tf--fit .tf-legal {
-        font-size: clamp(0.6rem, 1.1vh, 0.7rem);
+        font-size: clamp(0.54rem, 0.95vh, 0.6rem);
     }
     .tf--fit .tf-credit {
-        margin-top: clamp(3px, 0.75vh, 9px);
-        font-size: clamp(0.65rem, 1.25vh, 0.76rem);
+        margin-top: clamp(1px, 0.3vh, 4px);
+        font-size: clamp(0.58rem, 1.05vh, 0.66rem);
     }
 }
 
 /* Phones: the two emblems side by side, contacts below them. */
 @media (max-width: 700px) {
     .tf-skyline {
-        --hw: min(84vw, 437px);
+        --hw: min(100vw, 568px);
     }
     .tf-main {
         display: grid;
         grid-template-columns: auto auto;
         justify-content: center;
-        gap: 8px 13px;
+        gap: 6px 10px;
     }
     .tf-sep {
         display: none;
     }
     .tf-seal {
         grid-row: 1;
-        width: 54px;
-        height: 54px;
+        width: 38px;
+        height: 38px;
     }
     .tf-logo {
         grid-column: 2;
@@ -357,7 +357,7 @@ a.tf-line:hover {
     }
     .tf-credit {
         flex-wrap: wrap;
-        font-size: 0.66rem;
+        font-size: 0.62rem;
     }
     .tf-credit-line {
         display: none;
