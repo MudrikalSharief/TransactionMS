@@ -81,9 +81,208 @@
         hover
         class="us-table"
       >
+        <template v-slot:[`header.roles`]="{ column }">
+          <v-menu
+            v-model="roleMenuOpen"
+            location="bottom start"
+            :close-on-content-click="false"
+          >
+            <template #activator="{ props }">
+              <button
+                v-bind="props"
+                type="button"
+                class="us-th-filter"
+                :class="{ 'is-active': filterRole != null }"
+                :title="
+                  filterRole != null ? 'Filtered by role' : 'Filter by role'
+                "
+                @click.stop
+              >
+                <span>{{ column.title }}</span>
+                <v-icon size="16">{{
+                  filterRole != null ? 'mdi-filter' : 'mdi-filter-outline'
+                }}</v-icon>
+              </button>
+            </template>
+            <v-card
+              rounded="0"
+              style="min-width: 240px; max-width: 320px; max-height: 340px; overflow-y: auto"
+            >
+              <div class="us-filter-search">
+                <v-text-field
+                  v-model="roleFilterSearch"
+                  placeholder="Search role"
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  clearable
+                  autofocus
+                />
+              </div>
+              <v-list density="compact" class="py-1">
+                <v-list-subheader>Role</v-list-subheader>
+                <v-list-item
+                  :active="filterRole == null"
+                  @click="setRoleFilter(null)"
+                >
+                  <v-list-item-title>All roles</v-list-item-title>
+                  <template #append>
+                    <v-icon v-if="filterRole == null" size="18">mdi-check</v-icon>
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  v-for="r in filteredRoleOptions"
+                  :key="r.id"
+                  :active="filterRole === r.id"
+                  @click="setRoleFilter(r.id)"
+                >
+                  <v-list-item-title>{{ r.label }}</v-list-item-title>
+                  <template #append>
+                    <v-icon v-if="filterRole === r.id" size="18"
+                      >mdi-check</v-icon
+                    >
+                  </template>
+                </v-list-item>
+                <v-list-item v-if="!filteredRoleOptions.length" disabled>
+                  <v-list-item-title>No roles found</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-card>
+          </v-menu>
+        </template>
+
+        <template v-slot:[`header.office`]="{ column }">
+          <v-menu
+            v-model="officeMenuOpen"
+            location="bottom start"
+            :close-on-content-click="false"
+          >
+            <template #activator="{ props }">
+              <button
+                v-bind="props"
+                type="button"
+                class="us-th-filter"
+                :class="{ 'is-active': filterOffice != null }"
+                :title="
+                  filterOffice != null
+                    ? 'Filtered by office'
+                    : 'Filter by office'
+                "
+                @click.stop
+              >
+                <span>{{ column.title }}</span>
+                <v-icon size="16">{{
+                  filterOffice != null ? 'mdi-filter' : 'mdi-filter-outline'
+                }}</v-icon>
+              </button>
+            </template>
+            <v-card
+              rounded="0"
+              style="min-width: 260px; max-width: 340px; max-height: 340px; overflow-y: auto"
+            >
+              <div class="us-filter-search">
+                <v-text-field
+                  v-model="officeFilterSearch"
+                  placeholder="Search office"
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  clearable
+                  autofocus
+                />
+              </div>
+              <v-list density="compact" class="py-1">
+                <v-list-subheader>Office</v-list-subheader>
+                <v-list-item
+                  :active="filterOffice == null"
+                  @click="setOfficeFilter(null)"
+                >
+                  <v-list-item-title>All offices</v-list-item-title>
+                  <template #append>
+                    <v-icon v-if="filterOffice == null" size="18"
+                      >mdi-check</v-icon
+                    >
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  v-for="o in filteredOfficeOptions"
+                  :key="o.id"
+                  :active="filterOffice === o.id"
+                  @click="setOfficeFilter(o.id)"
+                >
+                  <template #prepend>
+                    <span :style="officeAvatarStyle()">
+                      <img
+                        v-if="o.icon"
+                        :src="o.icon"
+                        :alt="`${o.label} icon`"
+                        decoding="async"
+                        style="
+                          display: block;
+                          width: 100%;
+                          height: 100%;
+                          object-fit: cover;
+                        "
+                      />
+                      <span v-else>{{ initialsOf(o.office) }}</span>
+                    </span>
+                  </template>
+                  <v-list-item-title>{{ o.label }}</v-list-item-title>
+                  <template #append>
+                    <v-icon v-if="filterOffice === o.id" size="18"
+                      >mdi-check</v-icon
+                    >
+                  </template>
+                </v-list-item>
+                <v-list-item v-if="!filteredOfficeOptions.length" disabled>
+                  <v-list-item-title>No offices found</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-card>
+          </v-menu>
+        </template>
+
         <template v-slot:[`item.name`]="{ item }">
-          <span class="us-name">{{ item.name }}</span>
-          <span v-if="item.username" class="us-handle">@{{ item.username }}</span>
+          <div v-if="editingNameId === item.id" class="us-name-edit">
+            <input
+              :ref="setNameInput"
+              v-model="nameDraft"
+              type="text"
+              class="us-name-input"
+              maxlength="120"
+              aria-label="Edit user name"
+              autocomplete="off"
+              :disabled="rowBusyId === item.id"
+              @keyup.enter="saveName(item)"
+              @keyup.esc="cancelNameEdit"
+              @blur="saveName(item)"
+            />
+            <span
+              v-if="nameSavingId === item.id"
+              class="us-inline-spin"
+              aria-hidden="true"
+            />
+          </div>
+          <button
+            v-else
+            type="button"
+            class="us-cell-edit us-name-btn"
+            :class="{ 'is-editable': canInlineEdit(item) }"
+            :disabled="!canInlineEdit(item) || rowBusyId === item.id"
+            :title="canInlineEdit(item) ? 'Click to edit name' : lockReason(item)"
+            @click="startNameEdit(item)"
+          >
+            <span class="us-name">{{ item.name }}</span>
+            <span v-if="item.username" class="us-handle">@{{ item.username }}</span>
+            <v-icon
+              v-if="canInlineEdit(item)"
+              class="us-edit-hint"
+              size="14"
+              aria-hidden="true"
+            >mdi-pencil</v-icon>
+          </button>
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
@@ -91,45 +290,239 @@
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
-          <div v-if="(item.roles || []).length" class="us-roles">
-            <v-chip
-              v-for="r in item.roles"
-              :key="r.id"
+          <v-menu
+            :model-value="roleMenuId === item.id"
+            :disabled="!canInlineEdit(item)"
+            location="bottom start"
+            :close-on-content-click="false"
+            @update:model-value="(open) => onRoleMenuUpdate(item, open)"
+          >
+            <template #activator="{ props }">
+              <button
+                v-bind="props"
+                type="button"
+                class="us-cell-edit us-roles-btn"
+                :class="{ 'is-editable': canInlineEdit(item) }"
+                :disabled="!canInlineEdit(item) || rowBusyId === item.id"
+                :title="
+                  canInlineEdit(item) ? 'Click to edit roles' : lockReason(item)
+                "
+                @click.stop
+              >
+                <span v-if="(item.roles || []).length" class="us-roles">
+                  <v-chip
+                    v-for="r in item.roles"
+                    :key="r.id"
+                    rounded="0"
+                    size="small"
+                    variant="tonal"
+                    class="us-role"
+                  >
+                    {{ r.name }}
+                  </v-chip>
+                </span>
+                <span v-else class="us-dash" title="No active role">—</span>
+                <v-icon
+                  v-if="canInlineEdit(item)"
+                  class="us-edit-hint"
+                  size="14"
+                  aria-hidden="true"
+                >mdi-pencil</v-icon>
+              </button>
+            </template>
+            <v-card
               rounded="0"
-              size="small"
-              variant="tonal"
-              class="us-role"
+              class="us-role-menu"
+              style="min-width: 260px; max-width: 340px; max-height: 380px; overflow-y: auto"
             >
-              {{ r.name }}
-            </v-chip>
-          </div>
-          <span v-else class="us-dash" title="No active role">—</span>
+              <div class="us-role-menu-head">Roles</div>
+              <div class="us-role-search">
+                <v-text-field
+                  v-model="roleDraftSearch"
+                  placeholder="Search role"
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  clearable
+                  autofocus
+                />
+              </div>
+              <div class="us-role-options">
+                <label
+                  v-for="r in filteredRoleEditOptions"
+                  :key="r.id"
+                  class="us-role-option"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="roleDraft.includes(r.id)"
+                    :disabled="rowBusyId === item.id"
+                    @change="toggleRoleDraft(r.id, $event.target.checked)"
+                  />
+                  <span>{{ r.label }}</span>
+                </label>
+                <div v-if="rolesLoading" class="us-role-empty">
+                  Loading roles…
+                </div>
+                <div
+                  v-else-if="!filteredRoleEditOptions.length"
+                  class="us-role-empty"
+                >
+                  No roles found.
+                </div>
+              </div>
+              <div v-if="!roleDraft.length" class="us-role-warn">
+                Keep at least one role.
+              </div>
+              <div class="us-role-menu-actions">
+                <v-btn
+                  variant="text"
+                  size="small"
+                  :disabled="rowBusyId === item.id"
+                  @click="closeRoleMenu"
+                >Cancel</v-btn>
+                <v-btn
+                  color="primary"
+                  size="small"
+                  :disabled="!roleDraft.length || rowBusyId === item.id"
+                  :loading="roleSavingId === item.id"
+                  @click="saveRoles(item)"
+                >Save</v-btn>
+              </div>
+            </v-card>
+          </v-menu>
         </template>
 
         <template v-slot:[`item.office`]="{ item }">
-          <span
-            v-if="item.office?.name || officeNameById.get(Number(item.office_id))"
-            class="us-office is-specific"
-            :title="item.office?.name || officeNameById.get(Number(item.office_id))"
+          <v-menu
+            :model-value="officeMenuId === item.id"
+            :disabled="!canInlineEdit(item)"
+            location="bottom start"
+            :close-on-content-click="false"
+            @update:model-value="(open) => onOfficeMenuUpdate(item, open)"
           >
-            <img
-              v-if="officeIcon(userOffice(item))"
-              class="us-office-icon"
-              :src="officeIcon(userOffice(item))"
-              :alt="`${item.office?.name || officeNameById.get(Number(item.office_id))} icon`"
-            />
-            <span
-              v-else
-              class="us-office-icon-ph"
-              aria-label="No office icon"
+            <template #activator="{ props }">
+              <button
+                v-bind="props"
+                type="button"
+                class="us-cell-edit us-office-btn"
+                :class="{ 'is-editable': canInlineEdit(item) }"
+                :disabled="!canInlineEdit(item) || rowBusyId === item.id"
+                :title="
+                  canInlineEdit(item) ? 'Click to change office' : lockReason(item)
+                "
+                @click.stop
+              >
+                <span
+                  v-if="
+                    item.office?.name ||
+                    officeNameById.get(Number(item.office_id))
+                  "
+                  class="us-office is-specific"
+                  :title="
+                    item.office?.name ||
+                    officeNameById.get(Number(item.office_id))
+                  "
+                >
+                  <img
+                    v-if="officeIcon(userOffice(item))"
+                    class="us-office-icon"
+                    :src="officeIcon(userOffice(item))"
+                    :alt="`${item.office?.name || officeNameById.get(Number(item.office_id))} icon`"
+                  />
+                  <span
+                    v-else
+                    class="us-office-icon-ph"
+                    aria-label="No office icon"
+                  >
+                    ?
+                  </span>
+                  <span class="us-office-text">{{
+                    item.office?.name ||
+                    officeNameById.get(Number(item.office_id))
+                  }}</span>
+                </span>
+                <span v-else class="us-dash">—</span>
+                <v-icon
+                  v-if="canInlineEdit(item)"
+                  class="us-edit-hint"
+                  size="14"
+                  aria-hidden="true"
+                >mdi-pencil</v-icon>
+              </button>
+            </template>
+            <v-card
+              rounded="0"
+              style="min-width: 260px; max-width: 340px; max-height: 340px; overflow-y: auto"
             >
-              ?
-            </span>
-            <span class="us-office-text">{{
-              item.office?.name || officeNameById.get(Number(item.office_id))
-            }}</span>
-          </span>
-          <span v-else class="us-dash">—</span>
+              <div class="us-filter-search">
+                <v-text-field
+                  v-model="officeEditSearch"
+                  placeholder="Search office"
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  clearable
+                  autofocus
+                />
+              </div>
+              <v-list density="compact" class="py-1">
+                <v-list-subheader>Office</v-list-subheader>
+                <v-list-item
+                  :active="itemOfficeId(item) == null"
+                  @click="saveOffice(item, null)"
+                >
+                  <v-list-item-title>No office assigned</v-list-item-title>
+                  <template #append>
+                    <v-icon v-if="itemOfficeId(item) == null" size="18"
+                      >mdi-check</v-icon
+                    >
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  v-for="o in filteredOfficeEditOptions"
+                  :key="o.id"
+                  :active="itemOfficeId(item) === o.id"
+                  @click="saveOffice(item, o.id)"
+                >
+                  <template #prepend>
+                    <span :style="officeAvatarStyle()">
+                      <img
+                        v-if="o.icon"
+                        :src="o.icon"
+                        :alt="`${o.label} icon`"
+                        decoding="async"
+                        style="
+                          display: block;
+                          width: 100%;
+                          height: 100%;
+                          object-fit: cover;
+                        "
+                      />
+                      <span v-else>{{ initialsOf(o.office) }}</span>
+                    </span>
+                  </template>
+                  <v-list-item-title>{{ o.label }}</v-list-item-title>
+                  <template #append>
+                    <v-icon v-if="itemOfficeId(item) === o.id" size="18"
+                      >mdi-check</v-icon
+                    >
+                  </template>
+                </v-list-item>
+                <v-list-item v-if="officesLoading" disabled>
+                  <v-list-item-title>Loading offices…</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  v-else-if="!filteredOfficeEditOptions.length"
+                  disabled
+                >
+                  <v-list-item-title>No offices found</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-card>
+          </v-menu>
         </template>
 
         <template v-slot:[`item.is_active`]="{ item }">
@@ -137,13 +530,33 @@
             <v-icon size="14">mdi-clock-outline</v-icon>
             Waiting
           </span>
-          <span v-else-if="item.is_active" class="us-status is-active">
-            <span class="us-status-dot" aria-hidden="true" />
-            Active
-          </span>
-          <span v-else class="us-status is-off">
-            <span class="us-status-dot" aria-hidden="true" />
-            Inactive
+          <button
+            v-else-if="canToggleStatus(item)"
+            type="button"
+            class="us-switch"
+            :class="{ 'is-on': item.is_active }"
+            role="switch"
+            :aria-checked="item.is_active ? 'true' : 'false'"
+            :aria-label="`Set ${item.name} ${item.is_active ? 'inactive' : 'active'}`"
+            :title="item.is_active ? 'Deactivate user' : 'Activate user'"
+            :disabled="rowBusyId === item.id"
+            @click="setUserStatus(item, !item.is_active)"
+          >
+            <span class="us-switch-track" aria-hidden="true">
+              <span class="us-switch-thumb" />
+            </span>
+            <span class="us-switch-label">{{
+              item.is_active ? 'Active' : 'Inactive'
+            }}</span>
+          </button>
+          <span
+            v-else
+            class="us-status"
+            :class="item.is_active ? 'is-active' : 'is-off'"
+            :title="statusLockReason(item)"
+          >
+            <v-icon size="14">mdi-lock-outline</v-icon>
+            {{ item.is_active ? 'Active' : 'Inactive' }}
           </span>
         </template>
 
@@ -165,6 +578,7 @@
                 rounded="0"
                 class="us-ib is-ok"
                 :loading="busyId === item.id"
+                :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="approve(item)"
               />
               <v-btn
@@ -174,7 +588,7 @@
                 variant="outlined"
                 rounded="0"
                 class="us-ib is-edit"
-                :disabled="busyId === item.id"
+                :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="openEdit(item)"
               />
               <v-btn
@@ -184,7 +598,7 @@
                 variant="outlined"
                 rounded="0"
                 class="us-ib is-delete"
-                :disabled="busyId === item.id"
+                :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="reject(item)"
               />
             </template>
@@ -196,18 +610,8 @@
                 variant="outlined"
                 rounded="0"
                 class="us-ib is-edit"
-                :disabled="busyId === item.id"
+                :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="openEdit(item)"
-              />
-              <v-btn
-                icon="mdi-account-off"
-                v-tooltip="'Deactivate user'"
-                size="small"
-                variant="outlined"
-                rounded="0"
-                class="us-ib is-delete"
-                :disabled="item.id === meId"
-                @click="deactivate(item)"
               />
             </template>
           </div>
@@ -215,8 +619,9 @@
 
         <template #no-data>
           <div class="us-empty">
-            <template v-if="search.trim()">
-              <b>No matches</b> for “{{ search.trim() }}”. Try a different word.
+            <template v-if="search.trim() || hasFilters">
+              <b>No matches</b> for the current search or filters. Try a
+              different word.
             </template>
             <template v-else>
               <b>No users yet.</b>
@@ -664,12 +1069,14 @@ import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
 import { useApi } from '@/composables/useApi'
 import { confirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import ScopeChip from '@/components/ScopeChip.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
 const auth = useAuth()
 const { api } = useApi()
+const { success: toastSuccess, error: toastError } = useToast()
 // /office/users: an office admin managing their own office's members.
 const officeMode = !!useRoute().meta.officeScope
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser } =
@@ -708,8 +1115,8 @@ function lockReason(item) {
   return ''
 }
 
-// Two icon buttons side by side plus cell padding; a waiting account's
-// three buttons wrap onto two lines.
+// Pending rows show three icon buttons; other rows show one edit button.
+// Keep enough width for the three-button waiting state.
 const ACTIONS_W = 132
 // Columns share the table's width by percentage, so the table flexes with
 // the window and the sidebar; long names, emails, roles and offices wrap
@@ -726,8 +1133,8 @@ const headers = officeMode
       { title: 'Name', key: 'name', width: '24%' },
       { title: 'Email', key: 'email', width: '22%' },
       { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
-      { title: 'Office', key: 'office', sortable: false, width: '17%' },
-      { title: 'Status', key: 'is_active', width: '12%' },
+      { title: 'Office', key: 'office', sortable: false, width: '16%' },
+      { title: 'Status', key: 'is_active', width: '13%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
 
@@ -735,6 +1142,78 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
+const filterRole = ref(null)
+const filterOffice = ref(null)
+const roleFilterSearch = ref('')
+const officeFilterSearch = ref('')
+const roleMenuOpen = ref(false)
+const officeMenuOpen = ref(false)
+const hasFilters = computed(
+  () => filterRole.value != null || filterOffice.value != null,
+)
+const roleFilterOptions = computed(() => {
+  const byId = new Map()
+  for (const r of roles.value || []) {
+    const id = Number(r.id)
+    if (!Number.isFinite(id)) continue
+    byId.set(id, { id, label: r.name || r.code || 'Role' })
+  }
+  // Office admins only receive assignable roles; include any role already
+  // shown on a row so every visible role can be filtered.
+  for (const u of users.value || []) {
+    for (const r of u.roles || []) {
+      const id = Number(r.id)
+      if (!Number.isFinite(id) || byId.has(id)) continue
+      byId.set(id, { id, label: r.name || r.code || 'Role' })
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
+})
+const officeFilterOptions = computed(() => {
+  const byId = new Map()
+  for (const o of offices.value || []) {
+    const id = Number(o.id)
+    if (!Number.isFinite(id)) continue
+    byId.set(id, {
+      id,
+      label: o.name || o.code || 'Office',
+      office: o,
+      icon: officeIcon(o),
+    })
+  }
+  // Keep offices that appear on a row but are missing from the lookup.
+  for (const u of users.value || []) {
+    const o = u.office
+    const id =
+      u.office_id != null
+        ? Number(u.office_id)
+        : o?.id != null
+          ? Number(o.id)
+          : null
+    if (id == null || byId.has(id)) continue
+    byId.set(id, {
+      id,
+      label: o?.name || o?.code || `Office ${id}`,
+      office: o,
+      icon: officeIcon(o),
+    })
+  }
+  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
+})
+const filteredRoleOptions = computed(() => {
+  const q = roleFilterSearch.value.trim().toLowerCase()
+  if (!q) return roleFilterOptions.value
+  return roleFilterOptions.value.filter((r) =>
+    String(r.label || '').toLowerCase().includes(q),
+  )
+})
+const filteredOfficeOptions = computed(() => {
+  const q = officeFilterSearch.value.trim().toLowerCase()
+  if (!q) return officeFilterOptions.value
+  return officeFilterOptions.value.filter((o) =>
+    `${o.label || ''} ${o.office?.code || ''}`.toLowerCase().includes(q),
+  )
+})
 const PER_PAGE = 8
 const page = ref(1)
 
@@ -768,29 +1247,371 @@ function clearSearch() {
   search.value = ''
 }
 
+function setRoleFilter(id) {
+  filterRole.value = id
+  roleMenuOpen.value = false
+}
+
+function setOfficeFilter(id) {
+  filterOffice.value = id
+  officeMenuOpen.value = false
+}
+
+function initialsOf(office) {
+  const code = String(office?.code || '').trim()
+  if (code) return code.slice(0, 2).toUpperCase()
+  return (
+    String(office?.name || '?')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0] || '')
+      .join('')
+      .toUpperCase() || '?'
+  )
+}
+
+function officeAvatarStyle() {
+  return {
+    display: 'grid',
+    placeItems: 'center',
+    width: '26px',
+    height: '26px',
+    flex: 'none',
+    marginRight: '10px',
+    borderRadius: '50%',
+    overflow: 'hidden',
+    border: '1px solid rgba(var(--v-theme-primary), 0.3)',
+    background: 'rgba(var(--v-theme-primary), 0.12)',
+    color: 'rgb(var(--v-theme-primary))',
+    fontSize: '10.5px',
+    fontWeight: '800',
+    lineHeight: '1',
+    textTransform: 'uppercase',
+  }
+}
+
 // Client-side search: master data is small, filter loaded rows by
 // name / email / roles / office / status without extra requests.
 // Accounts waiting for approval come first.
 const filtered = computed(() => {
   const q = String(search.value || '').trim().toLowerCase()
-  const rows = !q
-    ? users.value || []
-    : (users.value || []).filter((u) =>
-        [
-          u.name,
-          u.username,
-          u.email,
-          u.contact_number,
-          (u.roles || []).map((r) => r.name).join(' '),
-          u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
-          u.pending_approval ? 'waiting for approval pending' : u.is_active ? 'active' : 'inactive',
-        ].some((v) => String(v || '').toLowerCase().includes(q))
-      )
+  const roleId = filterRole.value
+  const officeId = filterOffice.value
+  let rows = users.value || []
+  if (roleId != null) {
+    rows = rows.filter((u) =>
+      (u.roles || []).some((r) => Number(r.id) === Number(roleId)),
+    )
+  }
+  if (officeId != null) {
+    rows = rows.filter((u) => {
+      const id =
+        u.office_id != null
+          ? Number(u.office_id)
+          : u.office?.id != null
+            ? Number(u.office.id)
+            : null
+      return id === Number(officeId)
+    })
+  }
+  if (q) {
+    rows = rows.filter((u) =>
+      [
+        u.name,
+        u.username,
+        u.email,
+        u.contact_number,
+        (u.roles || []).map((r) => r.name).join(' '),
+        u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
+        u.pending_approval ? 'waiting for approval pending' : u.is_active ? 'active' : 'inactive',
+      ].some((v) => String(v || '').toLowerCase().includes(q))
+    )
+  }
   return [...rows].sort((a, b) => Number(!!b.pending_approval) - Number(!!a.pending_approval))
 })
 
 const pendingCount = computed(() => (users.value || []).filter((u) => u.pending_approval).length)
 const busyId = ref(null)
+
+// ---- Inline table editing ----
+const editingNameId = ref(null)
+const nameDraft = ref('')
+const nameSavingId = ref(null)
+let nameInputEl = null
+
+const roleMenuId = ref(null)
+const roleDraft = ref([])
+const roleDraftSearch = ref('')
+const roleSavingId = ref(null)
+
+const officeMenuId = ref(null)
+const officeEditSearch = ref('')
+const officeSavingId = ref(null)
+
+const statusSavingId = ref(null)
+// One inline save at a time per row. Every inline update sends the full row
+// payload, so overlapping saves could overwrite each other with stale values.
+const inlineBusyId = computed(
+  () =>
+    nameSavingId.value ??
+    roleSavingId.value ??
+    officeSavingId.value ??
+    statusSavingId.value ??
+    null,
+)
+// Approve/reject also block inline edits for that row while the list reloads.
+const rowBusyId = computed(() => inlineBusyId.value ?? busyId.value ?? null)
+
+function setNameInput(el) {
+  nameInputEl = el
+}
+
+function canInlineEdit(item) {
+  return canManage.value && !lockReason(item)
+}
+
+function itemOfficeId(item) {
+  if (item?.office_id != null) return Number(item.office_id)
+  if (item?.office?.id != null) return Number(item.office.id)
+  return null
+}
+
+// The update endpoints require name and email, so every inline save sends
+// the full current row plus the one field that changed.
+function buildUserPayload(item, overrides = {}) {
+  return {
+    name: item.name,
+    username: item.username || '',
+    email: item.email,
+    contact_number: item.contact_number || null,
+    is_active: !!item.is_active,
+    role_ids: (item.roles || []).map((r) => Number(r.id)),
+    ...(officeMode ? {} : { office_id: itemOfficeId(item) }),
+    ...overrides,
+  }
+}
+
+function replaceUser(updated) {
+  if (updated?.id == null) return
+  const idx = (users.value || []).findIndex(
+    (u) => Number(u.id) === Number(updated.id),
+  )
+  if (idx >= 0) users.value[idx] = updated
+}
+
+function apiErrorMessage(e, fallback) {
+  const errs = e?.response?.data?.errors
+  if (errs) {
+    const first = Object.values(errs).flat()[0]
+    if (first) return Array.isArray(first) ? first[0] : String(first)
+  }
+  return e?.response?.data?.message || fallback
+}
+
+async function startNameEdit(item) {
+  if (!canInlineEdit(item) || rowBusyId.value != null) return
+  editingNameId.value = item.id
+  nameDraft.value = item.name || ''
+  await nextTick()
+  nameInputEl?.focus()
+  nameInputEl?.select?.()
+}
+
+function cancelNameEdit() {
+  if (nameSavingId.value != null) return
+  editingNameId.value = null
+  nameDraft.value = ''
+}
+
+async function saveName(item) {
+  if (editingNameId.value !== item.id) return
+  if (rowBusyId.value != null) return
+  const name = nameDraft.value.trim()
+  if (!name) {
+    toastError('Enter the user’s name.')
+    nameInputEl?.focus()
+    return
+  }
+  if (name === String(item.name || '').trim()) {
+    editingNameId.value = null
+    nameDraft.value = ''
+    return
+  }
+  nameSavingId.value = item.id
+  try {
+    const updated = await updateUser(item.id, buildUserPayload(item, { name }))
+    replaceUser(updated)
+    editingNameId.value = null
+    nameDraft.value = ''
+    toastSuccess('Name updated.')
+  } catch (e) {
+    toastError(apiErrorMessage(e, 'Could not update the name.'))
+    nameSavingId.value = null
+    await nextTick()
+    nameInputEl?.focus()
+  } finally {
+    nameSavingId.value = null
+  }
+}
+
+// Office admins only receive assignable roles, so their edit list comes from
+// that scoped list. Superadmins also see roles already present on a row.
+const roleEditOptions = computed(() => {
+  if (!officeMode) return roleFilterOptions.value
+  return (roles.value || [])
+    .map((r) => ({ id: Number(r.id), label: r.name || r.code || 'Role' }))
+    .filter((r) => Number.isFinite(r.id))
+    .sort((a, b) => a.label.localeCompare(b.label))
+})
+
+const filteredRoleEditOptions = computed(() => {
+  const q = roleDraftSearch.value.trim().toLowerCase()
+  if (!q) return roleEditOptions.value
+  return roleEditOptions.value.filter((r) =>
+    String(r.label || '').toLowerCase().includes(q),
+  )
+})
+
+function onRoleMenuUpdate(item, open) {
+  if (open) {
+    if (!canInlineEdit(item)) return
+    roleMenuId.value = item.id
+    roleDraft.value = (item.roles || []).map((r) => Number(r.id))
+    roleDraftSearch.value = ''
+    return
+  }
+  if (roleMenuId.value === item.id) roleMenuId.value = null
+}
+
+function closeRoleMenu() {
+  roleMenuId.value = null
+}
+
+function toggleRoleDraft(id, checked) {
+  const roleId = Number(id)
+  if (checked) {
+    if (!roleDraft.value.includes(roleId)) {
+      roleDraft.value = [...roleDraft.value, roleId]
+    }
+    return
+  }
+  roleDraft.value = roleDraft.value.filter((value) => value !== roleId)
+}
+
+async function saveRoles(item) {
+  if (rowBusyId.value != null) return
+  if (!roleDraft.value.length) {
+    toastError('Keep at least one role.')
+    return
+  }
+  roleSavingId.value = item.id
+  try {
+    const updated = await updateUser(
+      item.id,
+      buildUserPayload(item, { role_ids: [...roleDraft.value] }),
+    )
+    replaceUser(updated)
+    roleMenuId.value = null
+    toastSuccess('Roles updated.')
+  } catch (e) {
+    toastError(apiErrorMessage(e, 'Could not update roles.'))
+  } finally {
+    roleSavingId.value = null
+  }
+}
+
+const filteredOfficeEditOptions = computed(() => {
+  const q = officeEditSearch.value.trim().toLowerCase()
+  if (!q) return officeFilterOptions.value
+  return officeFilterOptions.value.filter((o) =>
+    `${o.label || ''} ${o.office?.code || ''}`.toLowerCase().includes(q),
+  )
+})
+
+function onOfficeMenuUpdate(item, open) {
+  if (open) {
+    if (!canInlineEdit(item)) return
+    officeMenuId.value = item.id
+    officeEditSearch.value = ''
+    return
+  }
+  if (officeMenuId.value === item.id) officeMenuId.value = null
+}
+
+async function saveOffice(item, officeId) {
+  if (rowBusyId.value != null) return
+  officeMenuId.value = null
+  const nextId = officeId == null ? null : Number(officeId)
+  if (itemOfficeId(item) === nextId) return
+  officeSavingId.value = item.id
+  try {
+    const updated = await updateUser(
+      item.id,
+      buildUserPayload(item, { office_id: nextId }),
+    )
+    replaceUser(updated)
+    toastSuccess(nextId == null ? 'Office cleared.' : 'Office updated.')
+  } catch (e) {
+    toastError(apiErrorMessage(e, 'Could not update the office.'))
+  } finally {
+    officeSavingId.value = null
+  }
+}
+
+function statusLockReason(item) {
+  if (!canManage.value) return 'You cannot change this status.'
+  if (item.pending_approval) return 'Waiting for approval.'
+  if (Number(item.id) === Number(meId.value)) {
+    return 'You cannot deactivate your own account.'
+  }
+  return lockReason(item)
+}
+
+function canToggleStatus(item) {
+  return !statusLockReason(item)
+}
+
+async function setUserStatus(item, next) {
+  if (!canToggleStatus(item) || rowBusyId.value != null) return
+  const active = !!next
+  statusSavingId.value = item.id
+  try {
+    if (!active) {
+      const ok = await confirm({
+        title: 'Deactivate this user?',
+        message: `${item.name} will no longer be able to sign in. You can turn the account back on later.`,
+        confirmLabel: 'Deactivate',
+        cancelLabel: 'Keep active',
+      })
+      if (!ok) return
+      await deactivateUser(item.id)
+      const idx = (users.value || []).findIndex(
+        (u) => Number(u.id) === Number(item.id),
+      )
+      if (idx >= 0) {
+        users.value[idx] = { ...users.value[idx], is_active: false }
+      }
+      toastSuccess('User deactivated.')
+      return
+    }
+    const updated = await updateUser(
+      item.id,
+      buildUserPayload(item, { is_active: true }),
+    )
+    replaceUser(updated)
+    toastSuccess('User activated.')
+  } catch (e) {
+    toastError(
+      apiErrorMessage(
+        e,
+        active ? 'Could not activate the user.' : 'Could not deactivate the user.',
+      ),
+    )
+  } finally {
+    statusSavingId.value = null
+  }
+}
 
 async function approve(item) {
   error.value = ''
@@ -932,6 +1753,7 @@ function openCreate() {
 }
 
 function openEdit(item) {
+  if (rowBusyId.value != null) return
   error.value = ''
   formError.value = ''
   errors.value = blankErrors()
@@ -1139,17 +1961,23 @@ async function save() {
   }
 }
 
-async function deactivate(item) {
-  error.value = ''
-  try {
-    await deactivateUser(item.id)
-    await fetchUsers()
-  } catch (e) {
-    error.value = e?.response?.data?.message || 'Deactivate failed.'
-  }
-}
-
 watch(search, () => { page.value = 1 })
+watch([filterRole, filterOffice], () => {
+  page.value = 1
+})
+// Close any open inline menu when the visible rows change.
+watch([search, filterRole, filterOffice, page], () => {
+  roleMenuId.value = null
+  officeMenuId.value = null
+  editingNameId.value = null
+  nameDraft.value = ''
+})
+watch(roleMenuOpen, (open) => {
+  if (open) roleFilterSearch.value = ''
+})
+watch(officeMenuOpen, (open) => {
+  if (open) officeFilterSearch.value = ''
+})
 watch(
   () => filtered.value.length,
   (length) => {
@@ -1418,6 +2246,54 @@ html.dark .us-page {
     color: var(--us-muted) !important;
     opacity: 0.65;
 }
+.us-th-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.us-th-filter span {
+    min-width: 0;
+    line-height: 1.15;
+}
+.us-th-filter .v-icon {
+    flex: none;
+    opacity: 1;
+    transition: color 0.15s;
+}
+.us-th-filter:hover .v-icon,
+.us-th-filter.is-active .v-icon {
+    color: var(--us-blue);
+}
+.us-th-filter.is-active {
+    color: var(--us-blue);
+}
+.us-table :deep(thead th .us-th-filter .v-icon) {
+    color: var(--us-muted) !important;
+    opacity: 1 !important;
+}
+.us-table :deep(thead th .us-th-filter:hover .v-icon),
+.us-table :deep(thead th .us-th-filter.is-active .v-icon) {
+    color: var(--us-blue) !important;
+}
+.us-filter-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px;
+    background: rgb(var(--v-theme-surface));
+}
 .us-table :deep(thead th.v-data-table__th:last-child) {
     padding-left: 8px !important;
     text-align: right;
@@ -1495,6 +2371,222 @@ html.dark .us-page {
 }
 .us-dash {
     color: var(--us-muted);
+}
+/* ---- Inline table editing ---- */
+.us-cell-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: default;
+}
+.us-cell-edit.is-editable {
+    cursor: pointer;
+}
+.us-cell-edit:disabled {
+    opacity: 1;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+}
+.us-cell-edit.is-editable:hover .us-name,
+.us-cell-edit.is-editable:hover .us-handle,
+.us-cell-edit.is-editable:hover .us-office-text {
+    color: var(--us-blue);
+}
+.us-edit-hint {
+    flex: none;
+    margin-left: auto;
+    color: var(--us-muted);
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+.us-cell-edit.is-editable:hover .us-edit-hint,
+.us-cell-edit.is-editable:focus-visible .us-edit-hint {
+    opacity: 0.85;
+    color: var(--us-blue);
+}
+.us-name-btn {
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    padding-right: 20px;
+}
+.us-name-btn .us-edit-hint {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    margin-left: 0;
+    transform: translateY(-50%);
+}
+.us-name-edit {
+    position: relative;
+}
+.us-name-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 8px;
+    border: 1.5px solid var(--us-blue);
+    border-radius: 0;
+    background: var(--us-panel);
+    color: var(--us-ink);
+    font: inherit;
+    font-weight: 600;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--us-ring);
+}
+.us-inline-spin {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--us-line);
+    border-top-color: var(--us-blue);
+    border-radius: 50%;
+    transform: translateY(-50%);
+    animation: us-spin 0.7s linear infinite;
+}
+@keyframes us-spin {
+    to {
+        transform: translateY(-50%) rotate(360deg);
+    }
+}
+.us-roles-btn {
+    align-items: flex-start;
+}
+.us-roles-btn .us-roles {
+    flex: 1 1 auto;
+}
+.us-roles-btn .us-edit-hint {
+    margin-top: 2px;
+}
+.us-office-btn .us-office {
+    min-width: 0;
+}
+.us-office-btn .us-office-text {
+    min-width: 0;
+}
+.us-role-menu {
+    background: rgb(var(--v-theme-surface));
+}
+.us-role-menu-head {
+    padding: 12px 12px 6px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.us-role-search {
+    padding: 0 10px 8px;
+}
+.us-role-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 8px 8px;
+}
+.us-role-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 8px;
+    color: rgb(var(--v-theme-on-surface));
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.us-role-option:hover {
+    background: rgba(var(--v-theme-on-surface), 0.06);
+}
+.us-role-option input {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    margin: 0;
+    accent-color: rgb(var(--v-theme-primary));
+    cursor: pointer;
+}
+.us-role-empty {
+    padding: 8px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 13px;
+}
+.us-role-warn {
+    padding: 0 12px 8px;
+    color: rgb(var(--v-theme-error));
+    font-size: 12px;
+    font-weight: 700;
+}
+.us-role-menu-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+/* Status switch */
+.us-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--us-muted);
+    font: inherit;
+    cursor: pointer;
+}
+.us-switch:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.us-switch-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    flex: none;
+    border: 1px solid var(--us-line);
+    border-radius: 999px;
+    background: var(--us-field);
+    transition: background 0.15s, border-color 0.15s;
+}
+.us-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--us-muted);
+    transition: transform 0.15s, background 0.15s;
+}
+.us-switch.is-on .us-switch-track {
+    background: var(--us-ok-bg);
+    border-color: var(--us-ok);
+}
+.us-switch.is-on .us-switch-thumb {
+    background: var(--us-ok);
+    transform: translateX(14px);
+}
+.us-switch-label {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.us-switch.is-on .us-switch-label {
+    color: var(--us-ok);
 }
 .us-roles {
     display: flex;
@@ -1574,13 +2666,6 @@ html.dark .us-page {
 .us-status.is-off {
     background: var(--us-field);
     color: var(--us-muted);
-}
-.us-status-dot {
-    width: 8px;
-    height: 8px;
-    flex: none;
-    border-radius: 50%;
-    background: currentColor;
 }
 /* Actions: square icon buttons, state-coloured like the other pages. */
 .us-actions {

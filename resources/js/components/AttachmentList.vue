@@ -495,8 +495,7 @@ const props = defineProps({
     // name (used by the Proceed modal Additional-files list only).
     groupByLabel: { type: Boolean, default: false },
     // Grouped redesign lists can collapse each name group. Previous files
-    // start collapsed; Additional files start expanded so new uploads are
-    // visible immediately.
+    // and Additional files start collapsed, each previewing its first file.
     collapsibleGroups: { type: Boolean, default: false },
     groupsOpenByDefault: { type: Boolean, default: true },
     // Render each label group as its own tinted card (Additional files).

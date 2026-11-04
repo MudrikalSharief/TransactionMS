@@ -1029,14 +1029,14 @@ const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 // Return's "Additional files" starts empty: only what the user adds there
 // is listed. Returned evidence is not lost — the from-step's own files are
 // stamped to the return run by the engine.
-// Proceed default for staged "Additional files": re-walks into an
-// already-passed station prefill this station's previous files; first
-// visits start empty on purpose.
+// Proceed default for staged "Additional files": list the current step's
+// pending move-level files (not yet stamped to a run). Requirement files
+// already show in their own sections, and stamped files have already
+// travelled, so both stay out to avoid sending anything twice.
 function proceedDefaultAttachments() {
-    const id = selectedAction.value?.to_step?.id;
-    const visited = id !== null && id !== undefined
-        && (visitedStepIds.value || []).map(Number).includes(Number(id));
-    return visited ? [...currentStepAttachments()] : [];
+    return currentStepAttachments().filter(
+        (a) => a.step_run_id == null || a.step_run_id === undefined,
+    );
 }
 const remarks = ref("");
 const proceedAttachments = ref([]);
@@ -1525,10 +1525,9 @@ function openComplete() {
     remarksDialog.value = true;
 }
 
-// Files previously saved on the current station, for prefill when
-// re-proceeding through already-passed stations. Move-level only:
-// requirement files already show in their requirement sections above,
-// so they are excluded from the below-remarks list.
+// Move-level files on the current station, used to prefill the
+// below-remarks "Additional files" list. Requirement files already show
+// in their requirement sections above, so they are excluded here.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
     return (tx.value?.attachments || [])

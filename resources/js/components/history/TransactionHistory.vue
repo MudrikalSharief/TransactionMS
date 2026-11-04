@@ -6,7 +6,7 @@
                 <v-icon color="white" size="20">mdi-history</v-icon>
             </v-avatar>
             <div class="mr-4">
-                <div class="text-h6 font-weight-bold lh-1">Transaction History</div>
+                <div class="text-h6 font-weight-bold lh-1">Route History</div>
                 <div class="text-caption text-medium-emphasis">Track every action and movement made on this transaction.</div>
             </div>
             <v-spacer />

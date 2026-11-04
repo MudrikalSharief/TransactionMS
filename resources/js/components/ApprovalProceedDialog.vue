@@ -139,7 +139,6 @@ const { getOne, execute, gotoStation } = useMyTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
-const visitedStepIds = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref("");
@@ -370,12 +369,11 @@ function hydrateForm() {
 function applyResponse(nextTx, meta) {
     tx.value = nextTx;
     availableActions.value = meta?.available_actions ?? [];
-    visitedStepIds.value = meta?.visited_step_ids ?? [];
 }
 
-// Files already saved on this station, prefilled when re-walking a station.
-// Move-level only: requirement files already show in their requirement
-// sections above, so they are excluded from the below-remarks list.
+// Move-level files on the current station, used to prefill the
+// below-remarks "Additional files" list. Requirement files already show
+// in their requirement sections above, so they are excluded here.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
     return (tx.value?.attachments || [])
@@ -384,9 +382,12 @@ function currentStepAttachments() {
 }
 
 function resetWizardForRoute() {
-    const destId = selectedAction.value?.to_step?.id;
-    const destVisited = destId != null && (visitedStepIds.value || []).map(Number).includes(Number(destId));
-    proceedAttachments.value = destVisited ? [...currentStepAttachments()] : [];
+    // Prefill only pending move-level files: requirement files have their
+    // own sections and stamped files already travelled, so neither should
+    // be sent twice.
+    proceedAttachments.value = currentStepAttachments().filter(
+        (a) => a.step_run_id == null || a.step_run_id === undefined,
+    );
     attachmentName.value = "";
     executeError.value = "";
     // Single-page mode (step 1 → step 2): everything happens on the

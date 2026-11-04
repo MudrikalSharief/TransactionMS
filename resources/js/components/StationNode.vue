@@ -107,22 +107,41 @@
                 <div v-if="filesHidden" class="hover-muted">
                     Files from this step are not shown. You can only open files from the previous step.
                 </div>
-                <template v-if="moveLevelFiles.length">
-                    <div class="hover-files-label">Files</div>
-                    <div class="hover-chips">
-                        <div v-for="f in moveLevelFiles" :key="f.id" class="hover-filewrap">
-                            <a
-                                :href="f.url"
-                                target="_blank"
-                                rel="noopener"
-                                class="hover-chip"
+                <template v-if="moveLevelGroups.length">
+                    <div class="hover-files-label">Additional files</div>
+                    <div class="hover-file-groups">
+                        <div v-for="g in moveLevelGroups" :key="g.key" class="hover-file-group">
+                            <button
+                                v-if="g.files.length > 1"
+                                type="button"
+                                class="hover-group-head is-toggle"
+                                :aria-expanded="hoverGroupOpen(g) ? 'true' : 'false'"
+                                @click="toggleHoverGroup(g)"
                             >
-                                <v-icon size="x-small" color="#f0716b" aria-hidden="true">mdi-file-document-outline</v-icon>
-                                <span class="hover-chip-name">{{ f.name }}</span>
-                                <span class="hover-chip-size">{{ f.size }}</span>
-                                <v-icon size="x-small" aria-hidden="true">mdi-eye-outline</v-icon>
-                            </a>
-                            <div v-if="f.from" class="hover-from">{{ f.from }}</div>
+                                <span class="hover-group-name" :title="g.title">{{ g.title }}</span>
+                                <span class="hover-group-count">{{ g.files.length }} files</span>
+                                <v-icon class="hover-group-chev" size="14" aria-hidden="true">mdi-chevron-down</v-icon>
+                            </button>
+                            <div v-else class="hover-group-head">
+                                <span class="hover-group-name" :title="g.title">{{ g.title }}</span>
+                                <span class="hover-group-count">1 file</span>
+                            </div>
+                            <div class="hover-chips">
+                                <div v-for="f in hoverGroupFiles(g)" :key="f.id" class="hover-filewrap">
+                                    <a
+                                        :href="f.url"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="hover-chip"
+                                    >
+                                        <v-icon size="x-small" color="#f0716b" aria-hidden="true">mdi-file-document-outline</v-icon>
+                                        <span class="hover-chip-name">{{ f.name }}</span>
+                                        <span class="hover-chip-size">{{ f.size }}</span>
+                                        <v-icon size="x-small" aria-hidden="true">mdi-eye-outline</v-icon>
+                                    </a>
+                                    <div v-if="f.from" class="hover-from">{{ f.from }}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -130,7 +149,7 @@
             <div v-if="showChecklistSection && move" class="hover-div" />
             <!-- Section C: moved (or creation for self-loop runs) -->
             <div v-if="move" class="hover-sec">
-                <div class="hover-moved-head"><span>{{ isSelfLoop ? 'Created' : 'Moved' }}</span><span v-if="moveAction" class="hover-act" :class="moveAction.cls">{{ moveAction.text }}</span></div>
+                <div class="hover-moved-head"><span>{{ isSelfLoop ? 'Created' : 'Route' }}</span><span v-if="moveAction" class="hover-act" :class="moveAction.cls">{{ moveAction.text }}</span></div>
                 <div v-if="!isSelfLoop" class="hover-trans">
                     <span class="hover-pill hover-pill-from">{{ moveFrom }}</span>
                     <v-icon size="small" aria-hidden="true">mdi-arrow-right</v-icon>
@@ -151,7 +170,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { fileViewUrl } from '@/composables/useFileView'
 
 const props = defineProps({
@@ -203,11 +222,11 @@ const badgeKind = computed(() => {
 
 const hintText = computed(() => {
     if (props.state === 'current') return 'In progress — this is where the paper sits.';
-    if (props.state === 'done') return 'Passed — you can go back here from Available Actions.';
+    if (props.state === 'done') return '';
     if (props.state === 'passed') return 'This step is already complete. Continue forward, step by step, to return here.';
     return 'Not reached yet.';
 });
-const showCallout = computed(() => props.state !== 'upcoming');
+const showCallout = computed(() => !!hintText.value);
 
 function formatSize(b) {
     const n = Number(b || 0);
@@ -226,7 +245,7 @@ function formatDate(iso) {
         timeZone: 'Asia/Manila',
     }).formatToParts(d);
     const get = (t) => parts.find((p) => p.type === t)?.value || '';
-    return `${get('month')} ${get('day')}, ${get('year')}, ${get('hour')}:${get('minute')} ${get('dayPeriod')} PHT`;
+    return `${get('month')} ${get('day')}, ${get('year')}, ${get('hour')}:${get('minute')} ${get('dayPeriod')}`;
 }
 
 function toFileChip(a) {
@@ -234,6 +253,7 @@ function toFileChip(a) {
     return {
         id: a?.id ?? a?.original_name,
         name: a?.original_name || a?.label || 'File',
+        label: String(a?.label || '').trim(),
         size: formatSize(a?.size_bytes),
         url: fileViewUrl(a),
         from: src ? `from Step ${src.order_number} · ${src.name || src.code || ''}`.trim() : '',
@@ -256,6 +276,42 @@ const doneCount = computed(() => checklistRows.value.filter((r) => r.done).lengt
 const totalCount = computed(() => checklistRows.value.length);
 
 const moveLevelFiles = computed(() => (props.detail?.attachments || []).map(toFileChip));
+// Group move-level files by their Additional files name (the upload label).
+// Unlabeled files collect under "Other files". Groups keep first-appearance
+// order so the hover card mirrors the Proceed modal's grouping.
+const moveLevelGroups = computed(() => {
+    const groups = [];
+    const byKey = new Map();
+    for (const f of moveLevelFiles.value) {
+        const label = String(f?.label || '').trim();
+        const key = label || '__unlabeled__';
+        let g = byKey.get(key);
+        if (!g) {
+            g = { key, title: label || 'Other files', files: [] };
+            byKey.set(key, g);
+            groups.push(g);
+        }
+        g.files.push(f);
+    }
+    return groups;
+});
+// Per-group disclosure state. Collapsed groups still preview the first file.
+const hoverOpenGroups = ref({});
+function hoverGroupOpen(g) {
+    return hoverOpenGroups.value[String(g?.key ?? '')] === true;
+}
+function toggleHoverGroup(g) {
+    const key = String(g?.key ?? '');
+    hoverOpenGroups.value = {
+        ...hoverOpenGroups.value,
+        [key]: !hoverGroupOpen(g),
+    };
+}
+function hoverGroupFiles(g) {
+    const files = g?.files || [];
+    if (files.length <= 1 || hoverGroupOpen(g)) return files;
+    return files.slice(0, 1);
+}
 // Step file rule: the server leaves out files of steps the user may not
 // open (only the previous step). Say so when this step has files at all.
 const filesHidden = computed(
@@ -440,6 +496,45 @@ const avatarLetter = computed(() => String(moveBy.value || '?').trim().charAt(0)
 .hover-item-owner { font-size: 12px; color: #9ca0a8; }
 .hover-chips { display: flex; flex-direction: column; gap: 6px; margin-left: 30px; }
 .hover-files-label + .hover-chips { margin-left: 0; }
+.hover-file-groups { display: flex; flex-direction: column; gap: 8px; }
+.hover-file-group { display: flex; flex-direction: column; gap: 6px; }
+.hover-file-group .hover-chips { margin-left: 0; }
+.hover-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid #34373d;
+    border-radius: 8px;
+    background: #272b33;
+    color: #ececee;
+    font: inherit;
+    text-align: left;
+}
+.hover-group-head.is-toggle { cursor: pointer; }
+.hover-group-head.is-toggle:hover { border-color: #4a4e56; background: #2c3038; }
+.hover-group-head.is-toggle:focus-visible {
+    outline: 2px solid #7ab7ff;
+    outline-offset: 1px;
+}
+.hover-group-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.hover-group-count { flex: none; color: #9ca0a8; font-size: 11px; }
+.hover-group-chev {
+    flex: none;
+    color: #9ca0a8;
+    transition: transform 0.16s ease;
+}
+.hover-group-head[aria-expanded="true"] .hover-group-chev { transform: rotate(180deg); }
 .hover-filewrap { display: flex; flex-direction: column; gap: 2px; }
 .hover-from { font-size: 11px; color: #9ca0a8; margin-left: 2px; }
 .hover-chip {

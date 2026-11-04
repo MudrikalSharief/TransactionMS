@@ -30,16 +30,6 @@
             @save="openSaveDialog"
         />
 
-        <div class="sd-info">
-            <v-icon size="20" class="sd-info-ic"
-                >mdi-information-outline</v-icon
-            >
-            <span>
-                <b>Staged step data.</b>
-                Edits stay local until you press Save version.
-            </span>
-        </div>
-
         <StagingSaveBar
             ref="saveBarRef"
             :type-id="typeId"
@@ -80,19 +70,13 @@
                 <span v-if="selectedStep" class="sd-count">
                     {{ countLabel(stepFieldCount(selectedStep.id)) }}
                 </span>
-                <span
-                    class="sd-change"
-                    :class="{ 'is-open': stepMenuOpen }"
-                    aria-hidden="true"
+                <v-icon
+                    class="sd-chev"
+                    :class="{ 'sd-chev-open': stepMenuOpen }"
+                    size="20"
                 >
-                    <v-icon size="16">mdi-swap-horizontal</v-icon>
-                    <span class="sd-change-label">{{
-                        selectedStep ? "Change step" : "Select step"
-                    }}</span>
-                    <v-icon class="sd-change-chev" size="18"
-                        >mdi-chevron-down</v-icon
-                    >
-                </span>
+                    mdi-chevron-down
+                </v-icon>
             </button>
 
             <div
@@ -1948,28 +1932,6 @@ onBeforeUnmount(() => {
     outline-offset: 2px;
 }
 
-.sd-info {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 22px;
-    padding: 14px 16px;
-    border-radius: 0;
-    background: rgba(var(--v-theme-primary), 0.1);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.sd-info-ic {
-    flex: none;
-    margin-top: 1px;
-    color: rgb(var(--v-theme-primary));
-}
-
-.sd-info b {
-    color: rgb(var(--v-theme-primary));
-}
-
 .sd-lbl {
     display: flex;
     align-items: center;
@@ -2074,29 +2036,13 @@ onBeforeUnmount(() => {
     line-height: 1.2;
 }
 
-.sd-change {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.sd-chev {
     flex: none;
-    padding: 8px 10px;
-    background: rgb(var(--v-theme-primary));
-    color: rgb(var(--v-theme-on-primary));
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-.sd-change .v-icon {
-    color: inherit;
-}
-
-.sd-change-chev {
+    color: rgb(var(--v-theme-secondary));
     transition: transform 0.2s;
 }
 
-.sd-change.is-open .sd-change-chev {
+.sd-chev-open {
     transform: rotate(180deg);
 }
 
@@ -3336,10 +3282,6 @@ html.dark .sd-menu {
     box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.65);
 }
 
-html.dark .sd-info {
-    background: rgba(var(--v-theme-primary), 0.14);
-}
-
 html.dark .sd-tg[aria-checked="true"],
 html.dark .df-tg[aria-checked="true"] {
     background: #3fbf6f;
@@ -3478,15 +3420,6 @@ html.dark .df-in :deep(.v-field--focused) {
     .sd-step-n {
         width: 40px;
         height: 40px;
-    }
-
-    .sd-change-label {
-        display: none;
-    }
-
-    .sd-change {
-        gap: 4px;
-        padding: 8px;
     }
 
     .sd-menu {

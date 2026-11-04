@@ -110,6 +110,26 @@
                 rounded="0"
                 style="min-width: 260px; max-width: 340px; max-height: 340px; overflow-y: auto"
               >
+                <div
+                  style="
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    padding: 8px;
+                    background: rgb(var(--v-theme-surface));
+                  "
+                >
+                  <v-text-field
+                    v-model="typeFilterSearch"
+                    placeholder="Search transaction type"
+                    prepend-inner-icon="mdi-magnify"
+                    variant="outlined"
+                    density="compact"
+                    hide-details
+                    clearable
+                    autofocus
+                  />
+                </div>
                 <v-list density="compact" class="py-1">
                   <v-list-subheader>Transaction Type</v-list-subheader>
                   <v-list-item
@@ -122,7 +142,7 @@
                     </template>
                   </v-list-item>
                   <v-list-item
-                    v-for="t in types"
+                    v-for="t in filteredTypeOptions"
                     :key="t.id"
                     :active="filterType === t.id"
                     @click="setTypeFilter(t.id)"
@@ -133,6 +153,12 @@
                         >mdi-check</v-icon
                       >
                     </template>
+                  </v-list-item>
+                  <v-list-item
+                    v-if="!filteredTypeOptions.length"
+                    disabled
+                  >
+                    <v-list-item-title>No transaction types found</v-list-item-title>
                   </v-list-item>
                 </v-list>
               </v-card>
@@ -168,6 +194,26 @@
                 rounded="0"
                 style="min-width: 260px; max-width: 340px; max-height: 340px; overflow-y: auto"
               >
+                <div
+                  style="
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    padding: 8px;
+                    background: rgb(var(--v-theme-surface));
+                  "
+                >
+                  <v-text-field
+                    v-model="officeFilterSearch"
+                    placeholder="Search office"
+                    prepend-inner-icon="mdi-magnify"
+                    variant="outlined"
+                    density="compact"
+                    hide-details
+                    clearable
+                    autofocus
+                  />
+                </div>
                 <v-list density="compact" class="py-1">
                   <v-list-subheader>Originating Office</v-list-subheader>
                   <v-list-item
@@ -182,22 +228,27 @@
                     </template>
                   </v-list-item>
                   <v-list-item
-                    v-for="o in officeOptions"
+                    v-for="o in filteredOfficeOptions"
                     :key="o.id"
                     :active="filterOffice === o.id"
                     @click="setOfficeFilter(o.id)"
                   >
                     <template #prepend>
-                      <img
-                        v-if="o.icon"
-                        :src="o.icon"
-                        :alt="`${o.office?.name || 'Office'} icon`"
-                        width="22"
-                        height="22"
-                        decoding="async"
-                        style="width: 22px; height: 22px; object-fit: contain"
-                      />
-                      <v-icon v-else size="22">mdi-office-building-outline</v-icon>
+                      <span :style="officeAvatarStyle()">
+                        <img
+                          v-if="o.icon"
+                          :src="o.icon"
+                          :alt="`${o.office?.name || 'Office'} icon`"
+                          decoding="async"
+                          style="
+                            display: block;
+                            width: 100%;
+                            height: 100%;
+                            object-fit: cover;
+                          "
+                        />
+                        <span v-else>{{ initialsOf(o.office) }}</span>
+                      </span>
                     </template>
                     <v-list-item-title>{{ o.label }}</v-list-item-title>
                     <template #append>
@@ -205,6 +256,12 @@
                         >mdi-check</v-icon
                       >
                     </template>
+                  </v-list-item>
+                  <v-list-item
+                    v-if="!filteredOfficeOptions.length"
+                    disabled
+                  >
+                    <v-list-item-title>No offices found</v-list-item-title>
                   </v-list-item>
                 </v-list>
               </v-card>
@@ -502,6 +559,8 @@ const filterType = ref(null)
 const filterOffice = ref(null)
 const dateFrom = ref('')
 const dateTo = ref('')
+const officeFilterSearch = ref('')
+const typeFilterSearch = ref('')
 const typeMenuOpen = ref(false)
 const officeMenuOpen = ref(false)
 const dateMenuOpen = ref(false)
@@ -555,6 +614,58 @@ const officeOptions = computed(() =>
       icon: officeIcon(o),
     }))
 )
+
+const filteredOfficeOptions = computed(() => {
+  const q = officeFilterSearch.value.trim().toLowerCase()
+  if (!q) return officeOptions.value
+  return officeOptions.value.filter((o) =>
+    `${o.label} ${o.office?.name || ""} ${o.office?.code || ""}`
+      .toLowerCase()
+      .includes(q)
+  )
+})
+
+const filteredTypeOptions = computed(() => {
+  const q = typeFilterSearch.value.trim().toLowerCase()
+  if (!q) return types.value || []
+  return (types.value || []).filter((t) =>
+    `${t.name || ""} ${t.code || ""}`.toLowerCase().includes(q)
+  )
+})
+
+function initialsOf(office) {
+  const code = String(office?.code || "").trim()
+  if (code) return code.slice(0, 2).toUpperCase()
+  return (
+    String(office?.name || "?")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0] || "")
+      .join("")
+      .toUpperCase() || "?"
+  )
+}
+
+function officeAvatarStyle() {
+  return {
+    display: "grid",
+    placeItems: "center",
+    width: "26px",
+    height: "26px",
+    flex: "none",
+    marginRight: "10px",
+    borderRadius: "50%",
+    overflow: "hidden",
+    border: "1px solid rgba(var(--v-theme-primary), 0.3)",
+    background: "rgba(var(--v-theme-primary), 0.12)",
+    color: "rgb(var(--v-theme-primary))",
+    fontSize: "10.5px",
+    fontWeight: "800",
+    lineHeight: "1",
+    textTransform: "uppercase",
+  }
+}
 
 const headers = [
   { title: 'Ref #', key: 'reference_number', width: '14%' },
@@ -631,6 +742,14 @@ watch([filterType, filterOffice, dateFrom, dateTo], () => {
       /* error banner stays from last load */
     }
   }, 250)
+})
+
+watch(officeMenuOpen, (open) => {
+  if (open) officeFilterSearch.value = ''
+})
+
+watch(typeMenuOpen, (open) => {
+  if (open) typeFilterSearch.value = ''
 })
 
 function setTypeFilter(id) {

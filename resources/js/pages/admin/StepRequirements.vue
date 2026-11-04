@@ -39,16 +39,6 @@
             @save="openSaveDialog"
         />
 
-        <div class="sr-info">
-            <v-icon size="20" class="sr-info-ic"
-                >mdi-information-outline</v-icon
-            >
-            <span>
-                <b>Staged assignment.</b>
-                Edits stay local until you press Save version.
-            </span>
-        </div>
-
         <StagingSaveBar
             ref="saveBarRef"
             :type-id="typeId"
@@ -89,19 +79,13 @@
                 <span v-if="selectedStep" class="sr-count">
                     {{ countLabel(stepRequirementCount(selectedStep.id)) }}
                 </span>
-                <span
-                    class="sr-change"
-                    :class="{ 'is-open': stepMenuOpen }"
-                    aria-hidden="true"
+                <v-icon
+                    class="sr-chev"
+                    :class="{ 'sr-chev-open': stepMenuOpen }"
+                    size="20"
                 >
-                    <v-icon size="16">mdi-swap-horizontal</v-icon>
-                    <span class="sr-change-label">{{
-                        selectedStep ? "Change step" : "Select step"
-                    }}</span>
-                    <v-icon class="sr-change-chev" size="18"
-                        >mdi-chevron-down</v-icon
-                    >
-                </span>
+                    mdi-chevron-down
+                </v-icon>
             </button>
 
             <div
@@ -2203,28 +2187,6 @@ onBeforeUnmount(() => {
     outline-offset: 2px;
 }
 
-.sr-info {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 22px;
-    padding: 14px 16px;
-    border-radius: 0;
-    background: rgba(var(--v-theme-primary), 0.1);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.sr-info-ic {
-    flex: none;
-    margin-top: 1px;
-    color: rgb(var(--v-theme-primary));
-}
-
-.sr-info b {
-    color: rgb(var(--v-theme-primary));
-}
-
 .sr-lbl {
     display: flex;
     align-items: center;
@@ -2329,29 +2291,13 @@ onBeforeUnmount(() => {
     line-height: 1.2;
 }
 
-.sr-change {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.sr-chev {
     flex: none;
-    padding: 8px 10px;
-    background: rgb(var(--v-theme-primary));
-    color: rgb(var(--v-theme-on-primary));
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-.sr-change .v-icon {
-    color: inherit;
-}
-
-.sr-change-chev {
+    color: rgb(var(--v-theme-secondary));
     transition: transform 0.2s;
 }
 
-.sr-change.is-open .sr-change-chev {
+.sr-chev-open {
     transform: rotate(180deg);
 }
 
@@ -2956,10 +2902,6 @@ html.dark .sr-menu {
     box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.65);
 }
 
-html.dark .sr-info {
-    background: rgba(var(--v-theme-primary), 0.14);
-}
-
 html.dark .sr-tg[aria-checked="true"] {
     background: #3fbf6f;
 }
@@ -3090,15 +3032,6 @@ html.dark .sr-ib-delete:hover {
     .sr-count {
         padding: 3px 8px;
         font-size: 11px;
-    }
-
-    .sr-change-label {
-        display: none;
-    }
-
-    .sr-change {
-        gap: 4px;
-        padding: 8px;
     }
 
     .sr-option {

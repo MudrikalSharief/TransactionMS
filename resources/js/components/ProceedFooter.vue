@@ -71,6 +71,7 @@
                     list-detailed
                     list-group-by-label
                     list-collapsible-groups
+                    :list-groups-open-by-default="false"
                     list-group-cards
                     show-label-input
                     redesign
