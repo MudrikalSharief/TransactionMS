@@ -1,27 +1,18 @@
-// Export helpers for the Reports and Activity Log pages. A "section" is a
-// titled table: { title, columns: [{ label, value: (row) => text }], rows }.
-// Excel: a CSV file (UTF-8 with BOM so Excel keeps accents and ñ).
-// PDF: a print-ready page in its own window (choose "Save as PDF").
-// Everything happens in the browser; nothing is saved on the server.
+// Export helpers for the Dashboard Reports and the Activity Log. A
+// "section" is a titled table: { title, columns: [{ label, value: (row) => cell }], rows }.
+// Both buttons build the file in the browser and download it straight away
+// (no print window, no pop-up): Excel as a real .xlsx (one sheet per
+// section), PDF as a real .pdf. Nothing is saved on the server.
+// The Excel and PDF libraries are large, so they load only on first export.
 
-const esc = (v) =>
-    String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+const NAVY = [0, 45, 112]
+const HEAD = [26, 31, 43]
+const MUTED = [91, 100, 117]
 
-const csvCell = (v) => {
-    const s = String(v ?? '')
-    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
+const printedAt = () =>
+    new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' })
 
-export function downloadCsv(filename, { title, subtitle, sections }) {
-    const lines = [csvCell(title)]
-    if (subtitle) lines.push(csvCell(subtitle))
-    for (const sec of sections) {
-        lines.push('', csvCell(sec.title))
-        lines.push(sec.columns.map((c) => csvCell(c.label)).join(','))
-        for (const row of sec.rows) lines.push(sec.columns.map((c) => csvCell(c.value(row))).join(','))
-        if (!sec.rows.length) lines.push(csvCell('No data'))
-    }
-    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+function saveBlob(blob, filename) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -29,57 +20,126 @@ export function downloadCsv(filename, { title, subtitle, sections }) {
     document.body.appendChild(a)
     a.click()
     a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
 }
 
-// Returns false when the browser blocked the print window.
-export function printReport({ title, subtitle, sections, printedBy }) {
-    const win = window.open('', '_blank', 'width=1000,height=900')
-    if (!win) return false
-    const origin = window.location.origin
-    const printed = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' })
-    const tables = sections
-        .map(
-            (sec) => `<h2>${esc(sec.title)}</h2>
-<table><thead><tr>${sec.columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr></thead>
-<tbody>${
-                sec.rows.length
-                    ? sec.rows.map((r) => `<tr>${sec.columns.map((c) => `<td>${esc(c.value(r))}</td>`).join('')}</tr>`).join('')
-                    : `<tr><td colspan="${sec.columns.length}" class="none">No data</td></tr>`
-            }</tbody></table>`,
-        )
-        .join('')
+// Excel sheet names: at most 31 characters, none of : \ / ? * [ ], unique.
+function sheetNames(sections) {
+    const used = new Set()
+    return sections.map((s, i) => {
+        let name = String(s.title || `Sheet ${i + 1}`).replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || `Sheet ${i + 1}`
+        let n = 2
+        while (used.has(name.toLowerCase())) name = `${name.slice(0, 28)} ${n++}`
+        used.add(name.toLowerCase())
+        return name
+    })
+}
 
-    win.document.write(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>
-  @page { size: A4 landscape; margin: 12mm; }
-  body { margin: 0; font-family: "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif; color: #1d2433; font-size: 11px; }
-  .head { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #002D70; padding-bottom: 8px; margin-bottom: 4px; }
-  .head img { width: 44px; height: 44px; }
-  .head small { display: block; color: #5b6475; letter-spacing: .06em; text-transform: uppercase; }
-  .head b { font-size: 17px; color: #002D70; }
-  .sub { color: #5b6475; margin: 6px 0 2px; }
-  h2 { font-size: 13px; color: #002D70; margin: 16px 0 6px; }
-  table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
-  tr { page-break-inside: avoid; }
-  th { background: #1A1F2B; color: #fff; text-align: left; padding: 5px 6px; font-weight: 700; }
-  td { border-bottom: 1px solid #d6e0f2; padding: 4px 6px; vertical-align: top; }
-  .none { color: #5b6475; text-align: center; }
-  .foot { margin-top: 14px; color: #5b6475; display: flex; justify-content: space-between; }
-</style></head><body>
-  <div class="head"><img src="${origin}/zamboanga-seal.png" alt="">
-    <div><small>City Government of Zamboanga</small><b>${esc(title)}</b></div></div>
-  ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
-  ${tables}
-  <div class="foot"><span>Printed ${esc(printed)}</span><span>${printedBy ? `by ${esc(printedBy)}` : ''}</span></div>
-  <script>
-    window.addEventListener('load', function () { window.focus(); window.print(); });
-    window.addEventListener('afterprint', function () { window.close(); });
-  <\/script>
-</body></html>`)
-    win.document.close()
-    return true
+const cellValue = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : v == null ? '' : String(v))
+
+// The PDF's built-in font only covers Western European characters: arrows
+// become "->", anything else it can't draw becomes "?" instead of garbage.
+const pdfText = (v) => {
+    const s = cellValue(v)
+    if (typeof s === 'number') return String(s)
+    return s.replace(/[→⟶➔]/g, '->').replace(/[←⟵]/g, '<-').replace(/[^\x20-\x7E\xA0-\xFF–—‘’“”•…€]/g, '?')
+}
+
+export async function downloadXlsx(filename, { title, subtitle, sections }) {
+    const { default: writeExcelFile } = await import('write-excel-file/browser')
+    const names = sheetNames(sections)
+    const sheets = sections.map((sec, i) => {
+        const header = sec.columns.map((c) => ({ value: c.label, fontWeight: 'bold', backgroundColor: '#1A1F2B', color: '#FFFFFF' }))
+        const body = sec.rows.length
+            ? sec.rows.map((r) => sec.columns.map((c) => cellValue(c.value(r))))
+            : [[{ value: 'No data', color: '#5B6475' }]]
+        const widths = sec.columns.map((c, ci) => {
+            const longest = Math.max(String(c.label).length, ...sec.rows.slice(0, 200).map((r) => String(cellValue(sec.columns[ci].value(r))).length))
+            return { width: Math.min(48, Math.max(10, longest + 2)) }
+        })
+        return {
+            sheet: names[i],
+            columns: widths,
+            stickyRowsCount: 4,
+            data: [
+                [{ value: `${title} — ${sec.title}`, fontWeight: 'bold', fontSize: 13, color: '#002D70' }],
+                [{ value: subtitle || '', color: '#5B6475' }],
+                [{ value: `Printed ${printedAt()}`, color: '#5B6475' }],
+                header,
+                ...body,
+            ],
+        }
+    })
+    const blob = await writeExcelFile(sheets, { fontFamily: 'Calibri', fontSize: 11 }).toBlob()
+    saveBlob(blob, filename)
+}
+
+// The city seal for the PDF header; skipped quietly if it can't load.
+async function sealDataUrl() {
+    try {
+        const blob = await (await fetch('/zamboanga-seal.png')).blob()
+        return await new Promise((resolve, reject) => {
+            const fr = new FileReader()
+            fr.onload = () => resolve(fr.result)
+            fr.onerror = reject
+            fr.readAsDataURL(blob)
+        })
+    } catch {
+        return null
+    }
+}
+
+export async function downloadPdf(filename, { title, subtitle, sections, printedBy }) {
+    const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+    const pageW = doc.internal.pageSize.getWidth()
+    const pageH = doc.internal.pageSize.getHeight()
+    const M = 36
+    const seal = await sealDataUrl()
+
+    // Header (first page): seal, city, report title, scope.
+    if (seal) doc.addImage(seal, 'PNG', M, M - 6, 40, 40)
+    const tx = seal ? M + 50 : M
+    doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...MUTED)
+    doc.text('CITY GOVERNMENT OF ZAMBOANGA', tx, M + 6)
+    doc.setFontSize(17).setTextColor(...NAVY)
+    doc.text(pdfText(title), tx, M + 24)
+    doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(...MUTED)
+    if (subtitle) doc.text(doc.splitTextToSize(pdfText(subtitle), pageW - tx - M), tx, M + 38)
+    doc.setDrawColor(...NAVY).setLineWidth(2).line(M, M + 48, pageW - M, M + 48)
+
+    let y = M + 66
+    for (const sec of sections) {
+        if (y > pageH - 90) {
+            doc.addPage()
+            y = M + 10
+        }
+        doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...NAVY)
+        doc.text(pdfText(sec.title), M, y)
+        autoTable(doc, {
+            startY: y + 6,
+            margin: { left: M, right: M, bottom: 40 },
+            head: [sec.columns.map((c) => pdfText(c.label))],
+            body: sec.rows.length
+                ? sec.rows.map((r) => sec.columns.map((c) => pdfText(c.value(r))))
+                : [[{ content: 'No data', colSpan: sec.columns.length, styles: { halign: 'center', textColor: MUTED } }]],
+            styles: { font: 'helvetica', fontSize: 8, cellPadding: 4, overflow: 'linebreak', textColor: [29, 36, 51] },
+            headStyles: { fillColor: HEAD, textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [244, 247, 252] },
+            columnStyles: Object.fromEntries(sec.columns.map((c, i) => [i, c.num ? { halign: 'right' } : {}])),
+        })
+        y = doc.lastAutoTable.finalY + 24
+    }
+
+    // Footer on every page: printed date / by, page x of y.
+    const pages = doc.getNumberOfPages()
+    for (let p = 1; p <= pages; p++) {
+        doc.setPage(p)
+        doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(...MUTED)
+        doc.text(pdfText(`Printed ${printedAt()}${printedBy ? ` by ${printedBy}` : ''}`), M, pageH - 18)
+        doc.text(`Page ${p} of ${pages}`, pageW - M, pageH - 18, { align: 'right' })
+    }
+    doc.save(filename)
 }
 
 // Working-time minutes as "2d 3h" / "45m" (a day = 24 h of a weekday).

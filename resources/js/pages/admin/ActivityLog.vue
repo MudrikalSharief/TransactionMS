@@ -32,7 +32,7 @@
                     :disabled="!total"
                     @click="exportAs('pdf')"
                 >
-                    Print / PDF
+                    PDF
                 </v-btn>
                 <v-btn
                     variant="outlined"
@@ -160,7 +160,7 @@ import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
 import { toast } from "@/composables/useToast";
 import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
-import { downloadCsv, printReport } from "@/utils/reportExport";
+import { downloadXlsx, downloadPdf } from "@/utils/reportExport";
 
 const router = useRouter();
 const { api } = useApi();
@@ -256,10 +256,10 @@ async function exportAs(type) {
         } while (p <= last && p <= 30);
         const payload = {
             title: "Activity Log",
-            subtitle: `${scopeText.value}${search.value ? ` · Search: "${search.value}"` : ""}`,
+            subtitle: `${scopeText.value}${search.value ? ` · Search: "${search.value}"` : ""} · ${all.length} ${all.length === 1 ? "entry" : "entries"}`,
             sections: [
                 {
-                    title: `${all.length} entries`,
+                    title: "Activity",
                     rows: all,
                     columns: [
                         { label: "Date", value: (r) => fmtDate(r.at) },
@@ -275,8 +275,8 @@ async function exportAs(type) {
                 },
             ],
         };
-        if (type === "excel") downloadCsv(`activity-log-${period.value}.csv`, payload);
-        else if (!printReport({ ...payload, printedBy: user.value?.name })) toast.warning("Allow pop-ups for this site to print the log.");
+        if (type === "excel") await downloadXlsx(`activity-log-${period.value}.xlsx`, payload);
+        else await downloadPdf(`activity-log-${period.value}.pdf`, { ...payload, printedBy: user.value?.name });
     } catch (e) {
         toast.error(e?.response?.data?.message || "Export failed. Please try again.");
     } finally {

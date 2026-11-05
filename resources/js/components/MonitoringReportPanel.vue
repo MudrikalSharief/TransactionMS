@@ -18,11 +18,11 @@
                 </v-btn>
             </v-btn-toggle>
             <v-spacer />
-            <v-btn variant="outlined" color="success" rounded="0" size="small" prepend-icon="mdi-microsoft-excel" :disabled="!report" @click="exportExcel">
+            <v-btn variant="outlined" color="success" rounded="0" size="small" prepend-icon="mdi-microsoft-excel" :disabled="!report" :loading="exporting === 'excel'" @click="exportAs('excel')">
                 Excel
             </v-btn>
-            <v-btn variant="outlined" color="error" rounded="0" size="small" prepend-icon="mdi-file-pdf-box" :disabled="!report" @click="exportPdf">
-                Print / PDF
+            <v-btn variant="outlined" color="error" rounded="0" size="small" prepend-icon="mdi-file-pdf-box" :disabled="!report" :loading="exporting === 'pdf'" @click="exportAs('pdf')">
+                PDF
             </v-btn>
         </v-card-title>
 
@@ -65,7 +65,7 @@ import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
 import { useFitScreen } from "@/composables/useFitScreen";
 import { toast } from "@/composables/useToast";
-import { downloadCsv, printReport, fmtMinutes } from "@/utils/reportExport";
+import { downloadXlsx, downloadPdf, fmtMinutes } from "@/utils/reportExport";
 
 const props = defineProps({
     // Dashboard Period filter value ('all' | 'this_week' | 'YYYY-MM').
@@ -206,12 +206,18 @@ const exportPayload = () => {
         ],
     };
 };
-function exportExcel() {
-    downloadCsv(`monitoring-report-${report.value?.period?.key || "all"}.csv`, exportPayload());
-}
-function exportPdf() {
-    if (!printReport({ ...exportPayload(), printedBy: user.value?.name })) {
-        toast.warning("Allow pop-ups for this site to print the report.");
+// Builds the file in the browser and downloads it right away.
+const exporting = ref("");
+async function exportAs(type) {
+    exporting.value = type;
+    const name = `monitoring-report-${report.value?.period?.key || "all"}`;
+    try {
+        if (type === "excel") await downloadXlsx(`${name}.xlsx`, exportPayload());
+        else await downloadPdf(`${name}.pdf`, { ...exportPayload(), printedBy: user.value?.name });
+    } catch {
+        toast.error("The file could not be created. Please try again.");
+    } finally {
+        exporting.value = "";
     }
 }
 
