@@ -10,6 +10,22 @@
                 </div>
             </div>
             <div class="dash-hello-actions">
+                <!-- Overview cards, or the monitoring Reports (superadmins and
+                     office admins); both follow Period / Offices below. -->
+                <v-btn-toggle
+                    v-if="canSeeSummary"
+                    v-model="view"
+                    mandatory
+                    density="comfortable"
+                    color="primary"
+                    variant="outlined"
+                    divided
+                    rounded="lg"
+                    class="dash-view"
+                >
+                    <v-btn value="overview" prepend-icon="mdi-view-dashboard-outline" class="text-none">Overview</v-btn>
+                    <v-btn value="reports" prepend-icon="mdi-chart-box-outline" class="text-none">Reports</v-btn>
+                </v-btn-toggle>
                 <!-- Period drives every card and the graph (all accounts);
                      Offices narrows them for superadmins. -->
                 <v-select
@@ -45,7 +61,7 @@
                     </v-select>
                 </template>
                 <v-btn
-                    v-if="layoutChanged"
+                    v-if="layoutChanged && view === 'overview'"
                     variant="tonal"
                     size="small"
                     color="primary"
@@ -89,7 +105,14 @@
         <!-- Cards render in the user's saved order, each in the next slot of
              the grid; press-and-hold a card for 2s, then drag it onto another
              card to swap them. -->
+        <!-- Reports view: one card filling the grid's space (no page scroll). -->
+        <div v-if="view === 'reports'" class="dash-grid dash-grid--single">
+            <div class="dash-slot" style="--span: 12">
+                <MonitoringReportPanel :period="summaryPeriod" :offices="officeFilter" :scope-label="reportScopeLabel" />
+            </div>
+        </div>
         <div
+            v-else
             class="dash-grid"
             @pointerdown="onHoldStart"
             @pointermove="onHoldMove"
@@ -284,7 +307,7 @@
                                         </div>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
-                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                        {{ txRef(tx) }}
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ txSubtitle(tx) }}</v-list-item-subtitle>
                                     <template v-slot:append>
@@ -426,7 +449,7 @@
                                                 </div>
                                                 <div style="min-width: 0">
                                                     <div class="font-weight-bold action-title text-truncate">
-                                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                                        {{ txRef(tx) }}
                                                     </div>
                                                     <div class="text-caption text-medium-emphasis text-truncate only-wide">
                                                         {{ txSubtitle(tx) }}
@@ -492,7 +515,7 @@
                                         </div>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
-                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                        {{ txRef(tx) }}
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ transitSubtitle(tx) }}</v-list-item-subtitle>
                                     <template v-slot:append>
@@ -522,7 +545,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { summaryApiBase } from '@/composables/useSummaryRows'
@@ -540,6 +563,7 @@ import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
 import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
+import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import {
     periodOptions as dashPeriodOptions,
@@ -551,6 +575,7 @@ import {
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuth()
 const { api } = useApi()
 
@@ -584,6 +609,23 @@ const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 // analytics, queue tightened to what is actually waiting on them, and an
 // in-transit card showing where their office's papers currently sit.
 const isStaff = computed(() => !canSeeSummary.value)
+
+// ---- Overview cards or the monitoring Reports (was its own page) ----
+// Kept in the address (?view=reports) so links, refresh and Back keep it.
+const view = ref(canSeeSummary.value && route.query.view === 'reports' ? 'reports' : 'overview')
+watch(view, (v) => {
+    router.replace({ query: { ...route.query, view: v === 'reports' ? 'reports' : undefined } })
+})
+watch(() => route.query.view, (v) => {
+    view.value = canSeeSummary.value && v === 'reports' ? 'reports' : 'overview'
+})
+const reportScopeLabel = computed(() => {
+    if (!isSuperadmin.value) {
+        const office = auth.user.value?.office
+        return `${office?.code || office?.name || 'Your office'} (filed by or passing through it)`
+    }
+    return officeScopeChips.value.length ? officeScopeLabel.value : 'All offices'
+})
 
 // ---- Greeting strip ----
 const greeting = computed(() => {
@@ -1159,8 +1201,14 @@ function tintStyle(name) {
     return { color: c, background: `color-mix(in srgb, ${c} 14%, transparent)` }
 }
 
+// Rows lead with the reference code (every transaction has one; titles are
+// optional), then the title and process underneath.
+function txRef(tx) {
+    return tx.reference_number || `Transaction #${tx.id}`
+}
+
 function txSubtitle(tx) {
-    return [tx.reference_number, tx.transaction_type?.name || tx.transaction_type_name]
+    return [tx.title, tx.transaction_type?.name || tx.transaction_type_name]
         .filter(Boolean)
         .join(' · ') || tx.current_step?.name || ''
 }
@@ -1350,6 +1398,10 @@ onUnmounted(() => {
 @media (min-width: 1100px) and (min-height: 560px) {
     .dash-grid {
         grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    /* Reports view: one card takes the whole grid height. */
+    .dash-grid--single {
+        grid-template-rows: minmax(0, 1fr);
     }
     .dash-body .start-row {
         flex: 1 1 0;
@@ -1552,6 +1604,14 @@ onUnmounted(() => {
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+}
+.dash-view {
+    height: 40px !important;
+}
+.dash-view :deep(.v-btn) {
+    height: 40px !important;
+    letter-spacing: 0;
+    font-weight: 600;
 }
 /* Explicit width too: Firefox sizes the wrapping row from the select's
    content, not its flex-basis, and stacked the two filters. */

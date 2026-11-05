@@ -464,12 +464,10 @@ const navGroups = computed(() => {
         ];
     }
     const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard", to: "/" }] };
-    // Monitoring pages (read-only) for superadmins and office admins.
+    // Monitoring (read-only) for superadmins and office admins; the Reports
+    // are a view inside the Dashboard.
     if (isSuperadmin.value || isOfficeAdmin.value) {
-        overview.items.push(
-            { title: "Reports", icon: "mdi-chart-box-outline", to: "/admin/reports" },
-            { title: "Activity Log", icon: "mdi-history", to: "/admin/activity" },
-        );
+        overview.items.push({ title: "Activity Log", icon: "mdi-history", to: "/admin/activity" });
     }
     if (isSuperadmin.value) {
         return [
@@ -632,7 +630,7 @@ const searchPages = computed(() => {
     );
     if (isSuperadmin.value || isOfficeAdmin.value) {
         pages.push(
-            { title: "Reports", subtitle: "Page · Monitoring", icon: "mdi-chart-box-outline", to: "/admin/reports" },
+            { title: "Reports", subtitle: "Dashboard · Monitoring", icon: "mdi-chart-box-outline", to: "/?view=reports" },
             { title: "Activity Log", subtitle: "Page · Monitoring", icon: "mdi-history", to: "/admin/activity" },
         );
     }

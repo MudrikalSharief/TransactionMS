@@ -10,7 +10,6 @@ const AdminRoles = () => import("@/pages/admin/Roles.vue");
 const AdminOffices = () => import("@/pages/admin/Offices.vue");
 const AdminOfficeSteps = () => import("@/pages/admin/OfficeSteps.vue");
 const AdminTransactionTypes = () => import("@/pages/admin/TransactionTypes.vue");
-const AdminReports = () => import("@/pages/admin/Reports.vue");
 const AdminActivityLog = () => import("@/pages/admin/ActivityLog.vue");
 const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
 const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
@@ -178,10 +177,9 @@ export function createRouter() {
                 meta: { requiresAuth: true, officeAdmin: true },
             },
             {
-                // Monitoring report (read-only); office admins see their office's scope.
+                // Reports now live in the Dashboard; keep old links working.
                 path: "/admin/reports",
-                component: AdminReports,
-                meta: { requiresAuth: true, officeAdmin: true, title: "Reports" },
+                redirect: { path: "/", query: { view: "reports" } },
             },
             {
                 // Activity log (read-only); setup changes for superadmins only.
