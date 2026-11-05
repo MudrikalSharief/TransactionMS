@@ -1,5 +1,5 @@
 <template>
-  <LoadingVeil :show="loading" label="users" icon="mdi-account-group" />
+  <LoadingVeil :show="loading || entering" label="users" icon="mdi-account-group" />
   <v-card rounded="0" elevation="0" class="us-page mb-4">
     <header class="us-hd">
       <div class="us-badge" aria-hidden="true">
@@ -674,6 +674,10 @@ const { api } = useApi()
 const officeMode = !!useRoute().meta.officeScope
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser } =
   useAdminUsers({ office: officeMode })
+
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true)
 const { roles: allRoles, loading: allRolesLoading, fetchRoles: fetchAllRoles } = useRoles()
 const { items: offices, loading: officesLoading, fetchAll: fetchOffices } = useOffices()
 
@@ -1164,7 +1168,9 @@ onMounted(() => {
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
   if (!officeMode) fetchOffices().catch(() => {})
-  fetchUsers().catch(() => {})
+  fetchUsers()
+    .catch(() => {})
+    .finally(() => { entering.value = false })
 })
 </script>
 

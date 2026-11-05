@@ -1,5 +1,5 @@
 <template>
-    <LoadingVeil :show="loading" label="roles" icon="mdi-shield-account" />
+    <LoadingVeil :show="loading || entering" label="roles" icon="mdi-shield-account" />
     <v-card rounded="0" elevation="0" class="ro-page mb-4">
         <header class="ro-hd">
             <div class="ro-badge" aria-hidden="true">
@@ -331,6 +331,10 @@ import { toast } from "@/composables/useToast";
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } =
     useRoles();
 
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true);
+
 const headers = [
     { title: "Code", key: "code", width: "16%" },
     { title: "Name", key: "name", width: "20%" },
@@ -531,7 +535,11 @@ async function removeRow(item) {
 }
 
 onMounted(() => {
-    fetchRoles().catch(() => {});
+    fetchRoles()
+        .catch(() => {})
+        .finally(() => {
+            entering.value = false;
+        });
 });
 </script>
 

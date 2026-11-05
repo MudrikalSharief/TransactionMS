@@ -1,5 +1,5 @@
 <template>
-  <LoadingVeil :show="loading" label="offices" icon="mdi-office-building-outline" />
+  <LoadingVeil :show="loading || entering" label="offices" icon="mdi-office-building-outline" />
   <v-card rounded="0" elevation="0" class="ofp-page mb-4">
     <header class="ofp-hd">
       <div class="ofp-badge" aria-hidden="true">
@@ -440,6 +440,10 @@ import LoadingVeil from '@/components/LoadingVeil.vue'
 const auth = useAuth()
 const { items, loading, fetchAll, create, update, remove } = useOffices()
 
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true)
+
 const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const searchInput = ref(null)
@@ -850,7 +854,9 @@ async function removeRow(item) {
 }
 
 onMounted(() => {
-  fetchAll().catch(() => {})
+  fetchAll()
+    .catch(() => {})
+    .finally(() => { entering.value = false })
 })
 </script>
 

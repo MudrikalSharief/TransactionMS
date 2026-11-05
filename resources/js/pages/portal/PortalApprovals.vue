@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="entering" label="tasks" icon="mdi-clipboard-check-multiple-outline" />
         <v-card rounded="0" elevation="1" class="lgu-card">
             <!-- Same header as Portal Transactions; on phones the buttons keep
                  only their icons so the one-line header still fits. -->
@@ -164,6 +165,7 @@ import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import { toast } from "@/composables/useToast";
 import TableLoader from "@/components/TableLoader.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 
 // Clerk approvals: every transaction waiting at a step the clerk may work
 // (their role + their office; the server applies the same rule as Proceed).
@@ -175,6 +177,8 @@ const approvalBadge = useApprovalBadge();
 const PER_PAGE = 7;
 const rows = ref([]);
 const loading = ref(true);
+// Full-page loader while the page opens; refreshes use the in-table loader.
+const entering = ref(true);
 const error = ref("");
 const search = ref("");
 const page = ref(1);
@@ -294,7 +298,10 @@ function timeAgo(iso) {
     return fmtDate(iso);
 }
 
-onMounted(load);
+onMounted(async () => {
+    await load();
+    entering.value = false;
+});
 useSmartPoll(() => fetchAll({ silent: true }));
 </script>
 
