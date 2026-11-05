@@ -5,27 +5,25 @@
             elevation="0"
             class="app-bar"
         >
-            <v-app-bar-nav-icon
-                icon="mdi-menu"
-                size="20"
-                v-tooltip="'Menu'"
-                color="white"
-                @click="toggleNav"
-            />
             <div
-                class="d-flex align-center flex-shrink-0 mr-4 ml-3 brand-click"
+                class="d-flex align-center flex-shrink-0 mr-4 brand-click"
                 style="flex: 0 0 auto; min-width: max-content"
-                v-tooltip="kind === 'admin' ? 'Go to Dashboard' : 'Go to Home'"
-                @click="router.push(homePathFor(auth.user.value))"
+                role="button"
+                tabindex="0"
+                aria-label="Open or close the menu"
+                v-tooltip="'Toggle menu'"
+                @click="toggleNav"
+                @keydown.enter="toggleNav"
+                @keydown.space.prevent="toggleNav"
             >
-                <v-img
-                    src="/tms-logo-128.png"
-                    alt="Transaction Management System logo"
-                    width="34"
-                    height="35"
-                    class="mr-2"
-                    style="flex: 0 0 auto"
-                />
+                <div class="brand-logo">
+                    <img
+                        :src="'/tms-logo-128.png'"
+                        alt="Transaction Management System logo"
+                        class="brand-logo-img"
+                    />
+                </div>
+                <div class="brand-divider" aria-hidden="true"></div>
                 <div
                     class="d-flex flex-column justify-center"
                     style="white-space: nowrap; line-height: 1"
@@ -95,44 +93,76 @@
                     </div>
                 </div>
 
-                <!-- Account: one minimal user button. The tooltip carries the
-                     role and office, and it opens My Profile. -->
-                <div
+                <!-- Account: pressing the avatar opens a Facebook-style menu
+                     with the profile header, settings and log out. -->
+                <v-menu
                     v-if="auth.user.value"
-                    class="nav-account"
-                    :class="{ 'nav-account--link': hasProfile }"
-                    :role="hasProfile ? 'link' : undefined"
-                    :tabindex="hasProfile ? 0 : undefined"
-                    :aria-label="hasProfile ? 'My Profile' : undefined"
-                    @click="hasProfile && router.push('/profile')"
-                    @keydown.enter="hasProfile && router.push('/profile')"
+                    location="bottom end"
+                    offset="10"
+                    transition="fade-transition"
                 >
-                    <v-icon size="20">mdi-account-outline</v-icon>
-                </div>
-
-                <!-- Viewers never signed in themselves (Track your Document
-                     Process), so leaving is a plain "back", no confirmation. -->
-                <button
-                    v-if="kind === 'viewer'"
-                    type="button"
-                    class="nav-icon-btn nav-icon-btn--wide"
-                    :disabled="loggingOut"
-                    v-tooltip="'Leave tracking and return to the login page'"
-                    @click="onLogout"
-                >
-                    <v-icon size="20">mdi-arrow-left</v-icon>
-                    <span class="d-none d-sm-inline">Back to login</span>
-                </button>
-                <button
-                    v-else
-                    type="button"
-                    class="nav-icon-btn"
-                    aria-label="Log out"
-                    v-tooltip="'Log out'"
-                    @click="confirmLogout = true"
-                >
-                    <v-icon size="20">mdi-logout-variant</v-icon>
-                </button>
+                    <template #activator="{ props }">
+                        <button
+                            v-bind="props"
+                            type="button"
+                            class="nav-account"
+                            aria-label="Account menu"
+                        >
+                            <v-icon size="20">mdi-account-outline</v-icon>
+                        </button>
+                    </template>
+                    <v-card class="account-menu" rounded="xl" elevation="8">
+                        <div class="account-menu-head">
+                            <div class="account-menu-avatar">{{ accountInitial }}</div>
+                            <div class="account-menu-id">
+                                <div class="account-menu-name">{{ accountName }}</div>
+                                <div v-if="accountEmail" class="account-menu-mail">{{ accountEmail }}</div>
+                            </div>
+                        </div>
+                        <v-divider class="account-menu-divider" />
+                        <v-list density="compact" class="account-menu-list">
+                            <v-list-item v-if="hasProfile" @click="router.push('/profile')">
+                                <template #prepend>
+                                    <span class="account-menu-icon"><v-icon size="18">mdi-account-outline</v-icon></span>
+                                </template>
+                                <v-list-item-title>My Profile</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item @click="settingsOpen = true">
+                                <template #prepend>
+                                    <span class="account-menu-icon"><v-icon size="18">mdi-cog-outline</v-icon></span>
+                                </template>
+                                <v-list-item-title>Settings &amp; Preferences</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item @click="router.push('/help')">
+                                <template #prepend>
+                                    <span class="account-menu-icon"><v-icon size="18">mdi-help-circle-outline</v-icon></span>
+                                </template>
+                                <v-list-item-title>Help &amp; Support</v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                        <v-divider class="account-menu-divider" />
+                        <v-list density="compact" class="account-menu-list">
+                            <v-list-item
+                                v-if="kind === 'viewer'"
+                                :disabled="loggingOut"
+                                @click="onLogout"
+                            >
+                                <template #prepend>
+                                    <span class="account-menu-icon"><v-icon size="18">mdi-arrow-left</v-icon></span>
+                                </template>
+                                <v-list-item-title>Back to login</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item v-else class="account-menu-logout" @click="confirmLogout = true">
+                                <template #prepend>
+                                    <span class="account-menu-icon account-menu-icon--danger">
+                                        <v-icon size="18">mdi-logout-variant</v-icon>
+                                    </span>
+                                </template>
+                                <v-list-item-title>Log Out</v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-card>
+                </v-menu>
             </div>
         </v-app-bar>
 
@@ -290,27 +320,45 @@
             <AppFooter v-if="showAuthUi" :fit="!!route.meta?.fit" />
         </v-main>
 
-        <v-dialog v-model="confirmLogout" max-width="640">
-            <v-card rounded="0">
-                <v-card-title class="d-flex align-center pa-5 lgu-head">
-                    <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#005EED">mdi-logout</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">LOG OUT?</span>
-                    <v-spacer />
-                    <v-btn icon="mdi-close" variant="text" color="grey-darken-3" @click="confirmLogout = false" />
-                </v-card-title>
-                <v-card-text class="pa-12 text-center">
-                    <div class="d-flex justify-center">
-                        <img :src="mascotLogoutUrl" alt="See you soon" width="240" style="border-radius: 18px" />
-                    </div>
-                </v-card-text>
-                <v-divider />
-                <v-card-actions class="d-flex justify-space-between px-6 pt-6 pb-6">
-                    <v-btn variant="text" color="grey-darken-3" rounded="0" size="large" style="width: 40%" @click="confirmLogout = false">Cancel</v-btn>
-                    <v-divider vertical :thickness="2" class="align-self-stretch" />
-                    <v-btn color="error" rounded="0" size="large" style="width: 40%" :loading="loggingOut" @click="onLogout">Log out</v-btn>
-                </v-card-actions>
+        <v-dialog v-model="confirmLogout" max-width="400">
+            <v-card class="logout-card">
+                <div class="logout-head">
+                    <span class="logout-title">Are you sure?</span>
+                    <button
+                        type="button"
+                        class="logout-close"
+                        aria-label="Close"
+                        @click="confirmLogout = false"
+                    >
+                        <v-icon size="18">mdi-close</v-icon>
+                    </button>
+                </div>
+                <p class="logout-body">
+                    You will no longer be logged in on this device.
+                </p>
+                <div class="logout-actions">
+                    <button
+                        type="button"
+                        class="logout-btn logout-btn--cancel"
+                        @click="confirmLogout = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="logout-btn logout-btn--confirm"
+                        :disabled="loggingOut"
+                        @click="onLogout"
+                    >
+                        <v-progress-circular
+                            v-if="loggingOut"
+                            size="16"
+                            width="2"
+                            indeterminate
+                        />
+                        <span v-else>Log out</span>
+                    </button>
+                </div>
             </v-card>
         </v-dialog>
 
@@ -374,7 +422,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -385,7 +433,7 @@ import OfflineBar from "@/components/OfflineBar.vue";
 import { useMotion } from "@/composables/useMotion";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
 import AppFooter from "@/components/AppFooter.vue";
-import mascotLogoutUrl from "@/assets/mascots/logout.jpg";
+
 
 const router = useRouter();
 const route = useRoute();
@@ -460,6 +508,15 @@ watch(kind, (k) => {
 }, { immediate: true });
 // My Profile: every signed-in account except the shared guest viewer.
 const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
+
+// Account menu header.
+const accountName = computed(
+    () => auth.user.value?.name || auth.user.value?.username || "Account",
+);
+const accountEmail = computed(() => auth.user.value?.email || "");
+const accountInitial = computed(
+    () => (accountName.value || "?").trim().charAt(0).toUpperCase() || "?",
+);
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
 
@@ -938,8 +995,8 @@ onUnmounted(() => {
 
 <style scoped>
 /* ---- Top bar (Facebook-like, in black-navy) -----------------------------
-   Same layout as before — menu, brand, search, status, account, log out in
-   the same places — with Facebook's surface: near-black navy, pill search,
+   The brand doubles as the menu toggle — logo, brand, search, status,
+   account, log out — with Facebook's surface: near-black navy, pill search,
    round icon buttons and a circular avatar. */
 .app-bar {
     /* Light chrome, theme-aware: white in the light theme and the theme's own
@@ -970,13 +1027,37 @@ onUnmounted(() => {
     top: var(--v-layout-top, 64px) !important;
     height: calc(100% - var(--v-layout-top, 64px)) !important;
 }
-.app-bar :deep(.v-app-bar-nav-icon) {
-    border-radius: 50%;
-    color: rgba(var(--v-theme-on-surface), 0.75) !important;
-    transition: background-color 0.15s ease;
+/* White tile + rule keeps the pale seal from dissolving into the bar and
+   separates it from the wordmark. */
+.brand-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    box-sizing: border-box;
+    width: 40px;
+    height: 40px;
+    /* Even 5px frame (border + padding) around a 30px square image. */
+    padding: 4px;
+    margin-right: 10px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid rgba(var(--v-border-color), 0.16);
+    box-shadow: 0 2px 6px -2px rgba(11, 18, 32, 0.18);
 }
-.app-bar :deep(.v-app-bar-nav-icon:hover) {
-    background: rgba(var(--v-theme-on-surface), 0.08);
+.brand-logo-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+.brand-divider {
+    flex: none;
+    width: 1px;
+    height: 26px;
+    margin-right: 10px;
+    background: rgba(var(--v-theme-on-surface), 0.18);
 }
 .brand-title {
     color: rgb(var(--v-theme-on-surface));
@@ -1016,7 +1097,7 @@ onUnmounted(() => {
     height: 16px;
     background: rgba(var(--v-theme-on-surface), 0.16);
 }
-/* Account + log out: bare icons; the tinted circle only appears on hover. */
+/* Account: bare avatar button; the tinted circle only appears on hover. */
 .nav-account {
     display: flex;
     align-items: center;
@@ -1024,60 +1105,213 @@ onUnmounted(() => {
     flex: none;
     width: 40px;
     height: 40px;
-    border-radius: 50%;
-    background: transparent;
-    color: rgba(var(--v-theme-on-surface), 0.7);
-    transition: background-color 0.15s ease, color 0.15s ease;
-}
-.nav-account--link {
-    cursor: pointer;
-}
-.nav-account--link:hover,
-.nav-account--link:focus-visible {
-    background: rgba(11, 18, 32, 0.09);
-    color: #0b1220;
-    outline: none;
-}
-.nav-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    height: 40px;
-    min-width: 40px;
     padding: 0;
-    margin-left: 8px;
     border: 0;
     border-radius: 50%;
     background: transparent;
     color: rgba(var(--v-theme-on-surface), 0.7);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 700;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
-.nav-icon-btn:hover {
+.nav-account:hover,
+.nav-account:focus-visible {
     background: rgba(11, 18, 32, 0.09);
     color: #0b1220;
-}
-.nav-icon-btn--wide {
-    width: auto;
-    padding: 0 14px;
-    border-radius: 999px;
-}
-.nav-icon-btn:disabled {
-    opacity: 0.55;
-    cursor: default;
-}
-.nav-icon-btn:focus-visible {
-    outline: 2px solid rgba(47, 111, 235, 0.45);
-    outline-offset: 2px;
+    outline: none;
 }
 
+/* Facebook-style account menu: profile header, grouped actions, log out. */
+.account-menu {
+    width: 300px;
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
+    border: 1px solid rgba(var(--v-border-color), 0.12);
+    box-shadow: 0 18px 46px -18px rgba(0, 0, 0, 0.45) !important;
+}
+.account-menu-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    transition: background-color 0.15s ease;
+}
+.account-menu-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #1b74e4;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+}
+.account-menu-id {
+    min-width: 0;
+}
+.account-menu-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.account-menu-mail {
+    margin-top: 1px;
+    font-size: 0.72rem;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.account-menu-divider {
+    margin: 4px 0 !important;
+}
+.account-menu-list {
+    padding: 4px 8px !important;
+}
+.account-menu-list :deep(.v-list-item) {
+    min-height: 42px;
+    border-radius: 10px;
+}
+.account-menu-list :deep(.v-list-item-title) {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.account-menu-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-inline-end: 10px;
+    border-radius: 50%;
+    background: rgba(var(--v-theme-on-surface), 0.08);
+    color: rgba(var(--v-theme-on-surface), 0.75);
+}
+.account-menu-icon--danger {
+    background: rgba(211, 47, 47, 0.12);
+    color: #d32f2f;
+}
+.account-menu-logout :deep(.v-list-item-title) {
+    color: #d32f2f;
+    font-weight: 700;
+}
+.logout-card {
+    padding: 22px 22px 20px;
+    border-radius: 18px !important;
+    border: 1px solid rgba(var(--v-border-color), 0.12);
+    box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.45) !important;
+}
+.logout-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+.logout-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.logout-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    margin: -5px -5px 0 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.logout-close:hover {
+    background: rgba(var(--v-theme-on-surface), 0.08);
+    color: rgba(var(--v-theme-on-surface), 0.9);
+}
+.logout-close:focus-visible {
+    outline: 2px solid rgba(27, 116, 228, 0.5);
+    outline-offset: 1px;
+}
+.logout-body {
+    margin: 10px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: rgba(var(--v-theme-on-surface), 0.62);
+}
+.logout-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+}
+.logout-btn {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.logout-btn:active {
+    transform: translateY(1px);
+}
+.logout-btn:focus-visible {
+    outline: 2px solid rgba(27, 116, 228, 0.5);
+    outline-offset: 2px;
+}
+.logout-btn--cancel {
+    background: rgba(var(--v-theme-on-surface), 0.07);
+    color: rgba(var(--v-theme-on-surface), 0.8);
+}
+.logout-btn--cancel:hover {
+    background: rgba(var(--v-theme-on-surface), 0.12);
+}
+.logout-btn--confirm {
+    background: #1b74e4;
+    color: #fff;
+    box-shadow: 0 8px 18px -10px rgba(27, 116, 228, 0.9);
+}
+.logout-btn--confirm:hover {
+    background: #1668d3;
+    box-shadow: 0 10px 22px -10px rgba(27, 116, 228, 0.95);
+}
+.logout-btn--confirm:disabled {
+    opacity: 0.6;
+    cursor: default;
+    box-shadow: none;
+}
 .brand-click {
     cursor: pointer;
     user-select: none;
+    border-radius: 8px;
+    transition: opacity 0.15s ease;
+}
+.brand-click:hover {
+    opacity: 0.82;
+}
+.brand-click:focus-visible {
+    outline: 2px solid rgba(47, 111, 235, 0.45);
+    outline-offset: 4px;
 }
 /* Viewer "Back to login": navy pill, fills on hover; icon only on phones. */
 .track-exit {

@@ -1,18 +1,26 @@
 <template>
     <v-card rounded="0" min-width="320" :max-width="fluid ? undefined : 520" :style="fluid ? 'width: 100%' : ''" elevation="4">
-        <v-card-title class="pa-5 pb-3">
-            <div class="text-h6 font-weight-bold">{{ title }}</div>
-            <div v-if="positionLabel" class="text-subtitle-2 text-medium-emphasis font-weight-bold mt-1">
-                {{ positionLabel }}
+        <v-card-title class="d-flex align-center pa-4 lgu-head">
+            <v-avatar color="white" rounded="0" size="36" class="mr-3 lgu-head-avatar">
+                <v-icon color="#005EED" size="20">mdi-map-marker-path</v-icon>
+            </v-avatar>
+            <div class="step-card-heading">
+                <div class="step-card-title">{{ title }}</div>
+                <div v-if="positionLabel" class="step-card-position">
+                    {{ positionLabel }}
+                </div>
             </div>
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-5">
-            <div ref="trackEl" style="overflow-x: auto">
+            <div ref="trackEl" class="track-scroll">
             <div v-if="!ordered.length" class="text-caption text-medium-emphasis pa-2">
                 Step details unavailable.
             </div>
             <div v-else-if="!useSnake" class="d-flex align-start">
+                <!-- Room either side so the first and last stations can sit at
+                     the centre of the viewport, not only the middle ones. -->
+                <div v-if="padForCenter" class="center-spacer" aria-hidden="true" />
                 <template v-for="(s, i) in ordered" :key="s.id ?? s.code ?? i">
                     <StationNode
                         :s="s"
@@ -30,6 +38,7 @@
                         :class="i < currentIdx ? 'done' : ''"
                     />
                 </template>
+                <div v-if="padForCenter" class="center-spacer" aria-hidden="true" />
             </div>
             <div v-else class="snake-wrap" ref="snakeWrap">
                 <svg v-if="turnPath" class="snake-svg" aria-hidden="true"><path :d="turnPath" :class="turnDone ? 'done' : ''" /></svg>
@@ -161,6 +170,27 @@ const snakeWrap = ref(null);
 const turnGeom = ref({ w: 0, y1: 0, y2: 0 });
 const trackEl = ref(null);
 
+// Half a station's fixed width (StationNode is 110px): the side spacers use
+// it so the first/last station centre can line up with the viewport centre.
+const NODE_HALF = 55;
+// Side spacers only help when the row actually overflows; on short rows they
+// would just push the stations off to one side.
+const padForCenter = ref(false);
+
+function measureOverflow() {
+    const container = trackEl.value;
+    if (!container) return;
+    const pad = padForCenter.value
+        ? Math.max(0, container.clientWidth / 2 - NODE_HALF) * 2
+        : 0;
+    const content = container.scrollWidth - pad;
+    const shouldPad = !useSnake.value && content > container.clientWidth + 1;
+    if (shouldPad !== padForCenter.value) {
+        padForCenter.value = shouldPad;
+        centerCurrentStep(false);
+    }
+}
+
 // Center the current station in the horizontal tracker. The hover preview
 // opens with the current step at the edge; this puts it in the middle.
 function centerCurrentStep(smooth = false) {
@@ -236,28 +266,37 @@ let turnObserver = null;
 let trackObserver = null;
 
 watch([ordered, currentIdx, useSnake], () => {
-    nextTick(measureTurn);
+    nextTick(() => {
+        measureTurn();
+        measureOverflow();
+    });
 });
 
 watch(currentIdx, () => centerCurrentStep(true));
 
 onMounted(() => {
-    nextTick(measureTurn);
-    centerCurrentStep(false);
+    nextTick(() => {
+        measureTurn();
+        measureOverflow();
+        centerCurrentStep(false);
+    });
     window.addEventListener('resize', measureTurn);
     if (window.ResizeObserver) {
         turnObserver = new ResizeObserver(() => measureTurn());
         if (snakeWrap.value) turnObserver.observe(snakeWrap.value);
 
         // The hover menu may mount the tracker before it has its final
-        // width; re-center once when the scroll container gets sized.
+        // width. Keep watching: the card settles from its min-width to its
+        // max-width, and the centering must follow that growth.
         if (trackEl.value) {
+            let lastWidth = 0;
             trackObserver = new ResizeObserver((entries) => {
                 const width = entries[0]?.contentRect?.width ?? 0;
                 if (width <= 0) return;
+                if (Math.abs(width - lastWidth) < 0.5) return;
+                lastWidth = width;
+                measureOverflow();
                 centerCurrentStep(false);
-                trackObserver?.disconnect();
-                trackObserver = null;
             });
             trackObserver.observe(trackEl.value);
         }
@@ -333,6 +372,27 @@ function moveFor(s) {
 </script>
 
 <style scoped>
+.step-card-heading {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+.step-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+.step-card-position {
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    margin-top: 2px;
+}
 .step-label {
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -341,6 +401,32 @@ function moveFor(s) {
     line-height: 1.35;
     overflow-wrap: break-word;
     font-size: 0.85rem;
+}
+.track-scroll {
+    overflow-x: auto;
+    /* Keep the scrollbar clear of the step name and Current Step chip. */
+    padding-bottom: 24px;
+    scrollbar-width: auto;
+    scrollbar-color: #0b3a82 transparent;
+}
+/* Thicker, dark-blue horizontal bar (Chromium/Edge/Safari). */
+.track-scroll::-webkit-scrollbar {
+    height: 14px;
+}
+.track-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.track-scroll::-webkit-scrollbar-thumb {
+    background: #0b3a82;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+}
+.track-scroll::-webkit-scrollbar-thumb:hover {
+    background: #0d47a1;
+}
+.center-spacer {
+    flex: 0 0 calc(50% - 55px);
 }
 .step-link {
     flex: 1 1 24px;

@@ -1200,9 +1200,9 @@
     "semantic_hash": ""
   },
   "resources/js/components/AppShell.vue": {
-    "mtime": 1793774407.4239054,
-    "seen": 1793774513.4330962,
-    "ast_hash": "7bbe6c78ca1f87f85de389957ef80d5b",
+    "mtime": 1793861579.416236,
+    "seen": 1793861674.80812,
+    "ast_hash": "c5658d1d81894bddbc36689d27a32264",
     "semantic_hash": ""
   },
   "resources/js/components/AppToast.vue": {
@@ -1398,9 +1398,9 @@
     "semantic_hash": "243aabbad0dffa4170363cf21358b1d6"
   },
   "resources/js/components/StepProgress.vue": {
-    "mtime": 1793762996.0477252,
-    "seen": 1793763067.0523763,
-    "ast_hash": "c46228ddb2a09b6a128b1f7bb33dfcc5",
+    "mtime": 1793859271.040141,
+    "seen": 1793859399.0594153,
+    "ast_hash": "35c5c6c9a596484ff7f1fad4b59dd0e2",
     "semantic_hash": ""
   },
   "resources/js/components/SummaryDetailDialog.vue": {
@@ -2295,6 +2295,12 @@
     "mtime": 1793772415.6518595,
     "seen": 1793774513.435195,
     "ast_hash": "1692317b920bc6ddb67561ce165f85ef",
+    "semantic_hash": ""
+  },
+  "logout.png": {
+    "mtime": 1793859984.573233,
+    "seen": 1793860193.8321648,
+    "ast_hash": "878642bf278f5f915b303b11209dad42",
     "semantic_hash": ""
   },
   "package-lock.json": {
