@@ -13,7 +13,7 @@
                     v-tooltip="'Notifications'"
                 >
                     <v-badge :model-value="unseen > 0" :content="unseen > 99 ? '99+' : unseen" color="error" floating>
-                        <v-icon size="21" color="#c7d7ff">{{ unseen ? "mdi-bell-ring-outline" : "mdi-bell-outline" }}</v-icon>
+                        <v-icon size="21">{{ unseen ? "mdi-bell-ring-outline" : "mdi-bell-outline" }}</v-icon>
                     </v-badge>
                 </button>
             </template>
@@ -229,28 +229,34 @@ onUnmounted(() => clearInterval(clock));
 </script>
 
 <style scoped>
-/* Same look as the app bar's pill segments (AppShell .nav-seg / .nav-sep). */
+/* Same round button as the app bar's account button (AppShell .nav-account). */
 .bell-btn {
     display: flex;
     align-items: center;
-    align-self: stretch;
-    padding: 0 14px;
-    background: none;
+    justify-content: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    margin-right: 4px;
+    padding: 0;
+    background: transparent;
     border: 0;
-    color: inherit;
+    border-radius: 50%;
+    color: rgba(var(--v-theme-on-surface), 0.7);
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 .bell-btn:hover,
 .bell-btn:focus-visible {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(11, 18, 32, 0.09);
+    color: #0b1220;
     outline: none;
 }
 .bell-sep {
     align-self: center;
     width: 1px;
     height: 18px;
-    background: rgba(255, 255, 255, 0.28);
+    background: rgba(var(--v-border-color), 0.2);
 }
 .bell-card {
     width: 380px;
