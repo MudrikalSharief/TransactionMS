@@ -459,23 +459,22 @@
 
           <template v-slot:[`item.is_private`]="{ item }">
             <div class="tl-private" @click.stop>
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-switch
-                    v-bind="props"
-                    :model-value="!!item.is_private"
-                    color="primary"
-                    density="compact"
-                    hide-details
-                    inset
-                    :loading="privacySavingId === item.id"
-                    :disabled="privacySavingId === item.id"
-                    :aria-label="item.is_private ? 'Private: searchable on Track' : 'Private: hidden from Track search'"
-                    @update:model-value="(v) => togglePrivacy(item, v)"
-                  />
-                </template>
-                <span>When on, this transaction can be found in Track search.</span>
-              </v-tooltip>
+              <button
+                type="button"
+                class="tl-switch"
+                :class="{ 'is-on': item.is_private }"
+                role="switch"
+                :aria-checked="item.is_private ? 'true' : 'false'"
+                :aria-label="`Set ${item.reference_number || 'transaction'} ${item.is_private ? 'hidden from' : 'searchable on'} Track`"
+                :title="item.is_private ? 'Private · searchable on Track' : 'Private · hidden from Track search'"
+                :disabled="privacySavingId === item.id"
+                @click="togglePrivacy(item, !item.is_private)"
+              >
+                <span class="tl-switch-track" aria-hidden="true">
+                  <span class="tl-switch-thumb" />
+                </span>
+                <span class="tl-switch-label">{{ item.is_private ? 'Private' : 'Public' }}</span>
+              </button>
             </div>
           </template>
 
@@ -768,7 +767,7 @@ const headers = computed(() => {
   ]
   if (isSuperadmin.value) {
     if (!isArchive.value) {
-      base.push({ title: 'Private', key: 'is_private', sortable: false, width: '90px', align: 'center' })
+      base.push({ title: 'Private', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }
     base.push({ title: '', key: 'actions', sortable: false, width: '64px', align: 'end' })
   }
@@ -1067,6 +1066,8 @@ useSmartPoll(async () => {
     --tl-hover: #f3f6fc;
     --tl-blue: #005EED;
     --tl-blue-bg: #e8eeff;
+    --tl-ok: #1b7a3d;
+    --tl-ok-bg: #e3f5ea;
     --tl-ring: rgba(29, 63, 174, 0.28);
     overflow: hidden;
     background: var(--tl-panel);
@@ -1079,6 +1080,8 @@ html.dark .tl-page {
     --tl-hover: #1d2745;
     --tl-blue: #6f8cff;
     --tl-blue-bg: #25306a;
+    --tl-ok: #3fbf6f;
+    --tl-ok-bg: #16382a;
     --tl-ring: rgba(138, 161, 255, 0.38);
     box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
 }
@@ -1385,6 +1388,63 @@ html.dark .tl-page {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.tl-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--tl-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tl-switch:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.tl-switch-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    flex: none;
+    border: 1px solid var(--tl-line);
+    background: var(--tl-field);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.tl-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--tl-muted);
+    transition: transform 0.15s, background 0.15s;
+}
+
+.tl-switch.is-on .tl-switch-track {
+    background: var(--tl-ok-bg);
+    border-color: var(--tl-ok);
+}
+
+.tl-switch.is-on .tl-switch-thumb {
+    background: var(--tl-ok);
+    transform: translateX(14px);
+}
+
+.tl-switch-label {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tl-switch.is-on .tl-switch-label {
+    color: var(--tl-ok);
 }
 
 .tl-empty {
