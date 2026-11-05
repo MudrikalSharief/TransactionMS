@@ -226,8 +226,7 @@
                         </v-list-item-title>
                     </v-list-item>
                 </template>
-                <!-- Help lives with the destinations, right after the last group
-                     (Gov References for superadmins). -->
+                <!-- Help lives with the destinations, right after the last group. -->
                 <v-list-item
                     to="/help"
                     rounded="lg"
@@ -567,8 +566,6 @@ const navGroups = computed(() => {
                 items: [
                     { title: "Offices", icon: "mdi-office-building-outline", to: "/admin/offices" },
                     { title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" },
-                    { title: "Fields", icon: "mdi-form-textbox", to: "/admin/fields" },
-                    { title: "Gov References", icon: "mdi-bank", to: "/admin/government-references" },
                 ],
             },
         ];
@@ -675,9 +672,7 @@ const searchPages = computed(() => {
             { title: "Archive", subtitle: "Page · Admin", icon: "mdi-archive-outline", to: "/transactions/archive" },
             { title: "Offices", subtitle: "Page · Admin", icon: "mdi-office-building-outline", to: "/admin/offices" },
             { title: "Workflows", subtitle: "Page · Admin", icon: "mdi-source-branch", to: "/admin/workflows" },
-            { title: "Fields", subtitle: "Page · Admin", icon: "mdi-form-textbox", to: "/admin/fields" },
-            { title: "Requirements", subtitle: "Page · Admin", icon: "mdi-clipboard-check-outline", to: "/admin/requirements" },
-            { title: "Government References", subtitle: "Page · Admin", icon: "mdi-bank", to: "/admin/government-references" }
+            { title: "Requirements", subtitle: "Page · Admin", icon: "mdi-clipboard-check-outline", to: "/admin/requirements" }
         );
     }
     if (isSuperadmin.value || isOfficeAdmin.value) {
