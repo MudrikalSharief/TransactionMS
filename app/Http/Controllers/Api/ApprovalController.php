@@ -96,6 +96,7 @@ class ApprovalController extends Controller
         $isOfficeAdmin = !$isSuperadmin && $user->isOfficeAdmin();
 
         $query = Transaction::query()
+            ->active()
             ->where('is_done', false)
             ->with(['state.currentStep', 'attachments', 'checklistChecks', 'requirementChecks'])
             ->latest();
@@ -206,6 +207,7 @@ class ApprovalController extends Controller
         $q = trim($filters['q'] ?? '');
 
         $query = Transaction::query()
+            ->active()
             ->where('is_done', false)
             // Eager-load everything TransactionResource reads on lists so the
             // 25 rows on this page don't fan out to N*5 lazy queries.

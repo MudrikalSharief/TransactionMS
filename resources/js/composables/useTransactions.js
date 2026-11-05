@@ -1,15 +1,17 @@
 import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
 import { useAuth } from '@/composables/useAuth'
-import { readCache, writeCache, invalidateCache, CacheKeys, scopedKey, storedUserId, slimTx } from '@/composables/useCache'
+import { readCache, writeCache, invalidateCache, invalidatePrefix, CacheKeys, scopedKey, storedUserId, slimTx } from '@/composables/useCache'
 import { warmOfficeIcons } from '@/utils/officeIcons'
 
-export function useTransactions() {
+export function useTransactions({ archived = false } = {}) {
   const { api } = useApi()
   const { user } = useAuth()
   // Rows depend on who is logged in: scope the cache per user so a shared
   // device never paints another user's list.
-  const key = () => scopedKey(CacheKeys.transactions, user.value?.id ?? storedUserId())
+  const userScope = () => scopedKey(CacheKeys.transactions, user.value?.id ?? storedUserId())
+  const key = () => (archived ? `${userScope()}:archive` : userScope())
+  const endpoint = archived ? '/api/admin/transactions/archive' : '/api/admin/transactions'
 
   // Init from cache at setup: warm loads paint rows on first render with
   // loading already false (zero loader flash); cold loads start loading.
@@ -45,8 +47,18 @@ export function useTransactions() {
   // flash (loading stays false), then the network refreshes silently in
   // the background. Search/pages skip the cache so filtered results never
   // poison the default-view cache.
-  async function fetchAll({ silent = false, q = '', page = 1, per_page = 25 } = {}) {
-    const isDefault = !String(q || '').trim() && Number(page) === 1
+  async function fetchAll({
+    silent = false,
+    q = '',
+    page = 1,
+    per_page = 25,
+    transaction_type_id = null,
+    office_id = null,
+    date_from = '',
+    date_to = '',
+  } = {}) {
+    const hasFilters = !!transaction_type_id || !!office_id || !!date_from || !!date_to
+    const isDefault = !String(q || '').trim() && Number(page) === 1 && !hasFilters
     let painted = false
     if (isDefault) {
       const cached = readCache(key())
@@ -63,7 +75,11 @@ export function useTransactions() {
     try {
       const params = { page, per_page }
       if (String(q || '').trim()) params.q = String(q).trim()
-      const res = await api.get('/api/admin/transactions', { params })
+      if (transaction_type_id) params.transaction_type_id = transaction_type_id
+      if (office_id) params.office_id = office_id
+      if (date_from) params.date_from = date_from
+      if (date_to) params.date_to = date_to
+      const res = await api.get(endpoint, { params })
       applyPayload(res)
       if (isDefault) writeCache(key(), (items.value || []).map(slimTx))
     } finally {
@@ -76,6 +92,28 @@ export function useTransactions() {
     const res = await api.post('/api/admin/transactions', payload)
     invalidateCache(key())
     return res.data.data ?? res.data
+  }
+
+  async function archive(id) {
+    const res = await api.post(`/api/admin/transactions/${id}/archive`)
+    // Archiving moves the row between the active and archive lists.
+    invalidatePrefix(userScope())
+    return res.data
+  }
+
+  async function unarchive(id) {
+    const res = await api.post(`/api/admin/transactions/${id}/unarchive`)
+    // Unarchiving returns the row to the active transaction lists.
+    invalidatePrefix(userScope())
+    return res.data
+  }
+
+  async function setPrivacy(id, isPrivate) {
+    const res = await api.patch(`/api/admin/transactions/${id}/privacy`, {
+      is_private: !!isPrivate,
+    })
+    invalidatePrefix(userScope())
+    return res.data
   }
 
   async function getOne(id) {
@@ -145,5 +183,5 @@ export function useTransactions() {
     return res.data.data ?? res.data
   }
 
-  return { items, loading, meta, fetchAll, create, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, uploadAttachment }
+  return { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, uploadAttachment }
 }

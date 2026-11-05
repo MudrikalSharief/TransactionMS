@@ -391,7 +391,7 @@ const userSteps = computed(() => [
             icon: 'mdi-swap-horizontal',
             title: 'Transactions',
             hint: 'All requests in the system',
-            text: 'This is the full queue — every request in the system appears here, with New Transaction and delete actions.',
+            text: 'This is the full queue — every request in the system appears here, with New Transaction and archive actions. Archiving keeps the record and moves it to Archive.',
             to: '/transactions',
         }
         : {
@@ -401,6 +401,15 @@ const userSteps = computed(() => [
             text: 'Requests for your office and items waiting on your role appear here.',
             to: '/transactions',
         },
+    ...(isSuperadmin.value
+        ? [{
+            icon: 'mdi-archive-outline',
+            title: 'Archive',
+            hint: 'Archived, never deleted',
+            text: 'Archived requests leave the active queue but stay here with their files and full history. They are view-only until unarchived.',
+            to: '/transactions/archive',
+        }]
+        : []),
     {
         icon: 'mdi-mouse-left-click-outline',
         title: 'Open a request',

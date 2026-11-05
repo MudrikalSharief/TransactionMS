@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\RoutingEngine;
 use App\Services\TransactionEngine;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
@@ -21,12 +22,17 @@ class TransactionController extends Controller
             'q' => ['nullable', 'string', 'max:200'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'transaction_type_id' => ['nullable', 'integer', 'exists:transaction_types,id'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         $perPage = (int) ($data['per_page'] ?? 25);
         $q = trim($data['q'] ?? '');
 
         $query = Transaction::query()
+            ->active()
             // Slim eager loads only: everything TransactionListResource reads.
             // No fieldValues/checks/attachments/runs on lists (detail only).
             ->with([
@@ -89,6 +95,34 @@ class TransactionController extends Controller
                 $w->where('reference_number', 'like', "%{$q}%")
                     ->orWhere('title', 'like', "%{$q}%");
             });
+        }
+
+        if (!empty($data['transaction_type_id'])) {
+            $query->where('transaction_type_id', (int) $data['transaction_type_id']);
+        }
+
+        if (!empty($data['office_id'])) {
+            $query->where('office_id', (int) $data['office_id']);
+        }
+
+        if (!empty($data['date_from'])) {
+            $query->where(
+                'created_at',
+                '>=',
+                Carbon::createFromFormat('Y-m-d', $data['date_from'], 'Asia/Manila')
+                    ->startOfDay()
+                    ->utc()
+            );
+        }
+
+        if (!empty($data['date_to'])) {
+            $query->where(
+                'created_at',
+                '<=',
+                Carbon::createFromFormat('Y-m-d', $data['date_to'], 'Asia/Manila')
+                    ->endOfDay()
+                    ->utc()
+            );
         }
 
         return TransactionListResource::collection($query->paginate($perPage));
@@ -170,6 +204,39 @@ class TransactionController extends Controller
             'meta' => [
                 'available_actions' => $actions,
                 'visited_step_ids' => $routing->visitedStepIds($transaction),
+            ],
+        ]);
+    }
+
+    /**
+     * Superadmin-only Track search visibility. When is_private is true the
+     * transaction is discoverable by other viewer accounts through /track.
+     */
+    public function updatePrivacy(Request $request, Transaction $transaction, AuditService $audit)
+    {
+        $data = $request->validate([
+            'is_private' => ['required', 'boolean'],
+        ]);
+
+        $before = (bool) $transaction->is_private;
+        $transaction->is_private = (bool) $data['is_private'];
+
+        if ($transaction->isDirty('is_private')) {
+            $transaction->save();
+
+            $audit->log($request, 'transactions.privacy', $transaction, [
+                'before' => ['is_private' => $before],
+                'after' => ['is_private' => (bool) $transaction->is_private],
+            ]);
+        }
+
+        return response()->json([
+            'message' => $transaction->is_private
+                ? 'Transaction is now searchable on Track.'
+                : 'Transaction removed from Track search.',
+            'data' => [
+                'id' => $transaction->id,
+                'is_private' => (bool) $transaction->is_private,
             ],
         ]);
     }

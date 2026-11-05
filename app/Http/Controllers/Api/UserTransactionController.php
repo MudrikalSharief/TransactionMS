@@ -86,6 +86,7 @@ class UserTransactionController extends Controller
         $roleIds = $user->roles->pluck('id')->filter()->values()->all();
 
         $query = Transaction::query()
+            ->active()
             ->with([
                 'type:id,code,name',
                 'office:id,code,name,icon_path',

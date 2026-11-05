@@ -24,3 +24,6 @@ Homestead.yaml
 Thumbs.db
 
 accounts.txt
+
+# graphify output is local-only; build it locally with /graphify or graphify update
+/graphify-out/

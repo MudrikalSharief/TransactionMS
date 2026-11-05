@@ -196,13 +196,20 @@ class TransactionEngine
             }
 
             // Requirement uploads (wizard page 1: AR, DTR, …) stay unlinked
-            // until Proceed — stamp any still-pending files of this visit
-            // so the move-history row lists every file uploaded while here.
-            \App\Models\TransactionAttachment::query()
+            // until Proceed — stamp any still-pending requirement files of
+            // this visit. Move-level Additional files only travel when they
+            // were explicitly selected in attachment_ids above; otherwise
+            // stale uploads left on the station would be marked as sent.
+            // Returns still carry every pending file so returned evidence is
+            // never orphaned.
+            $pendingStamp = \App\Models\TransactionAttachment::query()
                 ->where('transaction_id', $tx->id)
                 ->where('workflow_step_id', $currentStepId)
-                ->whereNull('step_run_id')
-                ->update(['step_run_id' => $run->id]);
+                ->whereNull('step_run_id');
+            if (!$isReturn) {
+                $pendingStamp->whereNotNull('requirement_definition_id');
+            }
+            $pendingStamp->update(['step_run_id' => $run->id]);
 
             // History per visit: one row per definition per run (receipt no, etc.).
             foreach ($stepDataDefs as $def) {

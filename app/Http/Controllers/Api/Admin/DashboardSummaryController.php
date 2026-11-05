@@ -135,6 +135,7 @@ class DashboardSummaryController extends Controller
 
     private function filtered(Builder $q, bool $withProcess = true): Builder
     {
+        $q->where('transactions.is_archive', false);
         if ($withProcess && $this->processes) $q->whereIn('transactions.transaction_type_id', $this->processes);
         if ($this->offices) $q->whereIn('transactions.office_id', $this->offices);
         if ($this->officeId !== null) $q->where('transactions.office_id', $this->officeId);

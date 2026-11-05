@@ -12,8 +12,47 @@
             <v-card-text class="pa-5">
                 <v-alert v-if="loadError" type="error" variant="tonal" rounded="0" class="mb-4">{{ loadError }}</v-alert>
 
-                <div v-if="loading" class="py-8 d-flex justify-center">
-                    <v-progress-circular indeterminate color="primary" />
+                <!-- Skeleton mirrors the real grid (identity card + fields) so the
+                     card doesn't jump when the profile arrives. -->
+                <div v-if="loading" class="profile-grid" aria-busy="true" aria-live="polite" aria-label="Loading your profile">
+                    <section class="profile-id" aria-hidden="true">
+                        <div class="sk sk-avatar"></div>
+                        <div class="sk sk-line sk-line--name"></div>
+                        <div class="sk sk-line sk-line--email"></div>
+                        <dl class="id-facts">
+                            <dt>Office</dt>
+                            <dd><div class="sk sk-line sk-line--fact"></div></dd>
+                            <dt>Role</dt>
+                            <dd><div class="sk sk-line sk-line--fact"></div></dd>
+                        </dl>
+                        <div class="sk sk-line sk-line--note"></div>
+                        <div class="sk sk-line sk-line--note sk-line--note-short"></div>
+                    </section>
+
+                    <div class="profile-forms" aria-hidden="true">
+                        <section class="pf-sec">
+                            <div class="sk sk-title"></div>
+                            <div class="sk sk-field"></div>
+                            <div class="sk sk-field"></div>
+                            <div class="sk sk-field"></div>
+                            <div class="sk-actions">
+                                <div class="sk sk-btn"></div>
+                                <div class="sk sk-btn sk-btn--wide"></div>
+                            </div>
+                        </section>
+
+                        <v-divider class="my-6" />
+
+                        <section class="pf-sec">
+                            <div class="sk sk-title"></div>
+                            <div class="sk sk-field"></div>
+                            <div class="sk sk-field"></div>
+                            <div class="sk sk-field"></div>
+                            <div class="sk-actions">
+                                <div class="sk sk-btn sk-btn--wide"></div>
+                            </div>
+                        </section>
+                    </div>
                 </div>
 
                 <div v-else class="profile-grid">
@@ -308,6 +347,84 @@ onMounted(load);
 @media (max-width: 760px) {
     .profile-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ---- Loading skeleton: same box sizes as the real content ---- */
+.sk {
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    background: rgba(var(--v-border-color), 0.14);
+}
+.sk::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes sk-shimmer {
+    100% { transform: translateX(100%); }
+}
+.sk-avatar {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 12px;
+}
+.sk-line {
+    height: 12px;
+    margin: 6px auto;
+}
+.sk-line--name {
+    width: 55%;
+    height: 16px;
+    margin-top: 8px;
+}
+.sk-line--email {
+    width: 72%;
+    height: 12px;
+}
+.sk-line--fact {
+    width: 65%;
+    height: 14px;
+    margin: 5px 0 0;
+}
+.sk-line--note {
+    width: 100%;
+    height: 10px;
+    margin: 8px 0 0;
+}
+.sk-line--note-short {
+    width: 70%;
+}
+.sk-title {
+    width: 42%;
+    height: 18px;
+    margin-bottom: 18px;
+}
+.sk-field {
+    height: 56px;
+    margin-bottom: 16px;
+}
+.sk-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+.sk-btn {
+    width: 120px;
+    height: 40px;
+    border-radius: 2px;
+}
+.sk-btn--wide {
+    width: 150px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sk::after {
+        animation: none;
     }
 }
 </style>

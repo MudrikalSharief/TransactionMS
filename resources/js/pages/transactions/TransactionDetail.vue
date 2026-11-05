@@ -1,77 +1,83 @@
 <template>
     <div>
         <LoadingVeil :show="!tx && loading" label="transaction" icon="mdi-file-document-outline" />
-        <v-card rounded="0" elevation="1" class="lgu-card mb-4">
-            <v-card-title class="d-flex align-center pa-5 lgu-head">
-                <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                    <v-icon color="#005EED">mdi-file-document</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">
-                    <template v-if="tx">
-                        Transaction: <b>{{ tx.reference_number }}</b>
-                        <span v-if="tx.title"> — {{ tx.title }}</span>
-                    </template>
-                    <template v-else>Transaction</template>
-                </span>
-                <v-spacer />
-                <!-- Tracking slip with a QR code, handed over with the paper:
-                     opens a preview, printed from there. -->
-                <v-btn
-                    v-if="tx"
-                    variant="outlined"
-                    color="grey-darken-3"
-                    rounded="0"
-                    prepend-icon="mdi-printer-outline"
-                    class="mr-2"
-                    @click="slipOpen = true"
-                    >Print slip</v-btn
-                >
-                <v-btn variant="text" @click="$router.push('/transactions')"
-                    >Back</v-btn
-                >
-                <TrackingSlipDialog v-model="slipOpen" :tx="tx" :printed-by="auth.user.value?.name || ''" />
-            </v-card-title>
-
-            <v-divider />
-
-            <v-card-text v-if="tx" class="pa-0">
-                <v-row no-gutters>
-                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3">
-                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
-                            <v-icon size="20">mdi-shape-outline</v-icon>
-                        </v-avatar>
-                        <div class="min-w-0">
-                            <div class="text-caption text-medium-emphasis">Transaction Type</div>
-                            <div class="text-body-1 font-weight-bold">{{ tx.transaction_type?.name }}</div>
-                        </div>
-                    </v-col>
-                    <v-divider class="d-sm-none" />
-                    <v-col cols="12" sm="6" class="d-flex align-center ga-3 px-5 py-3 meta-divide">
-                        <v-avatar color="primary" variant="tonal" rounded="0" size="34">
-                            <v-icon size="20">mdi-source-branch</v-icon>
-                        </v-avatar>
-                        <div class="min-w-0">
-                            <div class="text-caption text-medium-emphasis">Current Step</div>
-                            <div class="text-body-1 font-weight-bold">{{ tx.current_step?.name }}</div>
-                        </div>
-                    </v-col>
-                </v-row>
-
-                <v-alert v-if="error" type="error" variant="tonal" class="ma-4 mt-0">{{ error }}</v-alert>
-
-                <v-divider />
-
-            </v-card-text>
-
-            <v-card-text v-else class="pa-4">
-                <v-alert v-if="!loading && error" type="error" variant="tonal" class="mb-0">{{ error }}</v-alert>
-                <div v-else>
-                    <v-skeleton-loader type="heading" class="mb-2" />
-                    <v-skeleton-loader type="text" />
-                    <v-skeleton-loader type="text" />
+        <header class="tx-header mb-4">
+            <div class="tx-top">
+                <div class="tx-icon" aria-hidden="true">
+                    <v-icon size="22" color="white">mdi-file-document-outline</v-icon>
                 </div>
-            </v-card-text>
-        </v-card>
+                <div class="tx-title-wrap">
+                    <div class="tx-meta">
+                        <span class="tx-kicker">Transaction Type</span>
+                        <span
+                            class="tx-type"
+                            :title="tx?.transaction_type?.name || 'N/A'"
+                        >
+                            <v-icon size="14" aria-hidden="true">mdi-shape-outline</v-icon>
+                            <span class="tx-type-name">{{ tx?.transaction_type?.name || 'N/A' }}</span>
+                        </span>
+                    </div>
+                    <div class="tx-main">
+                        <h1 class="tx-name" :title="tx?.title || 'N/A'">
+                            {{ tx?.title || 'N/A' }}
+                        </h1>
+                        <div v-if="tx?.reference_number" class="tx-codebox">
+                            <span class="tx-code" :title="tx.reference_number">{{ tx.reference_number }}</span>
+                            <button
+                                type="button"
+                                class="tx-copy"
+                                :class="{ 'is-done': copied }"
+                                :aria-label="copied ? 'Copied' : 'Copy transaction code'"
+                                @click="copyReference"
+                            >
+                                <v-icon size="14" aria-hidden="true">{{ copied ? 'mdi-check' : 'mdi-content-copy' }}</v-icon>
+                                <span>{{ copied ? 'Copied' : 'Copy' }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tx-actions">
+                    <button
+                        v-if="tx && isSuperadmin()"
+                        type="button"
+                        class="tx-archive"
+                        :class="{ 'is-unarchive': isArchived }"
+                        :aria-label="isArchived ? 'Unarchive transaction' : 'Archive transaction'"
+                        @click="archiveDialogOpen = true"
+                    >
+                        <v-icon size="18" aria-hidden="true">
+                            {{ isArchived ? 'mdi-archive-arrow-up-outline' : 'mdi-archive-outline' }}
+                        </v-icon>
+                        <span>{{ isArchived ? 'Unarchive' : 'Archive' }}</span>
+                    </button>
+                    <!-- Tracking slip with a QR code, handed over with the paper:
+                         opens a preview, printed from there. -->
+                    <button
+                        v-if="tx"
+                        type="button"
+                        class="tx-back"
+                        aria-label="Print tracking slip"
+                        @click="slipOpen = true"
+                    >
+                        <v-icon size="18" aria-hidden="true">mdi-printer-outline</v-icon>
+                        <span>Print slip</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="tx-back"
+                        aria-label="Back"
+                        @click="goBack"
+                    >
+                        <v-icon size="18" aria-hidden="true">mdi-arrow-left</v-icon>
+                        <span>Back</span>
+                    </button>
+                </div>
+            </div>
+            <div v-if="error" class="tx-error">
+                <v-alert type="error" variant="tonal" rounded="0" class="ma-0">{{ error }}</v-alert>
+            </div>
+            <TrackingSlipDialog v-model="slipOpen" :tx="tx" :printed-by="auth.user.value?.name || ''" />
+        </header>
 
         <!-- Covered by LoadingVeil above while the transaction loads. -->
 
@@ -88,6 +94,17 @@
                 title="Transaction Stations"
             >
                 <template #actions v-if="tx">
+                    <v-alert
+                        v-if="isArchived"
+                        type="info"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <v-icon start size="small">mdi-archive-outline</v-icon>
+                        This transaction has been archived — view only. Use the
+                        Unarchive button above to make it active again.
+                    </v-alert>
+                    <template v-else>
                     <v-alert
                         v-if="pendingReceipt"
                         type="warning"
@@ -198,6 +215,7 @@
                                 </v-btn>
                                 <v-btn
                                     v-if="hasActionOptions && !showCompleteStep"
+                                    class="action-proceed-btn"
                                     :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'primary'"
                                     rounded="0"
                                     :append-icon="isReturnAction ? 'mdi-chevron-triple-left' : 'mdi-chevron-triple-right'"
@@ -212,6 +230,7 @@
                             </v-col>
                         </v-row>
                     </div>
+                    </template>
                 </template>
             </StepProgress>
         </div>
@@ -488,27 +507,29 @@
             @deleted="removeAttachment"
         />
 
-        <v-dialog v-model="remarksDialog" max-width="800" scrollable>
-            <v-card rounded="xl" style="overflow: hidden">
-                <div class="px-6 pt-4"><StepBadge :tx="tx" /></div>
-                <v-card-title :class="[{ 'text-warning': isReturnAction || isReturnMode }, 'd-flex', 'align-center', 'ga-2']">
-                    <span>{{ displayModalTitle }}</span>
-                    <v-spacer />
-                    <v-btn v-if="!isReturnMode && !isAtFirstStep" size="small" variant="outlined" rounded="lg" color="warning" prepend-icon="mdi-arrow-left" @click="toggleWizardMode">Return</v-btn>
-                    <v-btn v-else-if="!isAtFirstStep" size="small" variant="outlined" rounded="lg" color="grey-darken-3" prepend-icon="mdi-arrow-right" @click="toggleWizardMode">Proceed</v-btn>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="proceed-scroll">
-                    <div v-if="isReturnMode" class="mb-3">
-                        <ActionDropdown
-                            :model-value="selectedRouteId"
-                            :items="returnPickerOptions"
-                            label="Select where to return"
-                            placeholder="Choose a station"
-                            :disabled="saving"
-                            @update:model-value="onSelectAction"
-                        />
-                    </div>
+        <v-dialog v-model="remarksDialog" max-width="560">
+            <v-card class="pm-dialog" flat>
+                <ProceedModalHeader
+                    :tx="tx"
+                    :prefix="modalHeaderPrefix"
+                    :destination-name="modalHeaderDestinationName"
+                    :destination-office="modalHeaderDestinationOffice"
+                    :fallback-title="displayModalTitle"
+                    @close="remarksDialog = false"
+                >
+                    <template #actions>
+                        <button
+                            v-if="!isCompleting && !isAtFirstStep"
+                            type="button"
+                            class="pm-head-btn"
+                            @click="toggleWizardMode"
+                        >
+                            <v-icon size="14">{{ isReturnMode ? 'mdi-arrow-right' : 'mdi-arrow-left' }}</v-icon>
+                            {{ isReturnMode ? 'Proceed' : 'Return' }}
+                        </button>
+                    </template>
+                </ProceedModalHeader>
+                <div class="pm-body">
                     <ProceedWizard
                         ref="wizardRef"
                         v-model:step="wizardStep"
@@ -534,6 +555,7 @@
                         :is-return-selected="isCompleting ? false : (isReturnMode || isReturnSelected)"
                         :is-completing="isCompleting"
                         :show-checklist="isCompleting ? true : !skipReview"
+                        :requirements-tab-disabled="requirementsTabBlocked"
                         :missing-required-upload-labels="missingRequiredUploadLabels"
                         :missing-required-tick-labels="missingRequiredTickLabels"
                         :missing-required-checklist-labels="isCompleting ? missingRequiredCompleteLabels : missingRequiredChecklistLabels"
@@ -546,88 +568,58 @@
                         :remarks-label="isReturnMode ? 'Reason for returning (required)' : (autoReturnInfo?.sender ? `Reply to ${autoReturnInfo.sender} (optional)` : 'Remarks (optional)')"
                         remarks-placeholder="Explain what you changed or fixed"
                         attachments-title="Additional files"
+                        modern
                         @toggle-requirement="onWizardToggle"
                         @return-missing="returnForMissing"
                         @toggle-checklist="onWizardChecklistToggle"
                         @requirement-uploaded="refreshTxPreservingForm"
                         @attachment-deleted="removeAttachment"
-                    />
-                </v-card-text>
-                <v-divider />
-                <v-card-actions class="justify-end">
-                    <v-btn variant="text" @click="remarksDialog = false"
-                        >Cancel</v-btn
                     >
-                    <v-btn
-                        v-if="wizardStep === 2 && !isSingleStepProceed && !skipReview && !isCompleting"
-                        variant="text"
-                        @click="wizardStep = 1"
-                    >Back</v-btn>
-                    <v-btn
-                        v-if="isCompleting && wizardStep === 2 && !isSingleStepProceed"
-                        variant="text"
-                        @click="wizardStep = 1"
-                    >Back</v-btn>
-                    <v-btn
-                        v-if="!isCompleting && wizardStep === 1 && !isSingleStepProceed && !skipReview"
-                        color="grey-darken-3"
-                        rounded="0"
-                        :disabled="saving || savingChecklist"
-                        @click="goWizardNext"
-                    >Next</v-btn>
-                    <v-btn
-                        v-if="!isReturnMode && !isCompleting && isReturnAction && wizardStep === 1 && !isSingleStepProceed && !skipReview"
-                        color="warning"
-                        rounded="0"
-                        :loading="saving"
-                        :disabled="returnSubmitDisabled"
-                        @click="isJumpSelected ? openJump() : executeSelected()"
-                    >Return</v-btn>
-                    <v-btn
-                        v-if="isCompleting && wizardStep === 1 && !isSingleStepProceed"
-                        color="grey-darken-3"
-                        rounded="0"
-                        :disabled="saving || savingChecklist"
-                        @click="goWizardNext"
-                    >Next</v-btn>
-                    <v-btn
-                        v-if="isCompleting && !isReturnMode && (wizardStep === 2 || isSingleStepProceed)"
-                        color="success"
-                        rounded="0"
-                        :loading="saving"
-                        :disabled="completeBlocked"
-                        @click="finalizeTx"
-                        >Complete Step</v-btn
-                    >
-                    <template v-if="isReturnMode">
-                        <span v-if="missingRequiredFields.length > 0" class="text-caption text-medium-emphasis mr-2">Fill required station info: {{ missingRequiredFields.join(', ') }}.</span>
-                        <v-btn
-                            color="warning"
-                            rounded="0"
-                            :loading="saving"
-                            :disabled="returnSubmitDisabled"
-                            @click="isJumpSelected ? returnViaJump() : executeSelected()"
-                        >Return</v-btn>
-                    </template>
-                    <v-btn
-                        v-else-if="!isCompleting && (wizardStep === 2 || skipReview)"
-                        :color="isReturnAction ? 'warning' : isResendAction ? 'purple-darken-2' : 'grey-darken-3'"
-                        rounded="0"
-                        :loading="saving"
-                        :disabled="!selectedRouteId || (!isReturnSelected && (missingRequiredUploadLabels.length > 0 || missingRequiredTickLabels.length > 0 || missingRequiredChecklistLabels.length > 0)) || missingRequiredFields.length > 0 || missingRequiredStepDataLabels.length > 0"
-                        @click="executeSelected"
-                        >{{ isReturnAction ? 'Return' : 'Proceed' }}</v-btn
-                    >
-                </v-card-actions>
+                        <template #after-tabs>
+                            <div
+                                v-if="isReturnMode && (wizardStep === 2 || !returnHasDetailsPage)"
+                                class="mb-4"
+                                data-pm-task="Return destination"
+                            >
+                                <ActionDropdown
+                                    :model-value="selectedRouteId"
+                                    :items="returnPickerOptions"
+                                    label="Select return destination"
+                                    placeholder="Choose a station"
+                                    required
+                                    :disabled="saving"
+                                    @update:model-value="onSelectAction"
+                                />
+                            </div>
+                        </template>
+                    </ProceedWizard>
+                </div>
+                <ProceedModalFooter
+                    :tasks="modalTasks"
+                    :busy="saving"
+                    :primary-label="modalPrimaryLabel"
+                    :primary-tone="modalPrimaryTone"
+                    :primary-disabled="modalPrimaryDisabled"
+                    :show-primary="showModalPrimary"
+                    :show-back="showModalBack"
+                    :show-next="showModalNext"
+                    :next-disabled="saving || savingChecklist || requirementsTabBlocked"
+                    @cancel="remarksDialog = false"
+                    @back="wizardStep = 1"
+                    @next="goWizardNext"
+                    @primary="onModalPrimary"
+                />
             </v-card>
         </v-dialog>
 
         <JumpBackDialog
             v-model:open="jumpDialog"
+            :tx="tx"
             :current-label="jumpCurrentLabel"
             :destination-label="jumpDestinationLabel"
+            :destination-name="jumpDestinationName"
+            :destination-office="jumpDestinationOffice"
             :subject="tx?.title || ''"
-            :confirm-label="mainActionButtonLabel"
             :saving="saving"
             :is-forward="isJumpForward"
             :checklist="tx?.current_step_checklist || []"
@@ -642,6 +634,14 @@
             confirm-color="success"
             :saving="saving"
             @confirm="finalizeTx"
+        />
+
+        <ArchiveActionDialog
+            v-model:open="archiveDialogOpen"
+            :mode="archiveMode"
+            :transaction="tx"
+            :saving="archiveSaving"
+            @confirm="confirmArchiveAction"
         />
 
         <v-dialog v-model="checkDialog" max-width="700">
@@ -722,8 +722,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed, watch } from "vue";
-import { useRoute } from "vue-router";
+import { onMounted, ref, computed, watch, onUnmounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
@@ -734,19 +734,24 @@ import ActionDropdown from '@/components/ActionDropdown.vue';
 import RouteFlowPreview from '@/components/RouteFlowPreview.vue';
 import JumpBackDialog from '@/components/JumpBackDialog.vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
 import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
-import StepBadge from '@/components/StepBadge.vue';
+import ProceedModalHeader from '@/components/ProceedModalHeader.vue';
+import ProceedModalFooter from '@/components/ProceedModalFooter.vue';
+import ReturnBanner from '@/components/ReturnBanner.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
 import { fmtDateTime } from '@/utils/dates';
 import TrackingSlipDialog from '@/components/TrackingSlipDialog.vue';
+import { toast } from '@/composables/useToast';
 
 const route = useRoute();
+const router = useRouter();
 const { api } = useApi();
-const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
+const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi, archive, unarchive } = useTransactions();
 
 const tx = ref(null);
 // Tracking slip preview (QR to the tracking page), printed from the dialog.
@@ -756,6 +761,47 @@ const saving = ref(false);
 const loading = ref(true);
 const error = ref("");
 const executeError = ref("");
+const archiveDialogOpen = ref(false);
+const archiveSaving = ref(false);
+
+// Header reference-code copy feedback.
+const copied = ref(false);
+let copiedTimer = null;
+
+function goBack() {
+    router.push(route.query.from === "archive" ? "/transactions/archive" : "/transactions");
+}
+
+async function copyReference() {
+    const text = String(tx.value?.reference_number || "").trim();
+    if (!text) return;
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const el = document.createElement("textarea");
+            el.value = text;
+            el.setAttribute("readonly", "");
+            el.style.position = "fixed";
+            el.style.opacity = "0";
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand("copy");
+            el.remove();
+        }
+        copied.value = true;
+        clearTimeout(copiedTimer);
+        copiedTimer = setTimeout(() => {
+            copied.value = false;
+        }, 1600);
+    } catch {
+        // Clipboard access can be denied; leave the label unchanged.
+    }
+}
+
+watch(() => tx.value?.reference_number, () => {
+    copied.value = false;
+});
 
 function formatApiError(e, fallback) {
     const errs = e?.response?.data?.errors;
@@ -860,12 +906,14 @@ const selectedRouteId = ref(null);
 const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
+const isArchived = computed(() => !!(tx.value?.is_archive));
+const archiveMode = computed(() => (tx.value?.is_archive ? 'unarchive' : 'archive'));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
+const showFinalize = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value);
 // Complete Step replaces Finalize on the last station: green button that
 // opens the checklist modal, then finalizes. No outgoing routes needed.
 const isCompleting = ref(false);
-const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
+const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value);
 const completeModalTitle = computed(() => {
     const cur = tx.value?.current_step;
     const n = cur?.order_number ?? '';
@@ -1043,14 +1091,14 @@ const isSingleStepProceed = computed(() => !hasProceedRequirements.value);
 // Return's "Additional files" starts empty: only what the user adds there
 // is listed. Returned evidence is not lost — the from-step's own files are
 // stamped to the return run by the engine.
-// Proceed default for staged "Additional files": re-walks into an
-// already-passed station prefill this station's previous files; first
-// visits start empty on purpose.
+// Proceed default for staged "Additional files": list the current step's
+// pending move-level files (not yet stamped to a run). Requirement files
+// already show in their own sections, and stamped files have already
+// travelled, so both stay out to avoid sending anything twice.
 function proceedDefaultAttachments() {
-    const id = selectedAction.value?.to_step?.id;
-    const visited = id !== null && id !== undefined
-        && (visitedStepIds.value || []).map(Number).includes(Number(id));
-    return visited ? [...currentStepAttachments()] : [];
+    return currentStepAttachments().filter(
+        (a) => a.step_run_id == null || a.step_run_id === undefined,
+    );
 }
 const remarks = ref("");
 const proceedAttachments = ref([]);
@@ -1361,6 +1409,21 @@ const missingRequiredCompleteLabels = computed(() => {
         .map((c) => c.name)
         .filter(Boolean);
 });
+// Review-page checklist is the gate to the Requirements page. Return skips
+// it (checklist is informational there), so its tabs stay unlocked.
+const reviewChecklistBlockers = computed(() =>
+    isCompleting.value ? missingRequiredCompleteLabels.value : missingRequiredChecklistLabels.value,
+);
+const requirementsTabBlocked = computed(() =>
+    !isReturnMode.value && reviewChecklistBlockers.value.length > 0,
+);
+// Return only shows the destination picker on its details page. Review has
+// no destination control; stations without a details page keep the picker on
+// their only page.
+const returnHasDetailsPage = computed(() =>
+    (tx.value?.current_step_requirements || []).length > 0 ||
+    (tx.value?.current_step_data || []).length > 0,
+);
 const completeBlocked = computed(() =>
     missingRequiredCompleteLabels.value.length > 0 ||
     missingRequiredUploadLabels.value.length > 0 ||
@@ -1503,10 +1566,9 @@ function openComplete() {
     remarksDialog.value = true;
 }
 
-// Files previously saved on the current station, for prefill when
-// re-proceeding through already-passed stations. Move-level only:
-// requirement files already show in their requirement sections above,
-// so they are excluded from the below-remarks list.
+// Move-level files on the current station, used to prefill the
+// below-remarks "Additional files" list. Requirement files already show
+// in their requirement sections above, so they are excluded here.
 function currentStepAttachments() {
     const cur = Number(tx.value?.current_step?.id);
     return (tx.value?.attachments || [])
@@ -1650,6 +1712,28 @@ async function executeSelected() {
     }
 }
 
+async function confirmArchiveAction() {
+    if (!tx.value || archiveSaving.value) return;
+
+    const wasArchived = !!tx.value.is_archive;
+    archiveSaving.value = true;
+    error.value = "";
+
+    try {
+        if (wasArchived) await unarchive(tx.value.id);
+        else await archive(tx.value.id);
+
+        toast.success(wasArchived ? "Transaction unarchived." : "Transaction archived.");
+        archiveDialogOpen.value = false;
+        await load();
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message ||
+            (wasArchived ? "Unarchive failed." : "Archive failed.");
+    } finally {
+        archiveSaving.value = false;
+    }
+}
 // Complete Step on the last station. Validates required files + data
 // like Proceed, then saves staged station info with finalize.
 const jumpDialog = ref(false);
@@ -1990,17 +2074,6 @@ const returnPickerOptions = computed(() => {
 const returnSubmitDisabled = computed(() =>
     !selectedRouteId.value || !isReturnAction.value || !(remarks.value || '').trim() || missingRequiredFields.value.length > 0 || saving.value,
 );
-const mainActionButtonLabel = computed(() => {
-    if (!selectedRouteId.value) return "Proceed";
-    if (isJumpSelected.value) {
-        const n = selectedJumpOption.value?.to_number ?? "";
-        const verb = isJumpForward.value ? "Resend to Step" : "Return to Step";
-        return n !== "" ? `${verb} ${n}` : verb;
-    }
-    if (!selectedAction.value) return "Proceed";
-    if (isReturnSelected.value) return `Return to Step ${selectedStepNumber.value}`;
-    return `Proceed to Step ${selectedStepNumber.value}`;
-});
 // Action-bar button keeps the verb only (destination is shown in the
 // graphic above it): Proceed / Return / Resend.
 const actionButtonLabel = computed(() => {
@@ -2030,6 +2103,15 @@ function destStepForTitle() {
     }
     return direct ?? null;
 }
+// Jump confirmation header (Resend dialog shared with the Proceed shell).
+const jumpDestinationName = computed(() => {
+    const dest = isJumpSelected.value ? destStepForTitle() : null;
+    return dest?.name || dest?.code || "";
+});
+const jumpDestinationOffice = computed(() => {
+    const dest = isJumpSelected.value ? destStepForTitle() : null;
+    return String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
+});
 function proceedTitle(prefix) {
     const dest = destStepForTitle();
     const n = dest?.order_number ?? selectedStepNumber.value ?? "";
@@ -2052,6 +2134,157 @@ const proceedModalTitle = computed(() => {
     if (isReturnSelected.value) return proceedTitle("Return to");
     return proceedTitle("Proceeding to");
 });
+
+// ---- Redesigned modal shell -------------------------------------------
+// Header prefix/title follow the active mode: Proceed, Return, Resend or
+// Complete Step. The destination name/office are rendered separately so
+// the station can be emphasized in the title.
+const modalHeaderPrefix = computed(() => {
+    if (isCompleting.value) return 'Completing step';
+    if (isReturnMode.value || isReturnAction.value) return 'Returning to';
+    if (isResendAction.value) return 'Resending to';
+    return 'Proceeding to';
+});
+
+const modalHeaderDestinationName = computed(() => {
+    if (isCompleting.value) {
+        const cur = tx.value?.current_step;
+        return cur?.name || cur?.code || '';
+    }
+    const dest = destStepForTitle();
+    return dest?.name || dest?.code || '';
+});
+
+const modalHeaderDestinationOffice = computed(() => {
+    if (isCompleting.value) {
+        const cur = tx.value?.current_step;
+        return String(cur?.office?.code ?? cur?.office?.name ?? '').trim();
+    }
+    const dest = destStepForTitle();
+    return String(dest?.office?.code ?? dest?.office?.name ?? '').trim();
+});
+
+// Readiness chips mirror the gating of the old action row for the current
+// mode. The footer dedupes labels; clicking one scrolls to that item.
+const modalTasks = computed(() => {
+    // Review page tasks carry page 1; Requirements tasks carry page 2. The
+    // footer flips the wizard when the target page has not rendered yet
+    // (Vuetify lazy windows), then scrolls to the item.
+    if (isCompleting.value) {
+        return [
+            ...missingRequiredCompleteLabels.value.map((label) => ({
+                label, page: 1, kind: 'check',
+            })),
+            ...missingRequiredTickLabels.value.map((label) => ({
+                label, page: 2, kind: 'tick',
+            })),
+            ...missingRequiredUploadLabels.value.map((label) => ({
+                label, page: 2, kind: 'upload',
+            })),
+            ...[
+                ...missingRequiredFields.value,
+                ...missingRequiredStepDataLabels.value,
+            ].map((label) => ({ label, page: 2, kind: 'field' })),
+        ];
+    }
+    if (isReturnMode.value || isReturnAction.value) {
+        const out = [];
+        if (!selectedRouteId.value) out.push({ label: 'Return destination' });
+        if (!String(remarks.value || '').trim()) out.push({ label: 'Return reason' });
+        out.push(...missingRequiredFields.value.map((label) => ({ label, kind: 'field' })));
+        return out;
+    }
+    const out = [];
+    if (!selectedRouteId.value) out.push({ label: 'Destination' });
+    out.push(...missingRequiredChecklistLabels.value.map((label) => ({
+        label, page: 1, kind: 'check',
+    })));
+    out.push(...missingRequiredTickLabels.value.map((label) => ({
+        label, page: 2, kind: 'tick',
+    })));
+    out.push(...missingRequiredUploadLabels.value.map((label) => ({
+        label, page: 2, kind: 'upload',
+    })));
+    out.push(
+        ...[
+            ...missingRequiredFields.value,
+            ...missingRequiredStepDataLabels.value,
+        ].map((label) => ({ label, page: 2, kind: 'field' })),
+    );
+    return out;
+});
+
+const modalPrimaryLabel = computed(() => {
+    if (isCompleting.value) return 'Complete Step';
+    if (isReturnMode.value || isReturnAction.value) return 'Return';
+    if (isResendAction.value) return 'Resend';
+    return 'Proceed';
+});
+
+const modalPrimaryTone = computed(() => {
+    if (isCompleting.value) return 'success';
+    if (isReturnMode.value || isReturnAction.value) return 'warn';
+    if (isResendAction.value) return 'resend';
+    return '';
+});
+
+const modalPrimaryDisabled = computed(() => {
+    if (isCompleting.value) return completeBlocked.value;
+    if (isReturnMode.value || isReturnAction.value) return returnSubmitDisabled.value;
+    return (
+        !selectedRouteId.value ||
+        (!isReturnSelected.value && (
+            missingRequiredUploadLabels.value.length > 0 ||
+            missingRequiredTickLabels.value.length > 0 ||
+            missingRequiredChecklistLabels.value.length > 0
+        )) ||
+        missingRequiredFields.value.length > 0 ||
+        missingRequiredStepDataLabels.value.length > 0
+    );
+});
+
+const showModalPrimary = computed(() => {
+    if (isCompleting.value) return wizardStep.value === 2 || isSingleStepProceed.value;
+    if (isReturnMode.value) return true;
+    if (isReturnAction.value && wizardStep.value === 1 && !isSingleStepProceed.value && !skipReview.value) return true;
+    // No requirements: the Review page doubles as the single-page form, so
+    // the primary action must stay available there even after step 1.
+    return wizardStep.value === 2 || skipReview.value || isSingleStepProceed.value;
+});
+
+const showModalBack = computed(() => {
+    if (wizardStep.value !== 2 || isSingleStepProceed.value) return false;
+    // Complete Step always keeps the Review → Requirements back path, even
+    // when the station is step 1 (skipReview would otherwise hide it).
+    if (isCompleting.value) return true;
+    return !skipReview.value;
+});
+
+const showModalNext = computed(() => {
+    if (isReturnMode.value) return false;
+    if (wizardStep.value !== 1 || isSingleStepProceed.value) return false;
+    // Complete Step at step 1 still needs Next when a checklist page exists.
+    if (isCompleting.value) return true;
+    return !skipReview.value && !isReturnAction.value;
+});
+
+// Preserve the old split between page-1 Return (jump confirmation first)
+// and the in-modal Return page (jump executes directly).
+function onModalPrimary() {
+    if (isCompleting.value) {
+        finalizeTx();
+        return;
+    }
+    if (isReturnMode.value) {
+        isJumpSelected.value ? returnViaJump() : executeSelected();
+        return;
+    }
+    if (isReturnAction.value && wizardStep.value === 1 && !isSingleStepProceed.value && !skipReview.value) {
+        isJumpSelected.value ? openJump() : executeSelected();
+        return;
+    }
+    executeSelected();
+}
 
 // Check/Uncheck modals. Info fields bind the same page `form` object, so
 // anything typed in the Check modal is staged locally and only saved
@@ -2121,39 +2354,296 @@ function removeAttachment(id) {
 }
 
 onMounted(load);
+onUnmounted(() => clearTimeout(copiedTimer));
 </script>
 
 <style scoped>
+/* The global brand gradient paints filled primary buttons dark. The
+   action-bar Proceed button is the blue primary action beside the picker,
+   so override the gradient locally (Return/Resend use their own colours). */
+.action-proceed-btn {
+    --tms-grad: linear-gradient(
+        rgb(var(--v-theme-primary)),
+        rgb(var(--v-theme-primary))
+    );
+}
+
 .row-dim {
     opacity: 0.55;
 }
 
-/* Slim inner scroll: keeps scrolling inside the curved modal. */
-.proceed-scroll {
-    max-height: 70vh;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
-    padding-right: 8px;
+/* ---------- Transaction header (reference design) ---------- */
+.tx-header {
+    --tx-panel: #fff;
+    --tx-ink: #14213d;
+    --tx-muted: #5b6780;
+    --tx-line: #d5dbe8;
+    --tx-field: #f4f6fb;
+    --tx-hover: #f3f6fc;
+    --tx-blue: #1d3fae;
+    --tx-blue-bg: #e8eeff;
+    --tx-amber: #9a5b00;
+    --tx-amber-bg: #fff4dc;
+    --tx-amber-line: #f2c765;
+    --tx-ok: #1b7a3d;
+    --tx-ring: rgba(29, 63, 174, 0.28);
+    background: var(--tx-panel);
+    color: var(--tx-ink);
+    border: 1px solid var(--tx-line);
+    border-bottom: 3px solid var(--tx-blue);
+    box-shadow: 0 10px 30px -18px rgba(20, 33, 61, 0.3);
+    font-variant-numeric: tabular-nums;
 }
-.proceed-scroll::-webkit-scrollbar {
-    width: 4px;
+
+html.dark .tx-header {
+    --tx-panel: #161e36;
+    --tx-ink: #eef2fb;
+    --tx-muted: #9aa7c4;
+    --tx-line: #2b3558;
+    --tx-field: #1c2645;
+    --tx-hover: #1d2745;
+    --tx-blue: #6f8cff;
+    --tx-blue-bg: #25306a;
+    --tx-amber: #ffbf47;
+    --tx-amber-bg: #3d2d0e;
+    --tx-amber-line: #6b4f17;
+    --tx-ok: #3fbf6f;
+    --tx-ring: rgba(138, 161, 255, 0.38);
+    box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.5);
 }
-.proceed-scroll::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.25);
-    border-radius: 999px;
+
+.tx-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 24px;
 }
-.proceed-scroll::-webkit-scrollbar-track {
-    background: transparent;
+
+.tx-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--tx-blue);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    flex: none;
 }
-/* Header meta split: vertical divider between Type and Step on sm+ only
-   (stacked rows get the horizontal v-divider instead). */
-@media (min-width: 600px) {
-    .meta-divide {
-        border-left: 1px solid rgba(0, 0, 0, 0.12);
+
+.tx-title-wrap {
+    min-width: 0;
+    flex: 1;
+}
+
+.tx-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    margin-left: auto;
+}
+
+.tx-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tx-kicker {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tx-muted);
+}
+
+.tx-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    background: var(--tx-blue-bg);
+    color: var(--tx-blue);
+    padding: 2px 10px 2px 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.tx-type .v-icon {
+    color: inherit;
+    flex: none;
+}
+
+.tx-type-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tx-main {
+    display: flex;
+    align-items: center;
+    gap: 4px 14px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+}
+
+.tx-name {
+    margin: 0;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tx-codebox {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1.5px solid var(--tx-line);
+    background: var(--tx-field);
+    flex: none;
+    max-width: 100%;
+}
+
+.tx-code {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--tx-muted);
+}
+
+.tx-copy,
+.tx-back,
+.tx-archive {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+.tx-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-left: 1.5px solid var(--tx-line);
+    background: var(--tx-panel);
+    color: var(--tx-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tx-copy:hover {
+    background: var(--tx-hover);
+    color: var(--tx-ink);
+}
+
+.tx-copy.is-done {
+    color: var(--tx-ok);
+}
+
+.tx-copy .v-icon {
+    color: inherit;
+}
+
+.tx-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border: 1.5px solid var(--tx-line);
+    background: var(--tx-panel);
+    color: var(--tx-ink);
+    font-size: 14px;
+    font-weight: 700;
+    flex: none;
+}
+
+.tx-back:hover {
+    background: var(--tx-hover);
+}
+
+.tx-back .v-icon {
+    color: inherit;
+}
+
+.tx-archive {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border: 1.5px solid var(--tx-amber-line);
+    background: var(--tx-amber-bg);
+    color: var(--tx-amber);
+    font-size: 14px;
+    font-weight: 700;
+    flex: none;
+}
+
+.tx-archive:hover {
+    filter: brightness(0.97);
+}
+
+.tx-archive .v-icon {
+    color: inherit;
+}
+
+.tx-archive.is-unarchive {
+    border-color: rgba(var(--v-theme-primary), 0.45);
+    background: var(--tx-blue-bg);
+    color: var(--tx-blue);
+}
+
+html.dark .tx-archive:hover {
+    filter: brightness(1.08);
+}
+
+.tx-header button:focus-visible {
+    outline: 3px solid var(--tx-ring);
+    outline-offset: 2px;
+}
+
+.tx-error {
+    padding: 0 24px 16px;
+}
+
+@media (max-width: 640px) {
+    .tx-top {
+        padding: 12px 14px;
+        gap: 12px;
     }
-    html.dark .meta-divide {
-        border-left-color: rgba(255, 255, 255, 0.12);
+    .tx-name {
+        flex-basis: 100%;
+        font-size: 18px;
+    }
+    .tx-back span {
+        display: none;
+    }
+    .tx-archive span {
+        display: none;
+    }
+    .tx-back,
+    .tx-archive {
+        padding: 0 11px;
+    }
+    .tx-error {
+        padding: 0 14px 14px;
     }
 }
 </style>

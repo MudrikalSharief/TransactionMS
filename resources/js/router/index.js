@@ -14,7 +14,6 @@ const AdminActivityLog = () => import("@/pages/admin/ActivityLog.vue");
 const AdminGovernmentReferences = () => import("@/pages/admin/GovernmentReferences.vue");
 const AdminWorkflows = () => import("@/pages/admin/Workflows.vue");
 const AdminFields = () => import("@/pages/admin/Fields.vue");
-const AdminStepFields = () => import("@/pages/admin/StepFields.vue");
 
 const AdminRequirements = () => import("@/pages/admin/Requirements.vue");
 const AdminStepRequirements = () => import("@/pages/admin/StepRequirements.vue");
@@ -26,6 +25,7 @@ const AdminStepDataOverview = () =>
 const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue");
 
 const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
+const TransactionArchive = () => import("@/pages/transactions/TransactionArchive.vue");
 const TransactionDetail = () => import("@/pages/transactions/TransactionDetail.vue");
 
 const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
@@ -78,7 +78,7 @@ export function createRouter() {
                 path: "/",
                 name: "dashboard",
                 component: Dashboard,
-                meta: { requiresAuth: true, title: "Dashboard", fit: true },
+                meta: { requiresAuth: true, title: "Dashboard" },
             },
 
             {
@@ -98,7 +98,7 @@ export function createRouter() {
                 path: "/portal/history",
                 name: "portal.history",
                 component: PortalTransactions,
-                meta: { requiresAuth: true, title: "Transaction Archive", kind: "staff", history: true },
+                meta: { requiresAuth: true, title: "Archive", kind: "staff", history: true },
             },
             {
                 // My Profile: every signed-in account (viewers are sent back
@@ -204,13 +204,6 @@ export function createRouter() {
             },
 
             {
-                path: "/admin/workflows/:workflowId/steps/:stepId/fields",
-                name: "admin.step-fields",
-                component: AdminStepFields,
-                meta: { requiresAuth: true, superadmin: true },
-            },
-
-            {
                 path: "/admin/workflows/:workflowId/requirements",
                 name: "admin.workflow-requirements",
                 component: AdminRequirements,
@@ -253,6 +246,17 @@ export function createRouter() {
                 path: "/transactions",
                 component: TransactionsList,
                 meta: { requiresAuth: true },
+            },
+            {
+                path: "/transactions/archive",
+                name: "transactions.archive",
+                component: TransactionArchive,
+                meta: {
+                    requiresAuth: true,
+                    superadmin: true,
+                    archive: true,
+                    title: "Archive",
+                },
             },
             {
                 path: "/transactions/:id",

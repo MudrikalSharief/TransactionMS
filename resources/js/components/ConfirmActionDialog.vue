@@ -1,12 +1,16 @@
 <template>
-    <v-dialog :model-value="open" max-width="520" @update:model-value="(v) => emit('update:open', v)">
+    <v-dialog :model-value="open" max-width="560" @update:model-value="(v) => emit('update:open', v)">
         <v-card rounded="xl" style="overflow: hidden">
-            <v-card-title class="pa-5">
+            <v-card-title class="pa-5 pb-2" style="white-space: normal">
                 <div class="text-h6 font-weight-bold">{{ title }}</div>
-                <div v-if="message" class="text-caption text-medium-emphasis font-weight-bold mt-1">
-                    {{ message }}
-                </div>
             </v-card-title>
+            <v-card-text
+                v-if="message"
+                class="px-5 pb-5 pt-0 text-caption text-medium-emphasis font-weight-bold"
+                style="white-space: normal; overflow-wrap: anywhere"
+            >
+                {{ message }}
+            </v-card-text>
             <v-divider />
             <v-card-actions class="justify-end ga-2">
                 <v-btn variant="text" :disabled="saving" @click="emit('update:open', false)">Cancel</v-btn>

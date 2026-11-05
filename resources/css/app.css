@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './proceed-modal.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -282,6 +283,9 @@ html.dark *::-webkit-scrollbar-thumb:hover {
 .dash-panel .v-table th {
     font-size: 0.72rem !important;
     letter-spacing: 0.04em;
+}
+html.dark .dash-panel.start-hero {
+    background: linear-gradient(100deg, #1b2540 0%, #1e1e2e 55%, #1b2a4a 100%) !important;
 }
 html.dark .dash-panel {
     border-color: rgba(255, 255, 255, 0.06) !important;

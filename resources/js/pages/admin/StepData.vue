@@ -1,5 +1,11 @@
 <template>
     <div class="sd-page">
+        <DepthNav
+            :levels="depthLevels"
+            :deeper="depthDeeper"
+            deeper-label="Step pages"
+            class="mb-4"
+        />
         <v-alert
             v-if="error"
             type="error"
@@ -24,16 +30,6 @@
             @save="openSaveDialog"
         />
 
-        <div class="sd-info">
-            <v-icon size="20" class="sd-info-ic"
-                >mdi-information-outline</v-icon
-            >
-            <span>
-                <b>Staged step data.</b>
-                Edits stay local until you press Save version.
-            </span>
-        </div>
-
         <StagingSaveBar
             ref="saveBarRef"
             :type-id="typeId"
@@ -43,7 +39,10 @@
             @discarded="afterStagingChange"
         />
 
-        <p class="sd-lbl">Select step</p>
+        <p class="sd-lbl">
+            <v-icon size="14" aria-hidden="true">mdi-gesture-tap</v-icon>
+            Select step
+        </p>
 
         <div ref="stepMenuRef" class="sd-dd" @focusout="onStepMenuFocusOut">
             <button
@@ -67,9 +66,6 @@
                         selectedStep?.name ||
                         (stepsLoading ? "Loading steps…" : "Select a step")
                     }}</b>
-                    <small>{{
-                        selectedStep?.code || "No step selected"
-                    }}</small>
                 </span>
                 <span v-if="selectedStep" class="sd-count">
                     {{ countLabel(stepFieldCount(selectedStep.id)) }}
@@ -90,6 +86,7 @@
                 role="listbox"
                 aria-label="Steps"
             >
+                <div class="sd-menu-head" aria-hidden="true">Choose a step</div>
                 <button
                     v-for="(option, index) in stepOptions"
                     :key="option.id"
@@ -107,7 +104,6 @@
                     <span class="sd-option-n">{{ option.order_number }}</span>
                     <span class="sd-option-tx">
                         <b>{{ option.name }}</b>
-                        <small>{{ option.code }}</small>
                     </span>
                     <span class="sd-count">{{ countLabel(option.count) }}</span>
                     <v-icon
@@ -674,8 +670,13 @@
                         <div class="sd-prev-title">Previous data</div>
                         <div class="sd-prev-sub">
                             Select a data field from
-                            {{ previousStep?.name || "the previous step" }} to
-                            reuse it in {{ selectedStep?.name || "this step" }}.
+                            <span class="sd-step-chip">{{
+                                stepLabel(previousStep, "the previous step")
+                            }}</span>
+                            to reuse it in
+                            <span class="sd-step-chip">{{
+                                stepLabel(selectedStep, "this step")
+                            }}</span>.
                         </div>
                     </div>
                     <v-btn
@@ -765,11 +766,14 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { confirm } from "@/composables/useConfirm";
 import { useStepData } from "@/composables/useStepData";
+import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useToast } from "@/composables/useToast";
 import { tmpKey, useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
+import DepthNav from "@/components/DepthNav.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
+import { buildWorkflowDepthLevels, workflowStepTo } from "@/utils/workflowDepth";
 
 const route = useRoute();
 const router = useRouter();
@@ -857,6 +861,65 @@ const selectedStep = computed(
             (s) => String(s.id) === String(selectedStepId.value),
         ) ?? null,
 );
+
+const { items: txTypes, fetchAll: fetchTxTypes } = useTransactionTypes();
+
+const selectedTypeName = computed(() => {
+    const t = (txTypes.value || []).find(
+        (x) => Number(x.id) === Number(typeId.value),
+    );
+    return t?.name || "";
+});
+
+const depthStepLabel = computed(() => {
+    const s = selectedStep.value;
+    if (!s) return "Step";
+    const n = s.order_number;
+    const name = s.name || s.code || "";
+    return `Step ${n ?? ""}${name ? ` · ${name}` : ""}`.trim();
+});
+
+const depthLevels = computed(() =>
+    buildWorkflowDepthLevels({
+        typeId: typeId.value,
+        typeName: selectedTypeName.value,
+        workflowId: workflowDefinitionId.value,
+        stepId: selectedStepId.value || stepIdFromUrl.value || null,
+        stepLabel: depthStepLabel.value,
+        stepTo: workflowStepTo("admin.step-data", {
+            workflowId: workflowDefinitionId.value,
+            stepId: selectedStepId.value || stepIdFromUrl.value || null,
+            typeId: typeId.value,
+        }),
+        currentLabel: "Step Data",
+    }),
+);
+
+const depthDeeper = computed(() => {
+    const wid = workflowDefinitionId.value;
+    const sid = selectedStepId.value || stepIdFromUrl.value;
+    if (!wid || !sid) return [];
+    const stepId = Number(sid);
+    return [
+        {
+            label: "Requirements",
+            to: workflowStepTo("admin.step-requirements", {
+                workflowId: wid,
+                stepId,
+                typeId: typeId.value,
+            }),
+        },
+        {
+            label: "Step Data",
+            to: workflowStepTo("admin.step-data", {
+                workflowId: wid,
+                stepId,
+                typeId: typeId.value,
+            }),
+            current: true,
+        },
+    ];
+});
 
 const stepOptions = computed(() =>
     steps.value.map((s) => ({
@@ -1427,6 +1490,14 @@ const previousStep = computed(() =>
         : null,
 );
 
+function stepLabel(step, fallback) {
+    if (!step) return fallback;
+    const n = step.order_number;
+    const name = step.name || step.code || "";
+    if (n === null || n === undefined || n === "") return name || fallback;
+    return `Step ${n}${name ? ` · ${name}` : ""}`;
+}
+
 function isFieldOnStep(item) {
     return (items.value || []).some(
         (row) =>
@@ -1813,7 +1884,7 @@ onMounted(async () => {
     document.addEventListener("mousedown", onDocumentPointerDown);
     document.addEventListener("keydown", onDocumentKeydown);
 
-    await loadSteps();
+    await Promise.allSettled([loadSteps(), fetchTxTypes()]);
     selectInitialStep();
 });
 
@@ -1861,29 +1932,10 @@ onBeforeUnmount(() => {
     outline-offset: 2px;
 }
 
-.sd-info {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 22px;
-    padding: 14px 16px;
-    border-radius: 0;
-    background: rgba(var(--v-theme-primary), 0.1);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.sd-info-ic {
-    flex: none;
-    margin-top: 1px;
-    color: rgb(var(--v-theme-primary));
-}
-
-.sd-info b {
-    color: rgb(var(--v-theme-primary));
-}
-
 .sd-lbl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin: 0 0 10px;
     font-size: 12px;
     font-weight: 800;
@@ -1891,6 +1943,10 @@ onBeforeUnmount(() => {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgb(var(--v-theme-secondary));
+}
+
+.sd-lbl .v-icon {
+    color: rgb(var(--v-theme-primary));
 }
 
 /* ---- Step picker ---- */
@@ -1906,25 +1962,34 @@ onBeforeUnmount(() => {
     width: 100%;
     min-height: 68px;
     padding: 10px 14px 10px 10px;
-    border: 1.5px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border: 2px solid rgba(var(--v-theme-primary), 0.35);
     border-radius: 0;
-    background: rgb(var(--v-theme-surface));
+    background: linear-gradient(
+        90deg,
+        rgba(var(--v-theme-primary), 0.07),
+        rgb(var(--v-theme-surface)) 30%
+    );
     color: rgb(var(--v-theme-on-surface));
     text-align: left;
     cursor: pointer;
+    box-shadow: 0 6px 18px -14px rgba(var(--v-theme-primary), 0.55);
     transition:
         border-color 0.15s,
-        box-shadow 0.15s;
+        box-shadow 0.15s,
+        background 0.15s;
 }
 
 .sd-trigger:hover:not(:disabled) {
-    border-color: rgba(var(--v-theme-primary), 0.45);
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 10px 24px -14px rgba(var(--v-theme-primary), 0.65);
 }
 
 .sd-trigger:focus-visible,
 .sd-trigger-open {
     border-color: rgb(var(--v-theme-primary));
-    box-shadow: 0 0 0 4px rgba(var(--v-theme-primary), 0.18);
+    box-shadow:
+        0 0 0 4px rgba(var(--v-theme-primary), 0.18),
+        0 10px 24px -14px rgba(var(--v-theme-primary), 0.65);
 }
 
 .sd-trigger:disabled {
@@ -1960,18 +2025,6 @@ onBeforeUnmount(() => {
     white-space: nowrap;
 }
 
-.sd-step-tx small {
-    display: block;
-    overflow: hidden;
-    margin-top: 2px;
-    color: rgb(var(--v-theme-secondary));
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12.5px;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .sd-count {
     flex: none;
     padding: 3px 10px;
@@ -1991,6 +2044,15 @@ onBeforeUnmount(() => {
 
 .sd-chev-open {
     transform: rotate(180deg);
+}
+
+.sd-menu-head {
+    padding: 4px 8px 8px;
+    color: rgb(var(--v-theme-secondary));
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .sd-menu {
@@ -2062,18 +2124,6 @@ onBeforeUnmount(() => {
     overflow: hidden;
     font-size: 14.5px;
     font-weight: 700;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sd-option-tx small {
-    display: block;
-    overflow: hidden;
-    margin-top: 2px;
-    color: rgb(var(--v-theme-secondary));
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
     line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2269,9 +2319,26 @@ onBeforeUnmount(() => {
 .sd-prev-sub {
     margin-top: 3px;
     font-size: 14px;
+    line-height: 1.45;
     color: rgb(var(--v-theme-secondary));
+    white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.sd-step-chip {
+    display: inline-block;
+    max-width: 100%;
+    padding: 2px 8px;
+    margin: 0 1px;
+    border: 1px solid rgba(var(--v-theme-primary), 0.28);
+    background: rgba(var(--v-theme-primary), 0.1);
+    color: rgb(var(--v-theme-primary));
+    font-weight: 700;
+    line-height: 1.45;
+    vertical-align: baseline;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .sd-prev-x {
@@ -3213,10 +3280,6 @@ html.dark .sd-card {
 
 html.dark .sd-menu {
     box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.65);
-}
-
-html.dark .sd-info {
-    background: rgba(var(--v-theme-primary), 0.14);
 }
 
 html.dark .sd-tg[aria-checked="true"],

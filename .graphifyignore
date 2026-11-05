@@ -1,0 +1,25 @@
+# graphify scan exclusions (gitignore syntax)
+# Docs: https://docs.graphify.com/reference/configuration
+
+# Nested tool copies and local-only state
+.kilo/
+.opencode/
+state/
+
+# Vendor / build output (repeated so --no-gitignore runs stay clean)
+vendor/
+node_modules/
+public/
+storage/
+
+# Graph output itself
+graphify-out/
+
+# Scratch and debug scripts
+_navtest.mjs
+admin_dbg.mjs
+query
+
+# Bulk data dumps (schema references stay in database/ and docs/)
+transaction_new_data.sql
+transaction_resolved.sql

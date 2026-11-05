@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\Admin\StepChecklistController;
 use App\Http\Controllers\Api\Admin\StepDataController;
 
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\TransactionArchiveController;
 use App\Http\Controllers\Api\TransactionRequirementController;
 use App\Http\Controllers\Api\TransactionChecklistController;
 use App\Http\Controllers\Api\TransactionAttachmentController;
@@ -267,9 +268,18 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // with an office (non-superadmin creations are forced to their own
         // office); reassign stays superadmin-only.
         Route::get('/transactions', [TransactionController::class, 'index']);
+        // Static path must precede {transaction} so "archive" is not bound as an id.
+        Route::get('/transactions/archive', [TransactionArchiveController::class, 'index'])
+            ->middleware(EnsureRole::class.':superadmin');
         Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
             ->middleware(EnsureTransactionOffice::class);
+        Route::post('/transactions/{transaction}/archive', [TransactionArchiveController::class, 'store'])
+            ->middleware(EnsureRole::class.':superadmin');
+        Route::post('/transactions/{transaction}/unarchive', [TransactionArchiveController::class, 'unarchive'])
+            ->middleware(EnsureRole::class.':superadmin');
+        Route::patch('/transactions/{transaction}/privacy', [TransactionController::class, 'updatePrivacy'])
+            ->middleware(EnsureRole::class.':superadmin');
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice'])
             ->middleware(EnsureRole::class.':superadmin');
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction'])

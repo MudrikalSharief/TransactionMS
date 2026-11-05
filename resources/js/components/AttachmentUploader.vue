@@ -1,6 +1,10 @@
 <template>
-    <div>
-        <div v-if="showHeader" class="d-flex align-center ga-2 mb-3">
+    <div :class="{ 'pm-form': redesign }">
+        <!-- Caller-owned picker/header (redesigned requirement cards put the
+             title, status and Choose files action on one row). -->
+        <slot name="header" :open="pick" :uploading="uploading" :disabled="pickerDisabled" />
+        <input v-if="$slots.header" ref="fileInput" type="file" multiple :accept="ACCEPT_ATTR" class="d-none" @change="onNativePick" />
+        <div v-if="!$slots.header && showHeader" class="d-flex align-center ga-2 mb-3">
             <div class="font-weight-bold text-body-1">
                 Upload files
             </div>
@@ -10,76 +14,119 @@
             </span>
         </div>
         <!-- Inline Name + Add file row (used by Other attachments in the Proceed modal). -->
-        <div v-if="showLabelInput" class="d-flex ga-2 align-start flex-wrap mb-2">
-            <v-text-field
-                :model-value="fileLabel"
-                :label="labelInputLabel"
-                :placeholder="labelInputPlaceholder"
-                variant="outlined"
-                density="compact"
-                hide-details="auto"
-                class="flex-1-1"
-                style="min-width: 180px"
-                @update:model-value="(v) => emit('update:fileLabel', v)"
-            />
-            <v-btn
-                size="small"
-                variant="tonal"
-                rounded="0"
-                prepend-icon="mdi-paperclip"
-                class="flex-0-0 mt-1"
-                :disabled="disabled || uploading || labelMissing"
-                :loading="uploading"
-                @click="fileInput?.click()"
-            >{{ addButtonLabel }}</v-btn>
-            <v-btn
-                v-if="showExistingBtn"
-                size="small"
-                variant="tonal"
-                rounded="0"
-                prepend-icon="mdi-history"
-                class="flex-0-0 mt-1"
-                :disabled="existingDisabled || uploading"
-                @click="emit('open-existing')"
-            >Existing files</v-btn>
-            <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
+        <div v-if="!$slots.header && showLabelInput" :class="redesign ? 'pm-add mb-2' : 'd-flex ga-2 align-start flex-wrap mb-2'">
+            <template v-if="redesign">
+                <input
+                    class="pm-input"
+                    :value="fileLabel"
+                    :placeholder="labelInputPlaceholder || labelInputLabel"
+                    :aria-label="labelInputLabel"
+                    @input="emit('update:fileLabel', $event.target.value)"
+                />
+                <button
+                    type="button"
+                    class="pm-btn pri"
+                    :disabled="pickerDisabled"
+                    @click="pick"
+                >
+                    <span v-if="uploading" class="pm-spinner" aria-hidden="true"></span>
+                    <v-icon v-else size="16">mdi-paperclip</v-icon>
+                    {{ uploading ? 'Uploading…' : addButtonLabel }}
+                </button>
+                <button
+                    v-if="showExistingBtn"
+                    type="button"
+                    class="pm-btn ghost"
+                    :disabled="existingDisabled || uploading"
+                    @click="emit('open-existing')"
+                >
+                    <v-icon size="16">mdi-history</v-icon>
+                    Existing
+                </button>
+            </template>
+            <template v-else>
+                <v-text-field
+                    :model-value="fileLabel"
+                    :label="labelInputLabel"
+                    :placeholder="labelInputPlaceholder"
+                    variant="outlined"
+                    density="compact"
+                    hide-details="auto"
+                    class="flex-1-1"
+                    style="min-width: 180px"
+                    @update:model-value="(v) => emit('update:fileLabel', v)"
+                />
+                <v-btn
+                    size="small"
+                    variant="tonal"
+                    rounded="0"
+                    prepend-icon="mdi-paperclip"
+                    class="flex-0-0 mt-1"
+                    :disabled="pickerDisabled"
+                    :loading="uploading"
+                    @click="pick"
+                >{{ addButtonLabel }}</v-btn>
+                <v-btn
+                    v-if="showExistingBtn"
+                    size="small"
+                    variant="tonal"
+                    rounded="0"
+                    prepend-icon="mdi-history"
+                    class="flex-0-0 mt-1"
+                    :disabled="existingDisabled || uploading"
+                    @click="emit('open-existing')"
+                >Existing files</v-btn>
+            </template>
+            <input ref="fileInput" type="file" multiple :accept="ACCEPT_ATTR" class="d-none" @change="onNativePick" />
         </div>
         <!-- Minimal picker: small button + inline hint (used in grouped upload sections). -->
-        <div v-else-if="minimal" class="d-flex align-center ga-2 mb-2">
+        <div v-else-if="!$slots.header && minimal" :class="redesign ? '' : 'd-flex align-center ga-2 mb-2'">
+            <button
+                v-if="redesign"
+                type="button"
+                class="pm-lnk"
+                :disabled="pickerDisabled"
+                @click="pick"
+            >
+                <v-icon size="16">{{ uploading ? 'mdi-loading' : 'mdi-paperclip' }}</v-icon>
+                {{ uploading ? 'Uploading…' : (hasFiles ? 'Add more' : 'Choose files') }}
+            </button>
             <v-btn
+                v-else
                 size="small"
                 variant="tonal"
                 rounded="0"
                 prepend-icon="mdi-paperclip"
-                :disabled="disabled || uploading || labelMissing"
+                :disabled="pickerDisabled"
                 :loading="uploading"
-                @click="fileInput?.click()"
+                @click="pick"
             >Choose files</v-btn>
             <span v-if="labelMissing" class="text-caption text-error">
                 <v-icon size="x-small">mdi-alert-circle-outline</v-icon>
                 Enter a name first to enable uploads.
             </span>
-            <span v-else-if="hintText" class="text-caption" :class="hintType === 'success' ? 'text-success' : 'text-error'">
+            <span v-else-if="hintText" :class="redesign ? 'pm-hint' : 'text-caption'" :style="!redesign ? '' : ''">
                 <v-icon size="x-small">{{ hintType === 'success' ? 'mdi-check' : 'mdi-alert-circle-outline' }}</v-icon>
                 {{ hintText }}
             </span>
-            <input ref="fileInput" type="file" multiple class="d-none" @change="onNativePick" />
+            <input ref="fileInput" type="file" multiple :accept="ACCEPT_ATTR" class="d-none" @change="onNativePick" />
         </div>
         <v-file-input
-            v-else
+            v-else-if="!$slots.header"
             v-model="picked"
             label="Choose files"
             multiple
+            :accept="ACCEPT_ATTR"
             show-size
             counter
             density="compact"
-            :disabled="disabled || uploading || labelMissing"
+            :disabled="pickerDisabled"
             :loading="uploading"
             :hint="labelMissing ? 'Enter a name first to enable uploads.' : undefined"
             :persistent-hint="labelMissing"
             @update:model-value="onPick"
         />
-        <v-alert v-if="uploadError" type="error" variant="tonal" density="compact" class="mb-2">
+        <v-alert v-if="uploadError" :type="redesign ? 'error' : 'error'" :variant="redesign ? 'tonal' : 'tonal'" :density="redesign ? 'compact' : 'compact'" :class="redesign ? 'mb-2' : 'mb-2'">
             {{ uploadError }}
         </v-alert>
         <AttachmentList
@@ -93,6 +140,10 @@
             :action="fileAction"
             :show-eye="listShowEye"
             :group-by-label="listGroupByLabel"
+            :collapsible-groups="listCollapsibleGroups"
+            :groups-open-by-default="listGroupsOpenByDefault"
+            :group-cards="listGroupCards"
+            :redesign="redesign"
             @deleted="onDeleted"
         />
     </div>
@@ -102,6 +153,58 @@
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 import AttachmentList from "@/components/AttachmentList.vue";
+
+// Keep these in sync with App\Http\Requests\Transactions\UploadAttachmentRequest.
+const ALLOWED_EXTENSIONS = new Set([
+    "pdf", "doc", "docx",
+    "png", "jpg", "jpeg", "webp", "bmp",
+    "txt", "md", "log", "csv",
+    "xls", "xlsx",
+]);
+const ALLOWED_MIME_TYPES = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.ms-word",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/bmp",
+    "image/x-ms-bmp",
+    "text/plain",
+    "text/markdown",
+    "text/x-markdown",
+    "text/x-log",
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+    "application/x-msexcel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    // Legacy Office files and browsers sometimes report this generic type.
+    // The backend performs the authoritative MIME check.
+    "application/octet-stream",
+]);
+const ACCEPT_ATTR =
+    ".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.bmp,.txt,.md,.log,.csv,.xls,.xlsx";
+
+function fileExtension(name) {
+    const value = String(name || "").toLowerCase();
+    const dot = value.lastIndexOf(".");
+    return dot >= 0 ? value.slice(dot + 1) : "";
+}
+
+function isAllowedFile(file) {
+    const ext = fileExtension(file?.name);
+    if (!ALLOWED_EXTENSIONS.has(ext)) return false;
+    const mime = String(file?.type || "").toLowerCase();
+    return !mime || ALLOWED_MIME_TYPES.has(mime);
+}
+
+function rejectionMessage(files) {
+    const names = files.slice(0, 3).map((f) => `"${f.name}"`).join(", ");
+    const more = files.length > 3 ? ` and ${files.length - 3} more` : "";
+    return `${names}${more} ${files.length === 1 ? "is" : "are"} not allowed. Only PDF, Word, images (no GIF), text, and Excel files can be uploaded.`;
+}
 
 const props = defineProps({
     txId: { type: [Number, String], required: true },
@@ -132,6 +235,14 @@ const props = defineProps({
     listDetailed: { type: Boolean, default: false },
     // When true with listDetailed, files group into one big card per batch name.
     listGroupByLabel: { type: Boolean, default: false },
+    // Collapse the grouped list by batch name. Additional files group by
+    // label and start collapsed so long batches stay compact.
+    listCollapsibleGroups: { type: Boolean, default: false },
+    // Whether grouped rows start expanded. Additional files pass false so
+    // each name group starts collapsed with its first file still visible.
+    listGroupsOpenByDefault: { type: Boolean, default: true },
+    // Render each batch group as its own tinted card (Additional files).
+    listGroupCards: { type: Boolean, default: false },
     // When true, renders an inline [Name][Add file] row owning the label
     // input (used by Other attachments instead of a separate Name field).
     showLabelInput: { type: Boolean, default: false },
@@ -142,6 +253,8 @@ const props = defineProps({
     // (Additional-files reuse from the previous step; no Name needed).
     showExistingBtn: { type: Boolean, default: false },
     existingDisabled: { type: Boolean, default: false },
+    // Redesigned proceed-modal styling for the picker, label row and list.
+    redesign: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:modelValue", "uploaded", "deleted", "error", "update:fileLabel", "open-existing"]);
 
@@ -157,12 +270,26 @@ const uploadUrl = computed(() =>
         : `/api/transactions/${props.txId}/attachments`,
 );
 
+const labelMissing = computed(() => props.requireLabel && !String(props.fileLabel || '').trim());
+const pickerDisabled = computed(() => props.disabled || uploading.value || labelMissing.value);
+const hasFiles = computed(() => (props.modelValue || []).length > 0);
+
+// Lets a caller-owned #header slot trigger the native picker while the
+// upload state (busy/disabled) stays owned here.
+function pick() {
+    if (pickerDisabled.value) return;
+    fileInput.value?.click();
+}
+
+defineExpose({ pick, uploading });
+
 function onDeleted(id) {
     emit("update:modelValue", props.modelValue.filter((a) => a.id !== id));
     emit("deleted", id);
 }
 
-function formatErr(e) {    const errs = e?.response?.data?.errors;
+function formatErr(e) {
+    const errs = e?.response?.data?.errors;
     if (errs) {
         const first = Object.values(errs).flat()[0];
         if (first) return Array.isArray(first) ? first[0] : String(first);
@@ -173,9 +300,8 @@ function formatErr(e) {    const errs = e?.response?.data?.errors;
     );
 }
 
-const labelMissing = computed(() => props.requireLabel && !String(props.fileLabel || '').trim());
-
-async function onPick(files) {    uploadError.value = "";
+async function onPick(files) {
+    uploadError.value = "";
     if (!files?.length) return;
     if (labelMissing.value) {
         uploadError.value = "Enter a name first.";
@@ -183,11 +309,17 @@ async function onPick(files) {    uploadError.value = "";
     }
     const label = String(props.fileLabel || '').trim();
     const queue = [...files];
+    const rejected = queue.filter((f) => !isAllowedFile(f));
+    const valid = queue.filter((f) => isAllowedFile(f));
+    if (rejected.length) {
+        uploadError.value = rejectionMessage(rejected);
+    }
     picked.value = [];
+    if (!valid.length) return;
     uploading.value = true;
     const done = [...props.modelValue];
     try {
-        for (const f of queue) {
+        for (const f of valid) {
             if (f.size > 20 * 1024 * 1024) {
                 uploadError.value = `"${f.name}" exceeds 20MB and was skipped.`;
                 continue;
