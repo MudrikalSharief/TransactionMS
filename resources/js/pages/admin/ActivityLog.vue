@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="entering" label="activity log" icon="mdi-history" />
         <v-card rounded="0" elevation="1" class="lgu-card">
             <v-card-title class="d-flex align-center flex-wrap ga-2 pa-5 lgu-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
@@ -161,6 +162,7 @@ import { useAuth } from "@/composables/useAuth";
 import { toast } from "@/composables/useToast";
 import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
 import { downloadXlsx, downloadPdf } from "@/utils/reportExport";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 
 const router = useRouter();
 const { api } = useApi();
@@ -179,6 +181,9 @@ const lastPage = ref(1);
 const periodLabel = ref("All time");
 const canSeeSetup = ref(false);
 const loading = ref(false);
+// Full-page loader while the page opens; later filter changes reuse the
+// in-table "Loading…" row instead.
+const entering = ref(true);
 const error = ref("");
 const exporting = ref("");
 
@@ -205,7 +210,10 @@ async function load() {
     } catch (e) {
         if (mine === request) error.value = e?.response?.data?.message || "Failed to load the activity log.";
     } finally {
-        if (mine === request) loading.value = false;
+        if (mine === request) {
+            loading.value = false;
+            entering.value = false;
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 <template>
     <div class="fit-page">
+        <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
             <div class="dash-hello-text">
                 <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
@@ -564,6 +565,7 @@ import SummaryPopover from '@/components/SummaryPopover.vue'
 import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
+import LoadingVeil from '@/components/LoadingVeil.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import {
     periodOptions as dashPeriodOptions,
@@ -584,6 +586,9 @@ const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
 const loading = ref(false)
+// Full-page loader shown each time the Dashboard is opened, until the
+// first fetch of the cards and lists finishes.
+const entering = ref(true)
 const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
@@ -1324,7 +1329,7 @@ onMounted(async () => {
         isCached(scopedKey(CacheKeys.transactions, uid))
     loading.value = !warm
     const opts = { silent: warm }
-    loadSummary()
+    const summaryDone = loadSummary()
     // Process/office filter options; cached, so these never hold up the page.
     if (isSuperadmin.value) {
         typeStore.fetchAll({ silent: true }).catch(() => {})
@@ -1338,6 +1343,8 @@ onMounted(async () => {
 
     refreshedAt.value = new Date()
     loading.value = false
+    await summaryDone.catch(() => {})
+    entering.value = false
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
