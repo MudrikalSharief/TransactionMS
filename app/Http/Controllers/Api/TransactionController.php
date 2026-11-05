@@ -32,6 +32,7 @@ class TransactionController extends Controller
         $q = trim($data['q'] ?? '');
 
         $query = Transaction::query()
+            ->active()
             // Slim eager loads only: everything TransactionListResource reads.
             // No fieldValues/checks/attachments/runs on lists (detail only).
             ->with([
@@ -203,6 +204,39 @@ class TransactionController extends Controller
             'meta' => [
                 'available_actions' => $actions,
                 'visited_step_ids' => $routing->visitedStepIds($transaction),
+            ],
+        ]);
+    }
+
+    /**
+     * Superadmin-only Track search visibility. When is_private is true the
+     * transaction is discoverable by other viewer accounts through /track.
+     */
+    public function updatePrivacy(Request $request, Transaction $transaction, AuditService $audit)
+    {
+        $data = $request->validate([
+            'is_private' => ['required', 'boolean'],
+        ]);
+
+        $before = (bool) $transaction->is_private;
+        $transaction->is_private = (bool) $data['is_private'];
+
+        if ($transaction->isDirty('is_private')) {
+            $transaction->save();
+
+            $audit->log($request, 'transactions.privacy', $transaction, [
+                'before' => ['is_private' => $before],
+                'after' => ['is_private' => (bool) $transaction->is_private],
+            ]);
+        }
+
+        return response()->json([
+            'message' => $transaction->is_private
+                ? 'Transaction is now searchable on Track.'
+                : 'Transaction removed from Track search.',
+            'data' => [
+                'id' => $transaction->id,
+                'is_private' => (bool) $transaction->is_private,
             ],
         ]);
     }

@@ -26,6 +26,8 @@ class TransactionListResource extends JsonResource
             'reference_number' => $this->reference_number,
             'title' => $this->title,
             'is_done' => (bool) $this->is_done,
+            'is_archive' => (bool) $this->is_archive,
+            'is_private' => (bool) $this->is_private,
 
             'transaction_type' => $this->type?->only(['id', 'code', 'name']),
             // Back-compat flat names used by tables/search/slimTx cache.
@@ -85,7 +87,7 @@ class TransactionListResource extends JsonResource
         $user = $request?->user();
         $tx = $this->resource;
 
-        if (!$user || (bool) $tx->is_done) return false;
+        if (!$user || (bool) $tx->is_done || (bool) $tx->is_archive) return false;
 
         $tx->loadMissing(['workflow.stepRoles.role', 'state.currentStep', 'office']);
         if (!$tx->state?->currentStep) return false;

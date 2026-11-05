@@ -8,7 +8,7 @@
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
                     <v-icon color="#005EED">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
                 </v-avatar>
-                <span class="text-h6 font-weight-bold">{{ isHistory ? "Transaction Archive" : "Transactions" }}</span>
+                <span class="text-h6 font-weight-bold">{{ isHistory ? "Archive" : "Transactions" }}</span>
                 <!-- After the sign-in overdue notice: shows only the overdue
                      and due rows (click again to show all). -->
                 <v-btn
@@ -88,7 +88,7 @@
                 </v-alert>
                 <v-alert v-else type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Every open transaction that belongs to your office, plus any waiting on your role.
-                    Completed ones move to Transaction Archive.
+                    Completed ones move to Archive.
                 </v-alert>
 
                 <v-text-field
@@ -338,7 +338,7 @@ const PER_PAGE = 7;
 // Clerks (anyone who may approve) have the Approvals page for "Needs my
 // action", so they only get the office list here.
 const hasApprovals = computed(() => canUseApprovals(user.value));
-// Transaction Archive (/portal/history) is this page in archive mode:
+// Archive (/portal/history) is this page in archive mode:
 // completed rows only. The normal page lists open rows only.
 const isHistory = computed(() => !!route.meta.history);
 const tab = ref(isHistory.value || hasApprovals.value || route.query.tab === "office" || route.query.late === "1" ? "office" : "action");

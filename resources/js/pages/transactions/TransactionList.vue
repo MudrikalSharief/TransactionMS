@@ -1,16 +1,22 @@
 <template>
   <div>
-    <LoadingVeil :show="loading" label="transactions" icon="mdi-swap-horizontal" />
+    <LoadingVeil :show="loading" label="transactions" :icon="isArchive ? 'mdi-archive-outline' : 'mdi-swap-horizontal'" />
     <v-card rounded="0" elevation="0" class="tl-page mb-4">
       <header class="tl-hd">
         <div class="tl-badge" aria-hidden="true">
-          <v-icon size="26">mdi-swap-horizontal</v-icon>
+          <v-icon size="26">{{ isArchive ? 'mdi-archive-outline' : 'mdi-swap-horizontal' }}</v-icon>
         </div>
         <div class="tl-hd-main">
-          <h1 class="tl-title">Transactions</h1>
+          <h1 class="tl-title">{{ isArchive ? 'Archive' : 'Transactions' }}</h1>
           <p class="tl-sub">
-            The transactions moving through your offices, and where each one
-            is in its workflow.
+            <template v-if="isArchive">
+              Archived transactions are kept here for reference. Nothing on this
+              page has been deleted.
+            </template>
+            <template v-else>
+              The transactions moving through your offices, and where each one
+              is in its workflow.
+            </template>
           </p>
         </div>
         <div class="tl-tools">
@@ -44,7 +50,7 @@
             Clear filters
           </button>
           <button
-            v-if="canManage"
+            v-if="canManage && !isArchive"
             type="button"
             class="tl-add"
             aria-label="New transaction"
@@ -425,6 +431,17 @@
                   <v-icon start size="small">mdi-flag-checkered</v-icon>
                   Done
                 </v-chip>
+                <v-chip
+                  v-if="item.is_archive"
+                  color="grey-darken-2"
+                  variant="flat"
+                  rounded="0"
+                  size="small"
+                  class="ml-1"
+                >
+                  <v-icon start size="small">mdi-archive-outline</v-icon>
+                  Archived
+                </v-chip>
               </template>
               <StepProgress
                 :steps="item.workflow_steps"
@@ -440,11 +457,62 @@
             <div class="tl-ago">{{ timeAgo(item.created_at) }}</div>
           </template>
 
+          <template v-slot:[`item.is_private`]="{ item }">
+            <div class="tl-private" @click.stop>
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <v-switch
+                    v-bind="props"
+                    :model-value="!!item.is_private"
+                    color="primary"
+                    density="compact"
+                    hide-details
+                    inset
+                    :loading="privacySavingId === item.id"
+                    :disabled="privacySavingId === item.id"
+                    :aria-label="item.is_private ? 'Private: searchable on Track' : 'Private: hidden from Track search'"
+                    @update:model-value="(v) => togglePrivacy(item, v)"
+                  />
+                </template>
+                <span>When on, this transaction can be found in Track search.</span>
+              </v-tooltip>
+            </div>
+          </template>
+
+          <template v-slot:[`item.actions`]="{ item }">
+            <v-btn
+              v-if="isArchive"
+              icon="mdi-restore"
+              size="small"
+              variant="text"
+              color="primary"
+              class="tl-unarchive-btn"
+              aria-label="Unarchive transaction"
+              v-tooltip="'Unarchive transaction'"
+              @click.stop="askUnarchive(item)"
+            />
+            <v-btn
+              v-else
+              icon="mdi-archive-outline"
+              size="small"
+              variant="text"
+              color="grey-darken-2"
+              class="tl-archive-btn"
+              aria-label="Archive transaction"
+              v-tooltip="'Archive transaction'"
+              @click.stop="askArchive(item)"
+            />
+          </template>
+
           <template #no-data>
             <div class="tl-empty">
               <template v-if="search.trim() || hasFilters">
                 <b>No matches</b> for the current search or filters. Try
                 changing them.
+              </template>
+              <template v-else-if="isArchive">
+                <b>No archived transactions yet.</b>
+                <span>Archived transactions will appear here.</span>
               </template>
               <template v-else>
                 <b>No transactions yet.</b>
@@ -522,6 +590,14 @@
       @submit="createTx"
     />
 
+    <ArchiveActionDialog
+      v-model:open="actionOpen"
+      :mode="actionMode"
+      :transaction="actionTarget"
+      :saving="actionSaving"
+      @confirm="confirmAction"
+    />
+
   </div>
 </template>
 
@@ -533,13 +609,21 @@ import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
 import { useAuth } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
+import { toast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
+import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
+const props = defineProps({
+  archive: { type: Boolean, default: false },
+})
+
 const router = useRouter()
-const { items, loading, meta, fetchAll, create } = useTransactions()
+const isArchive = computed(() => props.archive)
+const txStore = useTransactions({ archived: isArchive.value })
+const { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy } = txStore
 const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
@@ -566,6 +650,12 @@ const officeMenuOpen = ref(false)
 const dateMenuOpen = ref(false)
 const dateFromDraft = ref('')
 const dateToDraft = ref('')
+
+const actionOpen = ref(false)
+const actionTarget = ref(null)
+const actionMode = ref('archive')
+const actionSaving = ref(false)
+const privacySavingId = ref(null)
 
 const hasFilters = computed(
   () => !!(filterType.value || filterOffice.value || dateFrom.value || dateTo.value)
@@ -667,14 +757,23 @@ function officeAvatarStyle() {
   }
 }
 
-const headers = [
-  { title: 'Ref #', key: 'reference_number', width: '14%' },
-  { title: 'Title', key: 'title', width: '18%' },
-  { title: 'Transaction Type', key: 'type', sortable: false, width: '17%' },
-  { title: 'Originating Office', key: 'office', sortable: false, width: '16%' },
-  { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
-  { title: 'Created', key: 'created_at', width: '14%' },
-]
+const headers = computed(() => {
+  const base = [
+    { title: 'Ref #', key: 'reference_number', width: '14%' },
+    { title: 'Title', key: 'title', width: '18%' },
+    { title: 'Transaction Type', key: 'type', sortable: false, width: '17%' },
+    { title: 'Originating Office', key: 'office', sortable: false, width: '16%' },
+    { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
+    { title: 'Created', key: 'created_at', width: '14%' },
+  ]
+  if (isSuperadmin.value) {
+    if (!isArchive.value) {
+      base.push({ title: 'Private', key: 'is_private', sortable: false, width: '90px', align: 'center' })
+    }
+    base.push({ title: '', key: 'actions', sortable: false, width: '64px', align: 'end' })
+  }
+  return base
+})
 
 // Server-filtered: the API already applies ?q= (ref/title) and paginates to
 // 25 slim rows, so the table renders one light page instead of filtering
@@ -851,8 +950,61 @@ function openCreate() {
   dialog.value = true
 }
 
+function askArchive(item) {
+  error.value = ''
+  actionMode.value = 'archive'
+  actionTarget.value = item
+  actionOpen.value = true
+}
+
+function askUnarchive(item) {
+  error.value = ''
+  actionMode.value = 'unarchive'
+  actionTarget.value = item
+  actionOpen.value = true
+}
+
+async function togglePrivacy(item, value) {
+  if (privacySavingId.value !== null) return
+  privacySavingId.value = item.id
+  error.value = ''
+  try {
+    await setPrivacy(item.id, value)
+    item.is_private = !!value
+    toast.success(
+      value
+        ? 'Transaction is now searchable on Track.'
+        : 'Transaction removed from Track search.',
+    )
+  } catch (e) {
+    error.value = e?.response?.data?.message || 'Privacy update failed.'
+  } finally {
+    privacySavingId.value = null
+  }
+}
+
+async function confirmAction() {
+  if (!actionTarget.value) return
+  const isArchiving = actionMode.value === 'archive'
+  actionSaving.value = true
+  error.value = ''
+  try {
+    if (isArchiving) await archive(actionTarget.value.id)
+    else await unarchive(actionTarget.value.id)
+    toast.success(isArchiving ? 'Transaction archived.' : 'Transaction unarchived.')
+    actionOpen.value = false
+    actionTarget.value = null
+    await fetchAll(requestParams(page.value))
+  } catch (e) {
+    error.value = e?.response?.data?.message || (isArchiving ? 'Archive failed.' : 'Unarchive failed.')
+  } finally {
+    actionSaving.value = false
+  }
+}
+
 function go(id) {
-  router.push(`/transactions/${id}`)
+  const query = isArchive.value ? { from: 'archive' } : {}
+  router.push({ path: `/transactions/${id}`, query })
 }
 
 async function createTx(payload) {
@@ -891,8 +1043,8 @@ onMounted(() => {
 // Silent 20s smart-poll: refresh rows in place without loader flash,
 // page reload, or losing search/sort/pagination/scroll.
 useSmartPoll(async () => {
-  // Skip while creating to avoid clobbering the dialog.
-  if (saving.value || dialog.value) return
+  // Skip while creating/archiving to avoid clobbering the dialogs.
+  if (saving.value || dialog.value || actionOpen.value) return
   try {
     await fetchAll({ ...requestParams(page.value), silent: true })
   } catch {
@@ -1229,6 +1381,12 @@ html.dark .tl-page {
     padding: 0 !important;
     border-bottom: 1px solid var(--tl-line) !important;
 }
+.tl-private {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .tl-empty {
     display: flex;
     align-items: center;

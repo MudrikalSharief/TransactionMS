@@ -36,15 +36,30 @@
                         </div>
                     </div>
                 </div>
-                <button
-                    type="button"
-                    class="tx-back"
-                    aria-label="Back"
-                    @click="$router.push('/transactions')"
-                >
-                    <v-icon size="18" aria-hidden="true">mdi-arrow-left</v-icon>
-                    <span>Back</span>
-                </button>
+                <div class="tx-actions">
+                    <button
+                        v-if="tx && isSuperadmin()"
+                        type="button"
+                        class="tx-archive"
+                        :class="{ 'is-unarchive': isArchived }"
+                        :aria-label="isArchived ? 'Unarchive transaction' : 'Archive transaction'"
+                        @click="archiveDialogOpen = true"
+                    >
+                        <v-icon size="18" aria-hidden="true">
+                            {{ isArchived ? 'mdi-archive-arrow-up-outline' : 'mdi-archive-outline' }}
+                        </v-icon>
+                        <span>{{ isArchived ? 'Unarchive' : 'Archive' }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="tx-back"
+                        aria-label="Back"
+                        @click="goBack"
+                    >
+                        <v-icon size="18" aria-hidden="true">mdi-arrow-left</v-icon>
+                        <span>Back</span>
+                    </button>
+                </div>
             </div>
             <div v-if="error" class="tx-error">
                 <v-alert type="error" variant="tonal" rounded="0" class="ma-0">{{ error }}</v-alert>
@@ -66,6 +81,17 @@
                 title="Transaction Stations"
             >
                 <template #actions v-if="tx">
+                    <v-alert
+                        v-if="isArchived"
+                        type="info"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        <v-icon start size="small">mdi-archive-outline</v-icon>
+                        This transaction has been archived — view only. Use the
+                        Unarchive button above to make it active again.
+                    </v-alert>
+                    <template v-else>
                     <v-alert
                         v-if="pendingReceipt"
                         type="warning"
@@ -191,6 +217,7 @@
                             </v-col>
                         </v-row>
                     </div>
+                    </template>
                 </template>
             </StepProgress>
         </div>
@@ -596,6 +623,14 @@
             @confirm="finalizeTx"
         />
 
+        <ArchiveActionDialog
+            v-model:open="archiveDialogOpen"
+            :mode="archiveMode"
+            :transaction="tx"
+            :saving="archiveSaving"
+            @confirm="confirmArchiveAction"
+        />
+
         <v-dialog v-model="checkDialog" max-width="700">
             <v-card rounded="xl" style="overflow: hidden">
                 <v-card-title>Check: {{ checkTarget?.definition?.name }}</v-card-title>
@@ -675,7 +710,7 @@
 
 <script setup>
 import { onMounted, ref, computed, watch, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
 import { useAuth } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
@@ -686,6 +721,7 @@ import ActionDropdown from '@/components/ActionDropdown.vue';
 import RouteFlowPreview from '@/components/RouteFlowPreview.vue';
 import JumpBackDialog from '@/components/JumpBackDialog.vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue';
 import ChecklistTrackingGuide from '@/components/ChecklistTrackingGuide.vue';
 import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
@@ -696,10 +732,12 @@ import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
 import { fmtDateTime } from '@/utils/dates';
+import { toast } from '@/composables/useToast';
 
 const route = useRoute();
+const router = useRouter();
 const { api } = useApi();
-const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi } = useTransactions();
+const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi, archive, unarchive } = useTransactions();
 
 const tx = ref(null);
 const availableActions = ref([]);
@@ -707,10 +745,16 @@ const saving = ref(false);
 const loading = ref(true);
 const error = ref("");
 const executeError = ref("");
+const archiveDialogOpen = ref(false);
+const archiveSaving = ref(false);
 
 // Header reference-code copy feedback.
 const copied = ref(false);
 let copiedTimer = null;
+
+function goBack() {
+    router.push(route.query.from === "archive" ? "/transactions/archive" : "/transactions");
+}
 
 async function copyReference() {
     const text = String(tx.value?.reference_number || "").trim();
@@ -846,12 +890,14 @@ const selectedRouteId = ref(null);
 const visitedStepIds = ref([]);
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
+const isArchived = computed(() => !!(tx.value?.is_archive));
+const archiveMode = computed(() => (tx.value?.is_archive ? 'unarchive' : 'archive'));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
+const showFinalize = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value);
 // Complete Step replaces Finalize on the last station: green button that
 // opens the checklist modal, then finalizes. No outgoing routes needed.
 const isCompleting = ref(false);
-const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !pendingReceipt.value);
+const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value);
 const completeModalTitle = computed(() => {
     const cur = tx.value?.current_step;
     const n = cur?.order_number ?? '';
@@ -1671,6 +1717,28 @@ async function executeSelected() {
     }
 }
 
+async function confirmArchiveAction() {
+    if (!tx.value || archiveSaving.value) return;
+
+    const wasArchived = !!tx.value.is_archive;
+    archiveSaving.value = true;
+    error.value = "";
+
+    try {
+        if (wasArchived) await unarchive(tx.value.id);
+        else await archive(tx.value.id);
+
+        toast.success(wasArchived ? "Transaction unarchived." : "Transaction archived.");
+        archiveDialogOpen.value = false;
+        await load();
+    } catch (e) {
+        error.value =
+            e?.response?.data?.message ||
+            (wasArchived ? "Unarchive failed." : "Archive failed.");
+    } finally {
+        archiveSaving.value = false;
+    }
+}
 // Complete Step on the last station. Validates required files + data
 // like Proceed, then saves staged station info with finalize.
 const jumpDialog = ref(false);
@@ -2319,6 +2387,9 @@ onUnmounted(() => clearTimeout(copiedTimer));
     --tx-hover: #f3f6fc;
     --tx-blue: #1d3fae;
     --tx-blue-bg: #e8eeff;
+    --tx-amber: #9a5b00;
+    --tx-amber-bg: #fff4dc;
+    --tx-amber-line: #f2c765;
     --tx-ok: #1b7a3d;
     --tx-ring: rgba(29, 63, 174, 0.28);
     background: var(--tx-panel);
@@ -2338,6 +2409,9 @@ html.dark .tx-header {
     --tx-hover: #1d2745;
     --tx-blue: #6f8cff;
     --tx-blue-bg: #25306a;
+    --tx-amber: #ffbf47;
+    --tx-amber-bg: #3d2d0e;
+    --tx-amber-line: #6b4f17;
     --tx-ok: #3fbf6f;
     --tx-ring: rgba(138, 161, 255, 0.38);
     box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.5);
@@ -2363,6 +2437,14 @@ html.dark .tx-header {
 .tx-title-wrap {
     min-width: 0;
     flex: 1;
+}
+
+.tx-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    margin-left: auto;
 }
 
 .tx-meta {
@@ -2449,7 +2531,8 @@ html.dark .tx-header {
 }
 
 .tx-copy,
-.tx-back {
+.tx-back,
+.tx-archive {
     font: inherit;
     color: inherit;
     cursor: pointer;
@@ -2504,6 +2587,38 @@ html.dark .tx-header {
     color: inherit;
 }
 
+.tx-archive {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border: 1.5px solid var(--tx-amber-line);
+    background: var(--tx-amber-bg);
+    color: var(--tx-amber);
+    font-size: 14px;
+    font-weight: 700;
+    flex: none;
+}
+
+.tx-archive:hover {
+    filter: brightness(0.97);
+}
+
+.tx-archive .v-icon {
+    color: inherit;
+}
+
+.tx-archive.is-unarchive {
+    border-color: rgba(var(--v-theme-primary), 0.45);
+    background: var(--tx-blue-bg);
+    color: var(--tx-blue);
+}
+
+html.dark .tx-archive:hover {
+    filter: brightness(1.08);
+}
+
 .tx-header button:focus-visible {
     outline: 3px solid var(--tx-ring);
     outline-offset: 2px;
@@ -2525,7 +2640,11 @@ html.dark .tx-header {
     .tx-back span {
         display: none;
     }
-    .tx-back {
+    .tx-archive span {
+        display: none;
+    }
+    .tx-back,
+    .tx-archive {
         padding: 0 11px;
     }
     .tx-error {

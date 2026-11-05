@@ -432,6 +432,8 @@ class TransactionResource extends JsonResource
             'reference_number' => $this->reference_number,
             'title' => $this->title,
             'is_done' => (bool) $this->is_done,
+            'is_archive' => (bool) $this->is_archive,
+            'is_private' => (bool) $this->is_private,
 
             'transaction_type' => $this->type?->only(['id','code','name']),
             'office' => Office::mini($this->office),

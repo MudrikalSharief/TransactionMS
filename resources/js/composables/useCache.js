@@ -151,6 +151,8 @@ export function slimTx(tx) {
         title: tx.title ?? null,
         reference_number: tx.reference_number ?? null,
         is_done: tx.is_done ?? false,
+        is_archive: tx.is_archive ?? false,
+        is_private: tx.is_private ?? false,
         created_at: tx.created_at ?? null,
         // Dashboard "waiting" column reads entered_at with created_at fallback.
         entered_at: tx.entered_at ?? null,

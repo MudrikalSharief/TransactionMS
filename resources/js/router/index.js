@@ -25,6 +25,7 @@ const AdminStepChecklist = () => import("@/pages/admin/StepChecklist.vue");
 const AdminRequirementsIndex = () => import("@/pages/admin/RequirementsIndex.vue");
 
 const TransactionsList = () => import("@/pages/transactions/TransactionList.vue");
+const TransactionArchive = () => import("@/pages/transactions/TransactionArchive.vue");
 const TransactionDetail = () => import("@/pages/transactions/TransactionDetail.vue");
 
 const ApprovalInbox = () => import("@/pages/approvals/ApprovalInbox.vue");
@@ -97,7 +98,7 @@ export function createRouter() {
                 path: "/portal/history",
                 name: "portal.history",
                 component: PortalTransactions,
-                meta: { requiresAuth: true, title: "Transaction Archive", kind: "staff", history: true },
+                meta: { requiresAuth: true, title: "Archive", kind: "staff", history: true },
             },
             {
                 // My Profile: every signed-in account (viewers are sent back
@@ -226,6 +227,17 @@ export function createRouter() {
                 path: "/transactions",
                 component: TransactionsList,
                 meta: { requiresAuth: true },
+            },
+            {
+                path: "/transactions/archive",
+                name: "transactions.archive",
+                component: TransactionArchive,
+                meta: {
+                    requiresAuth: true,
+                    superadmin: true,
+                    archive: true,
+                    title: "Archive",
+                },
             },
             {
                 path: "/transactions/:id",

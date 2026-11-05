@@ -30,6 +30,7 @@ class PortalController extends Controller
         $user->loadMissing(['roles', 'office:id,code,name,icon_path']);
 
         $office = Transaction::query()
+            ->active()
             ->when(
                 $user->office_id !== null,
                 fn ($q) => $q->where('office_id', $user->office_id),
@@ -48,7 +49,7 @@ class PortalController extends Controller
                     ->where('performed_at', '>=', $from)
                     ->where('performed_at', '<', $to)))
                 ->count(),
-            'created_by_me' => $created(Transaction::where('created_by', $user->id))->count(),
+            'created_by_me' => $created(Transaction::query()->active()->where('created_by', $user->id))->count(),
         ]);
     }
 

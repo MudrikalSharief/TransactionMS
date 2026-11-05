@@ -484,7 +484,7 @@ const navGroups = computed(() => {
             });
         }
         // Completed transactions move here from Transactions.
-        work.push({ title: "Transaction Archive", icon: "mdi-archive-outline", to: "/portal/history" });
+        work.push({ title: "Archive", icon: "mdi-archive-outline", to: "/portal/history" });
         return [
             { title: "Overview", items: [{ title: "Home", icon: "mdi-home-city-outline", to: "/portal", exact: true }] },
             { title: "Work", items: work },
@@ -494,7 +494,10 @@ const navGroups = computed(() => {
     if (isSuperadmin.value) {
         return [
             overview,
-            { title: "Work", items: [{ title: "Transactions", icon: "mdi-swap-horizontal", to: "/transactions" }] },
+            { title: "Work", items: [
+                { title: "Transactions", icon: "mdi-swap-horizontal", to: "/transactions" },
+                { title: "Archive", icon: "mdi-archive-outline", to: "/transactions/archive" },
+            ] },
             {
                 title: "People",
                 items: [
@@ -586,7 +589,7 @@ const searchPages = computed(() => {
             ...(showApprovals.value
                 ? [{ title: "Task", subtitle: "Page", icon: "mdi-clipboard-check-multiple-outline", to: "/portal/approvals" }]
                 : []),
-            { title: "Transaction Archive", subtitle: "Page", icon: "mdi-archive-outline", to: "/portal/history" },
+            { title: "Archive", subtitle: "Page", icon: "mdi-archive-outline", to: "/portal/history" },
             { title: "Help", subtitle: "Page", icon: "mdi-help-circle-outline", to: "/help" },
         ].map((p, i) => ({ ...p, type: "page", value: `page-${i}` }));
     }
@@ -612,6 +615,7 @@ const searchPages = computed(() => {
         pages.push(
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
             { title: "Roles", subtitle: "Page · Admin", icon: "mdi-shield-account", to: "/admin/roles" },
+            { title: "Archive", subtitle: "Page · Admin", icon: "mdi-archive-outline", to: "/transactions/archive" },
             { title: "Offices", subtitle: "Page · Admin", icon: "mdi-office-building-outline", to: "/admin/offices" },
             { title: "Workflows", subtitle: "Page · Admin", icon: "mdi-source-branch", to: "/admin/workflows" },
             { title: "Fields", subtitle: "Page · Admin", icon: "mdi-form-textbox", to: "/admin/fields" },
