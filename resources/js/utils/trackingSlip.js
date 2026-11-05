@@ -83,7 +83,6 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
   .qr { flex: 0 0 150px; text-align: center; }
   .qr img { width: 150px; height: 150px; }
   .qr div { font-size: 11px; font-weight: 700; color: #002D70; }
-  .url { padding: 0 16px 8px; font-size: 10.5px; color: #5b6475; word-break: break-all; }
   .note { padding: 0 16px 6px; font-size: 11.5px; line-height: 1.45; }
   .meta { display: flex; justify-content: space-between; gap: 8px; padding: 0 16px 4px; font-size: 10.5px; color: #5b6475; }
   /* Footer: same design as the site footer (City Hall over a navy band
@@ -120,7 +119,7 @@ export async function buildSlipHtml(tx, { printedBy } = {}) {
       </div>
       <div class="qr"><img src="${qr}" alt="QR code to track this transaction"><div>Scan to track</div></div>
     </div>
-    <div class="url">${esc(url)}</div>
+    <!-- The link (server address) is only inside the QR code, never printed. -->
     <div class="note">
       Keep this slip. Scan the QR code to see where your document is and what step it is on
       (view only), or give the reference number when you follow up.
