@@ -77,7 +77,7 @@ export function createRouter() {
                 path: "/",
                 name: "dashboard",
                 component: Dashboard,
-                meta: { requiresAuth: true, title: "Dashboard", fit: true },
+                meta: { requiresAuth: true, title: "Dashboard" },
             },
 
             {
