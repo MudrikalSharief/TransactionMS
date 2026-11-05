@@ -36,3 +36,6 @@ accounts.txt
 /graphify-out/.graphify_python
 /graphify-out/.graphify_root
 /graphify-out/cost.json
+
+# graphify output is local-only; build it locally with /graphify or graphify update
+/graphify-out/
