@@ -118,8 +118,8 @@ const MEDALS = [
         key: "tms",
         src: "/tms-logo.png",
         alt: "Transaction Management System emblem, Local Government of Zamboanga City",
-        w: 400,
-        h: 416,
+        w: 512,
+        h: 512,
         at: 2.2,
         flip: 1,
         // Centre art; inner gold ring, white lettering band and gold line;
@@ -408,7 +408,7 @@ onUnmounted(() => {
 }
 .medal--tms .layer {
     height: auto;
-    aspect-ratio: 400 / 416;
+    aspect-ratio: 1 / 1;
 }
 /* Centre art: grows from the middle with a counter-twist. */
 .layer--1 {
@@ -439,11 +439,11 @@ onUnmounted(() => {
     /* Flies into the tracker's own seal on the way out. */
     view-transition-name: city-seal;
 }
-/* The emblem is a little taller than wide (its ribbon hangs below the
-   circle); the circle itself sits in the top square, level with the seal. */
+/* The emblem is round and square (512 x 512), like the seal, so it sits
+   centred in its gold ring, level with the seal. */
 .medal--tms .emblem {
     height: auto;
-    aspect-ratio: 400 / 416;
+    aspect-ratio: 1 / 1;
     filter: drop-shadow(0 16px 26px rgba(2, 8, 28, 0.5));
     /* Flies into the tracker's own emblem on the way out. */
     view-transition-name: tms-emblem;
@@ -481,7 +481,7 @@ onUnmounted(() => {
     mask: url('/zamboanga-seal.png') center / contain no-repeat;
 }
 .medal--tms .glint {
-    aspect-ratio: 400 / 416;
+    aspect-ratio: 1 / 1;
     -webkit-mask: url('/tms-logo.png') center / contain no-repeat;
     mask: url('/tms-logo.png') center / contain no-repeat;
 }

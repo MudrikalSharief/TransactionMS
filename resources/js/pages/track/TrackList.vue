@@ -14,7 +14,7 @@
                         :src="'/tms-logo-128.png'"
                         alt="Transaction Management System emblem"
                         width="60"
-                        height="62"
+                        height="60"
                     />
                 </div>
                 <div class="eyebrow">Transaction tracker</div>
@@ -436,7 +436,7 @@ useSmartPoll(() => {
 .tms {
     display: block;
     width: 60px;
-    height: 62px;
+    height: 60px;
     object-fit: contain;
     /* ...and the system emblem into this one. */
     view-transition-name: tms-emblem;

@@ -96,10 +96,27 @@
                 <!-- Bell (staff, clerks, admins): deadlines and returns. -->
                 <NotificationBell />
 
+                <!-- Viewers (tracking): Back to the previous page. On the search
+                     page with nothing to go back to, it leaves tracking for the
+                     login page. -->
+                <button
+                    v-if="auth.user.value && kind === 'viewer'"
+                    type="button"
+                    class="nav-back"
+                    :disabled="loggingOut"
+                    v-tooltip="viewerBackHint"
+                    @click="viewerBack"
+                >
+                    <v-icon size="20">mdi-arrow-left</v-icon>
+                    <span class="d-none d-sm-inline">Back</span>
+                </button>
+
                 <!-- Account: pressing the avatar opens a Facebook-style menu
-                     with the profile header, settings and log out. -->
+                     with the profile header, settings and log out. Hidden for
+                     the shared viewer account: the tracking pages have their
+                     own Back button instead. -->
                 <v-menu
-                    v-if="auth.user.value"
+                    v-if="auth.user.value && kind !== 'viewer'"
                     location="bottom end"
                     offset="10"
                     transition="fade-transition"
@@ -622,6 +639,34 @@ let approvalBadgeTimer = null;
 const confirmLogout = ref(false);
 const loggingOut = ref(false);
 
+// ---- Viewer Back (header) ----
+// The page before this one, when it is a real page to return to (not the
+// welcome animation, a QR hand-off or the login screen).
+function previousPage() {
+    const prev = window.history.state?.back;
+    if (typeof prev !== "string") return null;
+    if (prev === "/track/welcome" || prev.startsWith("/scan/") || prev.startsWith("/login")) return null;
+    return prev;
+}
+const onTrackSearch = computed(() => route.name === "track");
+const viewerBackHint = computed(() => {
+    if (!onTrackSearch.value) return previousPage() ? "Back to the previous page" : "Back to the search";
+    return previousPage()?.startsWith("/track/") ? "Back to the previous page" : "Leave tracking and return to the login page";
+});
+async function viewerBack() {
+    const prev = previousPage();
+    if (!onTrackSearch.value) {
+        if (prev) router.back();
+        else router.push("/track");
+        return;
+    }
+    if (prev?.startsWith("/track/")) {
+        router.back();
+        return;
+    }
+    await onLogout();
+}
+
 async function onLogout() {
     loggingOut.value = true;
     try {
@@ -1131,6 +1176,34 @@ onUnmounted(() => {
     color: rgba(var(--v-theme-on-surface), 0.7);
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
+}
+/* Viewer Back: same quiet look as the account button, with a label. */
+.nav-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    height: 40px;
+    padding: 0 14px 0 10px;
+    border: 0;
+    border-radius: 20px;
+    background: transparent;
+    color: rgba(var(--v-theme-on-surface), 0.75);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.nav-back:hover,
+.nav-back:focus-visible {
+    background: rgba(11, 18, 32, 0.09);
+    color: #0b1220;
+    outline: none;
+}
+.nav-back:disabled {
+    opacity: 0.6;
+    cursor: default;
 }
 .nav-account:hover,
 .nav-account:focus-visible {
