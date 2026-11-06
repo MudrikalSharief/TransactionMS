@@ -271,7 +271,7 @@
             class="us-cell-edit us-name-btn"
             :class="{ 'is-editable': canInlineEdit(item) }"
             :disabled="!canInlineEdit(item) || rowBusyId === item.id"
-            :title="canInlineEdit(item) ? 'Click to edit name' : lockReason(item)"
+            :title="canInlineEdit(item) ? 'Click to edit name' : cellLockReason(item)"
             @click="startNameEdit(item)"
           >
             <span class="us-name">{{ item.name }}</span>
@@ -305,7 +305,7 @@
                 :class="{ 'is-editable': canInlineEdit(item) }"
                 :disabled="!canInlineEdit(item) || rowBusyId === item.id"
                 :title="
-                  canInlineEdit(item) ? 'Click to edit roles' : lockReason(item)
+                  canInlineEdit(item) ? 'Click to edit roles' : cellLockReason(item)
                 "
                 @click.stop
               >
@@ -410,7 +410,7 @@
                 :class="{ 'is-editable': canInlineEdit(item) }"
                 :disabled="!canInlineEdit(item) || rowBusyId === item.id"
                 :title="
-                  canInlineEdit(item) ? 'Click to change office' : lockReason(item)
+                  canInlineEdit(item) ? 'Click to change office' : cellLockReason(item)
                 "
                 @click.stop
               >
@@ -582,16 +582,6 @@
                 @click="approve(item)"
               />
               <v-btn
-                icon="mdi-pencil"
-                v-tooltip="'Edit before approving'"
-                size="small"
-                variant="outlined"
-                rounded="0"
-                class="us-ib is-edit"
-                :disabled="busyId === item.id || rowBusyId === item.id"
-                @click="openEdit(item)"
-              />
-              <v-btn
                 icon="mdi-close"
                 v-tooltip="'Reject: remove this request'"
                 size="small"
@@ -600,18 +590,6 @@
                 class="us-ib is-delete"
                 :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="reject(item)"
-              />
-            </template>
-            <template v-else>
-              <v-btn
-                icon="mdi-pencil"
-                v-tooltip="'Edit user'"
-                size="small"
-                variant="outlined"
-                rounded="0"
-                class="us-ib is-edit"
-                :disabled="busyId === item.id || rowBusyId === item.id"
-                @click="openEdit(item)"
               />
             </template>
           </div>
@@ -1115,8 +1093,8 @@ function lockReason(item) {
   return ''
 }
 
-// Pending rows show three icon buttons; other rows show one edit button.
-// Keep enough width for the three-button waiting state.
+// Pending rows show two icon buttons (approve/reject); other rows have none.
+// Keep enough width for the waiting state so the table does not shift.
 const ACTIONS_W = 132
 // Columns share the table's width by percentage, so the table flexes with
 // the window and the sidebar; long names, emails, roles and offices wrap
@@ -1368,7 +1346,14 @@ function setNameInput(el) {
 }
 
 function canInlineEdit(item) {
-  return canManage.value && !lockReason(item)
+  return canManage.value && !item.pending_approval && !lockReason(item)
+}
+
+// Waiting accounts must be approved or rejected before their details change.
+function cellLockReason(item) {
+  return item.pending_approval
+    ? 'Approve or reject this request first'
+    : lockReason(item)
 }
 
 function itemOfficeId(item) {

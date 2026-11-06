@@ -64,7 +64,7 @@
             <v-divider />
 
             <!-- Clerks only see My office: what waits on them is on Approvals.
-                 History has no tabs: finished papers never need action. -->
+                 History has no tabs: archived rows never need action. -->
             <v-tabs v-if="!isHistory" v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
                 <v-tab v-if="!hasApprovals" value="action" class="font-weight-bold">
                     <v-icon start>mdi-tray-full</v-icon>
@@ -81,14 +81,14 @@
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
                 <v-alert v-if="isHistory" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Completed transactions from your office, kept here for reference.
+                    Archived transactions visible to your office. This page is read-only.
                 </v-alert>
                 <v-alert v-else-if="tab === 'action'" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Transactions currently on a step assigned to your role at your office. Open one to work on it.
                 </v-alert>
                 <v-alert v-else type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Every open transaction that belongs to your office, plus any waiting on your role.
-                    Completed ones move to Archive.
+                    Every active transaction that belongs to your office, plus any waiting on your role.
+                    Archived ones move to Archive.
                 </v-alert>
 
                 <v-text-field
@@ -185,8 +185,8 @@
                                     scoped.length && (filtersActive || search)
                                         ? "No transactions match your search or filters."
                                         : isHistory
-                                          ? "No completed transactions yet."
-                                          : tab === "action" ? "Nothing is waiting on your role right now." : "No open transactions in your office."
+                                          ? "No archived transactions yet."
+                                          : tab === "action" ? "Nothing is waiting on your role right now." : "No active transactions in your office."
                                 }}
                             </div>
                         </template>
@@ -363,8 +363,14 @@ function clearFilters() {
     filters.value = { ...emptyFilters(), order: filters.value.order };
 }
 const typeName = (t) => t.transaction_type?.name || t.transaction_type_name || "";
-// Open rows here, completed rows in the Archive; filters work on this split.
-const scoped = computed(() => items.value.filter((t) => !!t.is_done === isHistory.value));
+// Open rows here, completed rows stay in the active list until archived;
+// the Archive shows explicitly archived rows only.
+const scoped = computed(() => {
+    if (isHistory.value) return items.value;
+    return tab.value === "action"
+        ? items.value.filter((t) => !t.is_done)
+        : items.value;
+});
 const typeFilterOptions = computed(() => [...new Set(scoped.value.map(typeName).filter(Boolean))].sort());
 
 // The header button appears once the sign-in overdue notice has been shown.
@@ -434,7 +440,10 @@ const headers = [
     { title: "Created", key: "created_at", sortable: false, width: 170 },
 ];
 
-const endpoint = () => (tab.value === "action" ? "/api/transactions" : "/api/admin/transactions");
+const endpoint = () => {
+    if (isHistory.value) return "/api/admin/transactions/archive";
+    return tab.value === "action" ? "/api/transactions" : "/api/admin/transactions";
+};
 
 async function fetchRows({ silent = false } = {}) {
     if (!silent) loading.value = true;

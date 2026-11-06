@@ -94,7 +94,7 @@ export function createRouter() {
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
             },
             {
-                // Same page in archive mode: completed transactions only.
+                // Same page in archive mode: archived transactions only.
                 path: "/portal/history",
                 name: "portal.history",
                 component: PortalTransactions,
@@ -234,7 +234,7 @@ export function createRouter() {
                 component: TransactionArchive,
                 meta: {
                     requiresAuth: true,
-                    superadmin: true,
+                    officeAdmin: true,
                     archive: true,
                     title: "Archive",
                 },

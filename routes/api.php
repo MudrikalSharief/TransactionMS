@@ -260,17 +260,17 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // office); reassign stays superadmin-only.
         Route::get('/transactions', [TransactionController::class, 'index']);
         // Static path must precede {transaction} so "archive" is not bound as an id.
-        Route::get('/transactions/archive', [TransactionArchiveController::class, 'index'])
-            ->middleware(EnsureRole::class.':superadmin');
+        // Read-only for staff: visibility is scoped by TransactionVisibility.
+        Route::get('/transactions/archive', [TransactionArchiveController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
             ->middleware(EnsureTransactionOffice::class);
         Route::post('/transactions/{transaction}/archive', [TransactionArchiveController::class, 'store'])
-            ->middleware(EnsureRole::class.':superadmin');
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
         Route::post('/transactions/{transaction}/unarchive', [TransactionArchiveController::class, 'unarchive'])
-            ->middleware(EnsureRole::class.':superadmin');
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
         Route::patch('/transactions/{transaction}/privacy', [TransactionController::class, 'updatePrivacy'])
-            ->middleware(EnsureRole::class.':superadmin');
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice'])
             ->middleware(EnsureRole::class.':superadmin');
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction'])

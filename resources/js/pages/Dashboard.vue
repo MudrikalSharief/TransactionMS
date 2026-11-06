@@ -322,11 +322,13 @@
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center pa-4 lgu-head">
                             <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">{{ isSuperadmin ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
+                                <v-icon color="#005EED" size="24">{{ canApproveAccounts ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
                             </v-avatar>
                             <div>
                                 <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
-                                <div v-if="isSuperadmin" class="dash-panel-sub">Accounts waiting for approval</div>
+                                <div v-if="canApproveAccounts" class="dash-panel-sub">
+                                    {{ isSuperadmin ? 'Accounts waiting for approval' : 'Accounts in your office waiting for approval' }}
+                                </div>
                             </div>
                             <v-spacer />
                             <v-btn
@@ -334,14 +336,15 @@
                                 size="small"
                                 color="primary"
                                 append-icon="mdi-arrow-right"
-                                @click="isSuperadmin ? goToAccounts() : goToQueue()"
+                                @click="canApproveAccounts ? goToAccounts() : goToQueue()"
                             >
-                                {{ isSuperadmin ? 'All accounts' : 'My queue' }}
+                                {{ canApproveAccounts ? (isSuperadmin ? 'All accounts' : 'Office users') : 'My queue' }}
                             </v-btn>
                         </v-card-title>
                         <v-divider />
-                        <!-- Superadmin: new sign-ups to approve or reject. -->
-                        <v-card-text v-if="isSuperadmin" class="pa-0">
+                        <!-- Admins: new sign-ups to approve or reject. Office
+                             admins only see people who chose their office. -->
+                        <v-card-text v-if="canApproveAccounts" class="pa-0">
                             <div v-if="accountsLoading && !pendingAccounts.length" class="d-flex align-center justify-center" style="height: 200px">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
@@ -355,7 +358,7 @@
                                 rounded="0"
                                 class="ma-4"
                             >
-                                All clear — no accounts waiting for approval.
+                                {{ pendingEmptyText }}
                             </v-alert>
                             <v-table v-else-if="pendingAccounts.length" class="action-table">
                                 <thead>
@@ -585,6 +588,13 @@ const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 // analytics, queue tightened to what is actually waiting on them, and an
 // in-transit card showing where their office's papers currently sit.
 const isStaff = computed(() => !canSeeSummary.value)
+
+// Superadmins approve accounts from any office; office admins approve
+// sign-ups that chose their office.
+const canApproveAccounts = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+const myOfficeId = computed(
+    () => auth.user.value?.office_id ?? auth.user.value?.office?.id ?? null,
+)
 
 // ---- Greeting strip ----
 const greeting = computed(() => {
@@ -1169,8 +1179,10 @@ function goToQueue() {
     router.push('/transactions')
 }
 
-// ---- Superadmin: accounts waiting for approval (Needs My Action) ----
-const accountStore = useAdminUsers()
+// ---- Admins: accounts waiting for approval (Needs My Action) ----
+// Superadmins use the system-wide list; office admins use the office
+// endpoints, which only return people assigned to their own office.
+const accountStore = useAdminUsers({ office: isOfficeAdmin.value })
 const accountsLoading = computed(() => accountStore.loading.value)
 const accountBusyId = ref(null)
 const accountError = ref('')
@@ -1179,7 +1191,20 @@ const accountError = ref('')
 const pendingAccounts = computed(() =>
     (accountStore.users.value || [])
         .filter((u) => u.pending_approval)
+        // The office endpoint already scopes this; keep the guard so a
+        // misconfigured source can never surface another office's request.
+        .filter(
+            (u) =>
+                !isOfficeAdmin.value ||
+                (myOfficeId.value != null && Number(u.office_id) === Number(myOfficeId.value)),
+        )
         .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)),
+)
+
+const pendingEmptyText = computed(() =>
+    isOfficeAdmin.value
+        ? 'All clear — no accounts in your office are waiting for approval.'
+        : 'All clear — no accounts waiting for approval.',
 )
 
 function accountScope(u) {
@@ -1189,7 +1214,7 @@ function accountScope(u) {
 }
 
 function loadAccounts(opts = {}) {
-    if (!isSuperadmin.value) return
+    if (!canApproveAccounts.value) return
     return accountStore.fetchUsers(opts).catch(() => {})
 }
 
@@ -1228,7 +1253,7 @@ async function rejectAccount(u) {
 }
 
 function goToAccounts() {
-    router.push('/admin/users')
+    router.push(isSuperadmin.value ? '/admin/users' : '/office/users')
 }
 
 function goToHelp() {
@@ -1253,8 +1278,8 @@ onMounted(async () => {
     if (isSuperadmin.value) {
         typeStore.fetchAll({ silent: true }).catch(() => {})
         officeStore.fetchAll({ silent: true }).catch(() => {})
-        loadAccounts()
     }
+    if (canApproveAccounts.value) loadAccounts()
 
     try {
         await txStore.fetchAll(opts)

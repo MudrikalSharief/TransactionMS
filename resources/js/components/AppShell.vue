@@ -93,10 +93,27 @@
                     </div>
                 </div>
 
+                <!-- Tracker pages: the shared guest session gets a visible
+                     way back to sign-in instead of the account menu. -->
+                <v-btn
+                    v-if="isTrackerView"
+                    class="nav-login"
+                    color="primary"
+                    variant="flat"
+                    rounded="0"
+                    size="small"
+                    prepend-icon="mdi-login-variant"
+                    :loading="loggingOut"
+                    :disabled="loggingOut"
+                    @click="onLogout"
+                >
+                    Login
+                </v-btn>
+
                 <!-- Account: pressing the avatar opens a Facebook-style menu
                      with the profile header, settings and log out. -->
                 <v-menu
-                    v-if="auth.user.value"
+                    v-else-if="auth.user.value"
                     location="bottom end"
                     offset="10"
                     transition="fade-transition"
@@ -499,6 +516,9 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
+// Guest viewers on the tracker pages get a Login button where the account
+// menu sits on every other page.
+const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind === "viewer");
 // Viewers have a single page (Track), so the sidebar starts hidden; every
 // other account gets it back. The shell outlives sign-ins, so a viewer
 // session must not leave it hidden for the next admin or clerk.
@@ -573,7 +593,10 @@ const navGroups = computed(() => {
     if (isOfficeAdmin.value) {
         return [
             overview,
-            { title: "Work", items: [{ title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" }] },
+            { title: "Work", items: [
+                { title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" },
+                { title: "Archive", icon: "mdi-archive-outline", to: "/transactions/archive" },
+            ] },
             { title: "People", items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }] },
             {
                 title: "Setup",
@@ -665,6 +688,9 @@ const searchPages = computed(() => {
     pages.push(
         { title: "Transactions", subtitle: "Page", icon: "mdi-swap-horizontal", to: "/transactions" }
     );
+    if (isOfficeAdmin.value) {
+        pages.push({ title: "Archive", subtitle: "Page · Admin", icon: "mdi-archive-outline", to: "/transactions/archive" });
+    }
     if (isSuperadmin.value) {
         pages.push(
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
@@ -1095,6 +1121,15 @@ onUnmounted(() => {
     width: 1px;
     height: 16px;
     background: rgba(var(--v-theme-on-surface), 0.16);
+}
+/* Tracker pages: solid sign-in action beside the weather. */
+.nav-login {
+    height: 40px !important;
+    margin-left: 4px;
+    padding-inline: 16px !important;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    box-shadow: none;
 }
 /* Account: bare avatar button; the tinted circle only appears on hover. */
 .nav-account {

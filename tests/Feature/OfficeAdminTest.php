@@ -51,7 +51,8 @@ class OfficeAdminTest extends TestCase
         $this->cbo = Office::create(['code' => 'CBO', 'name' => 'City Budget Office']);
 
         $this->adminRole = Role::create(['code' => 'admin', 'name' => 'Admin']);
-        $this->clerk = Role::create(['code' => 'clerk', 'name' => 'Clerk']);
+        // The Clerk role is created by a data migration; reuse it here.
+        $this->clerk = Role::firstOrCreate(['code' => 'clerk'], ['name' => 'Clerk']);
         $this->gsoStaff = Role::create(['code' => 'gso', 'name' => 'GSO']);
         $this->cboStaff = Role::create(['code' => 'cbo', 'name' => 'CBO']);
 
@@ -117,6 +118,19 @@ class OfficeAdminTest extends TestCase
     private function user(?Office $office, Role ...$roles): User
     {
         $user = User::factory()->create(['office_id' => $office?->id]);
+        $user->roles()->attach(collect($roles)->pluck('id')->all());
+
+        return $user;
+    }
+
+    /** Someone who signed up on the login page and is waiting for approval. */
+    private function pendingUser(Office $office, Role ...$roles): User
+    {
+        $user = User::factory()->create([
+            'office_id' => $office->id,
+            'approved_at' => null,
+            'is_active' => false,
+        ]);
         $user->roles()->attach(collect($roles)->pluck('id')->all());
 
         return $user;
@@ -263,6 +277,37 @@ class OfficeAdminTest extends TestCase
         $roleCodes = collect($this->getJson('/api/office/roles')->assertOk()->json('data'))->pluck('code');
         $this->assertFalse($roleCodes->contains('admin'));
         $this->assertTrue($roleCodes->contains('gso'));
+    }
+
+    public function test_office_admin_approves_only_pending_signups_for_their_office(): void
+    {
+        $gsoAdmin = $this->user($this->gso, $this->adminRole);
+        $ownRequest = $this->pendingUser($this->gso, $this->gsoStaff);
+        $otherRequest = $this->pendingUser($this->csd, $this->clerk);
+
+        Sanctum::actingAs($gsoAdmin);
+
+        // The office list only carries this office's pending sign-up.
+        $pending = collect($this->getJson('/api/office/users')->assertOk()->json('data'))
+            ->where('pending_approval', true)
+            ->pluck('id')
+            ->values()
+            ->all();
+        $this->assertSame([$ownRequest->id], $pending);
+
+        // Another office's request cannot be approved from here.
+        $this->postJson("/api/office/users/{$otherRequest->id}/approve")->assertNotFound();
+        $this->assertNull($otherRequest->fresh()->approved_at);
+
+        // The admin's own office request can be approved.
+        $this->postJson("/api/office/users/{$ownRequest->id}/approve")->assertOk();
+        $this->assertNotNull($ownRequest->fresh()->approved_at);
+        $this->assertTrue($ownRequest->fresh()->is_active);
+
+        // Rejecting removes the request from the admin's own office.
+        $rejectMe = $this->pendingUser($this->gso, $this->gsoStaff);
+        $this->deleteJson("/api/office/users/{$rejectMe->id}/reject")->assertOk();
+        $this->assertDatabaseMissing('users', ['id' => $rejectMe->id]);
     }
 
     public function test_office_area_needs_an_admin_with_an_office_and_admin_area_stays_superadmin_only(): void

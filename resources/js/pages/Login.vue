@@ -235,22 +235,32 @@
                                     </div>
 
                                     <div class="field">
-                                        <label for="reg-contact">Contact number</label>
+                                        <div class="label-row">
+                                            <label for="reg-contact">Contact number</label>
+                                            <span
+                                                class="field-counter"
+                                                :class="{ 'is-full': reg.contact_number.length === 11 }"
+                                                aria-live="polite"
+                                            >{{ reg.contact_number.length }}/11</span>
+                                        </div>
                                         <div class="control">
                                             <span class="chip" aria-hidden="true"><v-icon>mdi-phone-outline</v-icon></span>
                                             <input
                                                 id="reg-contact"
-                                                v-model.trim="reg.contact_number"
+                                                v-model="reg.contact_number"
                                                 type="tel"
-                                                inputmode="tel"
-                                                autocomplete="tel"
+                                                inputmode="numeric"
+                                                autocomplete="tel-national"
+                                                maxlength="11"
                                                 placeholder="09171234567"
                                                 :disabled="registering"
-                                                :aria-invalid="fieldErrors.contact_number ? 'true' : 'false'"
+                                                :aria-invalid="contactError ? 'true' : 'false'"
                                                 required
+                                                @input="onContactInput"
+                                                @blur="contactTouched = true"
                                             />
                                         </div>
-                                        <p v-if="fieldErrors.contact_number" class="field-error">{{ fieldErrors.contact_number }}</p>
+                                        <p v-if="contactError" class="field-error">{{ contactError }}</p>
                                     </div>
                                 </div>
 
@@ -268,11 +278,12 @@
                                                 spellcheck="false"
                                                 placeholder="name@zamboanga.gov.ph"
                                                 :disabled="registering"
-                                                :aria-invalid="fieldErrors.email ? 'true' : 'false'"
+                                                :aria-invalid="emailError ? 'true' : 'false'"
                                                 required
+                                                @input="onEmailInput"
                                             />
                                         </div>
-                                        <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+                                        <p v-if="emailError" class="field-error">{{ emailError }}</p>
                                     </div>
 
                                     <div class="field">
@@ -305,19 +316,68 @@
 
                                 <div v-else key="step-3" class="reg-step is-short">
                                     <div class="field">
-                                        <label for="reg-office">Office</label>
+                                        <label id="reg-office-label" for="reg-office">Office</label>
                                         <div class="control">
                                             <span class="chip" aria-hidden="true"><v-icon>mdi-office-building-outline</v-icon></span>
-                                            <select
-                                                id="reg-office"
-                                                v-model="reg.office_id"
-                                                :disabled="registering || !options.offices.length"
-                                                :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
-                                                required
+                                            <v-menu
+                                                v-model="officeMenuOpen"
+                                                :close-on-content-click="false"
+                                                location="bottom start"
+                                                offset="8"
                                             >
-                                                <option :value="null" disabled>Choose your office</option>
-                                                <option v-for="o in options.offices" :key="o.id" :value="o.id">{{ o.name }}</option>
-                                            </select>
+                                                <template #activator="{ props }">
+                                                    <button
+                                                        v-bind="props"
+                                                        id="reg-office"
+                                                        type="button"
+                                                        class="office-select"
+                                                        :disabled="registering || !options.offices.length"
+                                                        :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
+                                                        aria-labelledby="reg-office-label"
+                                                    >
+                                                        <span v-if="selectedOffice" class="office-selected">
+                                                            <span class="office-avatar" aria-hidden="true">
+                                                                <img v-if="officeIcon(selectedOffice)" :src="officeIcon(selectedOffice)" alt="" />
+                                                                <span v-else>{{ officeInitials(selectedOffice) }}</span>
+                                                            </span>
+                                                            <span class="office-name">{{ selectedOffice.name }}</span>
+                                                        </span>
+                                                        <span v-else class="office-placeholder">Choose your office</span>
+                                                        <v-icon class="office-caret" aria-hidden="true">mdi-chevron-down</v-icon>
+                                                    </button>
+                                                </template>
+                                                <v-card
+                                                    class="office-menu-card"
+                                                    rounded="lg"
+                                                    elevation="8"
+                                                    role="listbox"
+                                                    aria-labelledby="reg-office-label"
+                                                >
+                                                    <button
+                                                        v-for="o in options.offices"
+                                                        :key="o.id"
+                                                        type="button"
+                                                        class="office-option"
+                                                        :class="{ 'is-selected': Number(reg.office_id) === Number(o.id) }"
+                                                        role="option"
+                                                        :aria-selected="Number(reg.office_id) === Number(o.id) ? 'true' : 'false'"
+                                                        @click="chooseOffice(o.id)"
+                                                    >
+                                                        <span class="office-avatar" aria-hidden="true">
+                                                            <img v-if="officeIcon(o)" :src="officeIcon(o)" :alt="`${o.name} icon`" />
+                                                            <span v-else>{{ officeInitials(o) }}</span>
+                                                        </span>
+                                                        <span class="office-option-name">{{ o.name }}</span>
+                                                        <v-icon
+                                                            v-if="Number(reg.office_id) === Number(o.id)"
+                                                            class="office-check"
+                                                            size="18"
+                                                            aria-hidden="true"
+                                                        >mdi-check</v-icon>
+                                                    </button>
+                                                    <p v-if="!options.offices.length" class="office-empty">No offices available.</p>
+                                                </v-card>
+                                            </v-menu>
                                         </div>
                                         <p v-if="fieldErrors.office_id" class="field-error">{{ fieldErrors.office_id }}</p>
                                     </div>
@@ -437,6 +497,7 @@ import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import LoginHero from "@/components/login/LoginHero.vue";
 import { useMotion } from "@/composables/useMotion";
+import { officeIcon } from "@/utils/officeIcons";
 
 // Animations on/off (footer switch; shared with the sidebar button).
 const { motionEnabled, toggleMotion } = useMotion();
@@ -540,6 +601,71 @@ const registering = ref(false);
 const regError = ref("");
 const fieldErrors = ref({});
 
+// Contact: digits only, 11 max. The counter shows progress; the red state
+// appears once they leave the field incomplete.
+const contactTouched = ref(false);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const contactProblem = computed(() => {
+    const n = String(reg.value.contact_number || "");
+    if (!n || n.length === 11) return "";
+    return "Enter an 11-digit contact number.";
+});
+const contactError = computed(
+    () => fieldErrors.value.contact_number || (contactTouched.value ? contactProblem.value : ""),
+);
+
+const emailProblem = computed(() => {
+    const email = String(reg.value.email || "").trim();
+    if (!email) return "";
+    return EMAIL_RE.test(email) ? "" : "Enter a valid email address.";
+});
+const emailError = computed(() => fieldErrors.value.email || emailProblem.value);
+
+const officeMenuOpen = ref(false);
+const selectedOffice = computed(
+    () => (options.value.offices || []).find((o) => Number(o.id) === Number(reg.value.office_id)) || null,
+);
+
+function onContactInput(e) {
+    const digits = String(e?.target?.value ?? reg.value.contact_number ?? "")
+        .replace(/\D/g, "")
+        .slice(0, 11);
+    reg.value.contact_number = digits;
+    if (e?.target && e.target.value !== digits) e.target.value = digits;
+    if (fieldErrors.value.contact_number) {
+        fieldErrors.value = { ...fieldErrors.value, contact_number: "" };
+    }
+}
+
+function onEmailInput() {
+    if (fieldErrors.value.email) {
+        fieldErrors.value = { ...fieldErrors.value, email: "" };
+    }
+}
+
+function officeInitials(office) {
+    const code = String(office?.code || "").trim();
+    if (code) return code.slice(0, 2).toUpperCase();
+    return (
+        String(office?.name || "?")
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || "")
+            .join("")
+            .toUpperCase() || "?"
+    );
+}
+
+function chooseOffice(id) {
+    reg.value.office_id = id;
+    officeMenuOpen.value = false;
+    if (fieldErrors.value.office_id) {
+        fieldErrors.value = { ...fieldErrors.value, office_id: "" };
+    }
+}
+
 // Same format the server enforces (App\Models\User::usernameRules).
 const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._]*[a-z0-9])?$/;
 
@@ -565,7 +691,8 @@ const canRegister = computed(
         reg.value.username &&
         !usernameProblem.value &&
         reg.value.email &&
-        reg.value.contact_number &&
+        !emailProblem.value &&
+        reg.value.contact_number.length === 11 &&
         reg.value.password.length >= 8 &&
         reg.value.office_id != null &&
         reg.value.role_id != null,
@@ -588,20 +715,22 @@ function stepReady(step) {
             reg.value.name &&
             reg.value.username &&
             !usernameProblem.value &&
-            reg.value.contact_number,
+            reg.value.contact_number.length === 11,
         );
     }
     if (step === 1) {
-        return Boolean(reg.value.email && reg.value.password.length >= 8);
+        return Boolean(reg.value.email && !emailProblem.value && reg.value.password.length >= 8);
     }
     return reg.value.office_id != null && reg.value.role_id != null;
 }
 
 function nextStep() {
+    officeMenuOpen.value = false;
     if (regStep.value < REG_STEPS.length - 1 && stepReady(regStep.value)) regStep.value += 1;
 }
 
 function prevStep() {
+    officeMenuOpen.value = false;
     if (regStep.value > 0) regStep.value -= 1;
 }
 
@@ -611,6 +740,8 @@ async function openRegister() {
     notice.value = "";
     regError.value = "";
     fieldErrors.value = {};
+    contactTouched.value = false;
+    officeMenuOpen.value = false;
     regStep.value = 0;
     if (options.value.offices.length) return;
     try {
@@ -625,6 +756,7 @@ async function openRegister() {
 function openSignIn() {
     mode.value = "signin";
     regError.value = "";
+    officeMenuOpen.value = false;
     regStep.value = 0;
 }
 
@@ -650,6 +782,8 @@ async function register() {
         loginId.value = reg.value.username;
         password.value = "";
         reg.value = emptyReg();
+        contactTouched.value = false;
+        officeMenuOpen.value = false;
         regStep.value = 0;
         notice.value = res.data?.message || "Account created. You can sign in once an administrator approves it.";
         mode.value = "signin";
@@ -1013,6 +1147,27 @@ async function guestLogin() {
     text-transform: uppercase;
     color: #2a3757;
 }
+.label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+}
+.label-row label {
+    margin-bottom: 0;
+}
+.field-counter {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.18s ease;
+}
+.field-counter.is-full {
+    color: #1d6b3c;
+}
 
 /* ---- Create account: three short steps, paged with Back / Continue ---- */
 .steps {
@@ -1124,7 +1279,8 @@ async function guestLogin() {
     font-size: 19px;
 }
 .control input,
-.control select {
+.control select,
+.control .office-select {
     width: 100%;
     height: 50px;
     border: 1.5px solid var(--line);
@@ -1145,11 +1301,13 @@ async function guestLogin() {
     color: #8a94aa;
 }
 .control input:hover:not(:disabled),
-.control select:hover:not(:disabled) {
+.control select:hover:not(:disabled),
+.control .office-select:hover:not(:disabled) {
     border-color: #b9c6de;
 }
 .control input:focus,
-.control select:focus {
+.control select:focus,
+.control .office-select:focus {
     outline: none;
     border-color: var(--focus);
     background-color: #ffffff;
@@ -1161,12 +1319,14 @@ async function guestLogin() {
     box-shadow: 0 4px 10px -4px rgba(47, 111, 235, 0.7);
 }
 .control input:disabled,
-.control select:disabled {
+.control select:disabled,
+.control .office-select:disabled {
     opacity: 0.72;
     cursor: not-allowed;
 }
 .control input[aria-invalid="true"],
-.control select[aria-invalid="true"] {
+.control select[aria-invalid="true"],
+.control .office-select[aria-invalid="true"] {
     border-color: var(--danger);
 }
 .control:has([aria-invalid="true"]) .chip {
@@ -1182,6 +1342,106 @@ async function guestLogin() {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6780' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 14px center;
+}
+
+/* Office picker: custom list so each option can show its own icon. */
+.control .office-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 36px;
+    text-align: left;
+    cursor: pointer;
+}
+.office-selected {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.office-avatar {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #e9eff9;
+    color: var(--navy);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+}
+.office-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.office-name,
+.office-option-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-name {
+    font-weight: 600;
+}
+.office-placeholder {
+    color: #8a94aa;
+}
+.office-caret {
+    margin-left: auto;
+    flex: none;
+    color: #5b6780;
+    pointer-events: none;
+}
+.office-menu-card {
+    width: min(420px, calc(100vw - 40px));
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid #dbe4f2;
+    background: #ffffff;
+}
+.office-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.office-option:hover {
+    background: #f1f5fd;
+}
+.office-option.is-selected {
+    background: #e8f0ff;
+    color: var(--navy);
+}
+.office-option-name {
+    flex: 1;
+    min-width: 0;
+}
+.office-check {
+    flex: none;
+    color: var(--focus);
+}
+.office-empty {
+    margin: 0;
+    padding: 12px;
+    color: var(--muted);
+    font-size: 13px;
 }
 
 /* Autofill: keep the field's own colours instead of Chrome's wash. */
