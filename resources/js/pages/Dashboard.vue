@@ -41,45 +41,99 @@
                     class="dash-filter"
                 />
                 <template v-if="isSuperadmin">
-                    <v-select
-                        v-model="officeFilter"
-                        :items="officeOptions"
-                        label="Offices"
-                        placeholder="All offices"
-                        persistent-placeholder
-                        prepend-inner-icon="mdi-office-building-outline"
-                        variant="outlined"
-                        density="compact"
-                        rounded="lg"
-                        hide-details
-                        multiple
-                        clearable
-                        class="dash-filter"
+                    <v-menu
+                        v-model="officeMenuOpen"
+                        :close-on-content-click="false"
+                        location="bottom end"
+                        offset="8"
                     >
-                        <template v-slot:selection="{ item }">
-                            <v-chip size="small" variant="tonal" class="mr-1 dash-office-chip" :title="item.raw.title">
-                                <span class="dash-office-avatar" aria-hidden="true">
-                                    <img v-if="item.raw.icon" :src="item.raw.icon" alt="" />
-                                    <span v-else>{{ item.raw.initials }}</span>
+                        <template #activator="{ props }">
+                            <button
+                                v-bind="props"
+                                type="button"
+                                class="office-trigger"
+                                :class="{ 'is-open': officeMenuOpen }"
+                                aria-haspopup="listbox"
+                                aria-controls="dash-office-panel"
+                            >
+                                <span class="office-seal" :class="{ 'is-empty': !officePickerSeal }" aria-hidden="true">
+                                    <img v-if="officePickerSeal?.icon" :src="officePickerSeal.icon" alt="" />
+                                    <span v-else-if="officePickerSeal">{{ officePickerSeal.initials }}</span>
+                                    <v-icon v-else size="16">mdi-office-building-outline</v-icon>
                                 </span>
-                                <span class="dash-office-chip-label">{{ item.raw.code }}</span>
-                            </v-chip>
+                                <span class="office-trigger-copy">
+                                    <span class="office-trigger-label">Offices</span>
+                                    <span class="office-trigger-value" :title="officeFilterSummary">{{ officeFilterSummary }}</span>
+                                </span>
+                                <v-icon class="office-trigger-chevron" size="18" aria-hidden="true">mdi-chevron-down</v-icon>
+                            </button>
                         </template>
-                        <template v-slot:item="{ props, item }">
-                            <v-list-item v-bind="props" :title="item.raw.title" class="dash-office-item">
-                                <template #prepend>
-                                    <span class="dash-office-avatar" aria-hidden="true">
-                                        <img
-                                            v-if="item.raw.icon"
-                                            :src="item.raw.icon"
-                                            :alt="`${item.raw.office?.name || item.raw.title} icon`"
-                                        />
-                                        <span v-else>{{ item.raw.initials }}</span>
+                        <v-card
+                            id="dash-office-panel"
+                            class="office-panel"
+                            rounded="lg"
+                            elevation="8"
+                            role="dialog"
+                            aria-label="Choose offices"
+                        >
+                            <div class="office-panel-head">
+                                <input
+                                    ref="officeSearchEl"
+                                    v-model="officeSearch"
+                                    class="office-search"
+                                    type="search"
+                                    placeholder="Search by name or abbreviation"
+                                    aria-label="Search offices"
+                                />
+                                <button type="button" class="office-clear" @click="clearOfficeFilter">
+                                    Show all offices
+                                </button>
+                            </div>
+                            <div
+                                class="office-grid"
+                                role="listbox"
+                                aria-label="Offices"
+                                aria-multiselectable="true"
+                            >
+                                <button
+                                    v-for="o in filteredOfficeOptions"
+                                    :key="o.value"
+                                    type="button"
+                                    class="office-card"
+                                    :class="{ 'is-selected': officeIds.has(o.value) }"
+                                    role="option"
+                                    :aria-selected="officeIds.has(o.value) ? 'true' : 'false'"
+                                    :aria-label="o.office?.name || o.title"
+                                    v-tooltip="o.office?.name || o.title"
+                                    @click="toggleOffice(o.value)"
+                                    @mouseenter="officeHover = o"
+                                    @mouseleave="officeHover = null"
+                                    @focus="officeHover = o"
+                                    @blur="officeHover = null"
+                                >
+                                    <span class="office-seal" aria-hidden="true">
+                                        <img v-if="o.icon" :src="o.icon" alt="" />
+                                        <span v-else>{{ o.initials }}</span>
                                     </span>
+                                    <span class="office-card-abbr">{{ o.code }}</span>
+                                </button>
+                                <div v-if="!filteredOfficeOptions.length" class="office-no-match">
+                                    No offices match “{{ officeSearch }}”. Try the abbreviation.
+                                </div>
+                            </div>
+                            <div class="office-panel-foot">
+                                <template v-if="officeHover">
+                                    <b>{{ officeHover.code }}</b> · {{ officeHover.office?.name || officeHover.title }}
                                 </template>
-                            </v-list-item>
-                        </template>
-                    </v-select>
+                                <template v-else-if="selectedOffices.length">
+                                    Selected: <b>{{ selectedOfficeNames }}</b>
+                                </template>
+                                <template v-else>
+                                    Hover or focus an office to see its full name.
+                                </template>
+                            </div>
+                        </v-card>
+                    </v-menu>
                 </template>
                 <v-btn
                     v-if="layoutChanged && view === 'overview'"
@@ -223,7 +277,7 @@
                                 <v-icon color="#005EED" size="20">mdi-chart-pie</v-icon>
                             </v-avatar>
                             <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">By Process</div>
+                                <div class="text-subtitle-1 font-weight-bold">Most Used Transaction Type</div>
                                 <div class="dash-panel-sub text-truncate">{{ summaryScopeText }}</div>
                             </div>
                             <v-spacer />
@@ -566,7 +620,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
@@ -874,6 +928,57 @@ const officeOptions = computed(() =>
             }
         })
 )
+
+const officeMenuOpen = ref(false)
+const officeSearch = ref('')
+const officeSearchEl = ref(null)
+const officeHover = ref(null)
+
+const selectedOffices = computed(() =>
+    officeOptions.value.filter((o) => officeIds.value.has(o.value))
+)
+const officePickerSeal = computed(() => selectedOffices.value[0] || null)
+const officeFilterSummary = computed(() => {
+    const count = officeFilter.value?.length || 0
+    if (!count) return 'All offices'
+    const codes = selectedOffices.value.map((o) => o.code)
+    if (!codes.length) return 'All offices'
+    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
+})
+const selectedOfficeNames = computed(() => {
+    const names = selectedOffices.value.map((o) => o.office?.name || o.code)
+    if (names.length <= 2) return names.join(', ')
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`
+})
+const filteredOfficeOptions = computed(() => {
+    const q = officeSearch.value.trim().toLowerCase()
+    if (!q) return officeOptions.value
+    return officeOptions.value.filter((o) =>
+        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q)
+    )
+})
+
+function toggleOffice(id) {
+    const next = new Set(officeFilter.value || [])
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    officeFilter.value = [...next]
+}
+
+function clearOfficeFilter() {
+    officeFilter.value = []
+}
+
+watch(officeMenuOpen, async (open) => {
+    officeSearch.value = ''
+    officeHover.value = null
+    if (!open) return
+    await nextTick()
+    officeSearchEl.value?.focus()
+})
+watch(officeSearch, () => {
+    officeHover.value = null
+})
 const officeScopeChips = computed(() =>
     officeFilter.value
         .map((id) => officeById.value.get(id)?.code?.toUpperCase())
@@ -886,7 +991,7 @@ const officeScopeLabel = computed(() => {
         : `${officeScopeChips.value.length} offices`
 })
 const scopeProcessTitle = computed(() =>
-    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions per Process` : 'All Transactions per Process'
+    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions Overview` : 'All Transactions Overview'
 )
 
 function inOfficeScope(tx) {
@@ -1244,7 +1349,7 @@ const startLinks = computed(() => {
 const pieSize = computed(() => {
     const s = sizes.pie
     if (!fit.value || !s) return 168
-    return Math.round(Math.min(200, Math.max(84, Math.min(s.h, s.w * 0.45))))
+    return Math.round(Math.min(220, Math.max(84, Math.min(s.h, s.w * 0.45))))
 })
 const legendTight = computed(() => fit.value && (sizes.pie?.h ?? 999) < 150)
 const legendRows = computed(() => {
@@ -1480,7 +1585,7 @@ onUnmounted(() => {
 /* ---- Card grid (shared rules: "Dashboards" in app.css) ---- */
 @media (min-width: 1100px) and (min-height: 560px) {
     .dash-grid {
-        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
     }
     /* Reports view: one card takes the whole grid height. */
     .dash-grid--single {
@@ -1703,50 +1808,209 @@ onUnmounted(() => {
     width: 200px;
     min-width: 170px;
 }
-/* Office filter: icon/initials before each name and selected code. */
-.dash-office-avatar {
+/* ---- Office picker (dashboard header) ---- */
+.office-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 230px;
+    max-width: 260px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 10px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.office-trigger:hover {
+    border-color: rgba(var(--v-theme-primary), 0.55);
+}
+.office-trigger.is-open {
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
+}
+.office-seal {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     flex: none;
     overflow: hidden;
+    border: 2px solid rgb(var(--v-theme-surface));
     border-radius: 50%;
     background: rgba(var(--v-theme-primary), 0.12);
     color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 1px rgba(var(--v-border-color), 0.35);
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.02em;
     line-height: 1;
 }
-.dash-office-avatar img {
+.office-seal.is-empty {
+    background: rgba(var(--v-theme-on-surface), 0.1);
+    color: rgba(var(--v-theme-on-surface), 0.6);
+}
+.office-seal img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
 }
-.dash-office-chip :deep(.v-chip__content) {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.office-trigger-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     min-width: 0;
 }
-.dash-office-chip .dash-office-avatar {
-    width: 18px;
-    height: 18px;
-    font-size: 9px;
+.office-trigger-label {
+    color: rgba(var(--v-theme-on-surface), 0.6);
+    font-size: 11px;
+    line-height: 1;
 }
-.dash-office-chip-label {
+.office-trigger-value {
+    display: block;
     overflow: hidden;
+    font-weight: 600;
+    line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.dash-office-item :deep(.v-list-item__prepend) {
-    margin-inline-end: 10px;
+.office-trigger-chevron {
+    flex: none;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    transition: transform 0.15s ease;
 }
-.dash-office-item :deep(.v-list-item-title) {
-    line-height: 1.3;
-    white-space: normal;
+.office-trigger.is-open .office-trigger-chevron {
+    transform: rotate(180deg);
+}
+.office-panel {
+    width: min(640px, calc(100vw - 32px));
+    padding: 16px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+.office-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.office-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 8px;
+    background: rgba(var(--v-theme-on-surface), 0.035);
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+}
+.office-search:focus-visible {
+    outline: 3px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
+.office-clear {
+    padding: 8px;
+    border: 0;
+    background: none;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.office-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 340px;
+    padding: 4px 4px 8px;
+    overflow-y: auto;
+}
+.office-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 8px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 12px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+}
+.office-card:hover {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.08);
+    transform: translateY(-2px);
+}
+.office-card.is-selected {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.12);
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.25);
+}
+.office-card.is-selected::after {
+    content: "✓";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    font-size: 12px;
+    font-weight: 700;
+}
+.office-card .office-seal {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+    font-size: 13px;
+}
+.office-card-abbr {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-no-match {
+    grid-column: 1 / -1;
+    padding: 24px;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    text-align: center;
+}
+.office-panel-foot {
+    min-height: 34px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    font-size: 13px;
+}
+.office-panel-foot b {
+    color: rgb(var(--v-theme-on-surface));
+}
+@media (max-width: 620px) {
+    .office-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .office-trigger {
+        min-width: 200px;
+    }
 }
 .dash-panel-sub {
     font-size: 0.75rem;

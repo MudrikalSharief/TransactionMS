@@ -341,7 +341,12 @@
             <!-- The tracker's flag backdrop behind every page; the viewer
                  pages draw their own (search dims it as results appear). -->
             <TrackBackdrop v-if="showAuthUi && route.meta?.kind !== 'viewer'" quiet />
-            <v-container v-if="showAuthUi" fluid class="pa-6 app-page">
+            <v-container
+                v-if="showAuthUi"
+                fluid
+                class="pa-6 app-page"
+                :class="{ 'app-page--dashboard': route.name === 'dashboard' }"
+            >
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
                 <div :key="route.matched[0]?.path || route.path" class="page-enter">
@@ -1687,6 +1692,12 @@ onUnmounted(() => {
 .app-page {
     position: relative;
     z-index: 1;
+}
+/* Dashboard: fill the first screen so the City Hall footer starts below
+   the fold and is revealed only when the page is scrolled. */
+.app-page--dashboard {
+    min-height: calc(100vh - 64px);
+    min-height: calc(100dvh - 64px);
 }
 .app-foot-spacer {
     flex: 1 1 auto;
