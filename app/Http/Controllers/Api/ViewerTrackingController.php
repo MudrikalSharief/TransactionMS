@@ -32,11 +32,12 @@ class ViewerTrackingController extends Controller
         $userId = $request->user()->id;
 
         $query = Transaction::query()
+            // Archived transactions leave Track entirely: they are hidden
+            // from the normal list, keyword search and direct detail opens.
+            ->where('transactions.is_archive', false)
             // No keyword: only the viewer's own active transactions. A keyword
             // searches their own rows plus rows shared for Track search.
-            ->when($q === '', fn ($w) => $w
-                ->where('transactions.created_by', $userId)
-                ->where('transactions.is_archive', false))
+            ->when($q === '', fn ($w) => $w->where('transactions.created_by', $userId))
             ->when(isset($data['status']), fn ($w) => $w->where('transactions.is_done', $data['status'] === 'completed'))
             ->with([
                 'type:id,code,name',
@@ -82,6 +83,12 @@ class ViewerTrackingController extends Controller
 
     public function show(Request $request, Transaction $transaction, RoutingEngine $routing)
     {
+        // Archived rows are not part of Track, even by direct URL. 404 avoids
+        // revealing that the record exists.
+        if ((bool) $transaction->is_archive) {
+            abort(404);
+        }
+
         // Owners may always track their own rows; everyone else needs the
         // superadmin's Track-visibility toggle. 404 avoids leaking existence.
         $isOwner = (int) $transaction->created_by === (int) $request->user()->id;

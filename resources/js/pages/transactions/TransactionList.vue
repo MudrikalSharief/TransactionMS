@@ -181,7 +181,7 @@
                 <button
                   v-bind="props"
                   type="button"
-                  class="tl-th-filter"
+                  class="tl-th-filter tl-th-office"
                   :class="{ 'is-active': !!filterOffice }"
                   :title="
                     filterOffice
@@ -376,33 +376,35 @@
           </template>
 
           <template v-slot:[`item.office`]="{ item }">
-            <span
-              v-if="item.office?.name || item.office?.code"
-              v-tooltip="item.office?.name || item.office?.code || ''"
-              class="tl-office-chip"
-              :title="item.office?.name || item.office?.code || ''"
-            >
-              <img
-                v-if="officeIcon(item.office)"
-                class="tl-office-icon"
-                :src="officeIcon(item.office)"
-                :alt="`${item.office?.name || 'Office'} icon`"
-                width="22"
-                height="22"
-                decoding="async"
-              />
+            <div class="tl-office-cell">
               <span
-                v-else
-                class="tl-office-icon-ph"
-                aria-label="No office icon"
+                v-if="item.office?.name || item.office?.code"
+                v-tooltip="item.office?.name || item.office?.code || ''"
+                class="tl-office-chip"
+                :title="item.office?.name || item.office?.code || ''"
               >
-                ?
+                <img
+                  v-if="officeIcon(item.office)"
+                  class="tl-office-icon"
+                  :src="officeIcon(item.office)"
+                  :alt="`${item.office?.name || 'Office'} icon`"
+                  width="22"
+                  height="22"
+                  decoding="async"
+                />
+                <span
+                  v-else
+                  class="tl-office-icon-ph"
+                  aria-label="No office icon"
+                >
+                  ?
+                </span>
+                <span class="tl-office-code">{{
+                  item.office?.code || item.office?.name
+                }}</span>
               </span>
-              <span class="tl-office-code">{{
-                item.office?.code || item.office?.name
-              }}</span>
-            </span>
-            <span v-else class="tl-dash">—</span>
+              <span v-else class="tl-dash">—</span>
+            </div>
           </template>
 
           <template v-slot:[`item.current_step`]="{ item }">
@@ -1471,18 +1473,31 @@ html.dark .tl-page {
 }
 
 /* ---- Cells ---- */
-/* Long titles / offices / chip names truncate to one line (full text on
-   hover) so rows hold the 56px rhythm. Full values remain visible on the
-   detail page. The step chip's icon must not eat the text budget, so the
-   text gets its own cap slightly inside the chip's overall cap. */
+/* Titles and transaction types wrap to at most two lines (full text on hover);
+   the office chip stays a single centered chip. Full values remain visible on
+   the detail page. */
 .tl-name {
-    display: block;
+    display: -webkit-box;
     max-width: 100%;
     overflow: hidden;
     color: var(--tl-ink);
     font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+}
+/* Originating office sits centered in its column. */
+.tl-th-office {
+    width: 100%;
+    justify-content: center;
+}
+.tl-office-cell {
+    display: flex;
+    justify-content: center;
+    width: 100%;
 }
 /* Originating office: icon chip showing only the code; the full office
    name is the tooltip. Same pattern as the Transaction Types table. */
@@ -1537,18 +1552,29 @@ html.dark .tl-page {
     color: var(--tl-muted);
     font-size: 12px;
 }
+.tx-chip {
+    height: auto !important;
+    min-height: 24px;
+    max-width: 100%;
+    padding-block: 2px;
+}
 .tx-chip :deep(.v-chip__content) {
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 100%;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
 }
 .tx-chip-text {
+    display: -webkit-box;
     min-width: 0;
-    max-width: 170px;
+    max-width: 100%;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
 }
 
 /* ---- Footer ---- */

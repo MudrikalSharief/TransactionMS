@@ -202,6 +202,49 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
+    public function test_archived_shared_transaction_is_hidden_from_track_search_and_detail(): void
+    {
+        $viewer = $this->userWithRole('viewer');
+        $tx = $this->makeTransaction(
+            User::factory()->create(),
+            'TRACK-ARCHIVED-SHARED-1',
+            true,
+        );
+        $tx->update(['is_archive' => true]);
+
+        Sanctum::actingAs($viewer);
+
+        $this->getJson('/api/viewer/transactions?q=TRACK-ARCHIVED-SHARED-1')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->getJson("/api/viewer/transactions/{$tx->id}")
+            ->assertNotFound();
+    }
+
+    public function test_archived_own_transaction_is_hidden_from_track_list_search_and_detail(): void
+    {
+        $viewer = $this->userWithRole('viewer');
+        $tx = $this->makeTransaction($viewer, 'TRACK-ARCHIVED-OWN-1');
+        $tx->update(['is_archive' => true]);
+
+        Sanctum::actingAs($viewer);
+
+        // Default list: only active rows.
+        $this->getJson('/api/viewer/transactions')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        // Keyword search: archived rows stay out even for their owner.
+        $this->getJson('/api/viewer/transactions?q=TRACK-ARCHIVED-OWN-1')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        // Direct URL: 404.
+        $this->getJson("/api/viewer/transactions/{$tx->id}")
+            ->assertNotFound();
+    }
+
     public function test_private_transactions_are_searchable_on_track(): void
     {
         $viewer = $this->userWithRole('viewer');

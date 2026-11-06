@@ -475,7 +475,12 @@ function onTab() {
 }
 
 function open(tx) {
-    router.push(tab.value === "action" ? `/my/transactions/${tx.id}` : `/transactions/${tx.id}`);
+    const from = isHistory.value
+        ? "portal-archive"
+        : tab.value === "action"
+          ? "portal-action"
+          : "portal";
+    router.push({ path: `/portal/transactions/${tx.id}`, query: { from } });
 }
 
 function stepColor(step) {
@@ -552,7 +557,7 @@ async function createTx() {
         });
         const tx = res.data?.data ?? res.data;
         dialog.value = false;
-        router.push(`/transactions/${tx.id}`);
+        router.push({ path: `/portal/transactions/${tx.id}`, query: { from: "portal" } });
     } catch (e) {
         createError.value =
             e?.response?.data?.message ||

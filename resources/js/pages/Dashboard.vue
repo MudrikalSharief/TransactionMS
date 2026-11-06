@@ -37,7 +37,27 @@
                         class="dash-filter"
                     >
                         <template v-slot:selection="{ item }">
-                            <v-chip size="small" variant="tonal" class="mr-1">{{ item.raw.code }}</v-chip>
+                            <v-chip size="small" variant="tonal" class="mr-1 dash-office-chip" :title="item.raw.title">
+                                <span class="dash-office-avatar" aria-hidden="true">
+                                    <img v-if="item.raw.icon" :src="item.raw.icon" alt="" />
+                                    <span v-else>{{ item.raw.initials }}</span>
+                                </span>
+                                <span class="dash-office-chip-label">{{ item.raw.code }}</span>
+                            </v-chip>
+                        </template>
+                        <template v-slot:item="{ props, item }">
+                            <v-list-item v-bind="props" :title="item.raw.title" class="dash-office-item">
+                                <template #prepend>
+                                    <span class="dash-office-avatar" aria-hidden="true">
+                                        <img
+                                            v-if="item.raw.icon"
+                                            :src="item.raw.icon"
+                                            :alt="`${item.raw.office?.name || item.raw.title} icon`"
+                                        />
+                                        <span v-else>{{ item.raw.initials }}</span>
+                                    </span>
+                                </template>
+                            </v-list-item>
                         </template>
                     </v-select>
                 </template>
@@ -562,6 +582,7 @@ import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
 import StatCard from '@/components/StatCard.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
+import { officeIcon } from '@/utils/officeIcons'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
@@ -766,10 +787,35 @@ const scopeCode = computed(() => myOffice.value?.code?.toUpperCase() ?? null)
 const officeFilter = ref([])
 const officeById = computed(() => new Map((officeStore.items.value || []).map((o) => [o.id, o])))
 const officeIds = computed(() => new Set(officeFilter.value || []))
+
+function officeInitials(office) {
+    const code = String(office?.code || '').trim()
+    if (code) return code.slice(0, 2).toUpperCase()
+    return (
+        String(office?.name || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || '')
+            .join('')
+            .toUpperCase() || '?'
+    )
+}
+
 const officeOptions = computed(() =>
     [...(officeStore.items.value || [])]
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id, code: o.code || o.name }))
+        .map((o) => {
+            const title = o.code ? `${o.name} (${o.code})` : o.name
+            return {
+                title,
+                value: o.id,
+                code: o.code || o.name,
+                office: o,
+                icon: officeIcon(o),
+                initials: officeInitials(o),
+            }
+        })
 )
 const officeScopeChips = computed(() =>
     officeFilter.value
@@ -1571,6 +1617,51 @@ onUnmounted(() => {
     flex: 0 0 200px;
     width: 200px;
     min-width: 170px;
+}
+/* Office filter: icon/initials before each name and selected code. */
+.dash-office-avatar {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    overflow: hidden;
+    border-radius: 50%;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+}
+.dash-office-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.dash-office-chip :deep(.v-chip__content) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.dash-office-chip .dash-office-avatar {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+}
+.dash-office-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dash-office-item :deep(.v-list-item__prepend) {
+    margin-inline-end: 10px;
+}
+.dash-office-item :deep(.v-list-item-title) {
+    line-height: 1.3;
+    white-space: normal;
 }
 .dash-panel-sub {
     font-size: 0.75rem;
