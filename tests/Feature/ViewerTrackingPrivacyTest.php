@@ -130,7 +130,7 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
-    public function test_non_superadmin_cannot_toggle_track_visibility(): void
+    public function test_office_admin_can_toggle_track_visibility_in_their_scope(): void
     {
         $officeAdmin = $this->userWithRole('admin', $this->office);
         $tx = $this->makeTransaction(
@@ -139,6 +139,58 @@ class ViewerTrackingPrivacyTest extends TestCase
         );
 
         Sanctum::actingAs($officeAdmin);
+
+        $this->patchJson("/api/admin/transactions/{$tx->id}/privacy", [
+            'is_private' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.is_private', true);
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $tx->id,
+            'is_private' => true,
+        ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'transactions.privacy',
+            'entity_type' => Transaction::class,
+            'entity_id' => $tx->id,
+        ]);
+    }
+
+    public function test_office_admin_cannot_toggle_another_offices_track_visibility(): void
+    {
+        $otherOffice = Office::create([
+            'code' => 'CBO',
+            'name' => 'City Budget Office',
+        ]);
+        $otherAdmin = $this->userWithRole('admin', $otherOffice);
+        $tx = $this->makeTransaction(
+            User::factory()->create(),
+            'PRIVACY-TOGGLE-3',
+        );
+
+        Sanctum::actingAs($otherAdmin);
+
+        $this->patchJson("/api/admin/transactions/{$tx->id}/privacy", [
+            'is_private' => true,
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $tx->id,
+            'is_private' => false,
+        ]);
+    }
+
+    public function test_staff_cannot_toggle_track_visibility(): void
+    {
+        $clerk = $this->userWithRole('clerk', $this->office);
+        $tx = $this->makeTransaction(
+            User::factory()->create(),
+            'PRIVACY-TOGGLE-4',
+        );
+
+        Sanctum::actingAs($clerk);
 
         $this->patchJson("/api/admin/transactions/{$tx->id}/privacy", [
             'is_private' => true,

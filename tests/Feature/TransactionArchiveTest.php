@@ -125,12 +125,55 @@ class TransactionArchiveTest extends TestCase
         ]);
     }
 
-    public function test_non_superadmin_cannot_archive_a_transaction(): void
+    public function test_office_admin_can_archive_a_transaction_in_their_scope(): void
     {
         $officeAdmin = $this->userWithRole('admin', $this->office);
         $tx = $this->makeTransaction();
 
         Sanctum::actingAs($officeAdmin);
+
+        $this->postJson("/api/admin/transactions/{$tx->id}/archive")
+            ->assertOk()
+            ->assertJsonPath('data.is_archive', true);
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $tx->id,
+            'is_archive' => true,
+        ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'transactions.archive',
+            'entity_type' => Transaction::class,
+            'entity_id' => $tx->id,
+        ]);
+    }
+
+    public function test_office_admin_cannot_archive_another_offices_transaction(): void
+    {
+        $otherOffice = Office::create([
+            'code' => 'CBO',
+            'name' => 'City Budget Office',
+        ]);
+        $otherAdmin = $this->userWithRole('admin', $otherOffice);
+        $tx = $this->makeTransaction();
+
+        Sanctum::actingAs($otherAdmin);
+
+        $this->postJson("/api/admin/transactions/{$tx->id}/archive")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $tx->id,
+            'is_archive' => false,
+        ]);
+    }
+
+    public function test_staff_cannot_archive_a_transaction(): void
+    {
+        $clerk = $this->userWithRole('clerk', $this->office);
+        $tx = $this->makeTransaction();
+
+        Sanctum::actingAs($clerk);
 
         $this->postJson("/api/admin/transactions/{$tx->id}/archive")
             ->assertForbidden();
@@ -163,13 +206,59 @@ class TransactionArchiveTest extends TestCase
             ->assertJsonPath('data.0.is_archive', true);
     }
 
-    public function test_non_superadmin_cannot_open_the_archive_list(): void
+    public function test_office_admin_archive_list_is_scoped_to_their_office(): void
     {
+        $otherOffice = Office::create([
+            'code' => 'CBO',
+            'name' => 'City Budget Office',
+        ]);
+        $archived = $this->makeTransaction();
+        $archived->update(['is_archive' => true]);
+
+        $otherAdmin = $this->userWithRole('admin', $otherOffice);
+        Sanctum::actingAs($otherAdmin);
+        $this->getJson('/api/admin/transactions/archive')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
         $officeAdmin = $this->userWithRole('admin', $this->office);
-
         Sanctum::actingAs($officeAdmin);
+        $this->getJson('/api/admin/transactions/archive')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $archived->id);
+    }
 
-        $this->getJson('/api/admin/transactions/archive')->assertForbidden();
+    public function test_staff_can_view_only_archived_transactions_in_their_visibility(): void
+    {
+        $archived = $this->makeTransaction();
+        $archived->update(['is_archive' => true]);
+        $this->makeTransaction();
+
+        $clerk = $this->userWithRole('clerk', $this->office);
+        Sanctum::actingAs($clerk);
+
+        $this->getJson('/api/admin/transactions/archive')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $archived->id)
+            ->assertJsonPath('data.0.is_archive', true);
+
+        // Staff still cannot change the archive.
+        $this->postJson("/api/admin/transactions/{$archived->id}/unarchive")
+            ->assertForbidden();
+
+        // Another office's staff do not see this row.
+        $otherOffice = Office::create([
+            'code' => 'CBO',
+            'name' => 'City Budget Office',
+        ]);
+        $otherClerk = $this->userWithRole('clerk', $otherOffice);
+        Sanctum::actingAs($otherClerk);
+
+        $this->getJson('/api/admin/transactions/archive')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_archived_transaction_is_view_only(): void
@@ -263,13 +352,35 @@ class TransactionArchiveTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_non_superadmin_cannot_unarchive_a_transaction(): void
+    public function test_office_admin_can_unarchive_a_transaction_in_their_scope(): void
     {
         $officeAdmin = $this->userWithRole('admin', $this->office);
         $tx = $this->makeTransaction();
         $tx->update(['is_archive' => true]);
 
         Sanctum::actingAs($officeAdmin);
+
+        $this->postJson("/api/admin/transactions/{$tx->id}/unarchive")
+            ->assertOk()
+            ->assertJsonPath('data.is_archive', false);
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $tx->id,
+            'is_archive' => false,
+        ]);
+    }
+
+    public function test_office_admin_cannot_unarchive_another_offices_transaction(): void
+    {
+        $otherOffice = Office::create([
+            'code' => 'CBO',
+            'name' => 'City Budget Office',
+        ]);
+        $otherAdmin = $this->userWithRole('admin', $otherOffice);
+        $tx = $this->makeTransaction();
+        $tx->update(['is_archive' => true]);
+
+        Sanctum::actingAs($otherAdmin);
 
         $this->postJson("/api/admin/transactions/{$tx->id}/unarchive")
             ->assertForbidden();

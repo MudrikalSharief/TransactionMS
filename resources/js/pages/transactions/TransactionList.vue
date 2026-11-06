@@ -606,7 +606,7 @@ import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import { toast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
@@ -635,6 +635,12 @@ const auth = useAuth()
 const isSuperadmin = computed(() =>
   (auth.user.value?.roles || []).some((r) => r.code === 'superadmin')
 )
+
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+
+// Superadmins and office admins manage archiving and Track visibility.
+// Office admins only receive rows already scoped to their office by the API.
+const canManageArchive = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
 const canManage = computed(() => isSuperadmin.value || auth.user.value?.office != null)
 
@@ -769,7 +775,7 @@ const headers = computed(() => {
     { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
     { title: 'Created', key: 'created_at', width: '14%' },
   ]
-  if (isSuperadmin.value) {
+  if (canManageArchive.value) {
     if (!isArchive.value) {
       base.push({ title: 'Private', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }

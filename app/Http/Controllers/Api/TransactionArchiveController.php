@@ -6,17 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TransactionListResource;
 use App\Models\Transaction;
 use App\Services\AuditService;
+use App\Services\TransactionVisibility;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 /**
- * Superadmin-only archive. Archiving is an alternative to deleting a
- * transaction: the row, its files and its full history stay in the database,
- * but it leaves every operational queue and becomes view-only.
+ * Admin archive. Archiving is an alternative to deleting a transaction: the
+ * row, its files and its full history stay in the database, but it leaves
+ * every operational queue and becomes view-only. Superadmins see every
+ * archived row; office admins see the archived rows in their office scope.
  */
 class TransactionArchiveController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, TransactionVisibility $visibility)
     {
         $data = $request->validate([
             'q' => ['nullable', 'string', 'max:200'],
@@ -42,6 +44,8 @@ class TransactionArchiveController extends Controller
                 'creator:id,name,email',
             ])
             ->latest();
+
+        $visibility->apply($query, $request->user());
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {

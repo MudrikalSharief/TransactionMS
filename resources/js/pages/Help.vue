@@ -463,13 +463,6 @@ const adminSteps = [
         to: '/admin/transaction-types',
     },
     {
-        icon: 'mdi-form-textbox',
-        title: 'Fields',
-        hint: 'Form inputs per step',
-        text: 'Define the form fields (text, number, date, select…). Mark which are required or unique.',
-        to: '/admin/fields',
-    },
-    {
         icon: 'mdi-clipboard-check-outline',
         title: 'Requirements',
         hint: 'Checklist items per step',
@@ -482,13 +475,6 @@ const adminSteps = [
         hint: '1-2-3 steps, save goes live',
         text: 'Open a Transaction Type → Steps → edit the steps → Save goes live for new transactions. Steps need at least one start and one end.',
         to: '/admin/transaction-types',
-    },
-    {
-        icon: 'mdi-bank',
-        title: 'Gov References',
-        hint: 'RA, IRR, COA citations',
-        text: 'Attach the governing references (RA, IRR, COA…) so the transaction type cites its legal basis.',
-        to: '/admin/government-references',
     },
     {
         icon: 'mdi-swap-horizontal',

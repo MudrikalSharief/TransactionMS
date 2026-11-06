@@ -29,7 +29,11 @@ class RegistrationController extends Controller
     public function options(): JsonResponse
     {
         return response()->json([
-            'offices' => Office::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'offices' => Office::query()
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Office $office) => Office::mini($office))
+                ->values(),
             'roles' => Role::query()
                 ->whereNotIn('code', self::NOT_OFFERED)
                 ->orderBy('name')
