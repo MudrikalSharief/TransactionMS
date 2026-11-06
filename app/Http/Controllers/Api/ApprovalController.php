@@ -226,6 +226,8 @@ class ApprovalController extends Controller
                 'attachments.step',
                 'attachments.requirement',
             ])
+            // Read-only flag for the Task page's bulk Receive.
+            ->withExists(['runs as awaiting_receipt' => fn ($r) => $r->whereNull('received_at')])
             ->latest();
 
         if ($q !== '') {

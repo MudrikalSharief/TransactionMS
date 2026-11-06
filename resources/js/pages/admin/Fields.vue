@@ -1,5 +1,5 @@
 <template>
-  <LoadingVeil :show="loading" label="fields" icon="mdi-form-textbox" />
+  <LoadingVeil :show="loading || entering" label="fields" icon="mdi-form-textbox" />
   <v-card rounded="0" elevation="1" class="lgu-card adm-page">
     <v-card-title class="d-flex align-center pa-5 lgu-head">
       <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
@@ -197,6 +197,10 @@ import LoadingVeil from '@/components/LoadingVeil.vue'
 const auth = useAuth()
 const { items, loading, fetchAll, create, update, destroy } = useFieldDefinitions()
 
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true)
+
 const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
 const error = ref('')
@@ -365,7 +369,9 @@ function stringify(v) {
 onMounted(() => {
   // Full scroll lock for this tab: no bars and no scrolling anywhere.
   document.documentElement.classList.add('lock-scroll')
-  fetchAll().catch(() => {})
+  fetchAll()
+    .catch(() => {})
+    .finally(() => { entering.value = false })
   // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
   // the table is narrower, so flag html.nav-open to duck the row actions
   // away instead of letting them get cut off. Covers hover-expand + toggle.

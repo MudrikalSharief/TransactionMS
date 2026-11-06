@@ -1,6 +1,6 @@
 <template>
   <div>
-    <LoadingVeil :show="loading" label="transactions" :icon="isArchive ? 'mdi-archive-outline' : 'mdi-swap-horizontal'" />
+    <LoadingVeil :show="loading || entering" label="transactions" :icon="isArchive ? 'mdi-archive-outline' : 'mdi-swap-horizontal'" />
     <v-card rounded="0" elevation="0" class="tl-page mb-4">
       <header class="tl-hd">
         <div class="tl-badge" aria-hidden="true">
@@ -625,6 +625,10 @@ const router = useRouter()
 const isArchive = computed(() => props.archive)
 const txStore = useTransactions({ archived: isArchive.value })
 const { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy } = txStore
+
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true)
 const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
@@ -1044,7 +1048,9 @@ onMounted(() => {
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
   fetchOffices().catch(() => {})
-  fetchAll(requestParams(page.value)).catch(() => {})
+  fetchAll(requestParams(page.value))
+    .catch(() => {})
+    .finally(() => { entering.value = false })
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,

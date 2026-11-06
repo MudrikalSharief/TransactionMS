@@ -5,7 +5,6 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Models\Office;
-use App\Http\Resources\RoleResource;
 
 class UserResource extends JsonResource
 {

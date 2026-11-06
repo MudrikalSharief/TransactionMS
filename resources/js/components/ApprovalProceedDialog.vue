@@ -18,7 +18,7 @@
 
             <div class="pm-body">
                 <ReturnBanner :info="null" />
-                <TableLoader v-if="loading" label="transaction" compact />
+                <TableLoader v-if="loading" label="transaction" icon="mdi-file-document-outline" compact />
 
                 <template v-else-if="tx">
                     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">

@@ -22,6 +22,8 @@ use App\Http\Controllers\Api\Admin\WorkflowDefinitionController;
 use App\Http\Controllers\Api\Admin\WorkflowStepController;
 use App\Http\Controllers\Api\Admin\WorkflowRouteController;
 use App\Http\Controllers\Api\Admin\DashboardSummaryController;
+use App\Http\Controllers\Api\Admin\MonitoringReportController;
+use App\Http\Controllers\Api\Admin\ActivityLogController;
 
 use App\Http\Controllers\Api\Admin\FieldDefinitionController;
 use App\Http\Controllers\Api\Admin\StepFieldController;
@@ -250,6 +252,13 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
             ->middleware(EnsureOfficeAdmin::class);
         Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
             ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process'])
+            ->middleware(EnsureOfficeAdmin::class);
+
+        // Monitoring report (read-only; office admins get their office's scope).
+        Route::get('/reports/monitoring', MonitoringReportController::class)
+            ->middleware(EnsureOfficeAdmin::class);
+        // Activity log (read-only): transaction activity; setup changes for superadmins.
+        Route::get('/activity', ActivityLogController::class)
             ->middleware(EnsureOfficeAdmin::class);
 
         // Transactions: the list/detail/steps are open to everyone. Regular

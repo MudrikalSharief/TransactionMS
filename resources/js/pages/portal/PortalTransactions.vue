@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="entering" :label="isHistory ? 'transaction archive' : 'transactions'" :icon="isHistory ? 'mdi-archive-outline' : 'mdi-file-document-multiple'" />
         <v-card rounded="0" elevation="1" class="lgu-card">
             <!-- Same header as the admin pages (outlined navy badge, outlined
                  buttons). On phones the buttons drop their labels so the
@@ -320,6 +321,7 @@ import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { txNoticeShown } from "@/composables/useLoginNotice";
 import { dueState } from "@/utils/processColor";
 import TableLoader from "@/components/TableLoader.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 import StepProgress from "@/components/StepProgress.vue";
 
 const route = useRoute();
@@ -344,6 +346,9 @@ const isHistory = computed(() => !!route.meta.history);
 const tab = ref(isHistory.value || hasApprovals.value || route.query.tab === "office" || route.query.late === "1" ? "office" : "action");
 const items = ref([]);
 const loading = ref(true);
+// Full-page loader while the page opens; tab switches and refreshes use
+// the in-table loader instead.
+const entering = ref(true);
 const error = ref("");
 const search = ref("");
 const page = ref(1);
@@ -570,6 +575,7 @@ async function createTx() {
 
 onMounted(async () => {
     await fetchRows();
+    entering.value = false;
     if (route.query.new === "1" && canCreate.value && !isHistory.value) openCreate();
 });
 

@@ -21,10 +21,8 @@ class TransactionStepRunResource extends JsonResource
     public function toArray($request): array
     {
         $estimated = (int) ($this->sla_minutes_snapshot ?? $this->toStep?->sla_minutes ?? 0);
-        $actual = null;
-        if ($this->performed_at && $this->received_at) {
-            $actual = (int) max(0, $this->performed_at->diffInMinutes($this->received_at, true));
-        }
+        // Working minutes (weekends skipped), same as the model's actual_minutes.
+        $actual = $this->actual_minutes;
 
         return [
             'id' => $this->id,

@@ -1,6 +1,6 @@
 <template>
     <LoadingVeil
-        :show="loading"
+        :show="loading || entering"
         label="transaction types"
         icon="mdi-format-list-bulleted-type"
     />
@@ -956,6 +956,10 @@ const router = useRouter();
 const auth = useAuth();
 const { items, loading, fetchAll, create, update, remove } =
     useTransactionTypes();
+
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true);
 const {
     defs,
     loading: defsLoading,
@@ -1630,7 +1634,11 @@ async function removeRow(item) {
 onMounted(() => {
     // Independent lookups: run in parallel so one slow endpoint never blocks
     // the others. Each paints cache first, then revalidates silently.
-    fetchAll().catch(() => {});
+    fetchAll()
+        .catch(() => {})
+        .finally(() => {
+            entering.value = false;
+        });
     fetchDefinitions().catch(() => {});
     fetchOffices().catch(() => {});
 });

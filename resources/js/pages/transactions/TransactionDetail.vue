@@ -50,6 +50,18 @@
                         </v-icon>
                         <span>{{ isArchived ? 'Unarchive' : 'Archive' }}</span>
                     </button>
+                    <!-- Tracking slip with a QR code, handed over with the paper:
+                         opens a preview, printed from there. -->
+                    <button
+                        v-if="tx"
+                        type="button"
+                        class="tx-back"
+                        aria-label="Print tracking slip"
+                        @click="slipOpen = true"
+                    >
+                        <v-icon size="18" aria-hidden="true">mdi-printer-outline</v-icon>
+                        <span>Print slip</span>
+                    </button>
                     <button
                         type="button"
                         class="tx-back"
@@ -64,6 +76,7 @@
             <div v-if="error" class="tx-error">
                 <v-alert type="error" variant="tonal" rounded="0" class="ma-0">{{ error }}</v-alert>
             </div>
+            <TrackingSlipDialog v-model="slipOpen" :tx="tx" :printed-by="auth.user.value?.name || ''" />
         </header>
 
         <!-- Covered by LoadingVeil above while the transaction loads. -->
@@ -448,7 +461,7 @@
                             </div>
                         </template>
                     </v-data-table>
-                    <TableLoader v-if="loading" label="checklist" compact style="flex: 1 1 auto" />
+                    <TableLoader v-if="loading" label="checklist" icon="mdi-clipboard-check-outline" compact style="flex: 1 1 auto" />
                     </div>
                 </div>
             </v-card-text>
@@ -732,6 +745,7 @@ import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
 import { fmtDateTime } from '@/utils/dates';
+import TrackingSlipDialog from '@/components/TrackingSlipDialog.vue';
 import { toast } from '@/composables/useToast';
 
 const route = useRoute();
@@ -740,6 +754,8 @@ const { api } = useApi();
 const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi, archive, unarchive } = useTransactions();
 
 const tx = ref(null);
+// Tracking slip preview (QR to the tracking page), printed from the dialog.
+const slipOpen = ref(false);
 const availableActions = ref([]);
 const saving = ref(false);
 const loading = ref(true);
@@ -1325,27 +1341,6 @@ async function receiveStep() {
     } finally {
         receiving.value = false;
     }
-}
-
-function componentFor(type) {
-    switch (type) {
-        case "textarea":
-            return "v-textarea";
-        case "select":
-            return "v-select";
-        case "multiselect":
-            return "v-select";
-        case "boolean":
-            return "v-switch";
-        default:
-            return "v-text-field";
-    }
-}
-
-function inputTypeFor(type) {
-    if (type === "number" || type === "currency") return "number";
-    if (type === "date") return "date";
-    return "text";
 }
 
 function hydrateForm() {

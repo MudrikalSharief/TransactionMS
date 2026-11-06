@@ -452,6 +452,12 @@ class TransactionResource extends JsonResource
                 $this->stepOfficePayload($state->currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
+            // Inbox lists only (withExists in ApprovalController): sent to the
+            // current station but not received there yet.
+            'awaiting_receipt' => $this->when(
+                array_key_exists('awaiting_receipt', $this->resource->getAttributes()),
+                fn () => (bool) $this->resource->getAttribute('awaiting_receipt')
+            ),
 
             'workflow_steps' => $this->workflow?->steps?->map(fn($s) => array_merge(
                 $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end','office_id']),
