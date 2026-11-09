@@ -768,13 +768,13 @@
               {{ errors.username }}
             </div>
             <div v-else id="nu-username-hint" class="nu-hint">
-              They can sign in with this or their email.
+              Their sign-in name. Leave blank to generate one from the full name.
             </div>
           </div>
 
           <div class="nu-field" :class="{ 'is-bad': errors.email }">
             <label class="nu-label" for="nu-email">
-              Email <span class="nu-req" aria-hidden="true">*</span>
+              Email <span class="nu-opt">(optional)</span>
             </label>
             <input
               id="nu-email"
@@ -788,7 +788,6 @@
               autocapitalize="none"
               spellcheck="false"
               inputmode="email"
-              aria-required="true"
               :aria-invalid="!!errors.email"
               :aria-describedby="errors.email ? 'nu-email-err' : undefined"
               :disabled="saving"
@@ -1367,7 +1366,7 @@ function itemOfficeId(item) {
   return null
 }
 
-// The update endpoints require name and email, so every inline save sends
+// Inline updates send the full current row, including optional contact email,
 // the full current row plus the one field that changed.
 function buildUserPayload(item, overrides = {}) {
   return {
@@ -1817,8 +1816,7 @@ function validate() {
     next.username = 'Use 3–30 lowercase letters, numbers, dots or underscores (start and end with a letter or number).'
   }
 
-  if (!email) next.email = 'Enter an email address.'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.'
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.'
 
   if (contact && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(contact)) {
     next.contact_number = 'Enter a valid contact number, for example 09171234567.'
@@ -1911,7 +1909,7 @@ async function save() {
   try {
     const payload = {
       name: form.value.name.trim(),
-      // Blank clears it (the account then signs in by email only).
+      // Blank generates a unique username from the account name.
       username: form.value.username.trim().toLowerCase() || null,
       email: form.value.email.trim(),
       contact_number: String(form.value.contact_number || '').trim() || null,

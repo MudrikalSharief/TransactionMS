@@ -57,7 +57,7 @@
                 <Transition name="swap" mode="out-in">
                     <main v-if="mode === 'signin'" id="panel-signin" key="signin" class="pane" role="tabpanel" aria-labelledby="tab-signin">
                         <h2>{{ greeting }}</h2>
-                        <p class="sub">Sign in with your username or email and your password.</p>
+                        <p class="sub">Sign in with your username and password.</p>
 
                         <div v-if="notice" class="notice" role="status" aria-live="polite">
                             <v-icon aria-hidden="true">mdi-check-circle-outline</v-icon>
@@ -71,14 +71,14 @@
 
                         <form novalidate :aria-busy="loading ? 'true' : 'false'" @submit.prevent="submit">
                             <div class="field">
-                                <label for="login-id">Username or email</label>
+                                <label for="login-id">Username</label>
                                 <div class="control">
                                     <span class="chip" aria-hidden="true"><v-icon>mdi-account-circle-outline</v-icon></span>
                                     <input
                                         id="login-id"
                                         v-model.trim="loginId"
                                         type="text"
-                                        inputmode="email"
+                                        inputmode="text"
                                         name="username"
                                         placeholder="e.g. juan.delacruz"
                                         autocomplete="username"
@@ -160,8 +160,8 @@
                          for a new user, plus a contact number. It waits for
                          approval. -->
                     <main v-else id="panel-register" key="register" class="pane" role="tabpanel" aria-labelledby="tab-register">
-                        <h2>Request an account</h2>
-                        <p class="sub">An administrator reviews new accounts. You can sign in once yours is approved.</p>
+                        <h2>Create your account</h2>
+                        <p class="sub">Choose a username to sign in. No email account needed. An administrator will review your request.</p>
 
                         <div v-if="regError" :key="errorKey" class="error" role="alert" aria-live="assertive">
                             <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
@@ -176,6 +176,8 @@
                                 <i v-for="n in 3" :key="n" :class="{ 'is-on': n - 1 <= regStep }"></i>
                             </span>
                         </div>
+
+                        <h3 class="reg-step-title">{{ REG_STEP_TITLES[regStep] }}</h3>
 
                         <form
                             novalidate
@@ -200,38 +202,6 @@
                                             />
                                         </div>
                                         <p v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</p>
-                                    </div>
-
-                                    <div class="field">
-                                        <label for="reg-username">Username</label>
-                                        <div class="control">
-                                            <span class="chip" aria-hidden="true"><v-icon>mdi-at</v-icon></span>
-                                            <input
-                                                id="reg-username"
-                                                v-model="reg.username"
-                                                type="text"
-                                                autocomplete="username"
-                                                autocapitalize="none"
-                                                spellcheck="false"
-                                                maxlength="30"
-                                                placeholder="jdelacruz"
-                                                :disabled="registering"
-                                                :aria-invalid="usernameProblem || fieldErrors.username ? 'true' : 'false'"
-                                                :aria-describedby="
-                                                    usernameProblem || fieldErrors.username ? 'reg-username-help' : undefined
-                                                "
-                                                required
-                                                @input="onUsernameInput"
-                                            />
-                                        </div>
-                                        <!-- Only a live problem is shown; the format hint is gone. -->
-                                        <p
-                                            v-if="usernameProblem || fieldErrors.username"
-                                            id="reg-username-help"
-                                            class="field-note is-bad"
-                                        >
-                                            {{ fieldErrors.username || usernameProblem }}
-                                        </p>
                                     </div>
 
                                     <div class="field">
@@ -266,24 +236,30 @@
 
                                 <div v-else-if="regStep === 1" key="step-2" class="reg-step is-short">
                                     <div class="field">
-                                        <label for="reg-email">Email</label>
+                                        <label for="reg-username">Create a username</label>
                                         <div class="control">
-                                            <span class="chip" aria-hidden="true"><v-icon>mdi-email-outline</v-icon></span>
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-account-key-outline</v-icon></span>
                                             <input
-                                                id="reg-email"
-                                                v-model.trim="reg.email"
-                                                type="email"
-                                                autocomplete="email"
+                                                id="reg-username"
+                                                v-model="reg.username"
+                                                type="text"
+                                                name="username"
+                                                autocomplete="username"
                                                 autocapitalize="none"
                                                 spellcheck="false"
-                                                placeholder="name@zamboanga.gov.ph"
+                                                minlength="3"
+                                                maxlength="30"
+                                                placeholder="e.g. juan.delacruz"
                                                 :disabled="registering"
-                                                :aria-invalid="emailError ? 'true' : 'false'"
+                                                :aria-invalid="usernameProblem || fieldErrors.username ? 'true' : 'false'"
+                                                aria-describedby="reg-username-help"
                                                 required
-                                                @input="onEmailInput"
+                                                @input="onUsernameInput"
                                             />
                                         </div>
-                                        <p v-if="emailError" class="field-error">{{ emailError }}</p>
+                                        <p id="reg-username-help" class="field-note" :class="{ 'is-bad': usernameProblem || fieldErrors.username }">
+                                            {{ fieldErrors.username || usernameProblem || 'Your unique sign-in name. Use 3–30 letters, numbers, dots or underscores.' }}
+                                        </p>
                                     </div>
 
                                     <div class="field">
@@ -521,7 +497,7 @@ const greeting = (() => {
 const mode = ref("signin");
 const notice = ref("");
 
-// Username or email: the server tells them apart by the "@".
+// A username is the only normal sign-in identifier.
 const loginId = ref("");
 const password = ref("");
 const showPassword = ref(false);
@@ -574,7 +550,7 @@ async function submit() {
         const msg = e?.response?.data?.message;
         error.value =
             msg === "Invalid credentials."
-                ? "That username or email and password don't match an account."
+                ? "That username and password don't match an account."
                 : msg ||
                   e?.response?.data?.errors?.login?.[0] ||
                   "Sign in failed. Please check your details and try again.";
@@ -589,7 +565,6 @@ async function submit() {
 const emptyReg = () => ({
     name: "",
     username: "",
-    email: "",
     contact_number: "",
     password: "",
     office_id: null,
@@ -604,7 +579,6 @@ const fieldErrors = ref({});
 // Contact: digits only, 11 max. The counter shows progress; the red state
 // appears once they leave the field incomplete.
 const contactTouched = ref(false);
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const contactProblem = computed(() => {
     const n = String(reg.value.contact_number || "");
@@ -614,13 +588,6 @@ const contactProblem = computed(() => {
 const contactError = computed(
     () => fieldErrors.value.contact_number || (contactTouched.value ? contactProblem.value : ""),
 );
-
-const emailProblem = computed(() => {
-    const email = String(reg.value.email || "").trim();
-    if (!email) return "";
-    return EMAIL_RE.test(email) ? "" : "Enter a valid email address.";
-});
-const emailError = computed(() => fieldErrors.value.email || emailProblem.value);
 
 const officeMenuOpen = ref(false);
 const selectedOffice = computed(
@@ -635,12 +602,6 @@ function onContactInput(e) {
     if (e?.target && e.target.value !== digits) e.target.value = digits;
     if (fieldErrors.value.contact_number) {
         fieldErrors.value = { ...fieldErrors.value, contact_number: "" };
-    }
-}
-
-function onEmailInput() {
-    if (fieldErrors.value.email) {
-        fieldErrors.value = { ...fieldErrors.value, email: "" };
     }
 }
 
@@ -690,8 +651,6 @@ const canRegister = computed(
         reg.value.name &&
         reg.value.username &&
         !usernameProblem.value &&
-        reg.value.email &&
-        !emailProblem.value &&
         reg.value.contact_number.length === 11 &&
         reg.value.password.length >= 8 &&
         reg.value.office_id != null &&
@@ -702,24 +661,23 @@ const canRegister = computed(
 // it fits the panel without scrolling. Keys are the server's error keys, so a
 // rejected field can send the form back to the step that owns it.
 const REG_STEPS = [
-    ["name", "username", "contact_number"],
-    ["email", "password"],
+    ["name", "contact_number"],
+    ["username", "password"],
     ["office_id", "role_ids"],
 ];
 const regStep = ref(0);
+const REG_STEP_TITLES = ["Your details", "Create username and password", "Your office and role"];
 
 // A step can advance once its fields are filled in properly.
 function stepReady(step) {
     if (step === 0) {
         return Boolean(
             reg.value.name &&
-            reg.value.username &&
-            !usernameProblem.value &&
             reg.value.contact_number.length === 11,
         );
     }
     if (step === 1) {
-        return Boolean(reg.value.email && !emailProblem.value && reg.value.password.length >= 8);
+        return Boolean(reg.value.username && !usernameProblem.value && reg.value.password.length >= 8);
     }
     return reg.value.office_id != null && reg.value.role_id != null;
 }
@@ -771,7 +729,6 @@ async function register() {
         const res = await api.post("/api/auth/register", {
             name: reg.value.name,
             username: reg.value.username,
-            email: reg.value.email,
             contact_number: reg.value.contact_number,
             password: reg.value.password,
             office_id: reg.value.office_id,
@@ -799,7 +756,7 @@ async function register() {
         // Jump back to the step that owns the first rejected field.
         const firstBad = Object.keys(fieldErrors.value)[0];
         const step = REG_STEPS.findIndex((keys) => firstBad && keys.includes(firstBad));
-        if (step > 0) regStep.value = step;
+        if (step >= 0) regStep.value = step;
     } finally {
         registering.value = false;
     }
@@ -1170,12 +1127,17 @@ async function guestLogin() {
 }
 
 /* ---- Create account: three short steps, paged with Back / Continue ---- */
+.reg-step-title {
+    margin: 0 0 20px;
+    font-size: 16px;
+    font-weight: 750;
+    color: var(--navy);
+}
 .steps {
     display: flex;
     align-items: center;
     gap: 14px;
-    /* Doubled air around the indicator: 48px above, 44px below. */
-    margin: 48px 0 44px;
+    margin: 28px 0 20px;
 }
 .steps-text {
     margin: 0;

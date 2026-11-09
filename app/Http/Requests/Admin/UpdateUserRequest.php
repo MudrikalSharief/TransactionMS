@@ -12,7 +12,7 @@ class UpdateUserRequest extends FormRequest
         return true;
     }
 
-    // Only touch the username when the form sends one (blank clears it).
+    // Only touch the username when the form sends one (blank generates one).
     protected function prepareForValidation(): void
     {
         if ($this->has('username')) {
@@ -32,7 +32,7 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120'],
             'username' => User::usernameRules(false, $userId),
-            'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $userId],
+            'email' => ['nullable', 'email', 'max:190', 'unique:users,email,' . $userId],
             'password' => ['nullable', 'string', 'min:8'],
             'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'],
             'is_active' => ['sometimes', 'boolean'],

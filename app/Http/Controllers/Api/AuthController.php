@@ -23,13 +23,10 @@ class AuthController extends Controller
 
         $data = $request->validated();
 
-        // Username or email: an "@" means email (usernames can't hold one).
-        $login = trim((string) ($data['login'] ?? $data['email']));
-        $field = str_contains($login, '@') ? 'email' : 'username';
-        $value = $field === 'username' ? User::normalizeUsername($login) : $login;
+        $value = User::normalizeUsername($data['login']);
 
         $credentials = [
-            $field => $value,
+            'username' => $value,
             'password' => $data['password'],
         ];
 
@@ -42,7 +39,7 @@ class AuthController extends Controller
         }
 
         // Only a correct password reveals that the account is still waiting.
-        $user = User::where($field, $value)->first();
+        $user = User::where('username', $value)->first();
         if ($user?->isPendingApproval()) {
             return response()->json([
                 'message' => 'Your account is waiting for approval. You can sign in once an administrator approves it.',
@@ -58,6 +55,7 @@ class AuthController extends Controller
             'user' => [
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
+                'username' => $request->user()->username,
                 'email' => $request->user()->email,
             ],
         ]);
@@ -93,6 +91,7 @@ class AuthController extends Controller
             'user' => [
                 'id' => $guest->id,
                 'name' => $guest->name,
+                'username' => $guest->username,
                 'email' => $guest->email,
             ],
         ]);
@@ -150,6 +149,7 @@ class AuthController extends Controller
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'username' => $user->username,
                     'email' => $user->email,
                     'office' => Office::mini($user->office),
                     'roles' => $user->roles->map(fn($r) => [

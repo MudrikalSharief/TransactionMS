@@ -60,7 +60,7 @@
                     <section class="profile-id">
                         <div class="id-avatar">{{ initials }}</div>
                         <div class="id-name">{{ profile.name }}</div>
-                        <div class="id-email">{{ profile.email }}</div>
+                        <div class="id-email">{{ profile.username }}</div>
                         <dl class="id-facts">
                             <dt>Office</dt>
                             <dd>{{ profile.office?.name || "No office assigned" }}</dd>
@@ -85,12 +85,12 @@
                             />
                             <v-text-field
                                 v-model="details.email"
-                                label="Email"
+                                label="Email (optional)"
                                 type="email"
                                 variant="outlined"
                                 density="comfortable"
                                 rounded="0"
-                                hint="You sign in with this email."
+                                hint="Optional contact address. Your username is used to sign in."
                                 persistent-hint
                                 class="mb-2"
                                 :error-messages="detailErrors.email"
