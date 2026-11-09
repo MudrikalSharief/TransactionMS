@@ -1,6 +1,10 @@
 <template>
     <div class="fit-page">
-        <Teleport to="#app-bar-time-meta">
+        <!-- Deferred + guarded: right after login the app bar mounts in the
+             same render as this page, so the target doesn't exist yet. An
+             eager teleport to a missing target broke every later update
+             (page stuck behind the loader until a refresh). -->
+        <Teleport v-if="timeMetaReady" defer to="#app-bar-time-meta">
             <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
                 <span>{{ todayLabel }}</span>
                 <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
@@ -1503,7 +1507,20 @@ function goToHelp() {
     router.push('/help')
 }
 
+// The date chip teleports into the app bar's #app-bar-time-meta slot. Only
+// render it once that slot is in the DOM (after login it mounts alongside this
+// page); a few frames of polling covers the app bar's first render.
+const timeMetaReady = ref(false)
+function waitForTimeMeta(tries = 60) {
+    if (document.getElementById('app-bar-time-meta')) {
+        timeMetaReady.value = true
+    } else if (tries > 0) {
+        requestAnimationFrame(() => waitForTimeMeta(tries - 1))
+    }
+}
+
 onMounted(async () => {
+    nextTick(() => waitForTimeMeta())
     // Dashboard only: hide the page scrollbar (restored on leave).
     document.documentElement.classList.add('hide-page-scroll')
 
