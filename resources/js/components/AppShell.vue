@@ -82,9 +82,12 @@
             <div class="d-flex align-center app-bar-right" style="flex: 0 0 auto">
                 <!-- Local status: time and weather. -->
                 <div class="nav-status d-none d-md-flex">
-                    <div class="nav-seg" v-tooltip="'Zamboanga local time'">
+                    <div class="nav-seg nav-time" v-tooltip="'Zamboanga local time'">
                         <v-icon size="20">mdi-clock-outline</v-icon>
-                        <span>{{ clock }}</span>
+                        <div class="nav-time-stack">
+                            <div id="app-bar-time-meta" class="nav-time-meta"></div>
+                            <span class="nav-time-value">{{ clock }}</span>
+                        </div>
                     </div>
                     <span class="nav-sep" aria-hidden="true"></span>
                     <div class="nav-seg" v-tooltip="'Weather in Zamboanga City: ' + weatherLabel">
@@ -1172,6 +1175,21 @@ onUnmounted(() => {
     font-weight: 600;
     white-space: nowrap;
     color: rgba(var(--v-theme-on-surface), 0.7);
+}
+.nav-time-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    line-height: 1.05;
+}
+.nav-time-meta:empty {
+    display: none;
+}
+.nav-time-value {
+    font-size: 0.84rem;
+    font-weight: 600;
+    white-space: nowrap;
 }
 .nav-seg .v-icon {
     color: rgba(var(--v-theme-on-surface), 0.55);

@@ -168,7 +168,7 @@ const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 
-const PER_PAGE = 50;
+const PER_PAGE = 7;
 const period = ref("all");
 const periodOptions = computed(() => dashPeriodOptions());
 const kind = ref("all");

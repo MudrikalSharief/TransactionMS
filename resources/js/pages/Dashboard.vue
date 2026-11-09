@@ -1,13 +1,18 @@
 <template>
     <div class="fit-page">
+        <Teleport to="#app-bar-time-meta">
+            <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
+                <span>{{ todayLabel }}</span>
+                <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
+                <span v-if="scopeLabel">{{ scopeLabel }}</span>
+            </div>
+        </Teleport>
         <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
             <div class="dash-hello-text">
                 <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
                 <div class="dash-hello-sub">
-                    <v-icon size="15">mdi-calendar-today</v-icon>{{ todayLabel }}
-                    <template v-if="scopeLabel"><span class="dash-hello-dot" />{{ scopeLabel }}</template>
-                    <template v-if="refreshedLabel"><span class="dash-hello-dot" />Updated {{ refreshedLabel }}</template>
+                    <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>
             </div>
             <div class="dash-hello-actions">
@@ -1564,6 +1569,20 @@ onUnmounted(() => {
     font-weight: 800;
     line-height: 1.2;
     color: rgb(var(--v-theme-on-surface));
+}
+/* Date + office scope, teleported into the app bar above the clock. */
+.dash-time-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    white-space: nowrap;
+}
+.dash-time-dot {
+    opacity: 0.55;
 }
 .dash-hello-sub {
     display: flex;
