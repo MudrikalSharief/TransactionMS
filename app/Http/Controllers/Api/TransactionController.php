@@ -11,12 +11,13 @@ use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\RoutingEngine;
 use App\Services\TransactionEngine;
+use App\Services\TransactionVisibility;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, TransactionVisibility $visibility)
     {
         $data = $request->validate([
             'q' => ['nullable', 'string', 'max:200'],
@@ -46,49 +47,7 @@ class TransactionController extends Controller
             ->latest();
 
         $user = $request->user();
-        $user->loadMissing('roles');
-        $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
-        $roleIds = $user->roles->pluck('id')->filter()->values()->all();
-
-        if (!$isSuperadmin) {
-            if ($user->isOfficeAdmin()) {
-                // Office admins track their own office's papers city-wide
-                // (the dashboard summary counts them and their detail opens
-                // from there), plus anything parked at their office. Legacy
-                // no-origin stations stay role-only, even for admins.
-                $query->where(function ($w) use ($roleIds, $user) {
-                    $w->where('transactions.office_id', $user->office_id)
-                        ->orWhereHas('state.currentStep', fn ($s) => $s
-                            ->whereEffectiveOffice($user->office_id))
-                        ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
-                            $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                                ->whereLegacyNoOriginFallback();
-                        });
-                });
-            } else {
-                // Regular users: their own office's transactions, plus any
-                // row whose current station lists one of their roles and has
-                // their office as its effective office. Blank stations follow
-                // the transaction's Originating Office; end-user stations do
-                // too. Legacy no-origin stations stay role-only.
-                if ($user->office_id === null) {
-                    $query->whereRaw('1 = 0');
-                } elseif (empty($roleIds)) {
-                    $query->where('transactions.office_id', $user->office_id);
-                } else {
-                    $query->where(function ($w) use ($roleIds, $user) {
-                        $w->where('transactions.office_id', $user->office_id)
-                            ->orWhereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                                $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
-                                    ->where(function ($x) use ($user) {
-                                        $x->whereEffectiveOffice($user->office_id)
-                                            ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
-                                    });
-                            });
-                    });
-                }
-            }
-        }
+        $visibility->apply($query, $user);
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -209,8 +168,9 @@ class TransactionController extends Controller
     }
 
     /**
-     * Superadmin-only Track search visibility. When is_private is true the
-     * transaction is discoverable by other viewer accounts through /track.
+     * Admin Track search visibility. When is_private is true the transaction
+     * is discoverable by other viewer accounts through /track. Office admins
+     * can change this only for transactions in their office scope.
      */
     public function updatePrivacy(Request $request, Transaction $transaction, AuditService $audit)
     {

@@ -181,7 +181,7 @@
                 <button
                   v-bind="props"
                   type="button"
-                  class="tl-th-filter"
+                  class="tl-th-filter tl-th-office"
                   :class="{ 'is-active': !!filterOffice }"
                   :title="
                     filterOffice
@@ -376,33 +376,35 @@
           </template>
 
           <template v-slot:[`item.office`]="{ item }">
-            <span
-              v-if="item.office?.name || item.office?.code"
-              v-tooltip="item.office?.name || item.office?.code || ''"
-              class="tl-office-chip"
-              :title="item.office?.name || item.office?.code || ''"
-            >
-              <img
-                v-if="officeIcon(item.office)"
-                class="tl-office-icon"
-                :src="officeIcon(item.office)"
-                :alt="`${item.office?.name || 'Office'} icon`"
-                width="22"
-                height="22"
-                decoding="async"
-              />
+            <div class="tl-office-cell">
               <span
-                v-else
-                class="tl-office-icon-ph"
-                aria-label="No office icon"
+                v-if="item.office?.name || item.office?.code"
+                v-tooltip="item.office?.name || item.office?.code || ''"
+                class="tl-office-chip"
+                :title="item.office?.name || item.office?.code || ''"
               >
-                ?
+                <img
+                  v-if="officeIcon(item.office)"
+                  class="tl-office-icon"
+                  :src="officeIcon(item.office)"
+                  :alt="`${item.office?.name || 'Office'} icon`"
+                  width="22"
+                  height="22"
+                  decoding="async"
+                />
+                <span
+                  v-else
+                  class="tl-office-icon-ph"
+                  aria-label="No office icon"
+                >
+                  ?
+                </span>
+                <span class="tl-office-code">{{
+                  item.office?.code || item.office?.name
+                }}</span>
               </span>
-              <span class="tl-office-code">{{
-                item.office?.code || item.office?.name
-              }}</span>
-            </span>
-            <span v-else class="tl-dash">—</span>
+              <span v-else class="tl-dash">—</span>
+            </div>
           </template>
 
           <template v-slot:[`item.current_step`]="{ item }">
@@ -606,10 +608,11 @@ import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import { toast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
@@ -624,9 +627,9 @@ const isArchive = computed(() => props.archive)
 const txStore = useTransactions({ archived: isArchive.value })
 const { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy } = txStore
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true)
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil()
 const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
@@ -635,6 +638,12 @@ const auth = useAuth()
 const isSuperadmin = computed(() =>
   (auth.user.value?.roles || []).some((r) => r.code === 'superadmin')
 )
+
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+
+// Superadmins and office admins manage archiving and Track visibility.
+// Office admins only receive rows already scoped to their office by the API.
+const canManageArchive = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
 const canManage = computed(() => isSuperadmin.value || auth.user.value?.office != null)
 
@@ -769,7 +778,7 @@ const headers = computed(() => {
     { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
     { title: 'Created', key: 'created_at', width: '14%' },
   ]
-  if (isSuperadmin.value) {
+  if (canManageArchive.value) {
     if (!isArchive.value) {
       base.push({ title: 'Private', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }
@@ -1040,9 +1049,7 @@ onMounted(() => {
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
   fetchOffices().catch(() => {})
-  fetchAll(requestParams(page.value))
-    .catch(() => {})
-    .finally(() => { entering.value = false })
+  settle(fetchAll(requestParams(page.value)), { warm: !loading.value })
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,
@@ -1471,18 +1478,31 @@ html.dark .tl-page {
 }
 
 /* ---- Cells ---- */
-/* Long titles / offices / chip names truncate to one line (full text on
-   hover) so rows hold the 56px rhythm. Full values remain visible on the
-   detail page. The step chip's icon must not eat the text budget, so the
-   text gets its own cap slightly inside the chip's overall cap. */
+/* Titles and transaction types wrap to at most two lines (full text on hover);
+   the office chip stays a single centered chip. Full values remain visible on
+   the detail page. */
 .tl-name {
-    display: block;
+    display: -webkit-box;
     max-width: 100%;
     overflow: hidden;
     color: var(--tl-ink);
     font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+}
+/* Originating office sits centered in its column. */
+.tl-th-office {
+    width: 100%;
+    justify-content: center;
+}
+.tl-office-cell {
+    display: flex;
+    justify-content: center;
+    width: 100%;
 }
 /* Originating office: icon chip showing only the code; the full office
    name is the tooltip. Same pattern as the Transaction Types table. */
@@ -1537,18 +1557,29 @@ html.dark .tl-page {
     color: var(--tl-muted);
     font-size: 12px;
 }
+.tx-chip {
+    height: auto !important;
+    min-height: 24px;
+    max-width: 100%;
+    padding-block: 2px;
+}
 .tx-chip :deep(.v-chip__content) {
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 100%;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
 }
 .tx-chip-text {
+    display: -webkit-box;
     min-width: 0;
-    max-width: 170px;
+    max-width: 100%;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
 }
 
 /* ---- Footer ---- */

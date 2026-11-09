@@ -111,7 +111,7 @@
                             :rows="actionRows.slice(0, rows('action', LIST_ROW_PX, SUMMARY_ROWS))"
                             :loading="loading"
                             empty="Nothing is waiting on you right now."
-                            @open="(tx) => router.push(`/my/transactions/${tx.id}`)"
+                            @open="(tx) => router.push({ path: `/portal/transactions/${tx.id}`, query: { from: 'portal-action' } })"
                         />
                     </v-card-text>
                 </v-card>
@@ -135,7 +135,7 @@
                             :rows="officeRows.slice(0, rows('office', LIST_ROW_PX, SUMMARY_ROWS))"
                             :loading="loading"
                             empty="No transactions in your office yet."
-                            @open="(tx) => router.push(`/transactions/${tx.id}`)"
+                            @open="(tx) => router.push({ path: `/portal/transactions/${tx.id}`, query: { from: 'portal' } })"
                         />
                     </v-card-text>
                 </v-card>

@@ -78,7 +78,7 @@ export function createRouter() {
                 path: "/",
                 name: "dashboard",
                 component: Dashboard,
-                meta: { requiresAuth: true, title: "Dashboard", fit: true },
+                meta: { requiresAuth: true, title: "Dashboard", kind: "admin", fit: true },
             },
 
             {
@@ -94,7 +94,13 @@ export function createRouter() {
                 meta: { requiresAuth: true, title: "Transactions", kind: "staff" },
             },
             {
-                // Same page in archive mode: completed transactions only.
+                path: "/portal/transactions/:id",
+                name: "portal.transaction",
+                component: TransactionDetail,
+                meta: { requiresAuth: true, title: "Transaction", kind: "staff" },
+            },
+            {
+                // Same page in archive mode: archived transactions only.
                 path: "/portal/history",
                 name: "portal.history",
                 component: PortalTransactions,
@@ -146,35 +152,35 @@ export function createRouter() {
             {
                 path: "/admin/users",
                 component: AdminUsers,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             // Office admins: same Users page, limited to their own office.
             {
                 path: "/office/users",
                 name: "office.users",
                 component: AdminUsers,
-                meta: { requiresAuth: true, officeScope: true },
+                meta: { requiresAuth: true, officeScope: true, kind: "admin" },
             },
             {
                 path: "/admin/roles",
                 component: AdminRoles,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/offices",
                 component: AdminOffices,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/offices/:officeId/steps",
                 name: "admin.office-steps",
                 component: AdminOfficeSteps,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/transaction-types",
                 component: AdminTransactionTypes,
-                meta: { requiresAuth: true, officeAdmin: true },
+                meta: { requiresAuth: true, officeAdmin: true, kind: "admin" },
             },
             {
                 // Reports now live in the Dashboard; keep old links working.
@@ -190,30 +196,30 @@ export function createRouter() {
             {
                 path: "/admin/government-references",
                 component: AdminGovernmentReferences,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/workflows",
                 component: AdminWorkflows,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/fields",
                 component: AdminFields,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
 
             {
                 path: "/admin/workflows/:workflowId/requirements",
                 name: "admin.workflow-requirements",
                 component: AdminRequirements,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/requirements",
                 name: "admin.step-requirements",
                 component: AdminStepRequirements,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/requirements/overview",
@@ -222,6 +228,7 @@ export function createRouter() {
                 meta: {
                     requiresAuth: true,
                     superadmin: true,
+                    kind: "admin",
                     title: "Requirement Overview",
                 },
             },
@@ -229,7 +236,7 @@ export function createRouter() {
                 path: "/admin/workflows/:workflowId/steps/:stepId/step-data",
                 name: "admin.step-data",
                 component: AdminStepData,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 path: "/admin/workflows/:workflowId/steps/:stepId/step-data/overview",
@@ -238,14 +245,16 @@ export function createRouter() {
                 meta: {
                     requiresAuth: true,
                     superadmin: true,
+                    kind: "admin",
                     title: "Step Data Overview",
                 },
             },
 
             {
                 path: "/transactions",
+                name: "transactions",
                 component: TransactionsList,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, title: "Transactions", kind: "admin" },
             },
             {
                 path: "/transactions/archive",
@@ -253,21 +262,23 @@ export function createRouter() {
                 component: TransactionArchive,
                 meta: {
                     requiresAuth: true,
-                    superadmin: true,
+                    officeAdmin: true,
+                    kind: "admin",
                     archive: true,
                     title: "Archive",
                 },
             },
             {
                 path: "/transactions/:id",
+                name: "transaction.detail",
                 component: TransactionDetail,
-                meta: { requiresAuth: true },
+                meta: { requiresAuth: true, title: "Transaction", kind: "admin" },
             },
             {
                 path: "/admin/requirements",
                 name: "admin.requirements",
                 component: AdminRequirementsIndex,
-                meta: { requiresAuth: true, superadmin: true },
+                meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
                 // My Transactions was retired in favour of the shared
@@ -277,7 +288,7 @@ export function createRouter() {
             },
             {
                 path: "/my/transactions/:id",
-                redirect: (to) => `/transactions/${to.params.id}`,
+                redirect: (to) => ({ path: `/transactions/${to.params.id}`, query: to.query }),
             },
             {
                 path: "/approvals",
@@ -327,19 +338,35 @@ export function createRouter() {
             return homePathFor(auth.user.value);
         }
 
-        // Each kind of account lives in its own set of pages.
+        // Role-based URL access: each account kind has its own route space.
         if (auth.user.value) {
             const kind = userKind(auth.user.value);
+
             if (kind === "viewer") {
                 // Right after sign-in (login pushes "dashboard") they get the
                 // welcome animation. Otherwise read-only: tracking pages and
                 // Help only.
                 if (to.name === "dashboard") return "/track/welcome";
                 if (to.meta.kind !== "viewer" && to.name !== "help") return "/track";
-            } else if (to.meta.kind && to.meta.kind !== kind) {
+            } else if (kind === "staff") {
+                // Staff must never land on an admin URL. Send them to the
+                // matching portal page instead.
+                if (to.name === "transactions") return { name: "portal.transactions" };
+                if (to.name === "transactions.archive") return { name: "portal.history" };
+                if (to.name === "transaction.detail") {
+                    return {
+                        name: "portal.transaction",
+                        params: to.params,
+                        query: to.query,
+                    };
+                }
+                if (to.meta.kind === "admin" || to.meta.kind === "viewer") {
+                    return { name: "portal" };
+                }
+            } else if (to.meta.kind === "staff" || to.meta.kind === "viewer") {
+                // Superadmins and office admins use the admin URLs; a stale
+                // portal/track URL goes back to their dashboard.
                 return homePathFor(auth.user.value);
-            } else if (kind === "staff" && to.name === "dashboard") {
-                return "/portal";
             }
         }
         if ((to.name === "approvals" || to.name === "portal.approvals") && !canUseApprovals(auth.user.value))

@@ -1,13 +1,22 @@
 <template>
     <div class="fit-page">
+        <!-- Deferred + guarded: right after login the app bar mounts in the
+             same render as this page, so the target doesn't exist yet. An
+             eager teleport to a missing target broke every later update
+             (page stuck behind the loader until a refresh). -->
+        <Teleport v-if="timeMetaReady" defer to="#app-bar-time-meta">
+            <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
+                <span>{{ todayLabel }}</span>
+                <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
+                <span v-if="scopeLabel">{{ scopeLabel }}</span>
+            </div>
+        </Teleport>
         <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
             <div class="dash-hello-text">
                 <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
                 <div class="dash-hello-sub">
-                    <v-icon size="15">mdi-calendar-today</v-icon>{{ todayLabel }}
-                    <template v-if="scopeLabel"><span class="dash-hello-dot" />{{ scopeLabel }}</template>
-                    <template v-if="refreshedLabel"><span class="dash-hello-dot" />Updated {{ refreshedLabel }}</template>
+                    <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>
             </div>
             <div class="dash-hello-actions">
@@ -41,25 +50,99 @@
                     class="dash-filter"
                 />
                 <template v-if="isSuperadmin">
-                    <v-select
-                        v-model="officeFilter"
-                        :items="officeOptions"
-                        label="Offices"
-                        placeholder="All offices"
-                        persistent-placeholder
-                        prepend-inner-icon="mdi-office-building-outline"
-                        variant="outlined"
-                        density="compact"
-                        rounded="lg"
-                        hide-details
-                        multiple
-                        clearable
-                        class="dash-filter"
+                    <v-menu
+                        v-model="officeMenuOpen"
+                        :close-on-content-click="false"
+                        location="bottom end"
+                        offset="8"
                     >
-                        <template v-slot:selection="{ item }">
-                            <v-chip size="small" variant="tonal" class="mr-1">{{ item.raw.code }}</v-chip>
+                        <template #activator="{ props }">
+                            <button
+                                v-bind="props"
+                                type="button"
+                                class="office-trigger"
+                                :class="{ 'is-open': officeMenuOpen }"
+                                aria-haspopup="listbox"
+                                aria-controls="dash-office-panel"
+                            >
+                                <span class="office-seal" :class="{ 'is-empty': !officePickerSeal }" aria-hidden="true">
+                                    <img v-if="officePickerSeal?.icon" :src="officePickerSeal.icon" alt="" />
+                                    <span v-else-if="officePickerSeal">{{ officePickerSeal.initials }}</span>
+                                    <v-icon v-else size="16">mdi-office-building-outline</v-icon>
+                                </span>
+                                <span class="office-trigger-copy">
+                                    <span class="office-trigger-label">Offices</span>
+                                    <span class="office-trigger-value" :title="officeFilterSummary">{{ officeFilterSummary }}</span>
+                                </span>
+                                <v-icon class="office-trigger-chevron" size="18" aria-hidden="true">mdi-chevron-down</v-icon>
+                            </button>
                         </template>
-                    </v-select>
+                        <v-card
+                            id="dash-office-panel"
+                            class="office-panel"
+                            rounded="lg"
+                            elevation="8"
+                            role="dialog"
+                            aria-label="Choose offices"
+                        >
+                            <div class="office-panel-head">
+                                <input
+                                    ref="officeSearchEl"
+                                    v-model="officeSearch"
+                                    class="office-search"
+                                    type="search"
+                                    placeholder="Search by name or abbreviation"
+                                    aria-label="Search offices"
+                                />
+                                <button type="button" class="office-clear" @click="clearOfficeFilter">
+                                    Show all offices
+                                </button>
+                            </div>
+                            <div
+                                class="office-grid"
+                                role="listbox"
+                                aria-label="Offices"
+                                aria-multiselectable="true"
+                            >
+                                <button
+                                    v-for="o in filteredOfficeOptions"
+                                    :key="o.value"
+                                    type="button"
+                                    class="office-card"
+                                    :class="{ 'is-selected': officeIds.has(o.value) }"
+                                    role="option"
+                                    :aria-selected="officeIds.has(o.value) ? 'true' : 'false'"
+                                    :aria-label="o.office?.name || o.title"
+                                    v-tooltip="o.office?.name || o.title"
+                                    @click="toggleOffice(o.value)"
+                                    @mouseenter="officeHover = o"
+                                    @mouseleave="officeHover = null"
+                                    @focus="officeHover = o"
+                                    @blur="officeHover = null"
+                                >
+                                    <span class="office-seal" aria-hidden="true">
+                                        <img v-if="o.icon" :src="o.icon" alt="" />
+                                        <span v-else>{{ o.initials }}</span>
+                                    </span>
+                                    <span class="office-card-abbr">{{ o.code }}</span>
+                                </button>
+                                <div v-if="!filteredOfficeOptions.length" class="office-no-match">
+                                    No offices match “{{ officeSearch }}”. Try the abbreviation.
+                                </div>
+                            </div>
+                            <div class="office-panel-foot">
+                                <template v-if="officeHover">
+                                    <b>{{ officeHover.code }}</b> · {{ officeHover.office?.name || officeHover.title }}
+                                </template>
+                                <template v-else-if="selectedOffices.length">
+                                    Selected: <b>{{ selectedOfficeNames }}</b>
+                                </template>
+                                <template v-else>
+                                    Hover or focus an office to see its full name.
+                                </template>
+                            </div>
+                        </v-card>
+                    </v-menu>
                 </template>
                 <v-btn
                     v-if="layoutChanged && view === 'overview'"
@@ -203,7 +286,7 @@
                                 <v-icon color="#005EED" size="20">mdi-chart-pie</v-icon>
                             </v-avatar>
                             <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">By Process</div>
+                                <div class="text-subtitle-1 font-weight-bold">Most Used Transaction Type</div>
                                 <div class="dash-panel-sub text-truncate">{{ summaryScopeText }}</div>
                             </div>
                             <v-spacer />
@@ -324,7 +407,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center lgu-head dash-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">{{ isSuperadmin ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
+                                <v-icon color="#005EED" size="20">{{ canApproveAccounts ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
                             </v-avatar>
                             <div class="dash-head-title">
                                 <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
@@ -336,13 +419,14 @@
                                 size="small"
                                 color="primary"
                                 append-icon="mdi-arrow-right"
-                                @click="isSuperadmin ? goToAccounts() : goToQueue()"
+                                @click="canApproveAccounts ? goToAccounts() : goToQueue()"
                             >
-                                {{ isSuperadmin ? 'All accounts' : 'My queue' }}
+                                {{ canApproveAccounts ? (isSuperadmin ? 'All accounts' : 'Office users') : 'My queue' }}
                             </v-btn>
                         </v-card-title>
-                                                <!-- Superadmin: new sign-ups to approve or reject. -->
-                        <v-card-text v-if="isSuperadmin" v-fit-body="'action'" class="pa-0 dash-body">
+                        <!-- Admins: new sign-ups to approve or reject. Office
+                             admins only see people who chose their office. -->
+                        <v-card-text v-if="canApproveAccounts" v-fit-body="'action'" class="pa-0 dash-body">
                             <div v-if="accountsLoading && !pendingAccounts.length" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
@@ -356,7 +440,7 @@
                                 rounded="0"
                                 class="ma-4"
                             >
-                                All clear — no accounts waiting for approval.
+                                {{ pendingEmptyText }}
                             </v-alert>
                             <v-table v-else-if="pendingAccounts.length" class="action-table">
                                 <thead>
@@ -545,7 +629,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
@@ -566,7 +650,9 @@ import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
+import { officeIcon } from '@/utils/officeIcons'
 import {
     periodOptions as dashPeriodOptions,
     periodBuckets,
@@ -586,9 +672,9 @@ const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
 const loading = ref(false)
-// Full-page loader shown each time the Dashboard is opened, until the
-// first fetch of the cards and lists finishes.
-const entering = ref(true)
+// Full-page loader shown each time the Dashboard is opened: brief when cached
+// cards/lists are already painted, otherwise until the first fetches finish.
+const { entering, settle } = useEntryVeil()
 const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
@@ -631,6 +717,13 @@ const reportScopeLabel = computed(() => {
     }
     return officeScopeChips.value.length ? officeScopeLabel.value : 'All offices'
 })
+
+// Superadmins approve accounts from any office; office admins approve
+// sign-ups that chose their office.
+const canApproveAccounts = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+const myOfficeId = computed(
+    () => auth.user.value?.office_id ?? auth.user.value?.office?.id ?? null,
+)
 
 // ---- Greeting strip ----
 const greeting = computed(() => {
@@ -815,11 +908,87 @@ const scopeCode = computed(() => myOffice.value?.code?.toUpperCase() ?? null)
 const officeFilter = ref([])
 const officeById = computed(() => new Map((officeStore.items.value || []).map((o) => [o.id, o])))
 const officeIds = computed(() => new Set(officeFilter.value || []))
+
+function officeInitials(office) {
+    const code = String(office?.code || '').trim()
+    if (code) return code.slice(0, 2).toUpperCase()
+    return (
+        String(office?.name || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || '')
+            .join('')
+            .toUpperCase() || '?'
+    )
+}
+
 const officeOptions = computed(() =>
     [...(officeStore.items.value || [])]
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id, code: o.code || o.name }))
+        .map((o) => {
+            const title = o.code ? `${o.name} (${o.code})` : o.name
+            return {
+                title,
+                value: o.id,
+                code: o.code || o.name,
+                office: o,
+                icon: officeIcon(o),
+                initials: officeInitials(o),
+            }
+        })
 )
+
+const officeMenuOpen = ref(false)
+const officeSearch = ref('')
+const officeSearchEl = ref(null)
+const officeHover = ref(null)
+
+const selectedOffices = computed(() =>
+    officeOptions.value.filter((o) => officeIds.value.has(o.value))
+)
+const officePickerSeal = computed(() => selectedOffices.value[0] || null)
+const officeFilterSummary = computed(() => {
+    const count = officeFilter.value?.length || 0
+    if (!count) return 'All offices'
+    const codes = selectedOffices.value.map((o) => o.code)
+    if (!codes.length) return 'All offices'
+    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
+})
+const selectedOfficeNames = computed(() => {
+    const names = selectedOffices.value.map((o) => o.office?.name || o.code)
+    if (names.length <= 2) return names.join(', ')
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`
+})
+const filteredOfficeOptions = computed(() => {
+    const q = officeSearch.value.trim().toLowerCase()
+    if (!q) return officeOptions.value
+    return officeOptions.value.filter((o) =>
+        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q)
+    )
+})
+
+function toggleOffice(id) {
+    const next = new Set(officeFilter.value || [])
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    officeFilter.value = [...next]
+}
+
+function clearOfficeFilter() {
+    officeFilter.value = []
+}
+
+watch(officeMenuOpen, async (open) => {
+    officeSearch.value = ''
+    officeHover.value = null
+    if (!open) return
+    await nextTick()
+    officeSearchEl.value?.focus()
+})
+watch(officeSearch, () => {
+    officeHover.value = null
+})
 const officeScopeChips = computed(() =>
     officeFilter.value
         .map((id) => officeById.value.get(id)?.code?.toUpperCase())
@@ -832,7 +1001,7 @@ const officeScopeLabel = computed(() => {
         : `${officeScopeChips.value.length} offices`
 })
 const scopeProcessTitle = computed(() =>
-    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions per Process` : 'All Transactions per Process'
+    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions Overview` : 'All Transactions Overview'
 )
 
 function inOfficeScope(tx) {
@@ -1190,7 +1359,7 @@ const startLinks = computed(() => {
 const pieSize = computed(() => {
     const s = sizes.pie
     if (!fit.value || !s) return 168
-    return Math.round(Math.min(200, Math.max(84, Math.min(s.h, s.w * 0.45))))
+    return Math.round(Math.min(220, Math.max(84, Math.min(s.h, s.w * 0.45))))
 })
 const legendTight = computed(() => fit.value && (sizes.pie?.h ?? 999) < 150)
 const legendRows = computed(() => {
@@ -1243,8 +1412,10 @@ function goToQueue() {
     router.push('/transactions')
 }
 
-// ---- Superadmin: accounts waiting for approval (Needs My Action) ----
-const accountStore = useAdminUsers()
+// ---- Admins: accounts waiting for approval (Needs My Action) ----
+// Superadmins use the system-wide list; office admins use the office
+// endpoints, which only return people assigned to their own office.
+const accountStore = useAdminUsers({ office: isOfficeAdmin.value })
 const accountsLoading = computed(() => accountStore.loading.value)
 const accountBusyId = ref(null)
 const accountError = ref('')
@@ -1253,15 +1424,35 @@ const accountError = ref('')
 const pendingAccounts = computed(() =>
     (accountStore.users.value || [])
         .filter((u) => u.pending_approval)
+        // The office endpoint already scopes this; keep the guard so a
+        // misconfigured source can never surface another office's request.
+        .filter(
+            (u) =>
+                !isOfficeAdmin.value ||
+                (myOfficeId.value != null && Number(u.office_id) === Number(myOfficeId.value)),
+        )
         .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)),
 )
 // Says so when the card has more rows than fit.
 const actionSub = computed(() => {
-    const total = isSuperadmin.value ? pendingAccounts.value.length : actionQueue.value.length
-    const more = total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
-    if (isSuperadmin.value) return more ? `Accounts waiting for approval: ${more.toLowerCase()}` : 'Accounts waiting for approval'
-    return more
+    if (canApproveAccounts.value) {
+        const total = pendingAccounts.value.length
+        const more = total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
+        const label = isSuperadmin.value
+            ? 'Accounts waiting for approval'
+            : 'Accounts in your office waiting for approval'
+        return more ? `${label}: ${more.toLowerCase()}` : label
+    }
+
+    const total = actionQueue.value.length
+    return total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
 })
+
+const pendingEmptyText = computed(() =>
+    isOfficeAdmin.value
+        ? 'All clear — no accounts in your office are waiting for approval.'
+        : 'All clear — no accounts waiting for approval.',
+)
 
 function accountScope(u) {
     const office = u.office?.code || u.office?.name
@@ -1270,7 +1461,7 @@ function accountScope(u) {
 }
 
 function loadAccounts(opts = {}) {
-    if (!isSuperadmin.value) return
+    if (!canApproveAccounts.value) return
     return accountStore.fetchUsers(opts).catch(() => {})
 }
 
@@ -1309,14 +1500,27 @@ async function rejectAccount(u) {
 }
 
 function goToAccounts() {
-    router.push('/admin/users')
+    router.push(isSuperadmin.value ? '/admin/users' : '/office/users')
 }
 
 function goToHelp() {
     router.push('/help')
 }
 
+// The date chip teleports into the app bar's #app-bar-time-meta slot. Only
+// render it once that slot is in the DOM (after login it mounts alongside this
+// page); a few frames of polling covers the app bar's first render.
+const timeMetaReady = ref(false)
+function waitForTimeMeta(tries = 60) {
+    if (document.getElementById('app-bar-time-meta')) {
+        timeMetaReady.value = true
+    } else if (tries > 0) {
+        requestAnimationFrame(() => waitForTimeMeta(tries - 1))
+    }
+}
+
 onMounted(async () => {
+    nextTick(() => waitForTimeMeta())
     // Dashboard only: hide the page scrollbar (restored on leave).
     document.documentElement.classList.add('hide-page-scroll')
 
@@ -1334,17 +1538,18 @@ onMounted(async () => {
     if (isSuperadmin.value) {
         typeStore.fetchAll({ silent: true }).catch(() => {})
         officeStore.fetchAll({ silent: true }).catch(() => {})
-        loadAccounts()
     }
+    if (canApproveAccounts.value) loadAccounts()
 
-    try {
-        await txStore.fetchAll(opts)
-    } catch { /* keep defaults */ }
-
-    refreshedAt.value = new Date()
-    loading.value = false
-    await summaryDone.catch(() => {})
-    entering.value = false
+    const txDone = txStore.fetchAll(opts)
+        .catch(() => { /* keep defaults */ })
+        .then(() => {
+            refreshedAt.value = new Date()
+            loading.value = false
+        })
+    // Warm (cached cards/lists already painted): brief veil, refresh in the
+    // background. Cold: veil stays until both first fetches finish.
+    settle(Promise.all([txDone, summaryDone.catch(() => {})]), { warm: !txStore.loading.value })
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
@@ -1384,6 +1589,20 @@ onUnmounted(() => {
     line-height: 1.2;
     color: rgb(var(--v-theme-on-surface));
 }
+/* Date + office scope, teleported into the app bar above the clock. */
+.dash-time-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    white-space: nowrap;
+}
+.dash-time-dot {
+    opacity: 0.55;
+}
 .dash-hello-sub {
     display: flex;
     align-items: center;
@@ -1404,7 +1623,7 @@ onUnmounted(() => {
 /* ---- Card grid (shared rules: "Dashboards" in app.css) ---- */
 @media (min-width: 1100px) and (min-height: 560px) {
     .dash-grid {
-        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
     }
     /* Reports view: one card takes the whole grid height. */
     .dash-grid--single {
@@ -1626,6 +1845,210 @@ onUnmounted(() => {
     flex: 0 0 200px;
     width: 200px;
     min-width: 170px;
+}
+/* ---- Office picker (dashboard header) ---- */
+.office-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 230px;
+    max-width: 260px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 10px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.office-trigger:hover {
+    border-color: rgba(var(--v-theme-primary), 0.55);
+}
+.office-trigger.is-open {
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
+}
+.office-seal {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    overflow: hidden;
+    border: 2px solid rgb(var(--v-theme-surface));
+    border-radius: 50%;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 1px rgba(var(--v-border-color), 0.35);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+}
+.office-seal.is-empty {
+    background: rgba(var(--v-theme-on-surface), 0.1);
+    color: rgba(var(--v-theme-on-surface), 0.6);
+}
+.office-seal img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.office-trigger-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+.office-trigger-label {
+    color: rgba(var(--v-theme-on-surface), 0.6);
+    font-size: 11px;
+    line-height: 1;
+}
+.office-trigger-value {
+    display: block;
+    overflow: hidden;
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-trigger-chevron {
+    flex: none;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    transition: transform 0.15s ease;
+}
+.office-trigger.is-open .office-trigger-chevron {
+    transform: rotate(180deg);
+}
+.office-panel {
+    width: min(640px, calc(100vw - 32px));
+    padding: 16px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+.office-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.office-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 8px;
+    background: rgba(var(--v-theme-on-surface), 0.035);
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+}
+.office-search:focus-visible {
+    outline: 3px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
+.office-clear {
+    padding: 8px;
+    border: 0;
+    background: none;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.office-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 340px;
+    padding: 4px 4px 8px;
+    overflow-y: auto;
+}
+.office-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 8px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 12px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+}
+.office-card:hover {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.08);
+    transform: translateY(-2px);
+}
+.office-card.is-selected {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.12);
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.25);
+}
+.office-card.is-selected::after {
+    content: "✓";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    font-size: 12px;
+    font-weight: 700;
+}
+.office-card .office-seal {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+    font-size: 13px;
+}
+.office-card-abbr {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-no-match {
+    grid-column: 1 / -1;
+    padding: 24px;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    text-align: center;
+}
+.office-panel-foot {
+    min-height: 34px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    font-size: 13px;
+}
+.office-panel-foot b {
+    color: rgb(var(--v-theme-on-surface));
+}
+@media (max-width: 620px) {
+    .office-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .office-trigger {
+        min-width: 200px;
+    }
 }
 .dash-panel-sub {
     font-size: 0.75rem;

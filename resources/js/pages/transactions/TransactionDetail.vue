@@ -38,7 +38,7 @@
                 </div>
                 <div class="tx-actions">
                     <button
-                        v-if="tx && isSuperadmin()"
+                        v-if="tx && canManageArchive"
                         type="button"
                         class="tx-archive"
                         :class="{ 'is-unarchive': isArchived }"
@@ -725,7 +725,7 @@
 import { onMounted, ref, computed, watch, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useTransactions } from "@/composables/useTransactions";
-import { useAuth } from "@/composables/useAuth";
+import { useAuth, isOfficeAdminUser, userKind } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import TableLoader from '@/components/TableLoader.vue';
 import LoadingVeil from '@/components/LoadingVeil.vue';
@@ -769,7 +769,23 @@ const copied = ref(false);
 let copiedTimer = null;
 
 function goBack() {
-    router.push(route.query.from === "archive" ? "/transactions/archive" : "/transactions");
+    const from = String(route.query.from || "");
+
+    // Staff details live under /portal; never send them to the admin list.
+    if (userKind(auth.user.value) === "staff") {
+        if (from === "portal-archive") {
+            router.push("/portal/history");
+        } else if (from === "portal-approvals") {
+            router.push("/portal/approvals");
+        } else if (from === "portal-action") {
+            router.push({ path: "/portal/transactions", query: { tab: "action" } });
+        } else {
+            router.push("/portal/transactions");
+        }
+        return;
+    }
+
+    router.push(from === "archive" ? "/transactions/archive" : "/transactions");
 }
 
 async function copyReference() {
@@ -1125,6 +1141,9 @@ function hydrateStepDataForm() {
 }
 
 const auth = useAuth();
+
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
+const canManageArchive = computed(() => isSuperadmin() || isOfficeAdmin.value);
 
 const savingChecklist = ref(false);
 const savingChecklistItemId = ref(null);

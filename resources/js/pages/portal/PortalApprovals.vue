@@ -267,7 +267,7 @@ async function receiveSelected() {
 }
 
 function open(tx) {
-    router.push(`/transactions/${tx.id}`);
+    router.push({ path: `/portal/transactions/${tx.id}`, query: { from: "portal-approvals" } });
 }
 
 function waited(iso) {

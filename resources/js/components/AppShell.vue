@@ -82,9 +82,12 @@
             <div class="d-flex align-center app-bar-right" style="flex: 0 0 auto">
                 <!-- Local status: time and weather. -->
                 <div class="nav-status d-none d-md-flex">
-                    <div class="nav-seg" v-tooltip="'Zamboanga local time'">
+                    <div class="nav-seg nav-time" v-tooltip="'Zamboanga local time'">
                         <v-icon size="20">mdi-clock-outline</v-icon>
-                        <span>{{ clock }}</span>
+                        <div class="nav-time-stack">
+                            <div id="app-bar-time-meta" class="nav-time-meta"></div>
+                            <span class="nav-time-value">{{ clock }}</span>
+                        </div>
                     </div>
                     <span class="nav-sep" aria-hidden="true"></span>
                     <div class="nav-seg" v-tooltip="'Weather in Zamboanga City: ' + weatherLabel">
@@ -111,10 +114,26 @@
                     <span class="d-none d-sm-inline">Back</span>
                 </button>
 
+                <!-- Tracker pages: the shared guest session gets a visible
+                     way back to sign-in instead of the account menu. -->
+                <v-btn
+                    v-if="isTrackerView"
+                    class="nav-login"
+                    color="primary"
+                    variant="flat"
+                    rounded="0"
+                    size="small"
+                    prepend-icon="mdi-login-variant"
+                    :loading="loggingOut"
+                    :disabled="loggingOut"
+                    @click="onLogout"
+                >
+                    Login
+                </v-btn>
+
                 <!-- Account: pressing the avatar opens a Facebook-style menu
                      with the profile header, settings and log out. Hidden for
-                     the shared viewer account: the tracking pages have their
-                     own Back button instead. -->
+                     the shared viewer account. -->
                 <v-menu
                     v-if="auth.user.value && kind !== 'viewer'"
                     location="bottom end"
@@ -246,8 +265,7 @@
                         </v-list-item-title>
                     </v-list-item>
                 </template>
-                <!-- Help lives with the destinations, right after the last group
-                     (Gov References for superadmins). -->
+                <!-- Help lives with the destinations, right after the last group. -->
                 <v-list-item
                     to="/help"
                     rounded="lg"
@@ -326,7 +344,12 @@
             <!-- The tracker's flag backdrop behind every page; the viewer
                  pages draw their own (search dims it as results appear). -->
             <TrackBackdrop v-if="showAuthUi && route.meta?.kind !== 'viewer'" quiet />
-            <v-container v-if="showAuthUi" fluid class="pa-6 app-page">
+            <v-container
+                v-if="showAuthUi"
+                fluid
+                class="pa-6 app-page"
+                :class="{ 'app-page--dashboard': route.name === 'dashboard' }"
+            >
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
                 <div :key="route.matched[0]?.path || route.path" class="page-enter">
@@ -521,6 +544,9 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
+// Guest viewers on the tracker pages get a Login button where the account
+// menu sits on every other page.
+const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind === "viewer");
 // Viewers have a single page (Track), so the sidebar starts hidden; every
 // other account gets it back. The shell outlives sign-ins, so a viewer
 // session must not leave it hidden for the next admin or clerk.
@@ -593,8 +619,6 @@ const navGroups = computed(() => {
                 items: [
                     { title: "Offices", icon: "mdi-office-building-outline", to: "/admin/offices" },
                     { title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" },
-                    { title: "Fields", icon: "mdi-form-textbox", to: "/admin/fields" },
-                    { title: "Gov References", icon: "mdi-bank", to: "/admin/government-references" },
                 ],
             },
         ];
@@ -602,7 +626,10 @@ const navGroups = computed(() => {
     if (isOfficeAdmin.value) {
         return [
             overview,
-            { title: "Work", items: [{ title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" }] },
+            { title: "Work", items: [
+                { title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" },
+                { title: "Archive", icon: "mdi-archive-outline", to: "/transactions/archive" },
+            ] },
             { title: "People", items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }] },
             {
                 title: "Setup",
@@ -728,6 +755,9 @@ const searchPages = computed(() => {
             { title: "Activity Log", subtitle: "Page · Monitoring", icon: "mdi-history", to: "/admin/activity" },
         );
     }
+    if (isOfficeAdmin.value) {
+        pages.push({ title: "Archive", subtitle: "Page · Admin", icon: "mdi-archive-outline", to: "/transactions/archive" });
+    }
     if (isSuperadmin.value) {
         pages.push(
             { title: "Users", subtitle: "Page · Admin", icon: "mdi-account-group", to: "/admin/users" },
@@ -735,9 +765,7 @@ const searchPages = computed(() => {
             { title: "Archive", subtitle: "Page · Admin", icon: "mdi-archive-outline", to: "/transactions/archive" },
             { title: "Offices", subtitle: "Page · Admin", icon: "mdi-office-building-outline", to: "/admin/offices" },
             { title: "Workflows", subtitle: "Page · Admin", icon: "mdi-source-branch", to: "/admin/workflows" },
-            { title: "Fields", subtitle: "Page · Admin", icon: "mdi-form-textbox", to: "/admin/fields" },
-            { title: "Requirements", subtitle: "Page · Admin", icon: "mdi-clipboard-check-outline", to: "/admin/requirements" },
-            { title: "Government References", subtitle: "Page · Admin", icon: "mdi-bank", to: "/admin/government-references" }
+            { title: "Requirements", subtitle: "Page · Admin", icon: "mdi-clipboard-check-outline", to: "/admin/requirements" }
         );
     }
     if (isSuperadmin.value || isOfficeAdmin.value) {
@@ -1148,6 +1176,21 @@ onUnmounted(() => {
     white-space: nowrap;
     color: rgba(var(--v-theme-on-surface), 0.7);
 }
+.nav-time-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    line-height: 1.05;
+}
+.nav-time-meta:empty {
+    display: none;
+}
+.nav-time-value {
+    font-size: 0.84rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
 .nav-seg .v-icon {
     color: rgba(var(--v-theme-on-surface), 0.55);
     transition: color 0.15s ease;
@@ -1160,6 +1203,15 @@ onUnmounted(() => {
     width: 1px;
     height: 16px;
     background: rgba(var(--v-theme-on-surface), 0.16);
+}
+/* Tracker pages: solid sign-in action beside the weather. */
+.nav-login {
+    height: 40px !important;
+    margin-left: 4px;
+    padding-inline: 16px !important;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    box-shadow: none;
 }
 /* Account: bare avatar button; the tinted circle only appears on hover. */
 .nav-account {
@@ -1658,6 +1710,12 @@ onUnmounted(() => {
 .app-page {
     position: relative;
     z-index: 1;
+}
+/* Dashboard: fill the first screen so the City Hall footer starts below
+   the fold and is revealed only when the page is scrolled. */
+.app-page--dashboard {
+    min-height: calc(100vh - 64px);
+    min-height: calc(100dvh - 64px);
 }
 .app-foot-spacer {
     flex: 1 1 auto;
