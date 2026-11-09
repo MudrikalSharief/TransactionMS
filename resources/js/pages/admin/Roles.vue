@@ -428,14 +428,15 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoles } from "@/composables/useRoles";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import { useEntryVeil } from "@/composables/useEntryVeil";
 import { toast } from "@/composables/useToast";
 
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } =
     useRoles();
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true);
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil();
 
 const headers = [
     { title: "Code", key: "code", width: "16%" },
@@ -850,11 +851,7 @@ async function removeRow(item) {
 }
 
 onMounted(() => {
-    fetchRoles()
-        .catch(() => {})
-        .finally(() => {
-            entering.value = false;
-        });
+    settle(fetchRoles(), { warm: !loading.value });
 });
 </script>
 

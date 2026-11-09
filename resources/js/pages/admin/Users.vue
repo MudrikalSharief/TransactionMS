@@ -1049,6 +1049,7 @@ import { useApi } from '@/composables/useApi'
 import { confirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import ScopeChip from '@/components/ScopeChip.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
@@ -1060,9 +1061,9 @@ const officeMode = !!useRoute().meta.officeScope
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser } =
   useAdminUsers({ office: officeMode })
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true)
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil()
 const { roles: allRoles, loading: allRolesLoading, fetchRoles: fetchAllRoles } = useRoles()
 const { items: offices, loading: officesLoading, fetchAll: fetchOffices } = useOffices()
 
@@ -1981,9 +1982,7 @@ onMounted(() => {
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
   if (!officeMode) fetchOffices().catch(() => {})
-  fetchUsers()
-    .catch(() => {})
-    .finally(() => { entering.value = false })
+  settle(fetchUsers(), { warm: !loading.value })
 })
 </script>
 

@@ -193,13 +193,14 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useFieldDefinitions } from '@/composables/useFieldDefinitions'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 
 const auth = useAuth()
 const { items, loading, fetchAll, create, update, destroy } = useFieldDefinitions()
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true)
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil()
 
 const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
@@ -369,9 +370,7 @@ function stringify(v) {
 onMounted(() => {
   // Full scroll lock for this tab: no bars and no scrolling anywhere.
   document.documentElement.classList.add('lock-scroll')
-  fetchAll()
-    .catch(() => {})
-    .finally(() => { entering.value = false })
+  settle(fetchAll(), { warm: !loading.value })
   // Track left-navbar width: rail ~56px vs expanded ~256px. While expanded
   // the table is narrower, so flag html.nav-open to duck the row actions
   // away instead of letting them get cut off. Covers hover-expand + toggle.

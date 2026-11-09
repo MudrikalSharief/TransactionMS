@@ -612,6 +612,7 @@ import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import { toast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
@@ -626,9 +627,9 @@ const isArchive = computed(() => props.archive)
 const txStore = useTransactions({ archived: isArchive.value })
 const { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy } = txStore
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true)
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil()
 const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
@@ -1048,9 +1049,7 @@ onMounted(() => {
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
   fetchOffices().catch(() => {})
-  fetchAll(requestParams(page.value))
-    .catch(() => {})
-    .finally(() => { entering.value = false })
+  settle(fetchAll(requestParams(page.value)), { warm: !loading.value })
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,

@@ -626,13 +626,14 @@ import { useOffices } from '@/composables/useOffices'
 import { toast } from '@/composables/useToast'
 import { officeIcon } from '@/utils/officeIcons'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 
 const auth = useAuth()
 const { items, loading, fetchAll, create, update, remove } = useOffices()
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true)
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil()
 
 const canManage = computed(() => (auth.user.value?.roles ?? []).some((r) => r.code === 'superadmin'))
 
@@ -1395,9 +1396,7 @@ async function removeRow(item) {
 }
 
 onMounted(() => {
-  fetchAll()
-    .catch(() => {})
-    .finally(() => { entering.value = false })
+  settle(fetchAll(), { warm: !loading.value })
 })
 </script>
 

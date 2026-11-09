@@ -646,6 +646,7 @@ import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import { officeIcon } from '@/utils/officeIcons'
 import {
@@ -667,9 +668,9 @@ const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
 const loading = ref(false)
-// Full-page loader shown each time the Dashboard is opened, until the
-// first fetch of the cards and lists finishes.
-const entering = ref(true)
+// Full-page loader shown each time the Dashboard is opened: brief when cached
+// cards/lists are already painted, otherwise until the first fetches finish.
+const { entering, settle } = useEntryVeil()
 const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
@@ -1523,14 +1524,15 @@ onMounted(async () => {
     }
     if (canApproveAccounts.value) loadAccounts()
 
-    try {
-        await txStore.fetchAll(opts)
-    } catch { /* keep defaults */ }
-
-    refreshedAt.value = new Date()
-    loading.value = false
-    await summaryDone.catch(() => {})
-    entering.value = false
+    const txDone = txStore.fetchAll(opts)
+        .catch(() => { /* keep defaults */ })
+        .then(() => {
+            refreshedAt.value = new Date()
+            loading.value = false
+        })
+    // Warm (cached cards/lists already painted): brief veil, refresh in the
+    // background. Cold: veil stays until both first fetches finish.
+    settle(Promise.all([txDone, summaryDone.catch(() => {})]), { warm: !txStore.loading.value })
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
