@@ -1,16 +1,22 @@
 <template>
   <div>
-    <LoadingVeil :show="loading" label="transactions" icon="mdi-swap-horizontal" />
+    <LoadingVeil :show="loading || entering" label="transactions" :icon="isArchive ? 'mdi-archive-outline' : 'mdi-swap-horizontal'" />
     <v-card rounded="0" elevation="0" class="tl-page mb-4">
       <header class="tl-hd">
         <div class="tl-badge" aria-hidden="true">
-          <v-icon size="26">mdi-swap-horizontal</v-icon>
+          <v-icon size="26">{{ isArchive ? 'mdi-archive-outline' : 'mdi-swap-horizontal' }}</v-icon>
         </div>
         <div class="tl-hd-main">
-          <h1 class="tl-title">Transactions</h1>
+          <h1 class="tl-title">{{ isArchive ? 'Archive' : 'Transactions' }}</h1>
           <p class="tl-sub">
-            The transactions moving through your offices, and where each one
-            is in its workflow.
+            <template v-if="isArchive">
+              Archived transactions are kept here for reference. Nothing on this
+              page has been deleted.
+            </template>
+            <template v-else>
+              The transactions moving through your offices, and where each one
+              is in its workflow.
+            </template>
           </p>
         </div>
         <div class="tl-tools">
@@ -44,7 +50,7 @@
             Clear filters
           </button>
           <button
-            v-if="canManage"
+            v-if="canManage && !isArchive"
             type="button"
             class="tl-add"
             aria-label="New transaction"
@@ -175,7 +181,7 @@
                 <button
                   v-bind="props"
                   type="button"
-                  class="tl-th-filter"
+                  class="tl-th-filter tl-th-office"
                   :class="{ 'is-active': !!filterOffice }"
                   :title="
                     filterOffice
@@ -370,33 +376,35 @@
           </template>
 
           <template v-slot:[`item.office`]="{ item }">
-            <span
-              v-if="item.office?.name || item.office?.code"
-              v-tooltip="item.office?.name || item.office?.code || ''"
-              class="tl-office-chip"
-              :title="item.office?.name || item.office?.code || ''"
-            >
-              <img
-                v-if="officeIcon(item.office)"
-                class="tl-office-icon"
-                :src="officeIcon(item.office)"
-                :alt="`${item.office?.name || 'Office'} icon`"
-                width="22"
-                height="22"
-                decoding="async"
-              />
+            <div class="tl-office-cell">
               <span
-                v-else
-                class="tl-office-icon-ph"
-                aria-label="No office icon"
+                v-if="item.office?.name || item.office?.code"
+                v-tooltip="item.office?.name || item.office?.code || ''"
+                class="tl-office-chip"
+                :title="item.office?.name || item.office?.code || ''"
               >
-                ?
+                <img
+                  v-if="officeIcon(item.office)"
+                  class="tl-office-icon"
+                  :src="officeIcon(item.office)"
+                  :alt="`${item.office?.name || 'Office'} icon`"
+                  width="22"
+                  height="22"
+                  decoding="async"
+                />
+                <span
+                  v-else
+                  class="tl-office-icon-ph"
+                  aria-label="No office icon"
+                >
+                  ?
+                </span>
+                <span class="tl-office-code">{{
+                  item.office?.code || item.office?.name
+                }}</span>
               </span>
-              <span class="tl-office-code">{{
-                item.office?.code || item.office?.name
-              }}</span>
-            </span>
-            <span v-else class="tl-dash">—</span>
+              <span v-else class="tl-dash">—</span>
+            </div>
           </template>
 
           <template v-slot:[`item.current_step`]="{ item }">
@@ -425,6 +433,17 @@
                   <v-icon start size="small">mdi-flag-checkered</v-icon>
                   Done
                 </v-chip>
+                <v-chip
+                  v-if="item.is_archive"
+                  color="grey-darken-2"
+                  variant="flat"
+                  rounded="0"
+                  size="small"
+                  class="ml-1"
+                >
+                  <v-icon start size="small">mdi-archive-outline</v-icon>
+                  Archived
+                </v-chip>
               </template>
               <StepProgress
                 :steps="item.workflow_steps"
@@ -440,11 +459,61 @@
             <div class="tl-ago">{{ timeAgo(item.created_at) }}</div>
           </template>
 
+          <template v-slot:[`item.is_private`]="{ item }">
+            <div class="tl-private" @click.stop>
+              <button
+                type="button"
+                class="tl-switch"
+                :class="{ 'is-on': item.is_private }"
+                role="switch"
+                :aria-checked="item.is_private ? 'true' : 'false'"
+                :aria-label="`Set ${item.reference_number || 'transaction'} ${item.is_private ? 'hidden from' : 'searchable on'} Track`"
+                :title="item.is_private ? 'Private · searchable on Track' : 'Private · hidden from Track search'"
+                :disabled="privacySavingId === item.id"
+                @click="togglePrivacy(item, !item.is_private)"
+              >
+                <span class="tl-switch-track" aria-hidden="true">
+                  <span class="tl-switch-thumb" />
+                </span>
+                <span class="tl-switch-label">{{ item.is_private ? 'Private' : 'Public' }}</span>
+              </button>
+            </div>
+          </template>
+
+          <template v-slot:[`item.actions`]="{ item }">
+            <v-btn
+              v-if="isArchive"
+              icon="mdi-restore"
+              size="small"
+              variant="text"
+              color="primary"
+              class="tl-unarchive-btn"
+              aria-label="Unarchive transaction"
+              v-tooltip="'Unarchive transaction'"
+              @click.stop="askUnarchive(item)"
+            />
+            <v-btn
+              v-else
+              icon="mdi-archive-outline"
+              size="small"
+              variant="text"
+              color="grey-darken-2"
+              class="tl-archive-btn"
+              aria-label="Archive transaction"
+              v-tooltip="'Archive transaction'"
+              @click.stop="askArchive(item)"
+            />
+          </template>
+
           <template #no-data>
             <div class="tl-empty">
               <template v-if="search.trim() || hasFilters">
                 <b>No matches</b> for the current search or filters. Try
                 changing them.
+              </template>
+              <template v-else-if="isArchive">
+                <b>No archived transactions yet.</b>
+                <span>Archived transactions will appear here.</span>
               </template>
               <template v-else>
                 <b>No transactions yet.</b>
@@ -522,6 +591,14 @@
       @submit="createTx"
     />
 
+    <ArchiveActionDialog
+      v-model:open="actionOpen"
+      :mode="actionMode"
+      :transaction="actionTarget"
+      :saving="actionSaving"
+      @confirm="confirmAction"
+    />
+
   </div>
 </template>
 
@@ -531,15 +608,27 @@ import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
+import { toast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
+import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
+const props = defineProps({
+  archive: { type: Boolean, default: false },
+})
+
 const router = useRouter()
-const { items, loading, meta, fetchAll, create } = useTransactions()
+const isArchive = computed(() => props.archive)
+const txStore = useTransactions({ archived: isArchive.value })
+const { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy } = txStore
+
+// Full-page loader on every visit, until the first fetch finishes (cached
+// data no longer skips it).
+const entering = ref(true)
 const page = ref(1)
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
@@ -548,6 +637,12 @@ const auth = useAuth()
 const isSuperadmin = computed(() =>
   (auth.user.value?.roles || []).some((r) => r.code === 'superadmin')
 )
+
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+
+// Superadmins and office admins manage archiving and Track visibility.
+// Office admins only receive rows already scoped to their office by the API.
+const canManageArchive = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 
 const canManage = computed(() => isSuperadmin.value || auth.user.value?.office != null)
 
@@ -566,6 +661,12 @@ const officeMenuOpen = ref(false)
 const dateMenuOpen = ref(false)
 const dateFromDraft = ref('')
 const dateToDraft = ref('')
+
+const actionOpen = ref(false)
+const actionTarget = ref(null)
+const actionMode = ref('archive')
+const actionSaving = ref(false)
+const privacySavingId = ref(null)
 
 const hasFilters = computed(
   () => !!(filterType.value || filterOffice.value || dateFrom.value || dateTo.value)
@@ -667,14 +768,23 @@ function officeAvatarStyle() {
   }
 }
 
-const headers = [
-  { title: 'Ref #', key: 'reference_number', width: '14%' },
-  { title: 'Title', key: 'title', width: '18%' },
-  { title: 'Transaction Type', key: 'type', sortable: false, width: '17%' },
-  { title: 'Originating Office', key: 'office', sortable: false, width: '16%' },
-  { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
-  { title: 'Created', key: 'created_at', width: '14%' },
-]
+const headers = computed(() => {
+  const base = [
+    { title: 'Ref #', key: 'reference_number', width: '14%' },
+    { title: 'Title', key: 'title', width: '18%' },
+    { title: 'Transaction Type', key: 'type', sortable: false, width: '17%' },
+    { title: 'Originating Office', key: 'office', sortable: false, width: '16%' },
+    { title: 'Current Step', key: 'current_step', sortable: false, width: '21%' },
+    { title: 'Created', key: 'created_at', width: '14%' },
+  ]
+  if (canManageArchive.value) {
+    if (!isArchive.value) {
+      base.push({ title: 'Private', key: 'is_private', sortable: false, width: '110px', align: 'center' })
+    }
+    base.push({ title: '', key: 'actions', sortable: false, width: '64px', align: 'end' })
+  }
+  return base
+})
 
 // Server-filtered: the API already applies ?q= (ref/title) and paginates to
 // 25 slim rows, so the table renders one light page instead of filtering
@@ -851,8 +961,61 @@ function openCreate() {
   dialog.value = true
 }
 
+function askArchive(item) {
+  error.value = ''
+  actionMode.value = 'archive'
+  actionTarget.value = item
+  actionOpen.value = true
+}
+
+function askUnarchive(item) {
+  error.value = ''
+  actionMode.value = 'unarchive'
+  actionTarget.value = item
+  actionOpen.value = true
+}
+
+async function togglePrivacy(item, value) {
+  if (privacySavingId.value !== null) return
+  privacySavingId.value = item.id
+  error.value = ''
+  try {
+    await setPrivacy(item.id, value)
+    item.is_private = !!value
+    toast.success(
+      value
+        ? 'Transaction is now searchable on Track.'
+        : 'Transaction removed from Track search.',
+    )
+  } catch (e) {
+    error.value = e?.response?.data?.message || 'Privacy update failed.'
+  } finally {
+    privacySavingId.value = null
+  }
+}
+
+async function confirmAction() {
+  if (!actionTarget.value) return
+  const isArchiving = actionMode.value === 'archive'
+  actionSaving.value = true
+  error.value = ''
+  try {
+    if (isArchiving) await archive(actionTarget.value.id)
+    else await unarchive(actionTarget.value.id)
+    toast.success(isArchiving ? 'Transaction archived.' : 'Transaction unarchived.')
+    actionOpen.value = false
+    actionTarget.value = null
+    await fetchAll(requestParams(page.value))
+  } catch (e) {
+    error.value = e?.response?.data?.message || (isArchiving ? 'Archive failed.' : 'Unarchive failed.')
+  } finally {
+    actionSaving.value = false
+  }
+}
+
 function go(id) {
-  router.push(`/transactions/${id}`)
+  const query = isArchive.value ? { from: 'archive' } : {}
+  router.push({ path: `/transactions/${id}`, query })
 }
 
 async function createTx(payload) {
@@ -885,14 +1048,16 @@ onMounted(() => {
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
   fetchOffices().catch(() => {})
-  fetchAll(requestParams(page.value)).catch(() => {})
+  fetchAll(requestParams(page.value))
+    .catch(() => {})
+    .finally(() => { entering.value = false })
 })
 
 // Silent 20s smart-poll: refresh rows in place without loader flash,
 // page reload, or losing search/sort/pagination/scroll.
 useSmartPoll(async () => {
-  // Skip while creating to avoid clobbering the dialog.
-  if (saving.value || dialog.value) return
+  // Skip while creating/archiving to avoid clobbering the dialogs.
+  if (saving.value || dialog.value || actionOpen.value) return
   try {
     await fetchAll({ ...requestParams(page.value), silent: true })
   } catch {
@@ -915,6 +1080,8 @@ useSmartPoll(async () => {
     --tl-hover: #f3f6fc;
     --tl-blue: #005EED;
     --tl-blue-bg: #e8eeff;
+    --tl-ok: #1b7a3d;
+    --tl-ok-bg: #e3f5ea;
     --tl-ring: rgba(29, 63, 174, 0.28);
     overflow: hidden;
     background: var(--tl-panel);
@@ -927,6 +1094,8 @@ html.dark .tl-page {
     --tl-hover: #1d2745;
     --tl-blue: #6f8cff;
     --tl-blue-bg: #25306a;
+    --tl-ok: #3fbf6f;
+    --tl-ok-bg: #16382a;
     --tl-ring: rgba(138, 161, 255, 0.38);
     box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.65);
 }
@@ -1229,6 +1398,69 @@ html.dark .tl-page {
     padding: 0 !important;
     border-bottom: 1px solid var(--tl-line) !important;
 }
+.tl-private {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tl-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--tl-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tl-switch:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.tl-switch-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    flex: none;
+    border: 1px solid var(--tl-line);
+    background: var(--tl-field);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.tl-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--tl-muted);
+    transition: transform 0.15s, background 0.15s;
+}
+
+.tl-switch.is-on .tl-switch-track {
+    background: var(--tl-ok-bg);
+    border-color: var(--tl-ok);
+}
+
+.tl-switch.is-on .tl-switch-thumb {
+    background: var(--tl-ok);
+    transform: translateX(14px);
+}
+
+.tl-switch-label {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tl-switch.is-on .tl-switch-label {
+    color: var(--tl-ok);
+}
+
 .tl-empty {
     display: flex;
     align-items: center;
@@ -1247,18 +1479,31 @@ html.dark .tl-page {
 }
 
 /* ---- Cells ---- */
-/* Long titles / offices / chip names truncate to one line (full text on
-   hover) so rows hold the 56px rhythm. Full values remain visible on the
-   detail page. The step chip's icon must not eat the text budget, so the
-   text gets its own cap slightly inside the chip's overall cap. */
+/* Titles and transaction types wrap to at most two lines (full text on hover);
+   the office chip stays a single centered chip. Full values remain visible on
+   the detail page. */
 .tl-name {
-    display: block;
+    display: -webkit-box;
     max-width: 100%;
     overflow: hidden;
     color: var(--tl-ink);
     font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+}
+/* Originating office sits centered in its column. */
+.tl-th-office {
+    width: 100%;
+    justify-content: center;
+}
+.tl-office-cell {
+    display: flex;
+    justify-content: center;
+    width: 100%;
 }
 /* Originating office: icon chip showing only the code; the full office
    name is the tooltip. Same pattern as the Transaction Types table. */
@@ -1313,18 +1558,29 @@ html.dark .tl-page {
     color: var(--tl-muted);
     font-size: 12px;
 }
+.tx-chip {
+    height: auto !important;
+    min-height: 24px;
+    max-width: 100%;
+    padding-block: 2px;
+}
 .tx-chip :deep(.v-chip__content) {
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 100%;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
 }
 .tx-chip-text {
+    display: -webkit-box;
     min-width: 0;
-    max-width: 170px;
+    max-width: 100%;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
 }
 
 /* ---- Footer ---- */

@@ -18,7 +18,7 @@
 
             <div class="pm-body">
                 <ReturnBanner :info="null" />
-                <TableLoader v-if="loading" label="transaction" compact />
+                <TableLoader v-if="loading" label="transaction" icon="mdi-file-document-outline" compact />
 
                 <template v-else-if="tx">
                     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">
@@ -119,6 +119,7 @@
 // Keep the gating computeds in sync with that page when its rules change.
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { useAuth, userKind } from "@/composables/useAuth";
 import { useMyTransactions } from "@/composables/useMyTransactions";
 import { useApi } from "@/composables/useApi";
 import ProceedWizard from "@/components/ProceedWizard.vue";
@@ -134,6 +135,7 @@ const props = defineProps({
 const emit = defineEmits(["proceeded", "changed"]);
 
 const router = useRouter();
+const auth = useAuth();
 const { api } = useApi();
 const { getOne, execute, gotoStation } = useMyTransactions();
 
@@ -536,6 +538,9 @@ async function returnForMissing({ toStepId, remarks }) {
 
 function openTransaction() {
     open.value = false;
-    router.push(`/transactions/${props.txId}`);
+    const base = userKind(auth.user.value) === "staff"
+        ? "/portal/transactions"
+        : "/transactions";
+    router.push(`${base}/${props.txId}`);
 }
 </script>

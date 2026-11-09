@@ -432,6 +432,8 @@ class TransactionResource extends JsonResource
             'reference_number' => $this->reference_number,
             'title' => $this->title,
             'is_done' => (bool) $this->is_done,
+            'is_archive' => (bool) $this->is_archive,
+            'is_private' => (bool) $this->is_private,
 
             'transaction_type' => $this->type?->only(['id','code','name']),
             'office' => Office::mini($this->office),
@@ -450,6 +452,12 @@ class TransactionResource extends JsonResource
                 $this->stepOfficePayload($state->currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
+            // Inbox lists only (withExists in ApprovalController): sent to the
+            // current station but not received there yet.
+            'awaiting_receipt' => $this->when(
+                array_key_exists('awaiting_receipt', $this->resource->getAttributes()),
+                fn () => (bool) $this->resource->getAttribute('awaiting_receipt')
+            ),
 
             'workflow_steps' => $this->workflow?->steps?->map(fn($s) => array_merge(
                 $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end','office_id']),

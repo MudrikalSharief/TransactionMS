@@ -14,7 +14,7 @@
                         :src="'/tms-logo-128.png'"
                         alt="Transaction Management System emblem"
                         width="60"
-                        height="62"
+                        height="60"
                     />
                 </div>
                 <div class="eyebrow">Transaction tracker</div>
@@ -158,6 +158,20 @@
                                 <div class="font-weight-bold">{{ fmtDate(item.created_at) }}</div>
                                 <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
                             </template>
+                            <!-- Tracking slip (preview, then print): view-only. -->
+                            <template v-slot:[`item.slip`]="{ item }">
+                                <v-btn
+                                    variant="outlined"
+                                    color="grey-darken-3"
+                                    rounded="0"
+                                    size="small"
+                                    prepend-icon="mdi-printer-outline"
+                                    :aria-label="`Print tracking slip for ${item.reference_number || item.id}`"
+                                    @click.stop="openSlip(item)"
+                                >
+                                    Print slip
+                                </v-btn>
+                            </template>
                             <template #bottom>
                                 <div v-if="meta.lastPage > 1" class="d-flex justify-center py-3">
                                     <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
@@ -178,6 +192,9 @@
                 </v-card>
             </div>
         </v-expand-transition>
+
+        <!-- Same slip as the transaction page (QR opens the tracking page). -->
+        <TrackingSlipDialog v-model="slipOpen" :tx="slipTx" />
     </div>
 </template>
 
@@ -188,6 +205,7 @@ import { useApi } from "@/composables/useApi";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import StepProgress from "@/components/StepProgress.vue";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
+import TrackingSlipDialog from "@/components/TrackingSlipDialog.vue";
 
 const router = useRouter();
 const { api } = useApi();
@@ -214,7 +232,16 @@ const headers = [
     // Where the transaction sits now (the current step's office).
     { title: "Office", key: "office", sortable: false },
     { title: "Created", key: "created_at" },
+    { title: "", key: "slip", sortable: false, align: "end" },
 ];
+
+// Tracking slip for one result (preview dialog, printed from there).
+const slipOpen = ref(false);
+const slipTx = ref(null);
+function openSlip(tx) {
+    slipTx.value = tx;
+    slipOpen.value = true;
+}
 
 // Status filter, applied by the server so paging stays right.
 // One button cycles All -> Incomplete -> Complete -> All.
@@ -409,7 +436,7 @@ useSmartPoll(() => {
 .tms {
     display: block;
     width: 60px;
-    height: 62px;
+    height: 60px;
     object-fit: contain;
     /* ...and the system emblem into this one. */
     view-transition-name: tms-emblem;

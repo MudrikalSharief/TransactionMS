@@ -1,7 +1,7 @@
 <template>
     <!-- Site footer: City Hall artwork (public/footer-hall.webp, sky cut
          out so it sits on any page background) over a navy band with the
-         seals, contacts and the CSD credit. The swooshes are drawn here. -->
+         CSD credit. The swooshes are drawn here. -->
     <!-- Pages that fit the screen (dashboards on desktop) get the same
          footer, sized to the window height so the page never scrolls. -->
     <footer class="tf" :class="{ 'tf--fit': fit }">
@@ -26,45 +26,6 @@
         </div>
 
         <div class="tf-band">
-            <div class="tf-main">
-                <img class="tf-seal" :src="'/zamboanga-seal.png'" alt="City of Zamboanga official seal" width="62" height="62" />
-                <div class="tf-sep" aria-hidden="true"></div>
-                <div class="tf-info">
-                    <div class="tf-social">
-                        <a
-                            v-for="s in socials"
-                            :key="s.label"
-                            class="tf-soc"
-                            :href="s.href"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            :aria-label="s.label"
-                            :title="s.label"
-                        >
-                            <v-icon size="12">{{ s.icon }}</v-icon>
-                        </a>
-                    </div>
-                    <a class="tf-line" href="mailto:info@zamboangacity.gov.ph">
-                        <v-icon size="12">mdi-email-outline</v-icon>info@zamboangacity.gov.ph
-                    </a>
-                    <div class="tf-line">
-                        <v-icon size="12">mdi-map-marker</v-icon>City Hall, Zamboanga City, Philippines
-                    </div>
-                    <a class="tf-line" href="tel:+63629913371">
-                        <v-icon size="12">mdi-phone-outline</v-icon>(062) 991-3371
-                    </a>
-                </div>
-                <!-- System emblem mirrors the seal on the other side. -->
-                <div class="tf-sep" aria-hidden="true"></div>
-                <img class="tf-seal tf-logo" :src="'/tms-logo.png'" alt="Transaction Management System emblem" width="62" height="62" />
-            </div>
-
-            <div class="tf-rule" aria-hidden="true"></div>
-            <div class="tf-legal">
-                <span>Terms &amp; Conditions</span>
-                <span class="tf-bar" aria-hidden="true">|</span>
-                <span>Privacy Policy</span>
-            </div>
             <div class="tf-credit">
                 <span class="tf-credit-line" aria-hidden="true"></span>
                 <span>Developed by <b>City Hall Computer Service Division</b> <span class="tf-office">- Mayor's Office</span></span>
@@ -83,12 +44,6 @@ const edgeGradients = [
     { id: "tf-edge-gold", color: "#F2B33D" },
     { id: "tf-edge-blue", color: "#2563EB" },
 ];
-
-// Only the verified City Government accounts/links.
-const socials = [
-    { label: "Facebook", icon: "mdi-facebook", href: "https://www.facebook.com/zambocitygovt/" },
-    { label: "Official website", icon: "mdi-web", href: "https://zamboangacity.gov.ph/" },
-];
 </script>
 
 <style scoped>
@@ -99,7 +54,7 @@ const socials = [
     --tf-blue: #2563EB;
     position: relative;
     z-index: 1;
-    margin-top: 18px;
+    margin-top: 15px;
     color: #fff;
 }
 
@@ -108,7 +63,7 @@ const socials = [
     position: relative;
     /* Width of the City Hall artwork (1000 x 310); everything below scales
        from it so the swooshes always meet the ground. */
-    --hw: clamp(300px, 46vw, 780px);
+    --hw: clamp(328px, 50.2vw, 852px);
     height: calc(var(--hw) * 0.31);
 }
 .tf-hall {
@@ -147,10 +102,9 @@ const socials = [
     background:
         radial-gradient(120% 70% at 50% 135%, rgba(37, 99, 235, 0.55) 0%, transparent 60%),
         linear-gradient(180deg, var(--tf-navy) 0%, var(--tf-deep) 100%);
-    /* Extra top room so the seal row clears the building; the bottom room
-       keeps the credit row above the curved swoosh (::after), which
-       otherwise draws a line straight through it. */
-    padding: 26px 24px 44px;
+    /* The bottom room keeps the credit row above the curved swoosh
+       (::after), which otherwise draws a line straight through it. */
+    padding: 6px 18px 16px;
     text-align: center;
 }
 /* Lighter blue swoosh along the bottom edge. */
@@ -159,107 +113,22 @@ const socials = [
     position: absolute;
     left: -10%;
     right: -10%;
-    bottom: -38px;
-    height: 66px;
+    bottom: -52px;
+    height: 60px;
     border-radius: 50%;
     border-top: 3px solid rgba(96, 165, 250, 0.45);
     box-shadow: 0 -10px 40px -10px rgba(96, 165, 250, 0.5);
     pointer-events: none;
 }
 
-.tf-main {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 26px;
-}
-.tf-seal {
-    width: 84px;
-    height: 84px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 14px rgba(147, 197, 253, 0.45);
-    flex: 0 0 auto;
-}
-.tf-logo {
-    object-fit: contain;
-    background: #fff;
-}
-.tf-sep {
-    align-self: stretch;
-    width: 1px;
-    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-}
-.tf-info {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    text-align: left;
-}
-.tf-social {
-    display: flex;
-    align-self: center;
-    gap: 10px;
-    margin-bottom: 4px;
-}
-.tf-soc {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #fff;
-    color: var(--tf-navy);
-    text-decoration: none;
-    box-shadow: 0 0 8px -2px rgba(147, 197, 253, 0.55);
-    transition: background-color 0.15s ease, transform 0.15s ease;
-}
-a.tf-soc:hover {
-    background: #BFDBFE;
-    transform: translateY(-1px);
-}
-.tf-line {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    color: #fff;
-    text-decoration: none;
-    font-size: 0.84rem;
-}
-a.tf-line:hover {
-    color: #BFDBFE;
-}
-.tf-line .v-icon {
-    color: #fff;
-}
 
-.tf-rule {
-    width: min(340px, 80%);
-    height: 1px;
-    margin: 14px auto 8px;
-    background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.7), transparent);
-}
-.tf-legal {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    font-size: 0.74rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #93C5FD;
-}
-.tf-bar {
-    opacity: 0.6;
-}
 .tf-credit {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    /* Clear breathing room between the Terms/Privacy row and this credit. */
-    margin-top: 16px;
-    font-size: 0.82rem;
+    margin-top: 6px;
+    font-size: 0.74rem;
     color: rgba(255, 255, 255, 0.9);
 }
 .tf-credit b {
@@ -267,7 +136,7 @@ a.tf-line:hover {
     font-weight: 800;
 }
 .tf-credit-line {
-    width: 80px;
+    width: 60px;
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.8));
 }
@@ -276,8 +145,8 @@ a.tf-line:hover {
 }
 
 /* ---- fit-the-screen pages (same breakpoint as useFitScreen) ----
-   The full footer, scaled by the window height: the City Hall artwork,
-   seals and spacing shrink on short screens so the dashboard above keeps
+   The full footer, scaled by the window height: the City Hall artwork
+   and spacing shrink on short screens so the dashboard above keeps
    its room and the page needs no scroll. */
 @media (min-width: 1100px) and (min-height: 560px) {
     .tf--fit {
@@ -285,77 +154,29 @@ a.tf-line:hover {
         margin-top: 0;
     }
     .tf--fit .tf-skyline {
-        --hw: clamp(240px, 32vh, 520px);
+        --hw: clamp(260px, 35vh, 568px);
     }
     .tf--fit .tf-band {
-        padding: clamp(4px, 1vh, 14px) 24px clamp(18px, 2.4vh, 28px);
+        padding: clamp(2px, 0.3vh, 5px) 18px clamp(8px, 1vh, 12px);
     }
     /* Keep the bottom swoosh below the credit row at the smaller padding. */
     .tf--fit .tf-band::after {
-        bottom: -50px;
-    }
-    .tf--fit .tf-main {
-        gap: clamp(14px, 2vh, 26px);
-    }
-    .tf--fit .tf-seal {
-        width: clamp(44px, 7vh, 76px);
-        height: clamp(44px, 7vh, 76px);
-    }
-    .tf--fit .tf-info {
-        gap: clamp(1px, 0.4vh, 5px);
-    }
-    .tf--fit .tf-social {
-        margin-bottom: 2px;
-    }
-    .tf--fit .tf-soc {
-        width: clamp(20px, 2.6vh, 26px);
-        height: clamp(20px, 2.6vh, 26px);
-    }
-    .tf--fit .tf-line {
-        font-size: clamp(0.7rem, 1.45vh, 0.82rem);
-    }
-    .tf--fit .tf-rule {
-        margin: clamp(4px, 1vh, 12px) auto clamp(3px, 0.6vh, 6px);
-    }
-    .tf--fit .tf-legal {
-        font-size: clamp(0.62rem, 1.25vh, 0.72rem);
+        bottom: -58px;
     }
     .tf--fit .tf-credit {
-        margin-top: clamp(3px, 0.9vh, 12px);
-        font-size: clamp(0.68rem, 1.4vh, 0.8rem);
+        margin-top: clamp(1px, 0.3vh, 4px);
+        font-size: clamp(0.58rem, 1.05vh, 0.66rem);
     }
 }
 
-/* Phones: the two emblems side by side, contacts below them. */
+/* Phones: the artwork fills the width; the credit may wrap. */
 @media (max-width: 700px) {
     .tf-skyline {
-        --hw: min(100vw, 520px);
-    }
-    .tf-main {
-        display: grid;
-        grid-template-columns: auto auto;
-        justify-content: center;
-        gap: 9px 15px;
-    }
-    .tf-sep {
-        display: none;
-    }
-    .tf-seal {
-        grid-row: 1;
-        width: 64px;
-        height: 64px;
-    }
-    .tf-logo {
-        grid-column: 2;
-    }
-    .tf-info {
-        grid-row: 2;
-        grid-column: 1 / -1;
-        align-items: center;
+        --hw: min(100vw, 568px);
     }
     .tf-credit {
         flex-wrap: wrap;
-        font-size: 0.68rem;
+        font-size: 0.62rem;
     }
     .tf-credit-line {
         display: none;

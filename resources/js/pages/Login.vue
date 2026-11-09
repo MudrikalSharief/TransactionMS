@@ -168,174 +168,276 @@
                             <span>{{ regError }}</span>
                         </div>
 
-                        <form novalidate :aria-busy="registering ? 'true' : 'false'" @submit.prevent="register">
-                            <div class="field">
-                                <label for="reg-name">Full name</label>
-                                <div class="control">
-                                    <span class="chip" aria-hidden="true"><v-icon>mdi-account-outline</v-icon></span>
-                                    <input
-                                        id="reg-name"
-                                        v-model.trim="reg.name"
-                                        type="text"
-                                        autocomplete="name"
-                                        placeholder="Juan Dela Cruz"
-                                        :disabled="registering"
-                                        :aria-invalid="fieldErrors.name ? 'true' : 'false'"
-                                        required
-                                    />
-                                </div>
-                                <p v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</p>
-                            </div>
+                        <!-- Three short steps paged with Back / Continue, so the
+                             whole request fits the panel without scrolling. -->
+                        <div class="steps">
+                            <p class="steps-text" aria-live="polite">Step {{ regStep + 1 }} of 3</p>
+                            <span class="steps-track" aria-hidden="true">
+                                <i v-for="n in 3" :key="n" :class="{ 'is-on': n - 1 <= regStep }"></i>
+                            </span>
+                        </div>
 
-                            <div class="grid-2">
-                                <div class="field">
-                                    <label for="reg-username">Username</label>
-                                    <div class="control">
-                                        <span class="chip" aria-hidden="true"><v-icon>mdi-at</v-icon></span>
-                                        <input
-                                            id="reg-username"
-                                            v-model="reg.username"
-                                            type="text"
-                                            autocomplete="username"
-                                            autocapitalize="none"
-                                            spellcheck="false"
-                                            maxlength="30"
-                                            placeholder="jdelacruz"
-                                            :disabled="registering"
-                                            :aria-invalid="usernameProblem || fieldErrors.username ? 'true' : 'false'"
-                                            aria-describedby="reg-username-help"
-                                            required
-                                            @input="onUsernameInput"
-                                        />
+                        <form
+                            novalidate
+                            :aria-busy="registering ? 'true' : 'false'"
+                            @submit.prevent="regStep < 2 ? nextStep() : register()"
+                        >
+                            <Transition name="swap" mode="out-in">
+                                <div v-if="regStep === 0" key="step-1" class="reg-step">
+                                    <div class="field">
+                                        <label for="reg-name">Full name</label>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-account-outline</v-icon></span>
+                                            <input
+                                                id="reg-name"
+                                                v-model.trim="reg.name"
+                                                type="text"
+                                                autocomplete="name"
+                                                placeholder="Juan Dela Cruz"
+                                                :disabled="registering"
+                                                :aria-invalid="fieldErrors.name ? 'true' : 'false'"
+                                                required
+                                            />
+                                        </div>
+                                        <p v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</p>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="reg-username">Username</label>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-at</v-icon></span>
+                                            <input
+                                                id="reg-username"
+                                                v-model="reg.username"
+                                                type="text"
+                                                autocomplete="username"
+                                                autocapitalize="none"
+                                                spellcheck="false"
+                                                maxlength="30"
+                                                placeholder="jdelacruz"
+                                                :disabled="registering"
+                                                :aria-invalid="usernameProblem || fieldErrors.username ? 'true' : 'false'"
+                                                :aria-describedby="
+                                                    usernameProblem || fieldErrors.username ? 'reg-username-help' : undefined
+                                                "
+                                                required
+                                                @input="onUsernameInput"
+                                            />
+                                        </div>
+                                        <!-- Only a live problem is shown; the format hint is gone. -->
+                                        <p
+                                            v-if="usernameProblem || fieldErrors.username"
+                                            id="reg-username-help"
+                                            class="field-note is-bad"
+                                        >
+                                            {{ fieldErrors.username || usernameProblem }}
+                                        </p>
+                                    </div>
+
+                                    <div class="field">
+                                        <div class="label-row">
+                                            <label for="reg-contact">Contact number</label>
+                                            <span
+                                                class="field-counter"
+                                                :class="{ 'is-full': reg.contact_number.length === 11 }"
+                                                aria-live="polite"
+                                            >{{ reg.contact_number.length }}/11</span>
+                                        </div>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-phone-outline</v-icon></span>
+                                            <input
+                                                id="reg-contact"
+                                                v-model="reg.contact_number"
+                                                type="tel"
+                                                inputmode="numeric"
+                                                autocomplete="tel-national"
+                                                maxlength="11"
+                                                placeholder="09171234567"
+                                                :disabled="registering"
+                                                :aria-invalid="contactError ? 'true' : 'false'"
+                                                required
+                                                @input="onContactInput"
+                                                @blur="contactTouched = true"
+                                            />
+                                        </div>
+                                        <p v-if="contactError" class="field-error">{{ contactError }}</p>
                                     </div>
                                 </div>
 
-                                <div class="field">
-                                    <label for="reg-contact">Contact number</label>
-                                    <div class="control">
-                                        <span class="chip" aria-hidden="true"><v-icon>mdi-phone-outline</v-icon></span>
-                                        <input
-                                            id="reg-contact"
-                                            v-model.trim="reg.contact_number"
-                                            type="tel"
-                                            inputmode="tel"
-                                            autocomplete="tel"
-                                            placeholder="09171234567"
-                                            :disabled="registering"
-                                            :aria-invalid="fieldErrors.contact_number ? 'true' : 'false'"
-                                            required
-                                        />
+                                <div v-else-if="regStep === 1" key="step-2" class="reg-step is-short">
+                                    <div class="field">
+                                        <label for="reg-email">Email</label>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-email-outline</v-icon></span>
+                                            <input
+                                                id="reg-email"
+                                                v-model.trim="reg.email"
+                                                type="email"
+                                                autocomplete="email"
+                                                autocapitalize="none"
+                                                spellcheck="false"
+                                                placeholder="name@zamboanga.gov.ph"
+                                                :disabled="registering"
+                                                :aria-invalid="emailError ? 'true' : 'false'"
+                                                required
+                                                @input="onEmailInput"
+                                            />
+                                        </div>
+                                        <p v-if="emailError" class="field-error">{{ emailError }}</p>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="reg-password">Password</label>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-lock-outline</v-icon></span>
+                                            <input
+                                                id="reg-password"
+                                                v-model="reg.password"
+                                                :type="showPassword ? 'text' : 'password'"
+                                                autocomplete="new-password"
+                                                placeholder="At least 8 characters"
+                                                :disabled="registering"
+                                                :aria-invalid="fieldErrors.password ? 'true' : 'false'"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                class="toggle"
+                                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                                :aria-pressed="showPassword ? 'true' : 'false'"
+                                                @click="showPassword = !showPassword"
+                                            >
+                                                <v-icon>{{ showPassword ? "mdi-eye-off-outline" : "mdi-eye-outline" }}</v-icon>
+                                            </button>
+                                        </div>
+                                        <p v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
                                     </div>
                                 </div>
-                            </div>
-                            <p
-                                id="reg-username-help"
-                                class="field-note"
-                                :class="{ 'is-bad': usernameProblem || fieldErrors.username }"
-                            >
-                                {{
-                                    fieldErrors.username ||
-                                    usernameProblem ||
-                                    "3–30 lowercase letters, numbers, dots or underscores. You can sign in with it."
-                                }}
-                            </p>
-                            <p v-if="fieldErrors.contact_number" class="field-error">{{ fieldErrors.contact_number }}</p>
 
-                            <div class="field">
-                                <label for="reg-email">Email</label>
-                                <div class="control">
-                                    <span class="chip" aria-hidden="true"><v-icon>mdi-email-outline</v-icon></span>
-                                    <input
-                                        id="reg-email"
-                                        v-model.trim="reg.email"
-                                        type="email"
-                                        autocomplete="email"
-                                        autocapitalize="none"
-                                        spellcheck="false"
-                                        placeholder="name@zamboanga.gov.ph"
-                                        :disabled="registering"
-                                        :aria-invalid="fieldErrors.email ? 'true' : 'false'"
-                                        required
-                                    />
+                                <div v-else key="step-3" class="reg-step is-short">
+                                    <div class="field">
+                                        <label id="reg-office-label" for="reg-office">Office</label>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-office-building-outline</v-icon></span>
+                                            <v-menu
+                                                v-model="officeMenuOpen"
+                                                :close-on-content-click="false"
+                                                location="bottom start"
+                                                offset="8"
+                                            >
+                                                <template #activator="{ props }">
+                                                    <button
+                                                        v-bind="props"
+                                                        id="reg-office"
+                                                        type="button"
+                                                        class="office-select"
+                                                        :disabled="registering || !options.offices.length"
+                                                        :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
+                                                        aria-labelledby="reg-office-label"
+                                                    >
+                                                        <span v-if="selectedOffice" class="office-selected">
+                                                            <span class="office-avatar" aria-hidden="true">
+                                                                <img v-if="officeIcon(selectedOffice)" :src="officeIcon(selectedOffice)" alt="" />
+                                                                <span v-else>{{ officeInitials(selectedOffice) }}</span>
+                                                            </span>
+                                                            <span class="office-name">{{ selectedOffice.name }}</span>
+                                                        </span>
+                                                        <span v-else class="office-placeholder">Choose your office</span>
+                                                        <v-icon class="office-caret" aria-hidden="true">mdi-chevron-down</v-icon>
+                                                    </button>
+                                                </template>
+                                                <v-card
+                                                    class="office-menu-card"
+                                                    rounded="lg"
+                                                    elevation="8"
+                                                    role="listbox"
+                                                    aria-labelledby="reg-office-label"
+                                                >
+                                                    <button
+                                                        v-for="o in options.offices"
+                                                        :key="o.id"
+                                                        type="button"
+                                                        class="office-option"
+                                                        :class="{ 'is-selected': Number(reg.office_id) === Number(o.id) }"
+                                                        role="option"
+                                                        :aria-selected="Number(reg.office_id) === Number(o.id) ? 'true' : 'false'"
+                                                        @click="chooseOffice(o.id)"
+                                                    >
+                                                        <span class="office-avatar" aria-hidden="true">
+                                                            <img v-if="officeIcon(o)" :src="officeIcon(o)" :alt="`${o.name} icon`" />
+                                                            <span v-else>{{ officeInitials(o) }}</span>
+                                                        </span>
+                                                        <span class="office-option-name">{{ o.name }}</span>
+                                                        <v-icon
+                                                            v-if="Number(reg.office_id) === Number(o.id)"
+                                                            class="office-check"
+                                                            size="18"
+                                                            aria-hidden="true"
+                                                        >mdi-check</v-icon>
+                                                    </button>
+                                                    <p v-if="!options.offices.length" class="office-empty">No offices available.</p>
+                                                </v-card>
+                                            </v-menu>
+                                        </div>
+                                        <p v-if="fieldErrors.office_id" class="field-error">{{ fieldErrors.office_id }}</p>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="reg-role">Role</label>
+                                        <div class="control">
+                                            <span class="chip" aria-hidden="true"><v-icon>mdi-badge-account-horizontal-outline</v-icon></span>
+                                            <select
+                                                id="reg-role"
+                                                v-model="reg.role_id"
+                                                :disabled="registering || !options.roles.length"
+                                                :aria-invalid="fieldErrors.role_ids ? 'true' : 'false'"
+                                                required
+                                            >
+                                                <option :value="null" disabled>Choose your role</option>
+                                                <option v-for="r in options.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                                            </select>
+                                        </div>
+                                        <p v-if="fieldErrors.role_ids" class="field-error">{{ fieldErrors.role_ids }}</p>
+                                    </div>
                                 </div>
-                                <p v-if="fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
-                            </div>
+                            </Transition>
 
-                            <div class="field">
-                                <label for="reg-password">Password</label>
-                                <div class="control">
-                                    <span class="chip" aria-hidden="true"><v-icon>mdi-lock-outline</v-icon></span>
-                                    <input
-                                        id="reg-password"
-                                        v-model="reg.password"
-                                        :type="showPassword ? 'text' : 'password'"
-                                        autocomplete="new-password"
-                                        placeholder="At least 8 characters"
-                                        :disabled="registering"
-                                        :aria-invalid="fieldErrors.password ? 'true' : 'false'"
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        class="toggle"
-                                        :aria-label="showPassword ? 'Hide password' : 'Show password'"
-                                        :aria-pressed="showPassword ? 'true' : 'false'"
-                                        @click="showPassword = !showPassword"
-                                    >
-                                        <v-icon>{{ showPassword ? "mdi-eye-off-outline" : "mdi-eye-outline" }}</v-icon>
-                                    </button>
-                                </div>
-                                <p v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
-                            </div>
+                            <div class="reg-nav">
+                                <button
+                                    v-if="regStep > 0"
+                                    type="button"
+                                    class="btn-ghost"
+                                    :disabled="registering"
+                                    @click="prevStep"
+                                >
+                                    <v-icon class="btn-arrow-back" aria-hidden="true">mdi-arrow-left</v-icon>
+                                    <span>Back</span>
+                                </button>
 
-                            <!-- Office names are long: full width. -->
-                            <div class="field">
-                                <label for="reg-office">Office</label>
-                                <div class="control">
-                                    <span class="chip" aria-hidden="true"><v-icon>mdi-office-building-outline</v-icon></span>
-                                    <select
-                                        id="reg-office"
-                                        v-model="reg.office_id"
-                                        :disabled="registering || !options.offices.length"
-                                        :aria-invalid="fieldErrors.office_id ? 'true' : 'false'"
-                                        required
-                                    >
-                                        <option :value="null" disabled>Choose your office</option>
-                                        <option v-for="o in options.offices" :key="o.id" :value="o.id">{{ o.name }}</option>
-                                    </select>
-                                </div>
-                                <p v-if="fieldErrors.office_id" class="field-error">{{ fieldErrors.office_id }}</p>
-                            </div>
+                                <button
+                                    v-if="regStep < 2"
+                                    type="button"
+                                    class="btn"
+                                    :disabled="!stepReady(regStep)"
+                                    @click="nextStep"
+                                >
+                                    <span>Continue</span>
+                                    <v-icon class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
+                                </button>
 
-                            <div class="field field-last">
-                                <label for="reg-role">Role</label>
-                                <div class="control">
-                                    <span class="chip" aria-hidden="true"><v-icon>mdi-badge-account-horizontal-outline</v-icon></span>
-                                    <select
-                                        id="reg-role"
-                                        v-model="reg.role_id"
-                                        :disabled="registering || !options.roles.length"
-                                        :aria-invalid="fieldErrors.role_ids ? 'true' : 'false'"
-                                        required
-                                    >
-                                        <option :value="null" disabled>Choose your role</option>
-                                        <option v-for="r in options.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
-                                    </select>
-                                </div>
-                                <p v-if="fieldErrors.role_ids" class="field-error">{{ fieldErrors.role_ids }}</p>
+                                <button
+                                    v-else
+                                    class="btn"
+                                    :class="{ loading: registering }"
+                                    type="submit"
+                                    :disabled="!canRegister"
+                                >
+                                    <span v-if="registering" class="spin motion-keep" aria-hidden="true"></span>
+                                    <span>{{ registering ? "Sending request…" : "Request account" }}</span>
+                                    <v-icon v-if="!registering" class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
+                                </button>
                             </div>
-
-                            <button class="btn" :class="{ loading: registering }" type="submit" :disabled="!canRegister">
-                                <span v-if="registering" class="spin motion-keep" aria-hidden="true"></span>
-                                <span>{{ registering ? "Sending request…" : "Request account" }}</span>
-                                <v-icon v-if="!registering" class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
-                            </button>
                         </form>
-
-                        <p class="help">
-                            Already have an account?
-                            <button type="button" class="link" @click="openSignIn">Sign in</button>
-                        </p>
                     </main>
                 </Transition>
             </div>
@@ -395,6 +497,7 @@ import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import LoginHero from "@/components/login/LoginHero.vue";
 import { useMotion } from "@/composables/useMotion";
+import { officeIcon } from "@/utils/officeIcons";
 
 // Animations on/off (footer switch; shared with the sidebar button).
 const { motionEnabled, toggleMotion } = useMotion();
@@ -498,6 +601,71 @@ const registering = ref(false);
 const regError = ref("");
 const fieldErrors = ref({});
 
+// Contact: digits only, 11 max. The counter shows progress; the red state
+// appears once they leave the field incomplete.
+const contactTouched = ref(false);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const contactProblem = computed(() => {
+    const n = String(reg.value.contact_number || "");
+    if (!n || n.length === 11) return "";
+    return "Enter an 11-digit contact number.";
+});
+const contactError = computed(
+    () => fieldErrors.value.contact_number || (contactTouched.value ? contactProblem.value : ""),
+);
+
+const emailProblem = computed(() => {
+    const email = String(reg.value.email || "").trim();
+    if (!email) return "";
+    return EMAIL_RE.test(email) ? "" : "Enter a valid email address.";
+});
+const emailError = computed(() => fieldErrors.value.email || emailProblem.value);
+
+const officeMenuOpen = ref(false);
+const selectedOffice = computed(
+    () => (options.value.offices || []).find((o) => Number(o.id) === Number(reg.value.office_id)) || null,
+);
+
+function onContactInput(e) {
+    const digits = String(e?.target?.value ?? reg.value.contact_number ?? "")
+        .replace(/\D/g, "")
+        .slice(0, 11);
+    reg.value.contact_number = digits;
+    if (e?.target && e.target.value !== digits) e.target.value = digits;
+    if (fieldErrors.value.contact_number) {
+        fieldErrors.value = { ...fieldErrors.value, contact_number: "" };
+    }
+}
+
+function onEmailInput() {
+    if (fieldErrors.value.email) {
+        fieldErrors.value = { ...fieldErrors.value, email: "" };
+    }
+}
+
+function officeInitials(office) {
+    const code = String(office?.code || "").trim();
+    if (code) return code.slice(0, 2).toUpperCase();
+    return (
+        String(office?.name || "?")
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || "")
+            .join("")
+            .toUpperCase() || "?"
+    );
+}
+
+function chooseOffice(id) {
+    reg.value.office_id = id;
+    officeMenuOpen.value = false;
+    if (fieldErrors.value.office_id) {
+        fieldErrors.value = { ...fieldErrors.value, office_id: "" };
+    }
+}
+
 // Same format the server enforces (App\Models\User::usernameRules).
 const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._]*[a-z0-9])?$/;
 
@@ -523,11 +691,48 @@ const canRegister = computed(
         reg.value.username &&
         !usernameProblem.value &&
         reg.value.email &&
-        reg.value.contact_number &&
+        !emailProblem.value &&
+        reg.value.contact_number.length === 11 &&
         reg.value.password.length >= 8 &&
         reg.value.office_id != null &&
         reg.value.role_id != null,
 );
+
+// The request is split into three short steps, paged with Back / Continue, so
+// it fits the panel without scrolling. Keys are the server's error keys, so a
+// rejected field can send the form back to the step that owns it.
+const REG_STEPS = [
+    ["name", "username", "contact_number"],
+    ["email", "password"],
+    ["office_id", "role_ids"],
+];
+const regStep = ref(0);
+
+// A step can advance once its fields are filled in properly.
+function stepReady(step) {
+    if (step === 0) {
+        return Boolean(
+            reg.value.name &&
+            reg.value.username &&
+            !usernameProblem.value &&
+            reg.value.contact_number.length === 11,
+        );
+    }
+    if (step === 1) {
+        return Boolean(reg.value.email && !emailProblem.value && reg.value.password.length >= 8);
+    }
+    return reg.value.office_id != null && reg.value.role_id != null;
+}
+
+function nextStep() {
+    officeMenuOpen.value = false;
+    if (regStep.value < REG_STEPS.length - 1 && stepReady(regStep.value)) regStep.value += 1;
+}
+
+function prevStep() {
+    officeMenuOpen.value = false;
+    if (regStep.value > 0) regStep.value -= 1;
+}
 
 async function openRegister() {
     mode.value = "register";
@@ -535,6 +740,9 @@ async function openRegister() {
     notice.value = "";
     regError.value = "";
     fieldErrors.value = {};
+    contactTouched.value = false;
+    officeMenuOpen.value = false;
+    regStep.value = 0;
     if (options.value.offices.length) return;
     try {
         const res = await api.get("/api/auth/register/options");
@@ -548,6 +756,8 @@ async function openRegister() {
 function openSignIn() {
     mode.value = "signin";
     regError.value = "";
+    officeMenuOpen.value = false;
+    regStep.value = 0;
 }
 
 async function register() {
@@ -572,6 +782,9 @@ async function register() {
         loginId.value = reg.value.username;
         password.value = "";
         reg.value = emptyReg();
+        contactTouched.value = false;
+        officeMenuOpen.value = false;
+        regStep.value = 0;
         notice.value = res.data?.message || "Account created. You can sign in once an administrator approves it.";
         mode.value = "signin";
     } catch (e) {
@@ -583,6 +796,10 @@ async function register() {
             ? "Check the highlighted fields."
             : e?.response?.data?.message || "Could not create the account. Please try again.";
         errorKey.value += 1;
+        // Jump back to the step that owns the first rejected field.
+        const firstBad = Object.keys(fieldErrors.value)[0];
+        const step = REG_STEPS.findIndex((keys) => firstBad && keys.includes(firstBad));
+        if (step > 0) regStep.value = step;
     } finally {
         registering.value = false;
     }
@@ -622,6 +839,8 @@ async function guestLogin() {
     --focus: #2f6feb;
     --sky: #eaf2fd;
     --danger: #b42318;
+    /* Horizontal gutter, shared by the panel and its footer band. */
+    --side-pad: 52px;
 
     position: fixed;
     inset: 0;
@@ -675,7 +894,7 @@ async function guestLogin() {
     flex-direction: column;
     min-width: 0;
     min-height: 100vh;
-    padding: 40px 52px 0;
+    padding: 40px var(--side-pad) 0;
     background: #ffffff;
     /* A soft edge against the artwork instead of a hard rule. */
     box-shadow: 1px 0 0 rgba(213, 222, 238, 0.9), 18px 0 40px -30px rgba(22, 48, 124, 0.35);
@@ -796,9 +1015,12 @@ async function guestLogin() {
 }
 
 /* ---- Panel ---- */
+/* Top-anchored: the brand, the tabs and the heading stay put while the pane
+   below changes (sign in <-> create account, and between its steps). The
+   spare room falls below the form instead of shifting everything. */
 .panel {
-    margin: auto 0;
-    padding: 36px 0 28px;
+    margin: 0 0 auto;
+    padding: 36px 0 14px;
     width: 100%;
     animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
 }
@@ -925,21 +1147,114 @@ async function guestLogin() {
     text-transform: uppercase;
     color: #2a3757;
 }
-.grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 14px;
+.label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
 }
-.grid-2 .field {
+.label-row label {
     margin-bottom: 0;
 }
-.grid-2 + .field-note,
-.grid-2 + .field-error {
-    margin-top: 8px;
+.field-counter {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    transition: color 0.18s ease;
 }
-/* Breathing room above the submit button. */
-.field-last {
-    margin-bottom: 24px;
+.field-counter.is-full {
+    color: #1d6b3c;
+}
+
+/* ---- Create account: three short steps, paged with Back / Continue ---- */
+.steps {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    /* Doubled air around the indicator: 48px above, 44px below. */
+    margin: 48px 0 44px;
+}
+.steps-text {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+}
+.steps-track {
+    display: flex;
+    flex: 1;
+    gap: 5px;
+}
+.steps-track i {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: #e3eaf6;
+    transition: background 0.35s ease;
+}
+.steps-track i.is-on {
+    background: var(--focus);
+}
+.reg-nav {
+    display: flex;
+    gap: 12px;
+    /* +25% over the last field's 18px bottom margin (padding, so the two
+       margins don't collapse into each other). */
+    padding-top: 4.5px;
+}
+/* The two shorter steps get extra air before the buttons; step 1 is already
+   full height, so it stays tight (and above the fold on short laptops). */
+.reg-step.is-short + .reg-nav {
+    margin-top: 56px;
+}
+.reg-nav .btn {
+    flex: 1;
+}
+.btn-ghost {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 52px;
+    padding: 0 22px;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--navy);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-ghost:hover:not(:disabled) {
+    border-color: #9fb5dc;
+    background: #f6f8fd;
+}
+.btn-ghost:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.btn-ghost:focus-visible {
+    outline: 3px solid rgba(47, 111, 235, 0.35);
+    outline-offset: 3px;
+}
+.btn-ghost .v-icon {
+    font-size: 19px;
+}
+.btn-arrow-back {
+    transition: transform 0.2s ease;
+}
+.btn-ghost:hover:not(:disabled) .btn-arrow-back {
+    transform: translateX(-3px);
 }
 .control {
     position: relative;
@@ -964,7 +1279,8 @@ async function guestLogin() {
     font-size: 19px;
 }
 .control input,
-.control select {
+.control select,
+.control .office-select {
     width: 100%;
     height: 50px;
     border: 1.5px solid var(--line);
@@ -985,11 +1301,13 @@ async function guestLogin() {
     color: #8a94aa;
 }
 .control input:hover:not(:disabled),
-.control select:hover:not(:disabled) {
+.control select:hover:not(:disabled),
+.control .office-select:hover:not(:disabled) {
     border-color: #b9c6de;
 }
 .control input:focus,
-.control select:focus {
+.control select:focus,
+.control .office-select:focus {
     outline: none;
     border-color: var(--focus);
     background-color: #ffffff;
@@ -1001,12 +1319,14 @@ async function guestLogin() {
     box-shadow: 0 4px 10px -4px rgba(47, 111, 235, 0.7);
 }
 .control input:disabled,
-.control select:disabled {
+.control select:disabled,
+.control .office-select:disabled {
     opacity: 0.72;
     cursor: not-allowed;
 }
 .control input[aria-invalid="true"],
-.control select[aria-invalid="true"] {
+.control select[aria-invalid="true"],
+.control .office-select[aria-invalid="true"] {
     border-color: var(--danger);
 }
 .control:has([aria-invalid="true"]) .chip {
@@ -1022,6 +1342,106 @@ async function guestLogin() {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6780' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 14px center;
+}
+
+/* Office picker: custom list so each option can show its own icon. */
+.control .office-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 36px;
+    text-align: left;
+    cursor: pointer;
+}
+.office-selected {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.office-avatar {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #e9eff9;
+    color: var(--navy);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+}
+.office-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.office-name,
+.office-option-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-name {
+    font-weight: 600;
+}
+.office-placeholder {
+    color: #8a94aa;
+}
+.office-caret {
+    margin-left: auto;
+    flex: none;
+    color: #5b6780;
+    pointer-events: none;
+}
+.office-menu-card {
+    width: min(420px, calc(100vw - 40px));
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid #dbe4f2;
+    background: #ffffff;
+}
+.office-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.office-option:hover {
+    background: #f1f5fd;
+}
+.office-option.is-selected {
+    background: #e8f0ff;
+    color: var(--navy);
+}
+.office-option-name {
+    flex: 1;
+    min-width: 0;
+}
+.office-check {
+    flex: none;
+    color: var(--focus);
+}
+.office-empty {
+    margin: 0;
+    padding: 12px;
+    color: var(--muted);
+    font-size: 13px;
 }
 
 /* Autofill: keep the field's own colours instead of Chrome's wash. */
@@ -1277,31 +1697,6 @@ async function guestLogin() {
     to { transform: rotate(360deg); }
 }
 
-.help {
-    margin: 20px 0 0;
-    text-align: center;
-    font-size: 14px;
-    color: var(--muted);
-}
-.link {
-    border: 0;
-    padding: 0;
-    background: none;
-    font: inherit;
-    font-weight: 700;
-    color: #1e40af;
-    cursor: pointer;
-}
-.link:hover {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-.link:focus-visible {
-    outline: 3px solid rgba(30, 64, 175, 0.28);
-    outline-offset: 2px;
-    border-radius: 4px;
-}
-
 /* Footer band: always below the form, edge to edge, skyline behind text. */
 footer {
     position: relative;
@@ -1311,8 +1706,8 @@ footer {
     gap: 14px;
     flex-wrap: wrap;
     height: 104px;
-    margin: 0 -52px;
-    padding: 0 52px 16px;
+    margin: 0 calc(var(--side-pad) * -1);
+    padding: 0 var(--side-pad) 16px;
     font-size: 11.5px;
     font-weight: 700;
     letter-spacing: 0.14em;
@@ -1431,7 +1826,7 @@ footer span {
         font-size: 25px;
     }
     .panel {
-        padding: 18px 0 12px;
+        padding: 18px 0 6px;
     }
     .switch {
         margin-bottom: 18px;
@@ -1472,6 +1867,18 @@ footer span {
     to { opacity: 1; transform: none; }
 }
 
+/* Create account on short screens: shave the vertical rhythm a touch further
+   so the stepped form and its footer stay above the fold. */
+@media (max-height: 800px) and (min-width: 861px) {
+    .steps {
+        margin: 18px 0 14px;
+    }
+    .login-shell footer {
+        height: 52px;
+        padding-bottom: 8px;
+    }
+}
+
 @media (max-width: 860px) {
     .login-shell {
         grid-template-columns: 1fr;
@@ -1489,7 +1896,7 @@ footer span {
     }
 }
 
-/* Phones: a tighter lockup, and the paired fields stack. */
+/* Phones: a tighter lockup. */
 @media (max-width: 440px) {
     .brand {
         gap: 12px;
@@ -1515,12 +1922,6 @@ footer span {
     .brand-motto {
         font-size: 12.5px;
     }
-    .grid-2 {
-        grid-template-columns: 1fr;
-    }
-    .grid-2 .field + .field {
-        margin-top: 18px;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1528,6 +1929,9 @@ footer span {
     .control select,
     .chip,
     .btn,
+    .btn-ghost,
+    .btn-arrow-back,
+    .steps-track i,
     .track,
     .switch-ink {
         transition: none !important;

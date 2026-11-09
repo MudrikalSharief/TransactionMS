@@ -28,6 +28,9 @@ class RoutingEngine
         $currentStep = $tx->state?->currentStep;
         if (!$currentStep) return [];
 
+        // Archived transactions are kept for reference only.
+        if ((bool) ($tx->is_archive ?? false)) return [];
+
         // Finalized transactions are view-only — no actions at all.
         if ((bool) ($tx->is_done ?? false)) return [];
 
@@ -130,6 +133,9 @@ class RoutingEngine
 
     public function assertUserCanExecute(Transaction $tx, User $user): void
     {
+        if ((bool) ($tx->is_archive ?? false)) {
+            abort(422, 'Transaction is archived and view-only.');
+        }
         if ((bool) ($tx->is_done ?? false)) {
             abort(422, 'Transaction is finalized and view-only.');
         }

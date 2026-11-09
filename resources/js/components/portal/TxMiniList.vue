@@ -14,7 +14,7 @@
                     </div>
                 </template>
                 <v-list-item-title class="font-weight-bold">
-                    {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                    {{ tx.reference_number || `Transaction #${tx.id}` }}
                 </v-list-item-title>
                 <v-list-item-subtitle :title="subtitle(tx)">
                     {{ subtitle(tx) }}
@@ -59,7 +59,8 @@ function tint(tx) {
 }
 
 function subtitle(tx) {
-    const base = [tx.reference_number, tx.transaction_type?.name || tx.transaction_type_name]
+    // Reference is the row title; the title (optional) and process sit here.
+    const base = [tx.title, tx.transaction_type?.name || tx.transaction_type_name]
         .filter(Boolean)
         .join(" · ");
     return [base, timeAgo(tx.created_at)].filter(Boolean).join(" · ");

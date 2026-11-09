@@ -1,5 +1,7 @@
 <template>
     <div class="fit-page">
+        <!-- Full-page loader on every visit; later polls refresh quietly. -->
+        <LoadingVeil :show="loading" label="home" icon="mdi-home-city-outline" />
         <!-- Welcome: who you are, which office, which roles -->
         <div>
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel">
@@ -109,7 +111,7 @@
                             :rows="actionRows.slice(0, rows('action', LIST_ROW_PX, SUMMARY_ROWS))"
                             :loading="loading"
                             empty="Nothing is waiting on you right now."
-                            @open="(tx) => router.push(`/my/transactions/${tx.id}`)"
+                            @open="(tx) => router.push({ path: `/portal/transactions/${tx.id}`, query: { from: 'portal-action' } })"
                         />
                     </v-card-text>
                 </v-card>
@@ -133,7 +135,7 @@
                             :rows="officeRows.slice(0, rows('office', LIST_ROW_PX, SUMMARY_ROWS))"
                             :loading="loading"
                             empty="No transactions in your office yet."
-                            @open="(tx) => router.push(`/transactions/${tx.id}`)"
+                            @open="(tx) => router.push({ path: `/portal/transactions/${tx.id}`, query: { from: 'portal' } })"
                         />
                     </v-card-text>
                 </v-card>
@@ -144,6 +146,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";

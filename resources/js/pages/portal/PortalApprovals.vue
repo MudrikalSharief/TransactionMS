@@ -1,5 +1,6 @@
 <template>
     <div>
+        <LoadingVeil :show="entering" label="tasks" icon="mdi-clipboard-check-multiple-outline" />
         <v-card rounded="0" elevation="1" class="lgu-card">
             <!-- Same header as Portal Transactions; on phones the buttons keep
                  only their icons so the one-line header still fits. -->
@@ -19,6 +20,23 @@
                     {{ rows.length }} pending {{ rows.length === 1 ? "task" : "tasks" }}
                 </v-chip>
                 <v-spacer />
+                <!-- Bulk receive: ticks the rows still waiting to be received
+                     (same Receive action as on a transaction's page). -->
+                <v-btn
+                    v-if="selected.length"
+                    variant="flat"
+                    color="primary"
+                    rounded="0"
+                    height="40"
+                    :loading="receiving"
+                    :icon="xs"
+                    :prepend-icon="xs ? undefined : 'mdi-inbox-arrow-down'"
+                    :aria-label="`Receive ${selected.length} selected`"
+                    @click="receiveSelected"
+                >
+                    <v-icon v-if="xs">mdi-inbox-arrow-down</v-icon>
+                    <template v-else>Receive selected ({{ selected.length }})</template>
+                </v-btn>
                 <v-btn
                     variant="outlined"
                     color="grey-darken-3"
@@ -42,6 +60,9 @@
 
                 <v-alert type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Transactions waiting at a step for your role and office. Open one to review and proceed.
+                    <template v-if="awaitingCount">
+                        Tick the ones marked <b>Not received</b> to receive several at once.
+                    </template>
                 </v-alert>
 
                 <v-text-field
@@ -61,9 +82,12 @@
                     <v-data-table
                         v-show="!loading || rows.length"
                         v-model:page="page"
+                        v-model="selected"
                         :items="filtered"
                         :headers="headers"
-                        item-key="id"
+                        item-value="id"
+                        :show-select="awaitingCount > 0"
+                        :item-selectable="(item) => !!item.awaiting_receipt"
                         density="compact"
                         height="398"
                         fixed-header
@@ -97,6 +121,10 @@
                             <v-chip color="primary" variant="tonal" rounded="0" size="small">
                                 <v-icon start size="small">mdi-map-marker-radius-outline</v-icon>
                                 {{ item.current_step?.name || item.current_step?.code || "—" }}
+                            </v-chip>
+                            <v-chip v-if="item.awaiting_receipt" color="warning" variant="flat" rounded="0" size="small" class="ml-1">
+                                <v-icon start size="small">mdi-inbox-arrow-down</v-icon>
+                                Not received
                             </v-chip>
                         </template>
                         <template v-slot:[`item.entered_at`]="{ item }">
@@ -135,7 +163,9 @@ import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import { useSmartPoll } from "@/composables/useSmartPoll";
+import { toast } from "@/composables/useToast";
 import TableLoader from "@/components/TableLoader.vue";
+import LoadingVeil from "@/components/LoadingVeil.vue";
 
 // Clerk approvals: every transaction waiting at a step the clerk may work
 // (their role + their office; the server applies the same rule as Proceed).
@@ -147,6 +177,8 @@ const approvalBadge = useApprovalBadge();
 const PER_PAGE = 7;
 const rows = ref([]);
 const loading = ref(true);
+// Full-page loader while the page opens; refreshes use the in-table loader.
+const entering = ref(true);
 const error = ref("");
 const search = ref("");
 const page = ref(1);
@@ -200,8 +232,42 @@ async function fetchAll({ silent = false } = {}) {
 
 const load = () => fetchAll();
 
+// ---- Bulk receive ----
+// Only rows still waiting to be received can be ticked; each is received
+// with the same endpoint (and the same office + role check) as the
+// Receive button on a transaction's page, one after another.
+const selected = ref([]);
+const receiving = ref(false);
+const awaitingCount = computed(() => rows.value.filter((t) => t.awaiting_receipt).length);
+watch(rows, (list) => {
+    const open = new Set(list.filter((t) => t.awaiting_receipt).map((t) => t.id));
+    selected.value = selected.value.filter((id) => open.has(id));
+});
+
+async function receiveSelected() {
+    const ids = [...selected.value];
+    if (!ids.length) return;
+    receiving.value = true;
+    let ok = 0;
+    const failed = [];
+    for (const id of ids) {
+        try {
+            await api.post(`/api/transactions/${id}/receive`);
+            ok += 1;
+        } catch (e) {
+            const tx = rows.value.find((t) => t.id === id);
+            failed.push(`${tx?.reference_number || `#${id}`}: ${e?.response?.data?.message || "could not be received"}`);
+        }
+    }
+    receiving.value = false;
+    selected.value = [];
+    if (ok) toast.success(`${ok} ${ok === 1 ? "transaction" : "transactions"} received.`);
+    if (failed.length) toast.error(`Not received: ${failed.join("; ")}`, { timeout: 9000 });
+    await fetchAll({ silent: true });
+}
+
 function open(tx) {
-    router.push(`/transactions/${tx.id}`);
+    router.push({ path: `/portal/transactions/${tx.id}`, query: { from: "portal-approvals" } });
 }
 
 function waited(iso) {
@@ -232,7 +298,10 @@ function timeAgo(iso) {
     return fmtDate(iso);
 }
 
-onMounted(load);
+onMounted(async () => {
+    await load();
+    entering.value = false;
+});
 useSmartPoll(() => fetchAll({ silent: true }));
 </script>
 

@@ -68,10 +68,11 @@ class TransactionStepRun extends Model
         return $this->received_at === null;
     }
 
+    /** Send-to-receive time in working minutes (weekends skipped). */
     public function getActualMinutesAttribute(): ?int
     {
         if (!$this->performed_at || !$this->received_at) return null;
-        return (int) max(0, $this->performed_at->diffInMinutes($this->received_at, true));
+        return \App\Support\WorkingTime::minutesBetween($this->performed_at, $this->received_at);
     }
 
     public function getIsBreachedAttribute(): bool
