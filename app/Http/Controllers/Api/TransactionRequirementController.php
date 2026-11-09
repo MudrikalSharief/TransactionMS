@@ -7,8 +7,10 @@ use App\Http\Resources\TransactionResource;
 use App\Models\RequirementDefinition;
 use App\Models\Transaction;
 use App\Models\TransactionRequirementCheck;
+use App\Services\AuditService;
 use App\Services\RoutingEngine;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransactionRequirementController extends Controller
 {
@@ -16,7 +18,8 @@ class TransactionRequirementController extends Controller
         Request $request,
         Transaction $transaction,
         RequirementDefinition $requirementDefinition,
-        RoutingEngine $routing
+        RoutingEngine $routing,
+        AuditService $audit
     ) {
         $routing->assertUserCanExecute($transaction, $request->user());
 
@@ -42,17 +45,32 @@ class TransactionRequirementController extends Controller
             abort(422, 'Requirement is not assigned to the current step.');
         }
 
-        TransactionRequirementCheck::firstOrCreate(
-            [
-                'transaction_id' => $transaction->id,
-                'workflow_step_id' => $stepId,
-                'requirement_definition_id' => $requirementDefinition->id,
-            ],
-            [
-                'checked_by' => $request->user()->id,
-                'checked_at' => now(),
-            ]
-        );
+        DB::transaction(function () use ($request, $transaction, $requirementDefinition, $stepId, $audit) {
+            $check = TransactionRequirementCheck::firstOrCreate(
+                [
+                    'transaction_id' => $transaction->id,
+                    'workflow_step_id' => $stepId,
+                    'requirement_definition_id' => $requirementDefinition->id,
+                ],
+                [
+                    'checked_by' => $request->user()->id,
+                    'checked_at' => now(),
+                ]
+            );
+
+            if ($check->wasRecentlyCreated) {
+                $audit->log($request, 'transactions.requirement_check', $check, [
+                    'new' => [
+                        'requirement_definition_id' => $requirementDefinition->id,
+                        'requirement' => $requirementDefinition->name ?: $requirementDefinition->code,
+                        'workflow_step_id' => $stepId,
+                    ],
+                    'entity_label' => $requirementDefinition->name ?: $requirementDefinition->code,
+                    'transaction_id' => $transaction->id,
+                    'office_id' => $transaction->office_id,
+                ]);
+            }
+        });
 
         $transaction->load([
             'type',
@@ -94,7 +112,8 @@ class TransactionRequirementController extends Controller
         Request $request,
         Transaction $transaction,
         RequirementDefinition $requirementDefinition,
-        RoutingEngine $routing
+        RoutingEngine $routing,
+        AuditService $audit
     ) {
         $routing->assertUserCanExecute($transaction, $request->user());
 
@@ -138,7 +157,23 @@ class TransactionRequirementController extends Controller
             abort(403, 'Only the user who checked this item can uncheck it.');
         }
 
-        $check->delete();
+        DB::transaction(function () use ($request, $transaction, $check, $requirementDefinition, $stepId, $audit) {
+            $old = [
+                'requirement_definition_id' => $requirementDefinition->id,
+                'requirement' => $requirementDefinition->name ?: $requirementDefinition->code,
+                'workflow_step_id' => $stepId,
+                'checked_by' => $check->checked_by,
+                'checked_at' => $check->checked_at?->toIso8601String(),
+            ];
+            $check->delete();
+
+            $audit->log($request, 'transactions.requirement_uncheck', $check, [
+                'old' => $old,
+                'entity_label' => $requirementDefinition->name ?: $requirementDefinition->code,
+                'transaction_id' => $transaction->id,
+                'office_id' => $transaction->office_id,
+            ]);
+        });
 
         $transaction->load([
             'type',

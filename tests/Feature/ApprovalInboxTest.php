@@ -45,7 +45,7 @@ class ApprovalInboxTest extends TestCase
             'version' => 1,
             'status' => 'published',
         ]);
-        $this->clerk = Role::create(['code' => 'clerk', 'name' => 'Clerk']);
+        $this->clerk = Role::firstOrCreate(['code' => 'clerk'], ['name' => 'Clerk']);
         $this->approver = Role::create(['code' => 'approver', 'name' => 'Approver']);
 
         $this->collect = WorkflowStep::create([

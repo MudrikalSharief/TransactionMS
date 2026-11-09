@@ -55,6 +55,7 @@ class UserController extends Controller
                     'username' => $user->username,
                     'email' => $data['email'],
                     'office_id' => $data['office_id'] ?? null,
+                    'contact_number' => $user->Contact_number,
                     'is_active' => $user->is_active,
                     'role_ids' => $data['role_ids'] ?? [],
                 ],
@@ -74,8 +75,10 @@ class UserController extends Controller
                 'username' => $user->username,
                 'email' => $user->email,
                 'office_id' => $user->office_id,
+                'contact_number' => $user->Contact_number,
                 'is_active' => (bool) $user->is_active,
                 'role_ids' => $user->roles()->pluck('roles.id')->all(),
+                'password_changed' => false,
             ];
 
             $user->name = $data['name'];
@@ -110,8 +113,10 @@ class UserController extends Controller
                 'username' => $user->username,
                 'email' => $user->email,
                 'office_id' => $user->office_id,
+                'contact_number' => $user->Contact_number,
                 'is_active' => (bool) $user->is_active,
                 'role_ids' => $user->roles()->pluck('roles.id')->all(),
+                'password_changed' => !empty($data['password']),
             ];
 
             $audit->log($request, 'users.update', $user, [
@@ -126,8 +131,15 @@ class UserController extends Controller
     /** Lets an account created on the login page sign in. */
     public function approve(Request $request, User $user, UserApproval $approval, AuditService $audit)
     {
-        $approval->approve($user, $request->user());
-        $audit->log($request, 'users.approve', $user);
+        DB::transaction(function () use ($request, $user, $approval, $audit) {
+            $before = ['is_active' => (bool) $user->is_active, 'approved_at' => $user->approved_at?->toIso8601String(), 'approved_by' => $user->approved_by];
+            $approval->approve($user, $request->user());
+            $user->refresh();
+            $audit->log($request, 'users.approve', $user, [
+                'before' => $before,
+                'after' => ['is_active' => (bool) $user->is_active, 'approved_at' => $user->approved_at?->toIso8601String(), 'approved_by' => $user->approved_by],
+            ]);
+        });
 
         return new UserResource($user->load(['roles', 'office']));
     }
@@ -135,8 +147,12 @@ class UserController extends Controller
     /** Turns down an account created on the login page (removes it). */
     public function reject(Request $request, User $user, UserApproval $approval, AuditService $audit)
     {
-        $audit->log($request, 'users.reject', $user, ['payload' => ['email' => $user->email, 'name' => $user->name]]);
-        $approval->reject($user);
+        $old = ['email' => $user->email, 'name' => $user->name];
+
+        DB::transaction(function () use ($request, $user, $approval, $audit, $old) {
+            $approval->reject($user);
+            $audit->log($request, 'users.reject', $user, ['old' => $old]);
+        });
 
         return response()->json(['message' => 'Request rejected.']);
     }
@@ -147,12 +163,21 @@ class UserController extends Controller
             return response()->json(['message' => 'You cannot delete your own account.'], 422);
         }
 
-        $user->is_active = false;
-        $user->save();
+        DB::transaction(function () use ($request, $user, $audit) {
+            $before = [
+                'is_active' => (bool) $user->is_active,
+                'role_ids' => $user->roles()->pluck('roles.id')->all(),
+            ];
 
-        $audit->log($request, 'users.deactivate', $user, [
-            'note' => 'User marked inactive (no hard delete in Step 2)',
-        ]);
+            $user->is_active = false;
+            $user->save();
+
+            $audit->log($request, 'users.deactivate', $user, [
+                'before' => $before,
+                'after' => ['is_active' => false],
+                'note' => 'User marked inactive (no hard delete in Step 2)',
+            ]);
+        });
 
         return response()->json(['message' => 'User deactivated.']);
     }

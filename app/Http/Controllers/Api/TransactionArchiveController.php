@@ -9,6 +9,7 @@ use App\Services\AuditService;
 use App\Services\TransactionVisibility;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Admin archive. Archiving is an alternative to deleting a transaction: the
@@ -97,15 +98,19 @@ class TransactionArchiveController extends Controller
             ]);
         }
 
-        $wasDone = (bool) $transaction->is_done;
+        DB::transaction(function () use ($request, $transaction, $audit) {
+            $wasDone = (bool) $transaction->is_done;
 
-        $transaction->is_archive = true;
-        $transaction->save();
+            $transaction->is_archive = true;
+            $transaction->save();
 
-        $audit->log($request, 'transactions.archive', $transaction, [
-            'was_done' => $wasDone,
-            'note' => 'Archived instead of deleted; record and history kept.',
-        ]);
+            $audit->log($request, 'transactions.archive', $transaction, [
+                'before' => ['is_archive' => false],
+                'after' => ['is_archive' => true],
+                'was_done' => $wasDone,
+                'note' => 'Archived instead of deleted; record and history kept.',
+            ]);
+        });
 
         return response()->json([
             'message' => 'Transaction archived.',
@@ -128,12 +133,16 @@ class TransactionArchiveController extends Controller
             ]);
         }
 
-        $transaction->is_archive = false;
-        $transaction->save();
+        DB::transaction(function () use ($request, $transaction, $audit) {
+            $transaction->is_archive = false;
+            $transaction->save();
 
-        $audit->log($request, 'transactions.unarchive', $transaction, [
-            'note' => 'Restored to the active transaction lists; record and history unchanged.',
-        ]);
+            $audit->log($request, 'transactions.unarchive', $transaction, [
+                'before' => ['is_archive' => true],
+                'after' => ['is_archive' => false],
+                'note' => 'Restored to the active transaction lists; record and history unchanged.',
+            ]);
+        });
 
         return response()->json([
             'message' => 'Transaction unarchived.',

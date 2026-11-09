@@ -7,6 +7,7 @@ use App\Models\Office;
 use App\Models\OfficeStep;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OfficeStepController extends Controller
 {
@@ -44,11 +45,16 @@ class OfficeStepController extends Controller
         $data['order_number'] = $data['order_number'] ?? ((int) $office->steps()->withTrashed()->max('order_number') + 1 ?: 1);
         $data['code'] = $this->nextCode($office, (int) $data['order_number']);
 
-        $step = $office->steps()->create($data);
+        return DB::transaction(function () use ($request, $office, $data, $audit) {
+            $step = $office->steps()->create($data);
 
-        $audit->log($request, 'office_steps.create', $step, ['payload' => $data]);
+            $new = $this->shape($step);
+            unset($new['id']);
 
-        return response()->json($this->shape($step), 201);
+            $audit->log($request, 'office_steps.create', $step, ['new' => $new]);
+
+            return response()->json($this->shape($step), 201);
+        });
     }
 
     public function update(Request $request, Office $office, OfficeStep $officeStep, AuditService $audit)
@@ -74,27 +80,34 @@ class OfficeStepController extends Controller
             $data['code'] = $this->nextCode($office, (int) $data['order_number'], $officeStep->id);
         }
 
-        $officeStep->update($data);
+        return DB::transaction(function () use ($request, $officeStep, $data, $before, $audit) {
+            $officeStep->update($data);
 
-        $audit->log($request, 'office_steps.update', $officeStep, [
-            'before' => $before,
-            'after' => $officeStep->only(['parent_id', 'order_number', 'code', 'name', 'description', 'is_active']),
-        ]);
+            $audit->log($request, 'office_steps.update', $officeStep, [
+                'before' => $before,
+                'after' => $officeStep->only(['parent_id', 'order_number', 'code', 'name', 'description', 'is_active']),
+            ]);
 
-        return response()->json($this->shape($officeStep));
+            return response()->json($this->shape($officeStep));
+        });
     }
 
     public function destroy(Request $request, Office $office, OfficeStep $officeStep, AuditService $audit)
     {
         $this->assertBelongs($office, $officeStep);
 
-        $officeStep->delete();
+        return DB::transaction(function () use ($request, $officeStep, $audit) {
+            $old = $this->shape($officeStep);
 
-        $audit->log($request, 'office_steps.delete', $officeStep, [
-            'note' => 'Soft deleted office step',
-        ]);
+            $officeStep->delete();
 
-        return response()->json(['message' => 'Deleted.']);
+            $audit->log($request, 'office_steps.delete', $officeStep, [
+                'old' => $old,
+                'note' => 'Soft deleted office step',
+            ]);
+
+            return response()->json(['message' => 'Deleted.']);
+        });
     }
 
     private function assertBelongs(Office $office, OfficeStep $step): void

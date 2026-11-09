@@ -10,6 +10,7 @@ use App\Models\Office;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class OfficeController extends Controller
@@ -39,15 +40,19 @@ class OfficeController extends Controller
         }
 
         try {
-            $office = Office::create($data);
+            $office = DB::transaction(function () use ($request, $data, $audit) {
+                $office = Office::create($data);
+
+                $audit->log($request, 'offices.create', $office, [
+                    'payload' => $data,
+                ]);
+
+                return $office;
+            });
         } catch (\Throwable $e) {
             $this->deleteIcon($newIconPath);
             throw $e;
         }
-
-        $audit->log($request, 'offices.create', $office, [
-            'payload' => $data,
-        ]);
 
         $this->forgetCaches();
 
@@ -68,21 +73,23 @@ class OfficeController extends Controller
         }
 
         try {
-            $office->update($data);
+            DB::transaction(function () use ($request, $office, $data, $before, $audit) {
+                $office->update($data);
+
+                $audit->log($request, 'offices.update', $office, [
+                    'before' => $before,
+                    'after' => $office->only(['code', 'name', 'description', 'icon_path', 'is_active']),
+                ]);
+            });
         } catch (\Throwable $e) {
             $this->deleteIcon($newIconPath);
             throw $e;
         }
 
-        // Only remove the old file after the row actually points elsewhere.
+        // Only remove the old file after the row has committed and points elsewhere.
         if ($oldIconPath && $oldIconPath !== $office->icon_path) {
             $this->deleteIcon($oldIconPath);
         }
-
-        $audit->log($request, 'offices.update', $office, [
-            'before' => $before,
-            'after' => $office->only(['code', 'name', 'description', 'icon_path', 'is_active']),
-        ]);
 
         $this->forgetCaches();
 
@@ -92,15 +99,20 @@ class OfficeController extends Controller
     public function destroy(Request $request, Office $office, AuditService $audit)
     {
         $iconPath = $office->icon_path;
+        $old = $office->only(['code', 'name', 'description', 'icon_path', 'is_active']);
+        $old['user_ids'] = $office->users()->pluck('users.id')->all();
 
-        $office->users()->update(['office_id' => null]);
-        $office->delete();
+        DB::transaction(function () use ($request, $office, $old, $audit) {
+            $office->users()->update(['office_id' => null]);
+            $office->delete();
+
+            $audit->log($request, 'offices.delete', $office, [
+                'old' => $old,
+                'note' => 'Soft deleted office; members unassigned',
+            ]);
+        });
+
         $this->deleteIcon($iconPath);
-
-        $audit->log($request, 'offices.delete', $office, [
-            'note' => 'Soft deleted office; members unassigned',
-        ]);
-
         $this->forgetCaches();
 
         return response()->json(['message' => 'Deleted.']);

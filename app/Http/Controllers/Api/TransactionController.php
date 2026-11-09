@@ -14,6 +14,7 @@ use App\Services\TransactionEngine;
 use App\Services\TransactionVisibility;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransactionController extends Controller
 {
@@ -118,14 +119,16 @@ class TransactionController extends Controller
             'office_id' => ['required', 'integer', 'exists:offices,id'],
         ]);
 
-        $before = ['office_id' => $transaction->office_id];
-        $transaction->office_id = $data['office_id'];
-        $transaction->save();
+        DB::transaction(function () use ($request, $transaction, $data, $audit) {
+            $before = ['office_id' => $transaction->office_id];
+            $transaction->office_id = $data['office_id'];
+            $transaction->save();
 
-        $audit->log($request, 'transactions.reassign_office', $transaction, [
-            'before' => $before,
-            'after' => ['office_id' => $transaction->office_id],
-        ]);
+            $audit->log($request, 'transactions.reassign_office', $transaction, [
+                'before' => $before,
+                'after' => ['office_id' => $transaction->office_id],
+            ]);
+        });
 
         $transaction->load([
             'type',
@@ -182,12 +185,14 @@ class TransactionController extends Controller
         $transaction->is_private = (bool) $data['is_private'];
 
         if ($transaction->isDirty('is_private')) {
-            $transaction->save();
+            DB::transaction(function () use ($request, $transaction, $before, $audit) {
+                $transaction->save();
 
-            $audit->log($request, 'transactions.privacy', $transaction, [
-                'before' => ['is_private' => $before],
-                'after' => ['is_private' => (bool) $transaction->is_private],
-            ]);
+                $audit->log($request, 'transactions.privacy', $transaction, [
+                    'before' => ['is_private' => $before],
+                    'after' => ['is_private' => (bool) $transaction->is_private],
+                ]);
+            });
         }
 
         return response()->json([

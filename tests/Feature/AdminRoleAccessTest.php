@@ -78,7 +78,7 @@ class AdminRoleAccessTest extends TestCase
     public function test_roles_index_orders_superadmin_then_admin_then_seed_order(): void
     {
         // Created out of hierarchy order to prove the sort, not the ids.
-        Role::create(['code' => 'clerk', 'name' => 'Clerk']);
+        Role::firstOrCreate(['code' => 'clerk'], ['name' => 'Clerk']);
         Role::create(['code' => 'admin', 'name' => 'Admin']);
         Role::create(['code' => 'superadmin', 'name' => 'Super Admin']);
         Role::create(['code' => 'approver', 'name' => 'Approver']);

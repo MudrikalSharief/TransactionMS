@@ -114,7 +114,7 @@ class ViewerTrackingPrivacyTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'transactions.privacy',
-            'entity_type' => Transaction::class,
+            'entity_type' => 'transaction',
             'entity_id' => $tx->id,
         ]);
 
@@ -153,7 +153,7 @@ class ViewerTrackingPrivacyTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'transactions.privacy',
-            'entity_type' => Transaction::class,
+            'entity_type' => 'transaction',
             'entity_id' => $tx->id,
         ]);
     }

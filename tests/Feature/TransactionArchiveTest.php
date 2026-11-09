@@ -120,7 +120,7 @@ class TransactionArchiveTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'transactions.archive',
-            'entity_type' => Transaction::class,
+            'entity_type' => 'transaction',
             'entity_id' => $tx->id,
         ]);
     }
@@ -143,7 +143,7 @@ class TransactionArchiveTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'transactions.archive',
-            'entity_type' => Transaction::class,
+            'entity_type' => 'transaction',
             'entity_id' => $tx->id,
         ]);
     }
@@ -337,7 +337,7 @@ class TransactionArchiveTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'event' => 'transactions.unarchive',
-            'entity_type' => Transaction::class,
+            'entity_type' => 'transaction',
             'entity_id' => $tx->id,
         ]);
 

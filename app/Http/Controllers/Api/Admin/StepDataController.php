@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class StepDataController extends Controller
@@ -55,7 +57,7 @@ class StepDataController extends Controller
         );
     }
 
-    public function store(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep)
+    public function store(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, AuditService $audit)
     {
         if ((int) $workflowStep->workflow_definition_id !== (int) $workflowDefinition->id) {
             return response()->json(['message' => 'Step does not belong to this workflow definition.'], 404);
@@ -71,20 +73,28 @@ class StepDataController extends Controller
             'max_length' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $row = $workflowStep->stepDataDefinitions()->create([
-            'code' => $data['code'],
-            'display_name' => $data['display_name'],
-            'type' => $data['type'] ?? 'text',
-            'is_required' => (bool) ($data['is_required'] ?? false),
-            'display_order' => (int) ($data['display_order'] ?? 0),
-            'min_length' => $data['min_length'] ?? null,
-            'max_length' => $data['max_length'] ?? null,
-        ]);
+        return DB::transaction(function () use ($request, $workflowStep, $data, $audit) {
+            $row = $workflowStep->stepDataDefinitions()->create([
+                'code' => $data['code'],
+                'display_name' => $data['display_name'],
+                'type' => $data['type'] ?? 'text',
+                'is_required' => (bool) ($data['is_required'] ?? false),
+                'display_order' => (int) ($data['display_order'] ?? 0),
+                'min_length' => $data['min_length'] ?? null,
+                'max_length' => $data['max_length'] ?? null,
+            ]);
 
-        return response()->json($row, 201);
+            $audit->log($request, 'workflow_step_data.create', $row, [
+                'new' => $row->only(['workflow_step_id', 'code', 'display_name', 'type', 'is_required', 'display_order', 'min_length', 'max_length']),
+                'entity_label' => $workflowStep->name . ' — ' . $row->display_name,
+                'office_id' => $workflowStep->office_id,
+            ]);
+
+            return response()->json($row, 201);
+        });
     }
 
-    public function update(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, int $stepData)
+    public function update(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, int $stepData, AuditService $audit)
     {
         $row = $workflowStep->stepDataDefinitions()->findOrFail($stepData);
 
@@ -98,16 +108,37 @@ class StepDataController extends Controller
             'max_length' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $row->update($data);
+        $fields = ['code', 'display_name', 'type', 'is_required', 'display_order', 'min_length', 'max_length'];
+        $before = $row->only($fields);
 
-        return response()->json($row->fresh());
+        return DB::transaction(function () use ($request, $row, $data, $fields, $before, $workflowStep, $audit) {
+            $row->update($data);
+
+            $audit->log($request, 'workflow_step_data.update', $row, [
+                'before' => $before,
+                'after' => $row->only($fields),
+                'entity_label' => $workflowStep->name . ' — ' . $row->display_name,
+                'office_id' => $workflowStep->office_id,
+            ]);
+
+            return response()->json($row->fresh());
+        });
     }
 
-    public function destroy(WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, int $stepData)
+    public function destroy(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, int $stepData, AuditService $audit)
     {
-        $row = $workflowStep->stepDataDefinitions()->findOrFail($stepData);
-        $row->delete();
+        return DB::transaction(function () use ($request, $workflowStep, $stepData, $audit) {
+            $row = $workflowStep->stepDataDefinitions()->findOrFail($stepData);
+            $old = $row->only(['workflow_step_id', 'code', 'display_name', 'type', 'is_required', 'display_order', 'min_length', 'max_length']);
+            $row->delete();
 
-        return response()->json(['message' => 'Deleted']);
+            $audit->log($request, 'workflow_step_data.delete', $row, [
+                'old' => $old,
+                'entity_label' => $workflowStep->name . ' — ' . ($old['display_name'] ?? $old['code'] ?? ''),
+                'office_id' => $workflowStep->office_id,
+            ]);
+
+            return response()->json(['message' => 'Deleted']);
+        });
     }
 }

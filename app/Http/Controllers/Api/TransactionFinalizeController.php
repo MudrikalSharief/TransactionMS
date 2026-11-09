@@ -112,11 +112,14 @@ class TransactionFinalizeController extends Controller
             abort(422, 'Required checklist items not completed: ' . collect($missing)->implode(', '));
         }
 
-        $tx = DB::transaction(function () use ($transaction, $request, $current, $fieldValidation) {
+        $tx = DB::transaction(function () use ($transaction, $request, $current, $audit, $fieldValidation) {
+            $fieldChanges = ['old' => [], 'new' => []];
+
             // Save staged station info with Complete (same as Proceed does),
             // so required fields cannot be bypassed on the last station.
             $fieldValuesByCode = $request->input('field_values', []);
             if (is_array($fieldValuesByCode) && count($fieldValuesByCode)) {
+                $transaction->loadMissing('fieldValues.fieldDefinition');
                 $stepFields = $current->fieldDefinitions()
                     ->orderBy('field_definition_workflow_step.display_order')
                     ->orderBy('field_definitions.order_number')
@@ -124,6 +127,17 @@ class TransactionFinalizeController extends Controller
                 $normalized = $fieldValidation->validateForStep($stepFields->all(), $fieldValuesByCode);
                 foreach ($normalized as $fieldDefId => $payload) {
                     $value = $payload['value'];
+
+                    $existing = $transaction->fieldValues->firstWhere('field_definition_id', $fieldDefId);
+                    $oldValue = $existing?->typedValue();
+                    $field = $stepFields->firstWhere('id', $fieldDefId);
+                    $key = $field?->code ?: (string) $fieldDefId;
+
+                    if (!$this->sameValue($oldValue, $value)) {
+                        $fieldChanges['old'][$key] = $oldValue;
+                        $fieldChanges['new'][$key] = $value;
+                    }
+
                     FieldValue::updateOrCreate(
                         [
                             'transaction_id' => $transaction->id,
@@ -182,6 +196,17 @@ class TransactionFinalizeController extends Controller
                 'sla_minutes_snapshot' => (int) ($current->sla_minutes ?? 0),
             ]);
 
+            if ($fieldChanges['old'] || $fieldChanges['new']) {
+                $audit->log($request, 'transactions.fields_update', $transaction, [
+                    'before' => $fieldChanges['old'],
+                    'after' => $fieldChanges['new'],
+                    'step_run_id' => $run->id,
+                    'transaction_id' => $transaction->id,
+                    'office_id' => $transaction->office_id,
+                    'note' => "Fields updated on finalizing at {$current->name}.",
+                ]);
+            }
+
             foreach ($stepDataDefs as $def) {
                 $code = $def->code;
                 if (!array_key_exists($code, $stepDataByCode)) continue;
@@ -201,11 +226,6 @@ class TransactionFinalizeController extends Controller
 
             return $transaction->fresh();
         });
-
-        $audit->log($request, 'transactions.finalize', $tx, [
-            'reference_number' => $tx->reference_number,
-            'current_step_id' => $current->id,
-        ]);
 
         $tx->load([
             'type',
@@ -244,5 +264,18 @@ class TransactionFinalizeController extends Controller
                 'visited_step_ids' => $routing->visitedStepIds($tx),
             ],
         ]);
+    }
+
+    private function sameValue(mixed $old, mixed $new): bool
+    {
+        if (is_bool($old) || is_bool($new)) {
+            return (bool) $old === (bool) $new;
+        }
+
+        if (is_numeric($old) && is_numeric($new)) {
+            return (float) $old === (float) $new;
+        }
+
+        return json_encode($old) === json_encode($new);
     }
 }

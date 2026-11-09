@@ -9,6 +9,7 @@ use App\Http\Resources\GovernmentReferenceResource;
 use App\Models\GovernmentReference;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class GovernmentReferenceController extends Controller
 {
@@ -21,37 +22,45 @@ class GovernmentReferenceController extends Controller
 
     public function store(StoreGovernmentReferenceRequest $request, AuditService $audit)
     {
-        $ref = GovernmentReference::create($request->validated());
+        return DB::transaction(function () use ($request, $audit) {
+            $ref = GovernmentReference::create($request->validated());
 
-        $audit->log($request, 'government_references.create', $ref, [
-            'payload' => $request->validated(),
-        ]);
+            $audit->log($request, 'government_references.create', $ref, [
+                'payload' => $request->validated(),
+            ]);
 
-        return (new GovernmentReferenceResource($ref))->response()->setStatusCode(201);
+            return (new GovernmentReferenceResource($ref))->response()->setStatusCode(201);
+        });
     }
 
     public function update(UpdateGovernmentReferenceRequest $request, GovernmentReference $governmentReference, AuditService $audit)
     {
-        $before = $governmentReference->only(['code', 'title', 'source', 'url', 'notes', 'is_verified']);
+        return DB::transaction(function () use ($request, $governmentReference, $audit) {
+            $before = $governmentReference->only(['code', 'title', 'source', 'url', 'notes', 'is_verified']);
 
-        $governmentReference->update($request->validated());
+            $governmentReference->update($request->validated());
 
-        $audit->log($request, 'government_references.update', $governmentReference, [
-            'before' => $before,
-            'after' => $governmentReference->only(['code', 'title', 'source', 'url', 'notes', 'is_verified']),
-        ]);
+            $audit->log($request, 'government_references.update', $governmentReference, [
+                'before' => $before,
+                'after' => $governmentReference->only(['code', 'title', 'source', 'url', 'notes', 'is_verified']),
+            ]);
 
-        return new GovernmentReferenceResource($governmentReference);
+            return new GovernmentReferenceResource($governmentReference);
+        });
     }
 
     public function destroy(Request $request, GovernmentReference $governmentReference, AuditService $audit)
     {
-        $governmentReference->delete();
+        return DB::transaction(function () use ($request, $governmentReference, $audit) {
+            $old = $governmentReference->only(['code', 'title', 'source', 'url', 'notes', 'is_verified']);
+            $governmentReference->delete();
 
-        $audit->log($request, 'government_references.delete', $governmentReference, [
-            'note' => 'Soft deleted government reference',
-        ]);
+            $audit->log($request, 'government_references.delete', $governmentReference, [
+                'old' => $old,
+                'note' => 'Soft deleted government reference',
+            ]);
 
-        return response()->json(['message' => 'Deleted.']);
+            return response()->json(['message' => 'Deleted.']);
+        });
     }
 }

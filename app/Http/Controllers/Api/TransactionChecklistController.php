@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\ChecklistOverride;
 use App\Models\Transaction;
 use App\Models\TransactionChecklistCheck;
+use App\Services\AuditService;
 use App\Services\RoutingEngine;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransactionChecklistController extends Controller
 {
@@ -15,7 +17,8 @@ class TransactionChecklistController extends Controller
         Request $request,
         Transaction $transaction,
         ChecklistOverride $checklistOverride,
-        RoutingEngine $routing
+        RoutingEngine $routing,
+        AuditService $audit
     ) {
         $routing->assertUserCanExecute($transaction, $request->user());
 
@@ -28,17 +31,32 @@ class TransactionChecklistController extends Controller
             abort(422, 'Checklist item is not on the current step.');
         }
 
-        TransactionChecklistCheck::firstOrCreate(
-            [
-                'transaction_id' => $transaction->id,
-                'workflow_step_id' => $currentStepId,
-                'checklist_override_id' => $checklistOverride->id,
-            ],
-            [
-                'checked_by' => $request->user()->id,
-                'checked_at' => now(),
-            ]
-        );
+        DB::transaction(function () use ($request, $transaction, $checklistOverride, $currentStepId, $audit) {
+            $check = TransactionChecklistCheck::firstOrCreate(
+                [
+                    'transaction_id' => $transaction->id,
+                    'workflow_step_id' => $currentStepId,
+                    'checklist_override_id' => $checklistOverride->id,
+                ],
+                [
+                    'checked_by' => $request->user()->id,
+                    'checked_at' => now(),
+                ]
+            );
+
+            if ($check->wasRecentlyCreated) {
+                $audit->log($request, 'transactions.checklist_check', $check, [
+                    'new' => [
+                        'checklist_override_id' => $checklistOverride->id,
+                        'item' => $checklistOverride->name ?: $checklistOverride->code,
+                        'workflow_step_id' => $currentStepId,
+                    ],
+                    'entity_label' => $checklistOverride->name ?: $checklistOverride->code,
+                    'transaction_id' => $transaction->id,
+                    'office_id' => $transaction->office_id,
+                ]);
+            }
+        });
 
         return $this->refresh($transaction, $routing);
     }
@@ -47,7 +65,8 @@ class TransactionChecklistController extends Controller
         Request $request,
         Transaction $transaction,
         ChecklistOverride $checklistOverride,
-        RoutingEngine $routing
+        RoutingEngine $routing,
+        AuditService $audit
     ) {
         $routing->assertUserCanExecute($transaction, $request->user());
 
@@ -75,7 +94,23 @@ class TransactionChecklistController extends Controller
             abort(403, 'Only the user who checked this item can uncheck it.');
         }
 
-        $check->delete();
+        DB::transaction(function () use ($request, $transaction, $check, $checklistOverride, $currentStepId, $audit) {
+            $old = [
+                'checklist_override_id' => $checklistOverride->id,
+                'item' => $checklistOverride->name ?: $checklistOverride->code,
+                'workflow_step_id' => $currentStepId,
+                'checked_by' => $check->checked_by,
+                'checked_at' => $check->checked_at?->toIso8601String(),
+            ];
+            $check->delete();
+
+            $audit->log($request, 'transactions.checklist_uncheck', $check, [
+                'old' => $old,
+                'entity_label' => $checklistOverride->name ?: $checklistOverride->code,
+                'transaction_id' => $transaction->id,
+                'office_id' => $transaction->office_id,
+            ]);
+        });
 
         return $this->refresh($transaction, $routing);
     }

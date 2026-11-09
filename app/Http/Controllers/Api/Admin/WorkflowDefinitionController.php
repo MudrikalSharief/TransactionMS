@@ -40,35 +40,55 @@ class WorkflowDefinitionController extends Controller
         );
     }
 
-    public function store(CreateDraftRequest $request, WorkflowVersioningService $svc)
+    public function store(CreateDraftRequest $request, WorkflowVersioningService $svc, AuditService $audit)
     {
-        $draft = $svc->createDraft($request->validated(), $request->user()->id);
-        return (new WorkflowDefinitionResource($draft))->response()->setStatusCode(201);
+        return DB::transaction(function () use ($request, $svc, $audit) {
+            $draft = $svc->createDraft($request->validated(), $request->user()->id);
+
+            $audit->log($request, 'workflow_definitions.create', $draft, [
+                'new' => $draft->only(['transaction_type_id', 'version', 'status', 'name', 'notes']),
+            ]);
+
+            return (new WorkflowDefinitionResource($draft))->response()->setStatusCode(201);
+        });
     }
 
-    public function publish(PublishWorkflowRequest $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc)
+    public function publish(PublishWorkflowRequest $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, AuditService $audit)
     {
-        $published = $svc->publish($workflowDefinition, $request->user()->id, $request->validated()['notes'] ?? null);
-        return new WorkflowDefinitionResource($published);
+        return DB::transaction(function () use ($request, $workflowDefinition, $svc, $audit) {
+            $before = $workflowDefinition->only(['status', 'published_at', 'published_by', 'is_live']);
+
+            $published = $svc->publish($workflowDefinition, $request->user()->id, $request->validated()['notes'] ?? null);
+
+            $audit->log($request, 'workflow_definitions.publish', $published, [
+                'before' => $before,
+                'after' => $published->only(['status', 'published_at', 'published_by', 'is_live']),
+                'note' => $request->validated()['notes'] ?? null,
+            ]);
+
+            return new WorkflowDefinitionResource($published);
+        });
     }
 
     public function saveAs(SaveAsVersionRequest $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, AuditService $audit)
     {
-        $saved = $svc->saveAs(
-            $workflowDefinition,
-            $request->user()->id,
-            $request->validated()['name'],
-            $request->validated()['notes'] ?? null
-        );
+        return DB::transaction(function () use ($request, $workflowDefinition, $svc, $audit) {
+            $saved = $svc->saveAs(
+                $workflowDefinition,
+                $request->user()->id,
+                $request->validated()['name'],
+                $request->validated()['notes'] ?? null
+            );
 
-        $audit->log($request, 'workflow_definitions.save_as', $saved, [
-            'source_id' => $workflowDefinition->id,
-            'source_version' => $workflowDefinition->version,
-            'to_version' => $saved->version,
-            'name' => $saved->name,
-        ]);
+            $audit->log($request, 'workflow_definitions.save_as', $saved, [
+                'before' => ['version' => $workflowDefinition->version],
+                'after' => ['version' => $saved->version],
+                'source_id' => $workflowDefinition->id,
+                'name' => $saved->name,
+            ]);
 
-        return (new WorkflowDefinitionResource($saved))->response()->setStatusCode(201);
+            return (new WorkflowDefinitionResource($saved))->response()->setStatusCode(201);
+        });
     }
 
     /**
@@ -88,45 +108,50 @@ class WorkflowDefinitionController extends Controller
         \App\Services\ChecklistService $checklists,
         AuditService $audit
     ) {
-        $result = $staging->apply(
-            $workflowDefinition,
-            $request->user()->id,
-            $request->validated(),
-            $checklists
-        );
+        return DB::transaction(function () use ($request, $workflowDefinition, $staging, $checklists, $audit) {
+            $result = $staging->apply(
+                $workflowDefinition,
+                $request->user()->id,
+                $request->validated(),
+                $checklists
+            );
 
-        $audit->log($request, 'workflow_definitions.apply_staged', $result['definition'], [
-            'mode' => $request->validated()['mode'],
-            'published' => $result['published'],
-            'applied' => $result['applied'],
-        ]);
+            $audit->log($request, 'workflow_definitions.apply_staged', $result['definition'], [
+                'new' => [
+                    'mode' => $request->validated()['mode'],
+                    'published' => $result['published'],
+                    'applied' => $result['applied'],
+                ],
+                'staged' => $request->validated(),
+            ]);
 
-        return (new WorkflowDefinitionResource($result['definition']))->additional([
-            'meta' => [
-                'mode' => $request->validated()['mode'],
-                'published' => $result['published'],
-                'message' => $result['message'],
-                'applied' => $result['applied'],
-            ],
-        ])->response()->setStatusCode($result['published'] ? 201 : 200);
+            return (new WorkflowDefinitionResource($result['definition']))->additional([
+                'meta' => [
+                    'mode' => $request->validated()['mode'],
+                    'published' => $result['published'],
+                    'message' => $result['message'],
+                    'applied' => $result['applied'],
+                ],
+            ])->response()->setStatusCode($result['published'] ? 201 : 200);
+        });
     }
 
     public function makeLive(Request $request, WorkflowDefinition $workflowDefinition, WorkflowVersioningService $svc, AuditService $audit)
     {
-        $from = WorkflowDefinition::where('transaction_type_id', $workflowDefinition->transaction_type_id)
-            ->where('is_live', true)
-            ->first();
+        return DB::transaction(function () use ($request, $workflowDefinition, $svc, $audit) {
+            $from = WorkflowDefinition::where('transaction_type_id', $workflowDefinition->transaction_type_id)
+                ->where('is_live', true)
+                ->first();
 
-        $live = $svc->makeLive($workflowDefinition);
+            $live = $svc->makeLive($workflowDefinition);
 
-        $audit->log($request, 'workflow_definitions.make_live', $live, [
-            'from_version' => $from?->version,
-            'from_id' => $from?->id,
-            'to_version' => $live->version,
-            'to_id' => $live->id,
-        ]);
+            $audit->log($request, 'workflow_definitions.make_live', $live, [
+                'before' => ['live_id' => $from?->id, 'live_version' => $from?->version],
+                'after' => ['live_id' => $live->id, 'live_version' => $live->version],
+            ]);
 
-        return new WorkflowDefinitionResource($live);
+            return new WorkflowDefinitionResource($live);
+        });
     }
 
     public function destroy(Request $request, WorkflowDefinition $workflowDefinition, AuditService $audit)
@@ -151,7 +176,7 @@ class WorkflowDefinitionController extends Controller
             $workflowDefinition->forceDelete();
 
             $audit->log($request, 'workflow_definitions.delete_draft', $workflowDefinition, [
-                'deleted' => $info,
+                'old' => $info,
             ]);
 
             return response()->json(['message' => 'Draft deleted.']);
