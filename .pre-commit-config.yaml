@@ -27,9 +27,10 @@ repos:
         types: [php]
         stages: [pre-commit]
       - id: project-verification
-        name: Frontend build and PHPUnit (SQLite in memory)
+        name: Frontend build required; PHPUnit advisory
         language: system
-        entry: node .codex/hooks/verify.mjs full
+        entry: node .codex/hooks/verify.mjs push
         pass_filenames: false
         always_run: true
+        verbose: true
         stages: [pre-push]

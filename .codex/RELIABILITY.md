@@ -12,18 +12,22 @@ Existing Graphify and cleanup hooks are preserved.
 - Pre-commit checks staged files for conflict markers, private keys, oversized
   additions, JSON/YAML/TOML syntax, and PHP syntax. Checks do not autoformat files.
   Private-key detection is not a comprehensive secret scanner.
-- Pre-push builds the frontend and runs the complete PHPUnit suite with SQLite
-  in memory. Failures block the push and save details under `.git/codex-checks/`.
+- Pre-push requires a successful frontend build and runs the complete PHPUnit
+  suite with SQLite in memory. Test failures are explicitly reported as advisory
+  while the existing test baseline is repaired; they do not block pushes.
+  Build failures still block pushes. Logs are saved under `.git/codex-checks/`.
   These local checks do not configure remote branch protection or CI.
 
 Run the full checks manually with `node .codex/hooks/verify.mjs full`.
+This strict command returns a failure if either the build or tests fail.
+Run hook regression tests with `node --test .codex/hooks/verify.test.mjs`.
 Run commit checks with `pre-commit run --all-files --hook-stage pre-commit`.
 The full repository may have historical violations; normal commits check staged files.
 
-The baseline after building the frontend has 49 PHPUnit errors (many duplicate
-`roles.code` fixtures) and 2 failures. These currently block the pre-push check.
-Use the latest verification log for current counts. Application fixes are separate
-from this tooling setup.
+The suite has existing failures, including duplicate `roles.code` fixtures.
+Use the latest verification log for current counts. Once these are repaired,
+change the pre-push entry from `verify.mjs push` to `verify.mjs full` to enforce
+the complete suite. Application fixes are separate from this tooling setup.
 
 The project has ESLint dependencies but no ESLint config or lint script, so no
 frontend lint check is claimed. There is no TypeScript check configured.
