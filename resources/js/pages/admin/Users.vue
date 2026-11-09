@@ -25,7 +25,7 @@
             v-model="search"
             type="search"
             class="us-search-input"
-            placeholder="Search name, email, role or office"
+            placeholder="Search name, username, role or office"
             aria-label="Search users"
             autocomplete="off"
           />
@@ -275,7 +275,6 @@
             @click="startNameEdit(item)"
           >
             <span class="us-name">{{ item.name }}</span>
-            <span v-if="item.username" class="us-handle">@{{ item.username }}</span>
             <v-icon
               v-if="canInlineEdit(item)"
               class="us-edit-hint"
@@ -285,8 +284,14 @@
           </button>
         </template>
 
-        <template v-slot:[`item.email`]="{ item }">
-          <span class="us-email">{{ item.email }}</span>
+        <template v-slot:[`item.username`]="{ item }">
+          <span v-if="item.username" class="us-email">{{ item.username }}</span>
+          <span v-else class="us-dash">—</span>
+        </template>
+
+        <template v-slot:[`item.contact_number`]="{ item }">
+          <span v-if="item.contact_number" class="us-email">{{ item.contact_number }}</span>
+          <span v-else class="us-dash" title="No contact number">—</span>
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
@@ -1105,16 +1110,18 @@ const ACTIONS_W = 132
 // inside their columns, and Status and the actions always stay in view.
 const headers = officeMode
   ? [
-      { title: 'Name', key: 'name', width: '30%' },
-      { title: 'Email', key: 'email', width: '25%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '18%' },
+      { title: 'Name', key: 'name', width: '24%' },
+      { title: 'Username', key: 'username', width: '17%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '16%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '16%' },
       { title: 'Status', key: 'is_active', width: '13%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
   : [
-      { title: 'Name', key: 'name', width: '24%' },
-      { title: 'Email', key: 'email', width: '22%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
+      { title: 'Name', key: 'name', width: '19%' },
+      { title: 'Username', key: 'username', width: '14%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '14%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '13%' },
       { title: 'Office', key: 'office', sortable: false, width: '16%' },
       { title: 'Status', key: 'is_active', width: '13%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
@@ -1618,7 +1625,7 @@ async function approve(item) {
 async function reject(item) {
   const ok = await confirm({
     title: 'Reject this request?',
-    message: `${item.name} (${item.email}) will not get access, and the request will be removed. They can sign up again.`,
+    message: `${item.name}${item.username ? ` (@${item.username})` : ''} will not get access, and the request will be removed. They can sign up again.`,
     confirmLabel: 'Reject',
     cancelLabel: 'Keep',
   })
@@ -2349,14 +2356,6 @@ html.dark .us-page {
     overflow-wrap: anywhere;
     white-space: normal;
 }
-/* Username under the name, when the account has one. */
-.us-handle {
-    display: block;
-    color: var(--us-muted);
-    font-size: 12.5px;
-    line-height: 1.3;
-    overflow-wrap: anywhere;
-}
 .us-dash {
     color: var(--us-muted);
 }
@@ -2384,7 +2383,6 @@ html.dark .us-page {
     -webkit-text-fill-color: currentColor;
 }
 .us-cell-edit.is-editable:hover .us-name,
-.us-cell-edit.is-editable:hover .us-handle,
 .us-cell-edit.is-editable:hover .us-office-text {
     color: var(--us-blue);
 }
