@@ -171,9 +171,9 @@ class TransactionController extends Controller
     }
 
     /**
-     * Admin Track search visibility. When is_private is true the transaction
-     * is discoverable by other viewer accounts through /track. Office admins
-     * can change this only for transactions in their office scope.
+     * Admin Public/Private toggle. When is_private is true the transaction is
+     * hidden from other viewer accounts on /track; false makes it searchable.
+     * Office admins can change this only for transactions in their scope.
      */
     public function updatePrivacy(Request $request, Transaction $transaction, AuditService $audit)
     {
@@ -197,8 +197,8 @@ class TransactionController extends Controller
 
         return response()->json([
             'message' => $transaction->is_private
-                ? 'Transaction is now searchable on Track.'
-                : 'Transaction removed from Track search.',
+                ? 'Transaction is now private (hidden from Track search).'
+                : 'Transaction is now public (searchable on Track).',
             'data' => [
                 'id' => $transaction->id,
                 'is_private' => (bool) $transaction->is_private,

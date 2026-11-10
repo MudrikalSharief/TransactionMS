@@ -91,7 +91,7 @@ class ViewerTrackingPrivacyTest extends TestCase
         return $tx;
     }
 
-    public function test_superadmin_can_toggle_track_visibility_and_it_is_audited(): void
+    public function test_superadmin_can_toggle_track_privacy_and_it_is_audited(): void
     {
         $superadmin = $this->userWithRole('superadmin');
         $tx = $this->makeTransaction(
@@ -105,7 +105,8 @@ class ViewerTrackingPrivacyTest extends TestCase
             'is_private' => true,
         ])
             ->assertOk()
-            ->assertJsonPath('data.is_private', true);
+            ->assertJsonPath('data.is_private', true)
+            ->assertJsonPath('message', 'Transaction is now private (hidden from Track search).');
 
         $this->assertDatabaseHas('transactions', [
             'id' => $tx->id,
@@ -122,7 +123,8 @@ class ViewerTrackingPrivacyTest extends TestCase
             'is_private' => false,
         ])
             ->assertOk()
-            ->assertJsonPath('data.is_private', false);
+            ->assertJsonPath('data.is_private', false)
+            ->assertJsonPath('message', 'Transaction is now public (searchable on Track).');
 
         $this->assertDatabaseHas('transactions', [
             'id' => $tx->id,
@@ -130,7 +132,7 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
-    public function test_office_admin_can_toggle_track_visibility_in_their_scope(): void
+    public function test_office_admin_can_toggle_track_privacy_in_their_scope(): void
     {
         $officeAdmin = $this->userWithRole('admin', $this->office);
         $tx = $this->makeTransaction(
@@ -158,7 +160,7 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
-    public function test_office_admin_cannot_toggle_another_offices_track_visibility(): void
+    public function test_office_admin_cannot_toggle_another_offices_track_privacy(): void
     {
         $otherOffice = Office::create([
             'code' => 'CBO',
@@ -182,7 +184,7 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
-    public function test_staff_cannot_toggle_track_visibility(): void
+    public function test_staff_cannot_toggle_track_privacy(): void
     {
         $clerk = $this->userWithRole('clerk', $this->office);
         $tx = $this->makeTransaction(
@@ -202,13 +204,13 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
-    public function test_archived_shared_transaction_is_hidden_from_track_search_and_detail(): void
+    public function test_archived_public_transaction_is_hidden_from_track_search_and_detail(): void
     {
         $viewer = $this->userWithRole('viewer');
         $tx = $this->makeTransaction(
             User::factory()->create(),
             'TRACK-ARCHIVED-SHARED-1',
-            true,
+            false,
         );
         $tx->update(['is_archive' => true]);
 
@@ -245,25 +247,25 @@ class ViewerTrackingPrivacyTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_private_transactions_are_searchable_on_track(): void
+    public function test_public_transactions_are_searchable_on_track(): void
     {
         $viewer = $this->userWithRole('viewer');
         $creator = User::factory()->create();
-        $private = $this->makeTransaction($creator, 'TRACK-PRIVATE-1', true);
+        $public = $this->makeTransaction($creator, 'TRACK-PUBLIC-1', false);
 
         Sanctum::actingAs($viewer);
 
-        $this->getJson('/api/viewer/transactions?q=TRACK-PRIVATE-1')
+        $this->getJson('/api/viewer/transactions?q=TRACK-PUBLIC-1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $private->id);
+            ->assertJsonPath('data.0.id', $public->id);
     }
 
-    public function test_non_private_transactions_are_hidden_from_other_viewers(): void
+    public function test_private_transactions_are_hidden_from_other_viewers(): void
     {
         $viewer = $this->userWithRole('viewer');
         $creator = User::factory()->create();
-        $this->makeTransaction($creator, 'TRACK-HIDDEN-1', false);
+        $this->makeTransaction($creator, 'TRACK-HIDDEN-1', true);
 
         Sanctum::actingAs($viewer);
 
@@ -272,10 +274,10 @@ class ViewerTrackingPrivacyTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_viewer_can_still_search_their_own_non_private_transaction(): void
+    public function test_viewer_can_still_search_and_open_their_own_private_transaction(): void
     {
         $viewer = $this->userWithRole('viewer');
-        $own = $this->makeTransaction($viewer, 'TRACK-OWN-1', false);
+        $own = $this->makeTransaction($viewer, 'TRACK-OWN-1', true);
 
         Sanctum::actingAs($viewer);
 
@@ -283,15 +285,19 @@ class ViewerTrackingPrivacyTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $own->id);
+
+        $this->getJson("/api/viewer/transactions/{$own->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $own->id);
     }
 
-    public function test_viewer_cannot_open_another_viewers_non_private_transaction(): void
+    public function test_viewer_cannot_open_another_viewers_private_transaction(): void
     {
         $viewer = $this->userWithRole('viewer');
         $tx = $this->makeTransaction(
             User::factory()->create(),
             'TRACK-SHOW-HIDDEN-1',
-            false,
+            true,
         );
 
         Sanctum::actingAs($viewer);
@@ -300,13 +306,13 @@ class ViewerTrackingPrivacyTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_viewer_can_open_a_private_transaction(): void
+    public function test_viewer_can_open_a_public_transaction(): void
     {
         $viewer = $this->userWithRole('viewer');
         $tx = $this->makeTransaction(
             User::factory()->create(),
             'TRACK-SHOW-PRIVATE-1',
-            true,
+            false,
         );
 
         Sanctum::actingAs($viewer);

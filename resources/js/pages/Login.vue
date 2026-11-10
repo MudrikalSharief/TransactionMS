@@ -561,13 +561,14 @@ async function submit() {
     notice.value = "";
 
     try {
+        // auth.login() already awaits init(), which fetches the full user
+        // (roles/office). Calling init() again here would fire a redundant
+        // /api/auth/me and delay the dashboard on a single-threaded server.
         await auth.login({
             login: loginId.value.trim(),
             password: password.value,
             remember: remember.value,
         });
-
-        await auth.init();
 
         await router.push({ name: "dashboard" });
     } catch (e) {

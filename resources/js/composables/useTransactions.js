@@ -56,6 +56,7 @@ export function useTransactions({ archived = false } = {}) {
     office_id = null,
     date_from = '',
     date_to = '',
+    timeout = 15000,
   } = {}) {
     const hasFilters = !!transaction_type_id || !!office_id || !!date_from || !!date_to
     const isDefault = !String(q || '').trim() && Number(page) === 1 && !hasFilters
@@ -79,7 +80,7 @@ export function useTransactions({ archived = false } = {}) {
       if (office_id) params.office_id = office_id
       if (date_from) params.date_from = date_from
       if (date_to) params.date_to = date_to
-      const res = await api.get(endpoint, { params })
+      const res = await api.get(endpoint, { params, timeout })
       applyPayload(res)
       if (isDefault) writeCache(key(), (items.value || []).map(slimTx))
     } finally {

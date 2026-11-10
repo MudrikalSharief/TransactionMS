@@ -657,9 +657,9 @@ function refreshApprovalBadge() {
     else approvalBadge.clear();
 }
 
-// Recount on login/role change and on every page change; a timer (see
-// onMounted) catches work that arrives from other users meanwhile.
-watch(showApprovals, refreshApprovalBadge, { immediate: true });
+// Recount on every page change; the boot timer in onMounted handles the
+// first check after the page settles, and a timer catches work that arrives
+// from other users meanwhile. Do not fire this during the first paint.
 watch(() => route.fullPath, refreshApprovalBadge);
 let approvalBadgeTimer = null;
 
@@ -1049,14 +1049,21 @@ onMounted(() => {
         false;
     tickClock();
     clockTimer = setInterval(tickClock, 30 * 1000);
+    // `requestIdleCallback`'s timeout is a maximum wait, not a minimum delay,
+    // so it can fire almost immediately and steal queue slots from the page
+    // that is still loading. Enforce the delay first, then use idle time.
     const boot = (fn, delay) => {
-        if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout: delay });
-        else setTimeout(fn, delay);
+        setTimeout(() => {
+            if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout: 1000 });
+            else fn();
+        }, delay);
     };
+    // The approval badge is small; weather hits an external service and can
+    // hold the single-threaded dev server for seconds, so it waits longer.
+    boot(refreshApprovalBadge, 5000);
     boot(() => {
         if (!document.hidden && navigator.onLine) loadTemperature();
-        refreshApprovalBadge();
-    }, 2500);
+    }, 8000);
     // Captive portals / slow office DHCP often mean "offline" at the boot
     // tick above: recover the moment connectivity arrives instead of
     // waiting out the long interval.
