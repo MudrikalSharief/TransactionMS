@@ -21,4 +21,4 @@ Supports `var (dot-path), ==, !=, >, >=, <, <=, and, or, !, missing, missing_som
 ## Validation & Versioning & Audit
 - `FieldValidationService::validateForStep`: builds Laravel rules from type + min/max + options + `validation_rules` + `required_override`.
 - `WorkflowVersioningService`: `createDraft(clone_latest_published), publish, assertDraft, cloneFrom`.
-- `AuditService::log(request, event, entity, meta)` -> `audit_logs(actor, event, entity, ip, ua)`.
+- `AuditService::log(request, event, entity, meta)` -> append-only `audit_logs` with actor/role/office snapshots, module/action, subject label, old/new JSON values, changed fields, request id and IP/user agent. Call it inside the same `DB::transaction` as the action so the action and its audit row commit or roll back together; file endpoints use after-commit cleanup or upload compensation.

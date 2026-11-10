@@ -198,6 +198,7 @@ const seenAtOpen = ref(new Set());
 watch(open, (isOpen) => {
     if (isOpen) {
         seenAtOpen.value = new Set(seen.value);
+        if (!rows.value.length) load();
         markAllSeen();
     }
 });
@@ -207,13 +208,18 @@ function go(n) {
     router.push(mode.value === "staff" ? `/my/transactions/${n.id}` : `/transactions/${n.id}`);
 }
 
+let initialLoadTimer = null;
 watch(
     () => [user.value?.id, mode.value],
     () => {
         rows.value = [];
         if (!mode.value) return;
         readSeen();
-        load();
+        // The bell is secondary. Defer its first detail fetch so it does not
+        // queue ahead of the dashboard's critical transaction list on the
+        // single-threaded dev server. Opening the bell loads immediately.
+        if (initialLoadTimer) clearTimeout(initialLoadTimer);
+        initialLoadTimer = setTimeout(load, 5000);
     },
     { immediate: true },
 );
@@ -225,7 +231,10 @@ onMounted(() => {
         now.value = Date.now();
     }, CLOCK_MS);
 });
-onUnmounted(() => clearInterval(clock));
+onUnmounted(() => {
+    clearInterval(clock);
+    if (initialLoadTimer) clearTimeout(initialLoadTimer);
+});
 </script>
 
 <style scoped>

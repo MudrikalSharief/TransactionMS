@@ -51,8 +51,8 @@
             <v-card-text class="pa-4">
                 <v-alert type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Who did what, and when: every transaction step (created, forwarded, received, returned, finalized)
-                    <template v-if="canSeeSetup"> and changes to accounts, roles, offices and workflows</template>.
-                    Read-only.
+                    and every transaction data change (archive, fields, attachments, checks)
+                    <template v-if="canSeeSetup">, plus account, role, office and workflow changes</template>. Read-only.
                 </v-alert>
 
                 <div class="filter-bar mb-3">

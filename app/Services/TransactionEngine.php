@@ -16,7 +16,8 @@ use Illuminate\Validation\ValidationException;
 class TransactionEngine
 {
     public function __construct(
-        private readonly FieldValidationService $fieldValidation
+        private readonly FieldValidationService $fieldValidation,
+        private readonly AuditService $audit,
     ) {}
 
     public function create(int $transactionTypeId, ?string $title, int $userId, ?int $officeId = null): Transaction
@@ -126,6 +127,8 @@ class TransactionEngine
                 abort(422, 'Transaction has no current step.');
             }
 
+            $fieldChanges = ['old' => [], 'new' => []];
+
             if (is_array($fieldValuesByCode) && count($fieldValuesByCode)) {
                 $stepFields = $currentStep->fieldDefinitions()
                     ->orderBy('field_definition_workflow_step.display_order')
@@ -136,6 +139,16 @@ class TransactionEngine
 
                 foreach ($normalized as $fieldDefId => $payload) {
                     $value = $payload['value'];
+
+                    $existing = $tx->fieldValues->firstWhere('field_definition_id', $fieldDefId);
+                    $oldValue = $existing?->typedValue();
+                    $field = $stepFields->firstWhere('id', $fieldDefId);
+                    $key = $field?->code ?: (string) $fieldDefId;
+
+                    if (!$this->sameValue($oldValue, $value)) {
+                        $fieldChanges['old'][$key] = $oldValue;
+                        $fieldChanges['new'][$key] = $value;
+                    }
 
                     FieldValue::updateOrCreate(
                         [
@@ -175,6 +188,17 @@ class TransactionEngine
                 'received_office_id' => $toStep ? $tx->effectiveStepOfficeId($toStep) : null,
                 'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
+
+            if ($fieldChanges['old'] || $fieldChanges['new']) {
+                $this->audit->log(request(), 'transactions.fields_update', $tx, [
+                    'before' => $fieldChanges['old'],
+                    'after' => $fieldChanges['new'],
+                    'step_run_id' => $run->id,
+                    'transaction_id' => $tx->id,
+                    'office_id' => $tx->office_id,
+                    'note' => "Fields updated while moving from {$currentStep->name} to {$toStep?->name}.",
+                ]);
+            }
 
             // Link proceed-modal uploads (keep-forever evidence) to this run.
             // Forward: only pending files of this tx + from-step qualify.
@@ -541,6 +565,19 @@ class TransactionEngine
         }
 
         return true;
+    }
+
+    private function sameValue(mixed $old, mixed $new): bool
+    {
+        if (is_bool($old) || is_bool($new)) {
+            return (bool) $old === (bool) $new;
+        }
+
+        if (is_numeric($old) && is_numeric($new)) {
+            return (float) $old === (float) $new;
+        }
+
+        return json_encode($old) === json_encode($new);
     }
 
     private function makeReference(): string

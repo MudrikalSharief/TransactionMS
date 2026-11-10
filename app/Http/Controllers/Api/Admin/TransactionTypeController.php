@@ -9,6 +9,7 @@ use App\Http\Resources\TransactionTypeResource;
 use App\Models\TransactionType;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransactionTypeController extends Controller
 {
@@ -62,19 +63,21 @@ class TransactionTypeController extends Controller
         // createdby_office: office.id of the creating user (nullable when the
         // user belongs to no office, e.g. a superadmin). Recorded once, on
         // create only — update() never touches it.
-        $type = TransactionType::create($validated + ['createdby_office' => $user->office_id]);
+        return DB::transaction(function () use ($request, $validated, $officeIds, $user, $audit) {
+            $type = TransactionType::create($validated + ['createdby_office' => $user->office_id]);
 
-        if ($officeIds) {
-            $type->offices()->sync($officeIds);
-        }
+            if ($officeIds) {
+                $type->offices()->sync($officeIds);
+            }
 
-        $audit->log($request, 'transaction_types.create', $type, [
-            'payload' => $request->validated(),
-        ]);
+            $audit->log($request, 'transaction_types.create', $type, [
+                'payload' => $request->validated(),
+            ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
+            \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
 
-        return (new TransactionTypeResource($type->load('offices', 'createdByOffice')))->response()->setStatusCode(201);
+            return (new TransactionTypeResource($type->load('offices', 'createdByOffice')))->response()->setStatusCode(201);
+        });
     }
 
     public function update(UpdateTransactionTypeRequest $request, TransactionType $transactionType, AuditService $audit)
@@ -100,22 +103,24 @@ class TransactionTypeController extends Controller
             }
         }
 
-        $transactionType->update($validated);
+        return DB::transaction(function () use ($request, $transactionType, $validated, $officeIds, $before, $audit) {
+            $transactionType->update($validated);
 
-        if (is_array($officeIds)) {
-            $transactionType->offices()->sync($officeIds);
-        }
+            if (is_array($officeIds)) {
+                $transactionType->offices()->sync($officeIds);
+            }
 
-        $audit->log($request, 'transaction_types.update', $transactionType, [
-            'before' => $before,
-            'after' => array_merge($transactionType->only(['code', 'name', 'description', 'is_active']), [
-                'office_ids' => $transactionType->offices()->pluck('offices.id')->values()->all(),
-            ]),
-        ]);
+            $audit->log($request, 'transaction_types.update', $transactionType, [
+                'before' => $before,
+                'after' => array_merge($transactionType->only(['code', 'name', 'description', 'is_active']), [
+                    'office_ids' => $transactionType->offices()->pluck('offices.id')->values()->all(),
+                ]),
+            ]);
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
+            \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
 
-        return new TransactionTypeResource($transactionType->load('offices'));
+            return new TransactionTypeResource($transactionType->load('offices'));
+        });
     }
 
     public function destroy(Request $request, TransactionType $transactionType, AuditService $audit)
@@ -125,15 +130,21 @@ class TransactionTypeController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $transactionType->delete();
+        return DB::transaction(function () use ($request, $transactionType, $audit) {
+            $old = $transactionType->only(['code', 'name', 'description', 'is_active']);
+            $old['office_ids'] = $transactionType->offices()->pluck('offices.id')->all();
 
-        $audit->log($request, 'transaction_types.delete', $transactionType, [
-            'note' => 'Soft deleted transaction type',
-        ]);
+            $transactionType->delete();
 
-        \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
+            $audit->log($request, 'transaction_types.delete', $transactionType, [
+                'old' => $old,
+                'note' => 'Soft deleted transaction type',
+            ]);
 
-        return response()->json(['message' => 'Deleted.']);
+            \Illuminate\Support\Facades\Cache::forget('lookup:transaction-types:v4');
+
+            return response()->json(['message' => 'Deleted.']);
+        });
     }
 
     private function assignedToUserOffice(TransactionType $type, $user): bool

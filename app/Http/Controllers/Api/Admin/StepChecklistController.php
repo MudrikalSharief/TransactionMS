@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ChecklistOverride;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
+use App\Services\AuditService;
 use App\Services\ChecklistService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ class StepChecklistController extends Controller
         return response()->json(['data' => $this->mapRows($items)]);
     }
 
-    public function sync(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep)
+    public function sync(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, AuditService $audit)
     {
         $this->assertStepInDefinition($workflowDefinition, $workflowStep);
 
@@ -41,7 +42,11 @@ class StepChecklistController extends Controller
             'items.*.display_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        DB::transaction(function () use ($workflowStep, $payload) {
+        $before = $workflowStep->checklistOverrides()->orderBy('display_order')->get()->map(
+            fn ($item) => $item->only(['requirement_definition_id', 'name', 'code', 'description', 'is_required', 'display_order'])
+        )->values()->all();
+
+        $items = DB::transaction(function () use ($request, $workflowStep, $payload, $before, $audit) {
             // Full replace of the submitted rows, then re-mirror requirements
             // so a linked item deleted in the UI comes back if the requirement
             // is still on the step.
@@ -67,22 +72,54 @@ class StepChecklistController extends Controller
             }
 
             $this->checklists->syncFromRequirements($workflowStep);
+
+            $items = $this->checklists->itemsFor($workflowStep);
+            $after = $items->map(
+                fn ($item) => $item->only(['requirement_definition_id', 'name', 'code', 'description', 'is_required', 'display_order'])
+            )->values()->all();
+
+            $audit->log($request, 'step_checklists.sync', $workflowStep, [
+                'before' => ['items' => $before],
+                'after' => ['items' => $after],
+                'entity_label' => $workflowStep->name,
+                'description' => "Updated checklist for {$workflowStep->name}",
+            ]);
+
+            return $items;
         });
 
         return response()->json([
             'message' => 'Saved',
-            'data' => $this->mapRows($this->checklists->itemsFor($workflowStep)),
+            'data' => $this->mapRows($items),
         ]);
     }
 
     // Optional hard reset: wipe custom rows and re-mirror requirements.
-    public function resync(WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep)
+    public function resync(Request $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, AuditService $audit)
     {
         $this->assertStepInDefinition($workflowDefinition, $workflowStep);
 
-        $workflowStep->checklistOverrides()->delete();
-        $this->checklists->syncFromRequirements($workflowStep);
-        $items = $this->checklists->itemsFor($workflowStep);
+        $items = DB::transaction(function () use ($request, $workflowStep, $audit) {
+            $before = $workflowStep->checklistOverrides()->orderBy('display_order')->get()->map(
+                fn ($item) => $item->only(['requirement_definition_id', 'name', 'code', 'description', 'is_required', 'display_order'])
+            )->values()->all();
+
+            $workflowStep->checklistOverrides()->delete();
+            $this->checklists->syncFromRequirements($workflowStep);
+            $items = $this->checklists->itemsFor($workflowStep);
+            $after = $items->map(
+                fn ($item) => $item->only(['requirement_definition_id', 'name', 'code', 'description', 'is_required', 'display_order'])
+            )->values()->all();
+
+            $audit->log($request, 'step_checklists.resync', $workflowStep, [
+                'before' => ['items' => $before],
+                'after' => ['items' => $after],
+                'entity_label' => $workflowStep->name,
+                'description' => "Resynced checklist for {$workflowStep->name}",
+            ]);
+
+            return $items;
+        });
 
         return response()->json(['data' => $this->mapRows($items)]);
     }

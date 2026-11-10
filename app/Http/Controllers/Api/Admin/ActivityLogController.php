@@ -8,10 +8,12 @@ use App\Models\Office;
 use App\Models\TransactionStepRun;
 use App\Models\User;
 use App\Services\OfficeScope;
+use App\Support\AuditAction;
 use App\Support\ReportPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -26,7 +28,7 @@ use Illuminate\Support\Str;
 class ActivityLogController extends Controller
 {
     /** Newest rows read per source; the page shows the latest activity. */
-    private const LIMIT = 3000;
+    private const LIMIT = 5000;
 
     private const ACTIONS = [
         'create' => 'Created',
@@ -39,22 +41,20 @@ class ActivityLogController extends Controller
         'finalize' => 'Finalized',
     ];
 
-    /** Audit-log verbs as past tense ("users.update" -> "User updated"). */
-    private const VERBS = [
-        'create' => 'created',
-        'update' => 'updated',
-        'delete' => 'deleted',
-        'deactivate' => 'deactivated',
-        'approve' => 'approved',
-        'reject' => 'rejected',
-        'register' => 'registered',
-        'finalize' => 'finalized',
-        'reassign_office' => 'office reassigned',
-        'make_live' => 'made live',
-        'apply_staged' => 'changes applied',
-        'save_as' => 'saved as a new version',
-        'delete_draft' => 'draft deleted',
-        'password' => 'password changed',
+    /** Human labels for modules whose plural does not singularise cleanly. */
+    private const MODULE_LABELS = [
+        'workflow_definitions' => 'Workflow',
+        'workflow_steps' => 'Workflow Step',
+        'workflow_routes' => 'Workflow Route',
+        'workflow_step_data' => 'Step Data',
+        'field_definitions' => 'Field',
+        'step_fields' => 'Step Fields',
+        'requirement_definitions' => 'Requirement',
+        'step_requirements' => 'Step Requirements',
+        'step_checklists' => 'Step Checklist',
+        'government_references' => 'Government Reference',
+        'transaction_types' => 'Transaction Type',
+        'office_steps' => 'Office Step',
     ];
 
     public function __invoke(Request $request)
@@ -63,6 +63,10 @@ class ActivityLogController extends Controller
             'period' => ['nullable', ReportPeriod::RULE],
             'kind' => ['nullable', 'in:all,transactions,setup'],
             'q' => ['nullable', 'string', 'max:200'],
+            'module' => ['nullable', 'string', 'max:50'],
+            'action' => ['nullable', 'string', 'max:50'],
+            'actor_user_id' => ['nullable', 'integer', 'min:1'],
+            'office_id' => ['nullable', 'integer', 'min:1'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
@@ -71,12 +75,27 @@ class ActivityLogController extends Controller
         $user = $request->user();
         $isSuperadmin = $user->isSuperadmin();
 
+        $scopeOfficeId = $isSuperadmin ? null : (int) $user->office_id;
+
         $rows = collect();
         if ($kind !== 'setup') {
-            $rows = $rows->concat($this->transactionRows($from, $to, $isSuperadmin ? null : (int) $user->office_id));
+            $rows = $rows->concat($this->transactionRows($from, $to, $scopeOfficeId));
         }
-        if ($kind !== 'transactions' && $isSuperadmin) {
-            $rows = $rows->concat($this->setupRows($from, $to));
+        if ($isSuperadmin || $kind !== 'setup') {
+            $rows = $rows->concat($this->auditRows($from, $to, $kind, $isSuperadmin, $scopeOfficeId, $data));
+        }
+
+        if (!empty($data['module'])) {
+            $rows = $rows->filter(fn ($r) => ($r['module'] ?? null) === $data['module']);
+        }
+        if (!empty($data['action'])) {
+            $rows = $rows->filter(fn ($r) => ($r['action_key'] ?? null) === $data['action']);
+        }
+        if (!empty($data['actor_user_id'])) {
+            $rows = $rows->filter(fn ($r) => (int) ($r['actor']['id'] ?? 0) === (int) $data['actor_user_id']);
+        }
+        if (!empty($data['office_id'])) {
+            $rows = $rows->filter(fn ($r) => (int) ($r['office']['id'] ?? 0) === (int) $data['office_id']);
         }
 
         $q = mb_strtolower(trim($data['q'] ?? ''));
@@ -134,6 +153,7 @@ class ActivityLogController extends Controller
             $tx = $run->transaction;
             $base = [
                 'kind' => 'transaction',
+                'module' => 'transactions',
                 'transaction_id' => $tx?->id,
                 'reference_number' => $tx?->reference_number,
                 'title' => $tx?->title,
@@ -150,6 +170,7 @@ class ActivityLogController extends Controller
                     'id' => "run-{$run->id}",
                     'at' => $run->performed_at?->toIso8601String(),
                     'action' => $action,
+                    'action_key' => $run->action_code,
                     'summary' => $summary,
                     'actor' => $run->performer?->only(['id', 'name']),
                     'office' => Office::mini($tx?->office),
@@ -162,6 +183,7 @@ class ActivityLogController extends Controller
                     'id' => "rcv-{$run->id}",
                     'at' => $run->received_at->toIso8601String(),
                     'action' => 'Received',
+                    'action_key' => 'receive',
                     'summary' => "Received at {$run->toStep?->name}",
                     'actor' => $run->receiver?->only(['id', 'name']),
                     'office' => Office::mini($run->receivedOffice),
@@ -173,36 +195,255 @@ class ActivityLogController extends Controller
         return collect($out);
     }
 
-    private function setupRows($from, $to): Collection
+    private function auditRows($from, $to, string $kind, bool $isSuperadmin, ?int $officeScopeId, array $filters = []): Collection
     {
-        $logs = AuditLog::query()
+        $query = AuditLog::query()
+            // The step-run feed already shows finalization; the old audit
+            // row was a duplicate and is kept in the table for history only.
+            ->where('event', '!=', 'transactions.finalize')
             ->when($from, fn ($q) => $q->whereBetween('created_at', [$from, $to]))
+            ->when($filters['module'] ?? null, fn ($q, $module) => $q->where('module', $module))
+            ->when($filters['action'] ?? null, fn ($q, $action) => $q->where('action', $action))
+            ->when($filters['actor_user_id'] ?? null, fn ($q, $actor) => $q->where('actor_user_id', $actor))
+            ->when($filters['office_id'] ?? null, fn ($q, $office) => $q->where('office_id', $office))
+            ->with([
+                'office:id,code,name',
+                'transaction:id,reference_number,title',
+            ]);
+
+        if (!$isSuperadmin) {
+            // Office admins see transaction data changes for the same scope
+            // as the step-run feed: filed by their office or routed through
+            // one of its stations. Setup/account changes stay superadmin-only.
+            $query->where('module', 'transactions')
+                ->where(function ($w) use ($officeScopeId) {
+                    $w->where('office_id', $officeScopeId)
+                        ->orWhereHas('transaction', fn ($t) => app(OfficeScope::class)->apply($t, (int) $officeScopeId));
+                });
+        } elseif ($kind === 'transactions') {
+            $query->where('module', 'transactions');
+        } elseif ($kind === 'setup') {
+            $query->where('module', '!=', 'transactions');
+        }
+
+        $logs = $query
             ->orderByDesc('created_at')
             ->limit(self::LIMIT)
             ->get();
-        $actors = User::whereIn('id', $logs->pluck('actor_user_id')->filter()->unique())->get(['id', 'name'])->keyBy('id');
+
+        $labels = $this->labelMaps($logs);
+
+        $actors = User::whereIn('id', $logs->pluck('actor_user_id')->filter()->unique())
+            ->get(['id', 'name'])
+            ->keyBy('id');
 
         return $logs
-            ->map(function (AuditLog $log) use ($actors) {
-                [$entity, $verb] = array_pad(explode('.', (string) $log->event, 2), 2, '');
+            ->map(function (AuditLog $log) use ($actors, $labels) {
+                [$eventModule, $eventAction] = AuditAction::splitEvent((string) $log->event);
+                $module = $log->module ?: $eventModule;
+                $actionKey = $log->action ?: $eventAction;
                 $meta = is_array($log->meta) ? $log->meta : [];
-                $after = is_array($meta['after'] ?? null) ? $meta['after'] : $meta;
-                $name = $after['name'] ?? $after['code'] ?? $after['reference_number'] ?? $after['title'] ?? null;
+
+                // Dynamic transaction field codes are user data, not internal
+                // references, so never resolve them as entity IDs.
+                $rowLabels = $log->event === 'transactions.fields_update' ? [] : $labels;
+                $changes = AuditAction::changeSummary(
+                    $log->old_values,
+                    $log->new_values,
+                    $log->changed_fields,
+                    $rowLabels,
+                    $module
+                );
+                $summary = $log->description ?: ($log->entity_label ?: ($log->entity_id ? '#' . $log->entity_id : ''));
+                if ($changes) {
+                    $summary = trim($summary . ' — ' . $changes);
+                }
+
+                $actorName = $log->actor_name ?: $actors->get($log->actor_user_id)?->name;
+                $isTransaction = $module === 'transactions';
+                $actionLabel = $isTransaction
+                    ? Str::ucfirst(AuditAction::verb($actionKey))
+                    : ((self::MODULE_LABELS[$module] ?? Str::headline(Str::singular($module ?: 'activity'))) . ' ' . AuditAction::verb($actionKey));
 
                 return [
-                    'kind' => 'setup',
+                    'kind' => $isTransaction ? 'transaction' : 'setup',
                     'id' => "log-{$log->id}",
                     'at' => $log->created_at?->toIso8601String(),
-                    'action' => Str::headline(Str::singular($entity)) . ' ' . (self::VERBS[$verb] ?? Str::lower(Str::headline($verb))),
-                    'summary' => $name ? (string) $name : ($log->entity_id ? '#' . $log->entity_id : ''),
-                    'actor' => $actors->get($log->actor_user_id)?->only(['id', 'name']),
-                    'office' => null,
-                    'remarks' => null,
-                    'transaction_id' => null,
-                    'reference_number' => null,
-                    'title' => null,
+                    'action' => $actionLabel,
+                    'summary' => $summary,
+                    'actor' => $log->actor_user_id ? [
+                        'id' => $log->actor_user_id,
+                        'name' => $actorName,
+                        'roles' => $log->actor_roles,
+                        'is_superadmin' => (bool) $log->actor_is_superadmin,
+                        'office_id' => $log->actor_office_id,
+                        'office_code' => $log->actor_office_code,
+                    ] : null,
+                    'office' => Office::mini($log->office),
+                    'remarks' => $meta['note'] ?? $meta['remarks'] ?? null,
+                    'transaction_id' => $log->transaction_id,
+                    'reference_number' => $log->transaction?->reference_number,
+                    'title' => $log->transaction?->title,
                     'process' => null,
+                    'event' => $log->event,
+                    'module' => $module,
+                    'action_key' => $actionKey,
+                    'changes' => [
+                        'old' => $log->old_values,
+                        'new' => $log->new_values,
+                        'fields' => $log->changed_fields,
+                    ],
                 ];
             });
+    }
+
+    /**
+     * Batch-load display names for every entity ID referenced by the logs
+     * being shown. This runs once per page/source, not once per row.
+     */
+    private function labelMaps(Collection $logs): array
+    {
+        $ids = [
+            'office' => [],
+            'role' => [],
+            'user' => [],
+            'transaction' => [],
+            'transaction_type' => [],
+            'workflow_definition' => [],
+            'workflow_step' => [],
+            'office_step' => [],
+            'field_definition' => [],
+            'requirement_definition' => [],
+            'checklist_override' => [],
+            'attachment' => [],
+        ];
+
+        foreach ($logs as $log) {
+            foreach ([$log->old_values, $log->new_values] as $values) {
+                if (!is_array($values)) {
+                    continue;
+                }
+
+                foreach ($values as $field => $value) {
+                    $this->collectLabelIds($ids, (string) $field, $value, $log->module);
+                }
+            }
+        }
+
+        $maps = [];
+        foreach ($ids as $category => $set) {
+            $list = array_keys($set);
+            if (!$list) {
+                continue;
+            }
+
+            $maps[$category] = match ($category) {
+                'office' => DB::table('offices')
+                    ->whereIn('id', $list)
+                    ->get(['id', 'code', 'name'])
+                    ->mapWithKeys(fn ($office) => [
+                        (int) $office->id => trim(($office->code ?? '') . ' — ' . ($office->name ?? ''), ' —'),
+                    ])
+                    ->all(),
+                'role' => DB::table('roles')->whereIn('id', $list)->pluck('name', 'id')->all(),
+                'user' => DB::table('users')->whereIn('id', $list)->pluck('name', 'id')->all(),
+                'transaction' => DB::table('transactions')->whereIn('id', $list)->pluck('reference_number', 'id')->all(),
+                'transaction_type' => DB::table('transaction_types')->whereIn('id', $list)->pluck('name', 'id')->all(),
+                'workflow_definition' => DB::table('workflow_definitions')
+                    ->whereIn('id', $list)
+                    ->get(['id', 'name', 'version'])
+                    ->mapWithKeys(fn ($workflow) => [
+                        (int) $workflow->id => $workflow->name
+                            ? $workflow->name . ' v' . $workflow->version
+                            : ('v' . $workflow->version),
+                    ])
+                    ->all(),
+                'workflow_step' => DB::table('workflow_steps')->whereIn('id', $list)->pluck('name', 'id')->all(),
+                'office_step' => DB::table('office_steps')->whereIn('id', $list)->pluck('name', 'id')->all(),
+                'field_definition' => DB::table('field_definitions')->whereIn('id', $list)->pluck('name', 'id')->all(),
+                'requirement_definition' => DB::table('requirement_definitions')
+                    ->whereIn('id', $list)
+                    ->get(['id', 'name', 'code'])
+                    ->mapWithKeys(fn ($requirement) => [
+                        (int) $requirement->id => $requirement->name ?: $requirement->code,
+                    ])
+                    ->all(),
+                'checklist_override' => DB::table('checklist_overrides')
+                    ->whereIn('id', $list)
+                    ->get(['id', 'name', 'code'])
+                    ->mapWithKeys(fn ($item) => [
+                        (int) $item->id => $item->name ?: $item->code,
+                    ])
+                    ->all(),
+                'attachment' => DB::table('transaction_attachments')->whereIn('id', $list)->pluck('original_name', 'id')->all(),
+                default => [],
+            };
+        }
+
+        return $maps;
+    }
+
+    private function collectLabelIds(array &$ids, string $field, mixed $value, ?string $module): void
+    {
+        if ($field === 'parent_id') {
+            $this->addIds($ids, $module === 'office_steps' ? 'office_step' : 'workflow_step', $value);
+            return;
+        }
+
+        $category = AuditAction::labelCategory($field, $module);
+        if ($category !== null) {
+            $this->addIds($ids, $category, $value);
+            return;
+        }
+
+        if (!is_array($value)) {
+            return;
+        }
+
+        // Nested ID lists used by step assignment sync events.
+        if ($field === 'fields') {
+            foreach ($value as $item) {
+                if (is_array($item) && isset($item['field_definition_id'])) {
+                    $this->addIds($ids, 'field_definition', $item['field_definition_id']);
+                }
+            }
+        }
+
+        if ($field === 'requirements') {
+            foreach ($value as $item) {
+                if (is_array($item) && isset($item['requirement_definition_id'])) {
+                    $this->addIds($ids, 'requirement_definition', $item['requirement_definition_id']);
+                }
+            }
+        }
+
+        if ($field === 'definitions') {
+            foreach (array_keys($value) as $key) {
+                if (is_numeric($key)) {
+                    $this->addIds($ids, 'requirement_definition', $key);
+                }
+            }
+        }
+    }
+
+    private function addIds(array &$ids, string $category, mixed $value): void
+    {
+        if (!array_key_exists($category, $ids)) {
+            return;
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $id) {
+                if (is_scalar($id) && $id !== '' && is_numeric($id)) {
+                    $ids[$category][(int) $id] = true;
+                }
+            }
+
+            return;
+        }
+
+        if (is_scalar($value) && $value !== '' && is_numeric($value)) {
+            $ids[$category][(int) $value] = true;
+        }
     }
 }

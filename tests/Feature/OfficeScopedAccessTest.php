@@ -39,7 +39,7 @@ class OfficeScopedAccessTest extends TestCase
         $this->cbo = Office::create(['code' => 'CBO', 'name' => 'City Budget Office']);
 
         $this->adminRole = Role::create(['code' => 'admin', 'name' => 'Admin']);
-        $this->clerkRole = Role::create(['code' => 'clerk', 'name' => 'Clerk']);
+        $this->clerkRole = Role::firstOrCreate(['code' => 'clerk'], ['name' => 'Clerk']);
 
         $this->type = TransactionType::create(['code' => 'pr', 'name' => 'Purchase Request']);
         $this->workflow = WorkflowDefinition::create([

@@ -9,6 +9,7 @@ use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RoleController extends Controller
 {
@@ -28,37 +29,43 @@ class RoleController extends Controller
         // with it instead of the code being reported as taken.
         $trashed = Role::onlyTrashed()->where('code', $data['code'])->first();
         if ($trashed) {
-            $trashed->restore();
-            $trashed->update($data);
+            return DB::transaction(function () use ($request, $trashed, $data, $audit) {
+                $trashed->restore();
+                $trashed->update($data);
 
-            $audit->log($request, 'roles.restore', $trashed, [
+                $audit->log($request, 'roles.restore', $trashed, [
+                    'payload' => $data,
+                ]);
+
+                return (new RoleResource($trashed))->response()->setStatusCode(201);
+            });
+        }
+
+        return DB::transaction(function () use ($request, $data, $audit) {
+            $role = Role::create($data);
+
+            $audit->log($request, 'roles.create', $role, [
                 'payload' => $data,
             ]);
 
-            return (new RoleResource($trashed))->response()->setStatusCode(201);
-        }
-
-        $role = Role::create($data);
-
-        $audit->log($request, 'roles.create', $role, [
-            'payload' => $data,
-        ]);
-
-        return (new RoleResource($role))->response()->setStatusCode(201);
+            return (new RoleResource($role))->response()->setStatusCode(201);
+        });
     }
 
     public function update(UpdateRoleRequest $request, Role $role, AuditService $audit)
     {
-        $before = $role->only(['code', 'name', 'description']);
+        return DB::transaction(function () use ($request, $role, $audit) {
+            $before = $role->only(['code', 'name', 'description']);
 
-        $role->update($request->validated());
+            $role->update($request->validated());
 
-        $audit->log($request, 'roles.update', $role, [
-            'before' => $before,
-            'after' => $role->only(['code', 'name', 'description']),
-        ]);
+            $audit->log($request, 'roles.update', $role, [
+                'before' => $before,
+                'after' => $role->only(['code', 'name', 'description']),
+            ]);
 
-        return new RoleResource($role);
+            return new RoleResource($role);
+        });
     }
 
     public function destroy(Request $request, Role $role, AuditService $audit)
@@ -67,12 +74,18 @@ class RoleController extends Controller
             return response()->json(['message' => 'Cannot delete superadmin role.'], 422);
         }
 
-        $role->delete();
+        return DB::transaction(function () use ($request, $role, $audit) {
+            $old = $role->only(['code', 'name', 'description']);
+            $old['user_ids'] = $role->users()->pluck('users.id')->all();
 
-        $audit->log($request, 'roles.delete', $role, [
-            'note' => 'Soft deleted role',
-        ]);
+            $role->delete();
 
-        return response()->json(['message' => 'Deleted.']);
+            $audit->log($request, 'roles.delete', $role, [
+                'old' => $old,
+                'note' => 'Soft deleted role',
+            ]);
+
+            return response()->json(['message' => 'Deleted.']);
+        });
     }
 }

@@ -9,8 +9,10 @@ use App\Http\Resources\RequirementDefinitionResource;
 use App\Models\RequirementDefinition;
 use App\Models\TransactionRequirementCheck;
 use App\Models\WorkflowDefinition;
+use App\Services\AuditService;
 use App\Services\ChecklistService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RequirementDefinitionController extends Controller
 {
@@ -30,7 +32,7 @@ class RequirementDefinitionController extends Controller
         return RequirementDefinitionResource::collection($items);
     }
 
-    public function store(StoreRequirementDefinitionRequest $request, WorkflowDefinition $workflowDefinition)
+    public function store(StoreRequirementDefinitionRequest $request, WorkflowDefinition $workflowDefinition, AuditService $audit)
     {
         // Live-editable: changes apply to running transactions immediately.
         $data = $request->validated();
@@ -42,27 +44,43 @@ class RequirementDefinitionController extends Controller
             $data['code'] = $this->makeUniqueCode($workflowDefinition->id, $data['name']);
         }
 
-        $item = RequirementDefinition::create(array_merge($data, [
-            'workflow_definition_id' => $workflowDefinition->id,
-        ]));
+        return DB::transaction(function () use ($request, $workflowDefinition, $data, $audit) {
+            $item = RequirementDefinition::create(array_merge($data, [
+                'workflow_definition_id' => $workflowDefinition->id,
+            ]));
 
-        return (new RequirementDefinitionResource($item))->response()->setStatusCode(201);
+            $audit->log($request, 'requirement_definitions.create', $item, [
+                'new' => $item->only(['workflow_definition_id', 'order_number', 'code', 'name', 'label', 'description', 'is_active']),
+            ]);
+
+            return (new RequirementDefinitionResource($item))->response()->setStatusCode(201);
+        });
     }
 
-    public function update(UpdateRequirementDefinitionRequest $request, WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition)
+    public function update(UpdateRequirementDefinitionRequest $request, WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition, AuditService $audit)
     {
         if ((int) $workflowDefinition->id !== (int) $requirementDefinition->workflow_definition_id) {
             return response()->json(['message' => 'Requirement does not belong to this workflow definition.'], 404);
         }
 
         // Live-editable: changes apply to running transactions immediately.
-        $requirementDefinition->update($request->validated());
-        $this->syncStepChecklists($requirementDefinition);
+        $fields = ['order_number', 'code', 'name', 'label', 'description', 'is_active'];
+        $before = $requirementDefinition->only($fields);
 
-        return new RequirementDefinitionResource($requirementDefinition);
+        return DB::transaction(function () use ($request, $requirementDefinition, $fields, $before, $audit) {
+            $requirementDefinition->update($request->validated());
+            $this->syncStepChecklists($requirementDefinition);
+
+            $audit->log($request, 'requirement_definitions.update', $requirementDefinition, [
+                'before' => $before,
+                'after' => $requirementDefinition->only($fields),
+            ]);
+
+            return new RequirementDefinitionResource($requirementDefinition);
+        });
     }
 
-    public function syncSteps(Request $request, WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition)
+    public function syncSteps(Request $request, WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition, AuditService $audit)
     {
         if ((int) $workflowDefinition->id !== (int) $requirementDefinition->workflow_definition_id) {
             return response()->json(['message' => 'Requirement does not belong to this workflow definition.'], 404);
@@ -99,17 +117,25 @@ class RequirementDefinitionController extends Controller
             }
         }
 
-        $beforeStepIds = $requirementDefinition->steps()->pluck('workflow_steps.id')->map(fn ($id) => (int) $id)->all();
-        $requirementDefinition->steps()->sync($sync);
+        return DB::transaction(function () use ($request, $workflowDefinition, $requirementDefinition, $sync, $audit) {
+            $beforeStepIds = $requirementDefinition->steps()->pluck('workflow_steps.id')->map(fn ($id) => (int) $id)->all();
+            $requirementDefinition->steps()->sync($sync);
 
-        foreach (array_unique(array_merge($beforeStepIds, array_keys($sync))) as $sid) {
-            $step = $workflowDefinition->steps()->find($sid);
-            if ($step) {
-                $this->checklists->syncSuccessorsOf($step);
+            foreach (array_unique(array_merge($beforeStepIds, array_keys($sync))) as $sid) {
+                $step = $workflowDefinition->steps()->find($sid);
+                if ($step) {
+                    $this->checklists->syncSuccessorsOf($step);
+                }
             }
-        }
 
-        return response()->json(['message' => 'Saved']);
+            $audit->log($request, 'requirement_definitions.steps_sync', $requirementDefinition, [
+                'before' => ['step_ids' => $beforeStepIds],
+                'after' => ['step_ids' => array_keys($sync)],
+                'description' => "Updated steps for {$requirementDefinition->name}",
+            ]);
+
+            return response()->json(['message' => 'Saved']);
+        });
     }
 
     private function syncStepChecklists(RequirementDefinition $requirementDefinition): void
@@ -119,7 +145,7 @@ class RequirementDefinitionController extends Controller
         }
     }
 
-    public function destroy(WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition)
+    public function destroy(Request $request, WorkflowDefinition $workflowDefinition, RequirementDefinition $requirementDefinition, AuditService $audit)
     {
         if ((int) $workflowDefinition->id !== (int) $requirementDefinition->workflow_definition_id) {
             return response()->json(['message' => 'Requirement does not belong to this workflow definition.'], 404);
@@ -134,9 +160,18 @@ class RequirementDefinitionController extends Controller
             ], 422);
         }
 
-        $requirementDefinition->delete();
+        return DB::transaction(function () use ($request, $requirementDefinition, $audit) {
+            $old = $requirementDefinition->only(['workflow_definition_id', 'order_number', 'code', 'name', 'label', 'description', 'is_active']);
+            $old['step_ids'] = $requirementDefinition->steps()->pluck('workflow_steps.id')->all();
 
-        return response()->noContent();
+            $requirementDefinition->delete();
+
+            $audit->log($request, 'requirement_definitions.delete', $requirementDefinition, [
+                'old' => $old,
+            ]);
+
+            return response()->noContent();
+        });
     }
 
     /**

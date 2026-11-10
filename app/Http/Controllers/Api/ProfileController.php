@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -41,13 +42,28 @@ class ProfileController extends Controller
             'contact_number.regex' => 'Enter a valid contact number, for example 09171234567.',
         ]);
 
-        $user->forceFill([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'Contact_number' => $data['contact_number'] ?? null,
-        ])->save();
+        DB::transaction(function () use ($request, $user, $data, $audit) {
+            $before = [
+                'name' => $user->name,
+                'email' => $user->email,
+                'Contact_number' => $user->Contact_number,
+            ];
 
-        $audit->log($request, 'profile.update', $user);
+            $user->forceFill([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'Contact_number' => $data['contact_number'] ?? null,
+            ])->save();
+
+            $audit->log($request, 'profile.update', $user, [
+                'before' => $before,
+                'after' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'Contact_number' => $user->Contact_number,
+                ],
+            ]);
+        });
 
         return response()->json(['message' => 'Profile saved.', 'profile' => $this->payload($user)]);
     }
@@ -71,8 +87,10 @@ class ProfileController extends Controller
             ], 422);
         }
 
-        $user->forceFill(['password' => Hash::make($data['password'])])->save();
-        $audit->log($request, 'profile.password', $user);
+        DB::transaction(function () use ($request, $user, $data, $audit) {
+            $user->forceFill(['password' => Hash::make($data['password'])])->save();
+            $audit->log($request, 'profile.password', $user);
+        });
 
         return response()->json(['message' => 'Password changed.']);
     }

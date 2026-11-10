@@ -7,8 +7,10 @@ use App\Http\Requests\Admin\Workflows\UpsertWorkflowStepRequest;
 use App\Http\Resources\WorkflowStepResource;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
+use App\Services\AuditService;
 use App\Services\WorkflowVersioningService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class WorkflowStepController extends Controller
 {
@@ -34,7 +36,8 @@ class WorkflowStepController extends Controller
     public function store(
         UpsertWorkflowStepRequest $request,
         WorkflowDefinition $workflowDefinition,
-        WorkflowVersioningService $svc
+        WorkflowVersioningService $svc,
+        AuditService $audit
     ) {
         $svc->assertDraft($workflowDefinition);
 
@@ -48,26 +51,37 @@ class WorkflowStepController extends Controller
             $data['code'] = $this->nextCode($workflowDefinition, (int) $data['order_number']);
         }
 
-        $step = $workflowDefinition->steps()->create($data);
+        return DB::transaction(function () use ($request, $workflowDefinition, $data, $audit) {
+            $step = $workflowDefinition->steps()->create($data);
 
-        if (isset($data['role_ids'])) {
-            $step->roles()->sync($data['role_ids']);
-        }
+            if (isset($data['role_ids'])) {
+                $step->roles()->sync($data['role_ids']);
+            }
 
-        return (new WorkflowStepResource($step->load(['roles', 'office'])))->response()->setStatusCode(201);
+            $audit->log($request, 'workflow_steps.create', $step, [
+                'new' => $step->only(['workflow_definition_id', 'parent_id', 'order_number', 'code', 'name', 'stage', 'office_id', 'sla_minutes', 'is_start', 'is_end', 'is_end_user'])
+                    + ['role_ids' => $step->roles()->pluck('roles.id')->all()],
+            ]);
+
+            return (new WorkflowStepResource($step->load(['roles', 'office'])))->response()->setStatusCode(201);
+        });
     }
 
     public function update(
         UpsertWorkflowStepRequest $request,
         WorkflowDefinition $workflowDefinition,
         WorkflowStep $workflowStep,
-        WorkflowVersioningService $svc
+        WorkflowVersioningService $svc,
+        AuditService $audit
     ) {
         $svc->assertDraft($workflowDefinition);
 
         if ((int) $workflowStep->workflow_definition_id !== (int) $workflowDefinition->id) {
             abort(404);
         }
+
+        $before = $workflowStep->only(['parent_id', 'order_number', 'code', 'name', 'stage', 'office_id', 'sla_minutes', 'is_start', 'is_end', 'is_end_user']);
+        $before['role_ids'] = $workflowStep->roles()->pluck('roles.id')->all();
 
         $data = $request->validated();
         if (array_key_exists('parent_id', $data)) {
@@ -77,20 +91,31 @@ class WorkflowStepController extends Controller
         if (empty($data['code'])) {
             unset($data['code']);
         }
-        $workflowStep->update($data);
+        return DB::transaction(function () use ($request, $workflowStep, $before, $data, $audit) {
+            $workflowStep->update($data);
 
-        if (isset($data['role_ids'])) {
-            $workflowStep->roles()->sync($data['role_ids']);
-        }
+            if (isset($data['role_ids'])) {
+                $workflowStep->roles()->sync($data['role_ids']);
+            }
 
-        return new WorkflowStepResource($workflowStep->load(['roles', 'office']));
+            $after = $workflowStep->only(['parent_id', 'order_number', 'code', 'name', 'stage', 'office_id', 'sla_minutes', 'is_start', 'is_end', 'is_end_user']);
+            $after['role_ids'] = $workflowStep->roles()->pluck('roles.id')->all();
+
+            $audit->log($request, 'workflow_steps.update', $workflowStep, [
+                'before' => $before,
+                'after' => $after,
+            ]);
+
+            return new WorkflowStepResource($workflowStep->load(['roles', 'office']));
+        });
     }
 
     public function destroy(
         Request $request,
         WorkflowDefinition $workflowDefinition,
         WorkflowStep $workflowStep,
-        WorkflowVersioningService $svc
+        WorkflowVersioningService $svc,
+        AuditService $audit
     ) {
         $svc->assertDraft($workflowDefinition);
 
@@ -107,9 +132,18 @@ class WorkflowStepController extends Controller
             ], 422);
         }
 
-        $workflowStep->delete();
+        return DB::transaction(function () use ($request, $workflowStep, $audit) {
+            $old = $workflowStep->only(['workflow_definition_id', 'parent_id', 'order_number', 'code', 'name', 'stage', 'office_id', 'sla_minutes', 'is_start', 'is_end', 'is_end_user']);
+            $old['role_ids'] = $workflowStep->roles()->pluck('roles.id')->all();
 
-        return response()->json(['message' => 'Deleted']);
+            $workflowStep->delete();
+
+            $audit->log($request, 'workflow_steps.delete', $workflowStep, [
+                'old' => $old,
+            ]);
+
+            return response()->json(['message' => 'Deleted']);
+        });
     }
 
     /**

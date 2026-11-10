@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
  * Deliberately returns no attachments, field values, remarks or staff names.
  *
  * What a viewer can see: their own transactions, plus transactions the
- * superadmin or office admin has marked searchable for Track (is_private).
+ * superadmin or office admin has marked public for Track (is_private false).
  * Tracking only. Who created it is never shown unless it is the viewer's own.
  */
 class ViewerTrackingController extends Controller
@@ -50,10 +50,10 @@ class ViewerTrackingController extends Controller
 
         if ($q !== '') {
             // Owners keep access to their own rows; everyone else needs the
-            // admin's Track-visibility toggle.
+            // admin's Public/Private toggle (private hides the row).
             $query->where(function ($w) use ($userId) {
                 $w->where('transactions.created_by', $userId)
-                    ->orWhere('transactions.is_private', true);
+                    ->orWhere('transactions.is_private', false);
             });
 
             // Treat % and _ as plain characters, not wildcards.
@@ -90,9 +90,10 @@ class ViewerTrackingController extends Controller
         }
 
         // Owners may always track their own rows; everyone else needs the
-        // superadmin's Track-visibility toggle. 404 avoids leaking existence.
+        // transaction to be Public. Private rows return 404 so Track never
+        // reveals that they exist.
         $isOwner = (int) $transaction->created_by === (int) $request->user()->id;
-        if (!$isOwner && !(bool) $transaction->is_private) {
+        if (!$isOwner && (bool) $transaction->is_private) {
             abort(404);
         }
 

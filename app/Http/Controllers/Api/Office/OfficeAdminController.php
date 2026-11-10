@@ -74,6 +74,7 @@ class OfficeAdminController extends Controller
                     'username' => $user->username,
                     'email' => $data['email'],
                     'office_id' => $officeId,
+                    'contact_number' => $user->Contact_number,
                     'is_active' => $user->is_active,
                     'role_ids' => $data['role_ids'] ?? [],
                 ],
@@ -106,8 +107,10 @@ class OfficeAdminController extends Controller
                 'name' => $user->name,
                 'username' => $user->username,
                 'email' => $user->email,
+                'contact_number' => $user->Contact_number,
                 'is_active' => (bool) $user->is_active,
                 'role_ids' => $user->roles()->pluck('roles.id')->all(),
+                'password_changed' => false,
             ];
 
             $user->name = $data['name'];
@@ -135,8 +138,10 @@ class OfficeAdminController extends Controller
                     'name' => $user->name,
                     'username' => $user->username,
                     'email' => $user->email,
+                    'contact_number' => $user->Contact_number,
                     'is_active' => (bool) $user->is_active,
                     'role_ids' => $user->roles->pluck('id')->all(),
+                    'password_changed' => !empty($data['password']),
                 ],
             ]);
 
@@ -148,12 +153,17 @@ class OfficeAdminController extends Controller
     {
         $this->assertManageable($request, $user);
 
-        $user->is_active = false;
-        $user->save();
+        DB::transaction(function () use ($request, $user, $audit) {
+            $before = ['is_active' => (bool) $user->is_active];
+            $user->is_active = false;
+            $user->save();
 
-        $audit->log($request, 'office.users.deactivate', $user, [
-            'note' => 'Deactivated by office admin',
-        ]);
+            $audit->log($request, 'office.users.deactivate', $user, [
+                'before' => $before,
+                'after' => ['is_active' => false],
+                'note' => 'Deactivated by office admin',
+            ]);
+        });
 
         return response()->json(['message' => 'User deactivated.']);
     }
@@ -162,8 +172,16 @@ class OfficeAdminController extends Controller
     public function approveUser(Request $request, User $user, UserApproval $approval, AuditService $audit)
     {
         $this->assertManageable($request, $user);
-        $approval->approve($user, $request->user());
-        $audit->log($request, 'office.users.approve', $user);
+
+        DB::transaction(function () use ($request, $user, $approval, $audit) {
+            $before = ['is_active' => (bool) $user->is_active, 'approved_at' => $user->approved_at?->toIso8601String(), 'approved_by' => $user->approved_by];
+            $approval->approve($user, $request->user());
+            $user->refresh();
+            $audit->log($request, 'office.users.approve', $user, [
+                'before' => $before,
+                'after' => ['is_active' => (bool) $user->is_active, 'approved_at' => $user->approved_at?->toIso8601String(), 'approved_by' => $user->approved_by],
+            ]);
+        });
 
         return new UserResource($user->load(['roles', 'office']));
     }
@@ -172,8 +190,13 @@ class OfficeAdminController extends Controller
     public function rejectUser(Request $request, User $user, UserApproval $approval, AuditService $audit)
     {
         $this->assertManageable($request, $user);
-        $audit->log($request, 'office.users.reject', $user, ['payload' => ['email' => $user->email, 'name' => $user->name]]);
-        $approval->reject($user);
+
+        $old = ['email' => $user->email, 'name' => $user->name];
+
+        DB::transaction(function () use ($request, $user, $approval, $audit, $old) {
+            $approval->reject($user);
+            $audit->log($request, 'office.users.reject', $user, ['old' => $old]);
+        });
 
         return response()->json(['message' => 'Request rejected.']);
     }

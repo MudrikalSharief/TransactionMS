@@ -4,7 +4,7 @@
 - `users (id, name, email unique, password, is_active, rememberToken)` + `password_reset_tokens, sessions`
 - `roles (id, code unique, name, description, softDeletes)`, `role_user (user-role M2M)`
 - `permissions, permission_role` — scaffolded, unused by engine
-- `audit_logs (actor, event, entity, ip, ua)` via `AuditService`
+- `audit_logs (actor snapshot, event, module/action, entity, old/new values, changed fields, office/transaction links, request id, ip, ua)` via `AuditService`; append-only
 
 ## Catalog
 - `transaction_types (id, code unique, name, description, is_active, softDeletes)`

@@ -253,7 +253,7 @@ class DashboardSummaryController extends Controller
         // Who deleted it lives in the audit log (transactions.delete).
         $logs = AuditLog::query()
             ->where('event', 'transactions.delete')
-            ->where('entity_type', Transaction::class)
+            ->whereIn('entity_type', ['transaction', Transaction::class])
             ->whereIn('entity_id', $txs->pluck('id'))
             ->orderByDesc('id')
             ->get(['entity_id', 'actor_user_id'])

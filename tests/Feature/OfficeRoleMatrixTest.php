@@ -62,7 +62,7 @@ class OfficeRoleMatrixTest extends TestCase
         $this->hr = Office::create(['code' => 'HR', 'name' => 'Human Resources']);
 
         foreach (['superadmin', 'admin', 'clerk', 'approver', 'end_user'] as $code) {
-            $this->roles[$code] = Role::create(['code' => $code, 'name' => ucfirst($code)]);
+            $this->roles[$code] = Role::firstOrCreate(['code' => $code], ['name' => ucfirst($code)]);
         }
 
         $this->type = TransactionType::create(['code' => 'pr', 'name' => 'Purchase Request']);

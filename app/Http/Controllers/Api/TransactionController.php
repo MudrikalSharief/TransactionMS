@@ -14,6 +14,7 @@ use App\Services\TransactionEngine;
 use App\Services\TransactionVisibility;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransactionController extends Controller
 {
@@ -118,14 +119,16 @@ class TransactionController extends Controller
             'office_id' => ['required', 'integer', 'exists:offices,id'],
         ]);
 
-        $before = ['office_id' => $transaction->office_id];
-        $transaction->office_id = $data['office_id'];
-        $transaction->save();
+        DB::transaction(function () use ($request, $transaction, $data, $audit) {
+            $before = ['office_id' => $transaction->office_id];
+            $transaction->office_id = $data['office_id'];
+            $transaction->save();
 
-        $audit->log($request, 'transactions.reassign_office', $transaction, [
-            'before' => $before,
-            'after' => ['office_id' => $transaction->office_id],
-        ]);
+            $audit->log($request, 'transactions.reassign_office', $transaction, [
+                'before' => $before,
+                'after' => ['office_id' => $transaction->office_id],
+            ]);
+        });
 
         $transaction->load([
             'type',
@@ -168,9 +171,9 @@ class TransactionController extends Controller
     }
 
     /**
-     * Admin Track search visibility. When is_private is true the transaction
-     * is discoverable by other viewer accounts through /track. Office admins
-     * can change this only for transactions in their office scope.
+     * Admin Public/Private toggle. When is_private is true the transaction is
+     * hidden from other viewer accounts on /track; false makes it searchable.
+     * Office admins can change this only for transactions in their scope.
      */
     public function updatePrivacy(Request $request, Transaction $transaction, AuditService $audit)
     {
@@ -182,18 +185,20 @@ class TransactionController extends Controller
         $transaction->is_private = (bool) $data['is_private'];
 
         if ($transaction->isDirty('is_private')) {
-            $transaction->save();
+            DB::transaction(function () use ($request, $transaction, $before, $audit) {
+                $transaction->save();
 
-            $audit->log($request, 'transactions.privacy', $transaction, [
-                'before' => ['is_private' => $before],
-                'after' => ['is_private' => (bool) $transaction->is_private],
-            ]);
+                $audit->log($request, 'transactions.privacy', $transaction, [
+                    'before' => ['is_private' => $before],
+                    'after' => ['is_private' => (bool) $transaction->is_private],
+                ]);
+            });
         }
 
         return response()->json([
             'message' => $transaction->is_private
-                ? 'Transaction is now searchable on Track.'
-                : 'Transaction removed from Track search.',
+                ? 'Transaction is now private (hidden from Track search).'
+                : 'Transaction is now public (searchable on Track).',
             'data' => [
                 'id' => $transaction->id,
                 'is_private' => (bool) $transaction->is_private,

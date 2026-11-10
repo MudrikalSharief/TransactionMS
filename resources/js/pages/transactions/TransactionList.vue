@@ -467,8 +467,8 @@
                 :class="{ 'is-on': item.is_private }"
                 role="switch"
                 :aria-checked="item.is_private ? 'true' : 'false'"
-                :aria-label="`Set ${item.reference_number || 'transaction'} ${item.is_private ? 'hidden from' : 'searchable on'} Track`"
-                :title="item.is_private ? 'Private · searchable on Track' : 'Private · hidden from Track search'"
+                :aria-label="`Set ${item.reference_number || 'transaction'} ${item.is_private ? 'searchable on' : 'hidden from'} Track`"
+                :title="item.is_private ? 'Private · hidden from Track search' : 'Public · searchable on Track'"
                 :disabled="privacySavingId === item.id"
                 @click="togglePrivacy(item, !item.is_private)"
               >
@@ -984,8 +984,8 @@ async function togglePrivacy(item, value) {
     item.is_private = !!value
     toast.success(
       value
-        ? 'Transaction is now searchable on Track.'
-        : 'Transaction removed from Track search.',
+        ? 'Transaction is now private (hidden from Track search).'
+        : 'Transaction is now public (searchable on Track).',
     )
   } catch (e) {
     error.value = e?.response?.data?.message || 'Privacy update failed.'

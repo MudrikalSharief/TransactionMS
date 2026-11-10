@@ -1,6 +1,6 @@
 <template>
     <div class="fit-page">
-        <Teleport to="#app-bar-time-meta">
+        <Teleport defer to="#app-bar-time-meta">
             <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
                 <span>{{ todayLabel }}</span>
                 <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
@@ -1187,13 +1187,20 @@ async function loadSummary() {
     if (!quiet) summaryLoading.value = true
     summaryError.value = ''
     try {
-        const res = await api.get(summaryApiBase(), { params: summaryQuery.value })
+        const res = await api.get(summaryApiBase(), {
+            params: summaryQuery.value,
+            timeout: 10000,
+        })
         if (mine === summaryRequest) {
             summary.value = res.data
             writeCache(cacheKey, res.data)
         }
     } catch (e) {
-        if (mine === summaryRequest && summary.value == null) summaryError.value = e?.response?.data?.message || 'Failed to load the summary.'
+        if (mine === summaryRequest && summary.value == null) {
+            summaryError.value = e?.code === 'ECONNABORTED'
+                ? 'The transaction summary took too long to load. Change the period or refresh the page.'
+                : (e?.response?.data?.message || 'Failed to load the summary.')
+        }
     } finally {
         if (mine === summaryRequest) summaryLoading.value = false
     }
@@ -1515,22 +1522,29 @@ onMounted(async () => {
         isCached(scopedKey(CacheKeys.transactions, uid))
     loading.value = !warm
     const opts = { silent: warm }
-    const summaryDone = loadSummary()
-    // Process/office filter options; cached, so these never hold up the page.
-    if (isSuperadmin.value) {
-        typeStore.fetchAll({ silent: true }).catch(() => {})
-        officeStore.fetchAll({ silent: true }).catch(() => {})
-    }
-    if (canApproveAccounts.value) loadAccounts()
 
+    // Critical path first. The full-page veil waits only for this fetch, so
+    // it must not queue behind summary/filter/account requests — on the
+    // single-threaded dev server every request is processed in order.
     try {
-        await txStore.fetchAll(opts)
+        // Cap the first list fetch so a stalled request can never keep the
+        // full-page veil up forever. The list still updates if it finishes
+        // after the timeout; the page just stops blocking on it.
+        await txStore.fetchAll({ ...opts, timeout: 8000 })
     } catch { /* keep defaults */ }
 
     refreshedAt.value = new Date()
     loading.value = false
-    await summaryDone.catch(() => {})
     entering.value = false
+
+    // The page is usable now. Fill the remaining cards in the background:
+    // summary first (most visible), then accounts, then filter lookups.
+    loadSummary().catch(() => {})
+    if (canApproveAccounts.value) loadAccounts()
+    if (isSuperadmin.value) {
+        typeStore.fetchAll({ silent: true }).catch(() => {})
+        officeStore.fetchAll({ silent: true }).catch(() => {})
+    }
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.

@@ -7,7 +7,9 @@ use App\Http\Requests\Admin\Fields\SyncStepFieldsRequest;
 use App\Http\Resources\FieldDefinitionResource;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StepFieldController extends Controller
 {
@@ -22,7 +24,7 @@ class StepFieldController extends Controller
         return FieldDefinitionResource::collection($fields);
     }
 
-    public function sync(SyncStepFieldsRequest $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep)
+    public function sync(SyncStepFieldsRequest $request, WorkflowDefinition $workflowDefinition, WorkflowStep $workflowStep, AuditService $audit)
     {
         if ((int) $workflowStep->workflow_definition_id !== (int) $workflowDefinition->id) {
             return response()->json(['message' => 'Step does not belong to this workflow definition.'], 404);
@@ -42,10 +44,31 @@ class StepFieldController extends Controller
             ];
         }
 
-        $workflowStep->fieldDefinitions()->sync($payload);
+        return DB::transaction(function () use ($request, $workflowStep, $payload, $audit) {
+            $before = $workflowStep->fieldDefinitions()->get()->map(fn ($field) => [
+                'field_definition_id' => (int) $field->id,
+                'display_order' => (int) ($field->pivot?->display_order ?? 0),
+                'required_override' => $field->pivot?->required_override,
+            ])->values()->all();
 
-        $fields = $workflowStep->fieldDefinitions()->get();
+            $workflowStep->fieldDefinitions()->sync($payload);
 
-        return FieldDefinitionResource::collection($fields);
+            $fields = $workflowStep->fieldDefinitions()->get();
+
+            $after = $fields->map(fn ($field) => [
+                'field_definition_id' => (int) $field->id,
+                'display_order' => (int) ($field->pivot?->display_order ?? 0),
+                'required_override' => $field->pivot?->required_override,
+            ])->values()->all();
+
+            $audit->log($request, 'step_fields.sync', $workflowStep, [
+                'before' => ['fields' => $before],
+                'after' => ['fields' => $after],
+                'entity_label' => $workflowStep->name,
+                'description' => "Updated fields for {$workflowStep->name}",
+            ]);
+
+            return FieldDefinitionResource::collection($fields);
+        });
     }
 }

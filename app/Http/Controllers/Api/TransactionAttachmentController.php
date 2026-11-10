@@ -9,9 +9,11 @@ use App\Models\RequirementDefinition;
 use App\Models\Transaction;
 use App\Models\TransactionAttachment;
 use App\Models\WorkflowStep;
+use App\Services\AuditService;
 use App\Services\RoutingEngine;
 use App\Services\StepFileAccess;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class TransactionAttachmentController extends Controller
@@ -36,7 +38,8 @@ class TransactionAttachmentController extends Controller
     public function store(
         UploadAttachmentRequest $request,
         Transaction $transaction,
-        RoutingEngine $routing
+        RoutingEngine $routing,
+        AuditService $audit
     ) {
         // Current-step workers only (existing gate). Files always belong
         // to the current step.
@@ -76,19 +79,44 @@ class TransactionAttachmentController extends Controller
             abort(422, 'File type not allowed.');
         }
         $path = $file->store('attachments/'.now()->format('Y/m')."/{$transaction->id}/{$stepId}", 'local');
+        if (!$path) {
+            abort(422, 'Unable to store the attachment file.');
+        }
 
-        $attachment = TransactionAttachment::create([
-            'transaction_id' => $transaction->id,
-            'workflow_step_id' => $stepId,
-            'requirement_definition_id' => $requirementId,
-            'original_name' => $file->getClientOriginalName(),
-            'label' => ($label = trim((string) ($validated['label'] ?? ''))) !== '' ? mb_substr($label, 0, 120) : null,
-            'stored_path' => $path,
-            'disk' => 'local',
-            'mime' => $file->getMimeType(),
-            'size_bytes' => $file->getSize(),
-            'uploaded_by' => $request->user()->id,
-        ]);
+        try {
+            $attachment = DB::transaction(function () use ($request, $transaction, $stepId, $requirementId, $validated, $file, $path, $audit) {
+                $attachment = TransactionAttachment::create([
+                    'transaction_id' => $transaction->id,
+                    'workflow_step_id' => $stepId,
+                    'requirement_definition_id' => $requirementId,
+                    'original_name' => $file->getClientOriginalName(),
+                    'label' => ($label = trim((string) ($validated['label'] ?? ''))) !== '' ? mb_substr($label, 0, 120) : null,
+                    'stored_path' => $path,
+                    'disk' => 'local',
+                    'mime' => $file->getMimeType(),
+                    'size_bytes' => $file->getSize(),
+                    'uploaded_by' => $request->user()->id,
+                ]);
+
+                $audit->log($request, 'transactions.attachment_upload', $attachment, [
+                    'new' => [
+                        'original_name' => $attachment->original_name,
+                        'label' => $attachment->label,
+                        'workflow_step_id' => $attachment->workflow_step_id,
+                        'requirement_definition_id' => $attachment->requirement_definition_id,
+                        'mime' => $attachment->mime,
+                        'size_bytes' => $attachment->size_bytes,
+                    ],
+                    'transaction_id' => $transaction->id,
+                    'office_id' => $transaction->office_id,
+                ]);
+
+                return $attachment;
+            });
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($path);
+            throw $e;
+        }
 
         $attachment->load(['step', 'requirement', 'uploader']);
 
@@ -149,7 +177,7 @@ class TransactionAttachmentController extends Controller
      * requirement; without it, it links as a proceed-level
      * (Additional files) attachment carrying the source label.
      */
-    public function reuse(Request $request, Transaction $transaction, RoutingEngine $routing)
+    public function reuse(Request $request, Transaction $transaction, RoutingEngine $routing, AuditService $audit)
     {
         $routing->assertUserCanExecute($transaction, $request->user());
 
@@ -225,19 +253,35 @@ class TransactionAttachmentController extends Controller
             ? $source->label
             : ((($l = trim((string) ($data['label'] ?? ''))) !== '') ? mb_substr($l, 0, 120) : $source->label);
 
-        $link = TransactionAttachment::create([
-            'transaction_id' => $transaction->id,
-            'workflow_step_id' => $currentStepId,
-            'requirement_definition_id' => $requirementId,
-            'source_attachment_id' => $source->id,
-            'original_name' => $source->original_name,
-            'label' => $linkLabel,
-            'stored_path' => $source->stored_path,
-            'disk' => $source->disk,
-            'mime' => $source->mime,
-            'size_bytes' => $source->size_bytes,
-            'uploaded_by' => $request->user()->id,
-        ]);
+        $link = DB::transaction(function () use ($request, $transaction, $currentStepId, $requirementId, $source, $linkLabel, $audit) {
+            $link = TransactionAttachment::create([
+                'transaction_id' => $transaction->id,
+                'workflow_step_id' => $currentStepId,
+                'requirement_definition_id' => $requirementId,
+                'source_attachment_id' => $source->id,
+                'original_name' => $source->original_name,
+                'label' => $linkLabel,
+                'stored_path' => $source->stored_path,
+                'disk' => $source->disk,
+                'mime' => $source->mime,
+                'size_bytes' => $source->size_bytes,
+                'uploaded_by' => $request->user()->id,
+            ]);
+
+            $audit->log($request, 'transactions.attachment_reuse', $link, [
+                'new' => [
+                    'original_name' => $link->original_name,
+                    'label' => $link->label,
+                    'workflow_step_id' => $link->workflow_step_id,
+                    'requirement_definition_id' => $link->requirement_definition_id,
+                    'source_attachment_id' => $link->source_attachment_id,
+                ],
+                'transaction_id' => $transaction->id,
+                'office_id' => $transaction->office_id,
+            ]);
+
+            return $link;
+        });
 
         $link->load(['step', 'requirement', 'uploader', 'source']);
 
@@ -251,7 +295,7 @@ class TransactionAttachmentController extends Controller
      * Travelled links stay detachable: only the reference row is deleted,
      * the owner file keeps its own history stamps.
      */
-    public function unlink(Request $request, Transaction $transaction, int $attachment, RoutingEngine $routing)
+    public function unlink(Request $request, Transaction $transaction, int $attachment, RoutingEngine $routing, AuditService $audit)
     {
         $routing->assertUserCanExecute($transaction, $request->user());
 
@@ -278,12 +322,21 @@ class TransactionAttachmentController extends Controller
             abort(422, 'Only files linked on the current step can be removed.');
         }
 
-        $model->delete();
+        DB::transaction(function () use ($request, $transaction, $model, $audit) {
+            $old = $model->only(['original_name', 'label', 'workflow_step_id', 'requirement_definition_id', 'source_attachment_id']);
+            $model->delete();
+
+            $audit->log($request, 'transactions.attachment_unlink', $model, [
+                'old' => $old,
+                'transaction_id' => $transaction->id,
+                'office_id' => $transaction->office_id,
+            ]);
+        });
 
         return response()->json(['message' => 'Reference removed. The original file is kept.']);
     }
 
-    public function destroy(Request $request, Transaction $transaction, int $attachment, RoutingEngine $routing)
+    public function destroy(Request $request, Transaction $transaction, int $attachment, RoutingEngine $routing, AuditService $audit)
     {
         $model = TransactionAttachment::whereKey($attachment)->first();
         if (!$model) {
@@ -322,11 +375,22 @@ class TransactionAttachmentController extends Controller
         $dependentIds = TransactionAttachment::where('source_attachment_id', $attachment->id)->pluck('id')->all();
         $path = $attachment->stored_path;
         $disk = $attachment->disk ?: 'local';
+        $old = $attachment->only(['original_name', 'label', 'workflow_step_id', 'requirement_definition_id', 'mime', 'size_bytes']);
 
-        $attachment->delete();
+        DB::transaction(function () use ($request, $transaction, $attachment, $old, $dependentIds, $audit) {
+            $attachment->delete();
+
+            $audit->log($request, 'transactions.attachment_delete', $attachment, [
+                'old' => $old,
+                'transaction_id' => $transaction->id,
+                'office_id' => $transaction->office_id,
+                'note' => $dependentIds ? 'Linked references were removed with the original file.' : null,
+                'cascaded_link_ids' => $dependentIds,
+            ]);
+        });
 
         // Delete the physical file only when no rows reference it anymore
-        // (owner deleted + all its links gone).
+        // (owner deleted + all its links gone), and only after commit.
         $stillReferenced = TransactionAttachment::where('stored_path', $path)->exists();
         if (!$stillReferenced) {
             Storage::disk($disk)->delete($path);
