@@ -1717,6 +1717,15 @@ onUnmounted(() => {
     min-height: calc(100vh - 64px);
     min-height: calc(100dvh - 64px);
 }
+/* Desktop-sized windows run the dashboard in fit-the-screen mode (app.css):
+   no page scroll, so a full-screen min-height would push the footer below
+   the window where it can never be reached. There the page shrinks to share
+   the screen with the footer instead (same breakpoint as useFitScreen). */
+@media (min-width: 1100px) and (min-height: 560px) {
+    .app-main--fit .app-page--dashboard {
+        min-height: 0;
+    }
+}
 .app-foot-spacer {
     flex: 1 1 auto;
 }

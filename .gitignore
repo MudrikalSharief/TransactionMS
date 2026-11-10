@@ -27,3 +27,6 @@ accounts.txt
 
 # graphify output is local-only; build it locally with /graphify or graphify update
 /graphify-out/
+
+# XAMPP watchdog output (recreated by scripts/windows/xampp-watchdog.bat)
+/scripts/windows/logs/
