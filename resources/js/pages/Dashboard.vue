@@ -1,6 +1,6 @@
 <template>
     <div class="fit-page">
-        <Teleport defer to="#app-bar-time-meta">
+        <Teleport v-if="!isSuperadmin" defer to="#app-bar-time-meta">
             <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
                 <span>{{ todayLabel }}</span>
                 <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
@@ -158,19 +158,21 @@
             <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
                 {{ summaryError }}
             </v-alert>
-            <div class="summary-tiles" :class="{ 'summary-stale': summaryLoading && summary }">
-                <StatCard
+            <div
+                class="summary-strip"
+                role="group"
+                aria-label="Transaction summary"
+                :class="{ 'summary-stale': summaryLoading && summary }"
+            >
+                <button
                     v-for="tile in summaryTiles"
                     :key="tile.key"
-                    :ref="(el) => (tileEls[tile.key] = el?.$el ?? null)"
-                    :label="tile.label"
-                    :value="tile.value"
-                    :hint="tile.hint"
-                    :variant="tile.variant"
-                    :icon="tile.icon"
-                    :loading="summaryLoading && !summary"
-                    cta="Show list"
-                    @activate="openDetail(tile.key, tileEls[tile.key])"
+                    :ref="(el) => (tileEls[tile.key] = el)"
+                    type="button"
+                    class="summary-seg"
+                    :class="`summary-seg--${tile.variant}`"
+                    :aria-label="`${tile.label}: ${tile.value}. Open list.`"
+                    @click="openDetail(tile.key, tileEls[tile.key])"
                 >
                     <SummaryPopover
                         :category="tile.key"
@@ -179,7 +181,22 @@
                         :disabled="!summary"
                         @expand="openDetail(tile.key, tileEls[tile.key])"
                     />
-                </StatCard>
+                    <span class="summary-seg-num">
+                        <v-progress-circular
+                            v-if="summaryLoading && !summary"
+                            indeterminate
+                            tag="span"
+                            size="22"
+                            width="3"
+                            color="grey-darken-1"
+                        />
+                        <template v-else>{{ tile.value }}</template>
+                    </span>
+                    <span class="summary-seg-copy">
+                        <span class="summary-seg-label">{{ tile.label }}</span>
+                        <span class="summary-seg-hint">{{ tile.hint }}</span>
+                    </span>
+                </button>
             </div>
         </div>
         <!-- Cards render in the user's saved order, each in the next slot of
@@ -643,7 +660,6 @@ import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import SummaryPopover from '@/components/SummaryPopover.vue'
 import ProcessPie from '@/components/ProcessPie.vue'
-import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
@@ -741,13 +757,17 @@ const refreshedLabel = computed(() =>
 // Default order; the staff layout swaps the graph for the queue. The
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
+    if (isSuperadmin.value) return ['graph', 'byprocess', 'action', 'recent']
     if (canSeeSummary.value) {
         return ['graph', 'byprocess', 'action', 'recent', 'start']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
 // Width of each grid slot, out of 12 columns; two rows.
-const slotSpans = computed(() => (canSeeSummary.value ? [8, 4, 5, 4, 3] : [8, 4, 8, 4]))
+const slotSpans = computed(() => {
+    if (isSuperadmin.value) return [8, 4, 6, 6]
+    return canSeeSummary.value ? [8, 4, 5, 4, 3] : [8, 4, 8, 4]
+})
 function slotStyle(id) {
     return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
 }
@@ -1215,9 +1235,9 @@ const summaryScopeText = computed(
 const summaryTiles = computed(() => {
     const s = summary.value || {}
     return [
-        { key: 'completed', label: 'Completed', icon: 'mdi-check-bold', variant: 'success', value: s.completed ?? '—', hint: 'Finalized in this period' },
-        { key: 'in_process', label: 'In-process', icon: 'mdi-timer-sand', variant: 'warning', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
-        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', variant: 'danger', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
+        { key: 'completed', label: 'Completed', variant: 'success', value: s.completed ?? '—', hint: 'Finalized' },
+        { key: 'in_process', label: 'In process', variant: 'warning', value: s.in_process ?? '—', hint: 'Still open' },
+        { key: 'overdue', label: 'Overdue', variant: 'danger', value: s.overdue ?? '—', hint: 'Past time limit' },
     ]
 })
 
@@ -1328,11 +1348,9 @@ const startLinks = computed(() => {
     }
     const links = [
         { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', tile: '#0B2B66', go: goToHelp },
-        isSuperadmin.value
-            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
-            : isOfficeAdmin.value
-              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
-              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue },
+        isOfficeAdmin.value
+            ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
+            : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue },
     ]
     if (isOfficeAdmin.value) {
         links.push({
@@ -1342,16 +1360,6 @@ const startLinks = computed(() => {
             color: '#005EED',
             tile: '#8B5CF6',
             go: () => router.push('/office/users'),
-        })
-    }
-    if (isSuperadmin.value) {
-        links.push({
-            title: 'Manage offices',
-            subtitle: 'Offices, steps, and assignments',
-            icon: 'mdi-office-building-outline',
-            color: '#005EED',
-            tile: '#8B5CF6',
-            go: () => router.push('/admin/offices'),
         })
     }
     return links
@@ -1814,11 +1822,112 @@ onUnmounted(() => {
         display: none;
     }
 }
-/* ---- Transaction Summary card ---- */
-.summary-tiles {
+/* ---- Transaction Summary strip ---- */
+.summary-strip {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    border-radius: 14px;
+    background: rgb(var(--v-theme-surface));
+    overflow: hidden;
+}
+.summary-seg {
+    --strip-accent: #1c7c4d;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    padding: 18px 24px;
+    border: 0;
+    border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    background: color-mix(in srgb, var(--strip-accent) 7%, rgb(var(--v-theme-surface)));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.summary-seg:last-child {
+    border-right: 0;
+}
+.summary-seg:hover {
+    background: color-mix(in srgb, var(--strip-accent) 13%, rgb(var(--v-theme-surface)));
+}
+.summary-seg:active {
+    background: color-mix(in srgb, var(--strip-accent) 18%, rgb(var(--v-theme-surface)));
+    box-shadow: inset 0 -3px 0 var(--strip-accent);
+}
+.summary-seg:focus-visible {
+    outline: 3px solid rgb(var(--v-theme-primary));
+    outline-offset: -3px;
+}
+.summary-seg--success {
+    --strip-accent: #1c7c4d;
+}
+.summary-seg--warning {
+    --strip-accent: #a55e00;
+}
+.summary-seg--danger {
+    --strip-accent: #c62f3b;
+}
+html.dark .summary-seg--success {
+    --strip-accent: #5fd49a;
+}
+html.dark .summary-seg--warning {
+    --strip-accent: #ffb84d;
+}
+html.dark .summary-seg--danger {
+    --strip-accent: #ff7a85;
+}
+.summary-seg-num {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--v-theme-on-surface));
+}
+.summary-seg-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.summary-seg-label {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--strip-accent);
+}
+.summary-seg-hint {
+    font-size: 12px;
+    line-height: 1.2;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+@media (max-width: 760px) {
+    .summary-strip {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .summary-seg {
+        padding: 14px 18px;
+        border-right: 0;
+        border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    }
+    .summary-seg:last-child {
+        border-bottom: 0;
+    }
+    .summary-seg-num {
+        font-size: 44px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .summary-seg {
+        transition: none;
+    }
 }
 .dash-hello-actions {
     display: flex;
