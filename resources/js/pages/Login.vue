@@ -42,6 +42,18 @@
         <div class="artboard" :style="{ '--s': scale }">
             <section class="card">
                 <h1 class="sr-only">TransactionMS sign in</h1>
+                <!-- System emblem on the sign-in screen; the large file only on sharp screens. -->
+                <img
+                    v-if="mode === 'signin'"
+                    class="card-logo"
+                    :src="'/tms-logo-128.png'"
+                    :srcset="'/tms-logo-128.png 128w, /tms-logo.png 512w'"
+                    sizes="104px"
+                    alt="Transaction Management System emblem"
+                    width="104"
+                    height="104"
+                    decoding="async"
+                />
                 <span class="accent" aria-hidden="true"></span>
 
                 <Transition name="swap" mode="out-in">
@@ -913,6 +925,26 @@ async function guestLogin() {
     margin-bottom: 10px;
     font-size: 46px;
 }
+/* System emblem above the blue bar on the sign-in screen: a white medallion
+   with the Sign In button's blue gradient as its ring, lifted like the
+   white chips in the artwork. */
+.card-logo {
+    display: block;
+    box-sizing: content-box;
+    width: 104px;
+    height: 104px;
+    margin: 0 auto 22px;
+    padding: 6px;
+    border: 3px solid transparent;
+    border-radius: 50%;
+    object-fit: contain;
+    background:
+        linear-gradient(#fff, #fff) padding-box,
+        linear-gradient(135deg, var(--blue), var(--blue-deep)) border-box;
+    box-shadow:
+        0 0 0 6px rgba(255, 255, 255, 0.7),
+        0 16px 30px -12px rgba(29, 86, 196, 0.45);
+}
 .sub {
     margin: 0 0 20px;
     text-align: center;
@@ -1668,6 +1700,12 @@ async function guestLogin() {
     }
     .card-title.is-small {
         font-size: 30px;
+    }
+    .card-logo {
+        width: 72px;
+        height: 72px;
+        padding: 4px;
+        margin-bottom: 16px;
     }
     .sub,
     .field label:not(.sr-only),
