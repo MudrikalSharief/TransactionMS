@@ -43,7 +43,7 @@ class OfficeAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'username' => User::usernameRules(false),
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
+            'email' => ['nullable', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
@@ -57,7 +57,7 @@ class OfficeAdminController extends Controller
             $user = User::create([
                 'name' => $data['name'],
                 'username' => $data['username'] ?? null,
-                'email' => $data['email'],
+                'email' => $data['email'] ?? null,
                 'office_id' => $officeId,
                 'Contact_number' => $data['contact_number'] ?? null,
                 'password' => Hash::make($data['password']),
@@ -72,7 +72,7 @@ class OfficeAdminController extends Controller
                 'payload' => [
                     'name' => $data['name'],
                     'username' => $user->username,
-                    'email' => $data['email'],
+                    'email' => $data['email'] ?? null,
                     'office_id' => $officeId,
                     'contact_number' => $user->Contact_number,
                     'is_active' => $user->is_active,
@@ -94,7 +94,7 @@ class OfficeAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'username' => User::usernameRules(false, $user->id),
-            'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $user->id],
+            'email' => ['nullable', 'email', 'max:190', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:8'],
             'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
@@ -117,7 +117,9 @@ class OfficeAdminController extends Controller
             if (array_key_exists('username', $data)) {
                 $user->username = $data['username'];
             }
-            $user->email = $data['email'];
+            if (array_key_exists('email', $data)) {
+                $user->email = $data['email'];
+            }
             $user->is_active = $data['is_active'] ?? $user->is_active;
             if (array_key_exists('contact_number', $data)) {
                 $user->Contact_number = $data['contact_number'];

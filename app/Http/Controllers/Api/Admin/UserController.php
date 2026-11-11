@@ -34,7 +34,7 @@ class UserController extends Controller
             $user = User::create([
                 'name' => $data['name'],
                 'username' => $data['username'] ?? null,
-                'email' => $data['email'],
+                'email' => $data['email'] ?? null,
                 'office_id' => $data['office_id'] ?? null,
                 'Contact_number' => $data['contact_number'] ?? null,
                 'password' => Hash::make($data['password']),
@@ -53,7 +53,7 @@ class UserController extends Controller
                 'payload' => [
                     'name' => $data['name'],
                     'username' => $user->username,
-                    'email' => $data['email'],
+                    'email' => $data['email'] ?? null,
                     'office_id' => $data['office_id'] ?? null,
                     'contact_number' => $user->Contact_number,
                     'is_active' => $user->is_active,
@@ -85,7 +85,9 @@ class UserController extends Controller
             if (array_key_exists('username', $data)) {
                 $user->username = $data['username'];
             }
-            $user->email = $data['email'];
+            if (array_key_exists('email', $data)) {
+                $user->email = $data['email'];
+            }
             $user->is_active = $data['is_active'] ?? $user->is_active;
 
             if (array_key_exists('office_id', $data)) {

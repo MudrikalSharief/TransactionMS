@@ -25,7 +25,7 @@
             v-model="search"
             type="search"
             class="us-search-input"
-            placeholder="Search name, email, role or office"
+            placeholder="Search name, username, role or office"
             aria-label="Search users"
             autocomplete="off"
           />
@@ -275,7 +275,6 @@
             @click="startNameEdit(item)"
           >
             <span class="us-name">{{ item.name }}</span>
-            <span v-if="item.username" class="us-handle">@{{ item.username }}</span>
             <v-icon
               v-if="canInlineEdit(item)"
               class="us-edit-hint"
@@ -285,8 +284,14 @@
           </button>
         </template>
 
-        <template v-slot:[`item.email`]="{ item }">
-          <span class="us-email">{{ item.email }}</span>
+        <template v-slot:[`item.username`]="{ item }">
+          <span v-if="item.username" class="us-email">{{ item.username }}</span>
+          <span v-else class="us-dash">—</span>
+        </template>
+
+        <template v-slot:[`item.contact_number`]="{ item }">
+          <span v-if="item.contact_number" class="us-email">{{ item.contact_number }}</span>
+          <span v-else class="us-dash" title="No contact number">—</span>
         </template>
 
         <template v-slot:[`item.roles`]="{ item }">
@@ -768,13 +773,13 @@
               {{ errors.username }}
             </div>
             <div v-else id="nu-username-hint" class="nu-hint">
-              They can sign in with this or their email.
+              Their sign-in name. Leave blank to generate one from the full name.
             </div>
           </div>
 
           <div class="nu-field" :class="{ 'is-bad': errors.email }">
             <label class="nu-label" for="nu-email">
-              Email <span class="nu-req" aria-hidden="true">*</span>
+              Email <span class="nu-opt">(optional)</span>
             </label>
             <input
               id="nu-email"
@@ -788,7 +793,6 @@
               autocapitalize="none"
               spellcheck="false"
               inputmode="email"
-              aria-required="true"
               :aria-invalid="!!errors.email"
               :aria-describedby="errors.email ? 'nu-email-err' : undefined"
               :disabled="saving"
@@ -1049,6 +1053,7 @@ import { useApi } from '@/composables/useApi'
 import { confirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import ScopeChip from '@/components/ScopeChip.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
@@ -1060,9 +1065,9 @@ const officeMode = !!useRoute().meta.officeScope
 const { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser } =
   useAdminUsers({ office: officeMode })
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true)
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil()
 const { roles: allRoles, loading: allRolesLoading, fetchRoles: fetchAllRoles } = useRoles()
 const { items: offices, loading: officesLoading, fetchAll: fetchOffices } = useOffices()
 
@@ -1105,16 +1110,18 @@ const ACTIONS_W = 132
 // inside their columns, and Status and the actions always stay in view.
 const headers = officeMode
   ? [
-      { title: 'Name', key: 'name', width: '30%' },
-      { title: 'Email', key: 'email', width: '25%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '18%' },
+      { title: 'Name', key: 'name', width: '24%' },
+      { title: 'Username', key: 'username', width: '17%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '16%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '16%' },
       { title: 'Status', key: 'is_active', width: '13%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
   : [
-      { title: 'Name', key: 'name', width: '24%' },
-      { title: 'Email', key: 'email', width: '22%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
+      { title: 'Name', key: 'name', width: '19%' },
+      { title: 'Username', key: 'username', width: '14%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '14%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '13%' },
       { title: 'Office', key: 'office', sortable: false, width: '16%' },
       { title: 'Status', key: 'is_active', width: '13%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
@@ -1366,7 +1373,7 @@ function itemOfficeId(item) {
   return null
 }
 
-// The update endpoints require name and email, so every inline save sends
+// Inline updates send the full current row, including optional contact email,
 // the full current row plus the one field that changed.
 function buildUserPayload(item, overrides = {}) {
   return {
@@ -1618,7 +1625,7 @@ async function approve(item) {
 async function reject(item) {
   const ok = await confirm({
     title: 'Reject this request?',
-    message: `${item.name} (${item.email}) will not get access, and the request will be removed. They can sign up again.`,
+    message: `${item.name}${item.username ? ` (@${item.username})` : ''} will not get access, and the request will be removed. They can sign up again.`,
     confirmLabel: 'Reject',
     cancelLabel: 'Keep',
   })
@@ -1816,8 +1823,7 @@ function validate() {
     next.username = 'Use 3–30 lowercase letters, numbers, dots or underscores (start and end with a letter or number).'
   }
 
-  if (!email) next.email = 'Enter an email address.'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.'
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address.'
 
   if (contact && !/^\+?[0-9][0-9\s\-()]{6,18}$/.test(contact)) {
     next.contact_number = 'Enter a valid contact number, for example 09171234567.'
@@ -1910,7 +1916,7 @@ async function save() {
   try {
     const payload = {
       name: form.value.name.trim(),
-      // Blank clears it (the account then signs in by email only).
+      // Blank generates a unique username from the account name.
       username: form.value.username.trim().toLowerCase() || null,
       email: form.value.email.trim(),
       contact_number: String(form.value.contact_number || '').trim() || null,
@@ -1981,9 +1987,7 @@ onMounted(() => {
   // the others. Each paints cache first, then revalidates silently.
   fetchRoles().catch(() => {})
   if (!officeMode) fetchOffices().catch(() => {})
-  fetchUsers()
-    .catch(() => {})
-    .finally(() => { entering.value = false })
+  settle(fetchUsers(), { warm: !loading.value })
 })
 </script>
 
@@ -2352,14 +2356,6 @@ html.dark .us-page {
     overflow-wrap: anywhere;
     white-space: normal;
 }
-/* Username under the name, when the account has one. */
-.us-handle {
-    display: block;
-    color: var(--us-muted);
-    font-size: 12.5px;
-    line-height: 1.3;
-    overflow-wrap: anywhere;
-}
 .us-dash {
     color: var(--us-muted);
 }
@@ -2387,7 +2383,6 @@ html.dark .us-page {
     -webkit-text-fill-color: currentColor;
 }
 .us-cell-edit.is-editable:hover .us-name,
-.us-cell-edit.is-editable:hover .us-handle,
 .us-cell-edit.is-editable:hover .us-office-text {
     color: var(--us-blue);
 }

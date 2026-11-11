@@ -218,8 +218,8 @@
                 <!-- Role-aware groups: superadmin sees everything, office admins
                      their office's work and people, everyone else their own work. -->
                 <template v-for="group in navGroups" :key="group.title">
-                    <!-- Always rendered, invisible in the rail: it keeps the
-                         rows at exactly the same height opened or collapsed. -->
+                    <!-- Shown opened and collapsed (smaller and centred in the
+                         rail) at the same height, so rows never move. -->
                     <div
                         class="nav-group-label"
                         :class="{ 'nav-group-label--rail': rail }"
@@ -348,7 +348,6 @@
                 v-if="showAuthUi"
                 fluid
                 class="pa-6 app-page"
-                :class="{ 'app-page--dashboard': route.name === 'dashboard' }"
             >
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
@@ -359,8 +358,12 @@
             <template v-else>
                 <router-view />
             </template>
-            <div v-if="showAuthUi" class="app-foot-spacer" aria-hidden="true"></div>
-            <AppFooter v-if="showAuthUi" :fit="!!route.meta?.fit" />
+            <!-- Dashboards (admin "/" and staff "/portal") have no footer
+                 (route meta noFooter); the cards get that height instead. -->
+            <template v-if="showAuthUi && !route.meta?.noFooter">
+                <div class="app-foot-spacer" aria-hidden="true"></div>
+                <AppFooter :fit="!!route.meta?.fit" />
+            </template>
         </v-main>
 
         <v-dialog v-model="confirmLogout" max-width="400">
@@ -1509,6 +1512,7 @@ onUnmounted(() => {
     padding: 14px 12px 4px;
     font-size: 0.64rem;
     font-weight: 800;
+    line-height: 16px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: rgba(var(--v-theme-on-surface), 0.45);
@@ -1518,11 +1522,16 @@ onUnmounted(() => {
 .nav-groups > .nav-group-label:first-child {
     padding-top: 4px;
 }
-/* In the rail the label is invisible but still takes its height, so every row
-   lands on the same y as its expanded counterpart. */
+/* In the rail the label stays, smaller and centred over its icons; the fixed
+   line-height keeps every row on the same y as when the menu is open. */
 .nav-group-label--rail {
-    visibility: hidden;
+    padding-left: 0;
+    padding-right: 0;
+    font-size: 0.53rem;
+    letter-spacing: 0.08em;
+    text-align: center;
     overflow: hidden;
+    text-overflow: clip;
     animation: none;
 }
 @keyframes nav-label-in {
@@ -1717,12 +1726,6 @@ onUnmounted(() => {
 .app-page {
     position: relative;
     z-index: 1;
-}
-/* Dashboard: fill the first screen so the City Hall footer starts below
-   the fold and is revealed only when the page is scrolled. */
-.app-page--dashboard {
-    min-height: calc(100vh - 64px);
-    min-height: calc(100dvh - 64px);
 }
 .app-foot-spacer {
     flex: 1 1 auto;

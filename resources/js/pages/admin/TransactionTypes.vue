@@ -949,6 +949,7 @@ import {
     wfStatusLabel,
 } from "@/utils/workflowStatus";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import { useEntryVeil } from "@/composables/useEntryVeil";
 import { toast } from "@/composables/useToast";
 import { anyOfficeIcon, officeIcon } from "@/utils/officeIcons";
 
@@ -957,9 +958,9 @@ const auth = useAuth();
 const { items, loading, fetchAll, create, update, remove } =
     useTransactionTypes();
 
-// Full-page loader on every visit, until the first fetch finishes (cached
-// data no longer skips it).
-const entering = ref(true);
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil();
 const {
     defs,
     loading: defsLoading,
@@ -1634,11 +1635,7 @@ async function removeRow(item) {
 onMounted(() => {
     // Independent lookups: run in parallel so one slow endpoint never blocks
     // the others. Each paints cache first, then revalidates silently.
-    fetchAll()
-        .catch(() => {})
-        .finally(() => {
-            entering.value = false;
-        });
+    settle(fetchAll(), { warm: !loading.value });
     fetchDefinitions().catch(() => {});
     fetchOffices().catch(() => {});
 });

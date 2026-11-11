@@ -1,6 +1,10 @@
 <template>
     <div class="fit-page">
-        <Teleport defer to="#app-bar-time-meta">
+        <!-- Deferred + guarded: right after login the app bar mounts in the
+             same render as this page, so the target doesn't exist yet. An
+             eager teleport to a missing target broke every later update
+             (page stuck behind the loader until a refresh). -->
+        <Teleport v-if="timeMetaReady" defer to="#app-bar-time-meta">
             <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
                 <span>{{ todayLabel }}</span>
                 <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
@@ -10,7 +14,7 @@
         <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
             <div class="dash-hello-text">
-                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
+                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}.</div>
                 <div class="dash-hello-sub">
                     <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>
@@ -646,6 +650,7 @@ import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import { officeIcon } from '@/utils/officeIcons'
 import {
@@ -667,9 +672,9 @@ const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
 const loading = ref(false)
-// Full-page loader shown each time the Dashboard is opened, until the
-// first fetch of the cards and lists finishes.
-const entering = ref(true)
+// Full-page loader shown each time the Dashboard is opened: brief when cached
+// cards/lists are already painted, otherwise until the first fetches finish.
+const { entering, settle } = useEntryVeil()
 const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
@@ -1509,7 +1514,20 @@ function goToHelp() {
     router.push('/help')
 }
 
+// The date chip teleports into the app bar's #app-bar-time-meta slot. Only
+// render it once that slot is in the DOM (after login it mounts alongside this
+// page); a few frames of polling covers the app bar's first render.
+const timeMetaReady = ref(false)
+function waitForTimeMeta(tries = 60) {
+    if (document.getElementById('app-bar-time-meta')) {
+        timeMetaReady.value = true
+    } else if (tries > 0) {
+        requestAnimationFrame(() => waitForTimeMeta(tries - 1))
+    }
+}
+
 onMounted(async () => {
+    nextTick(() => waitForTimeMeta())
     // Dashboard only: hide the page scrollbar (restored on leave).
     document.documentElement.classList.add('hide-page-scroll')
 
@@ -1526,16 +1544,18 @@ onMounted(async () => {
     // Critical path first. The full-page veil waits only for this fetch, so
     // it must not queue behind summary/filter/account requests — on the
     // single-threaded dev server every request is processed in order.
-    try {
-        // Cap the first list fetch so a stalled request can never keep the
-        // full-page veil up forever. The list still updates if it finishes
-        // after the timeout; the page just stops blocking on it.
-        await txStore.fetchAll({ ...opts, timeout: 8000 })
-    } catch { /* keep defaults */ }
-
-    refreshedAt.value = new Date()
-    loading.value = false
-    entering.value = false
+    // Cap it so a stalled request can never keep the veil up forever; the
+    // list still updates if it finishes after the timeout.
+    const txDone = txStore.fetchAll({ ...opts, timeout: 8000 })
+        .catch(() => { /* keep defaults */ })
+        .then(() => {
+            refreshedAt.value = new Date()
+            loading.value = false
+        })
+    // Warm (cached cards/lists already painted): brief veil, refresh in the
+    // background. Cold: veil stays until the list fetch finishes.
+    settle(txDone, { warm: !txStore.loading.value })
+    await txDone
 
     // The page is usable now. Fill the remaining cards in the background:
     // summary first (most visible), then accounts, then filter lookups.

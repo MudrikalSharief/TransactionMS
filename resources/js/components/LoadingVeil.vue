@@ -73,12 +73,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Covers from the screen's left edge, UNDER the side nav (the drawer stacks
+   above z-index 5). Anchoring `left` to --v-layout-left made the veil jump to
+   the expanded width the instant the nav was hovered, while the drawer was
+   still animating open - the page behind showed through the gap. Only the
+   centring padding follows the nav, on the drawer's own 0.2s curve. */
 .page-veil {
     position: fixed;
     top: var(--v-layout-top, 64px);
-    left: var(--v-layout-left, 0px);
+    left: 0;
     right: var(--v-layout-right, 0px);
     bottom: var(--v-layout-bottom, 0px);
+    padding-left: var(--v-layout-left, 0px);
+    transition: padding-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 5;
     background: #ffffff;
     display: flex;
@@ -226,7 +233,7 @@ html.dark .veil-text {
 /* Enter fades in smoothly; leave is instant so the veil never overlaps
    the freshly painted table (that overlap read as table-then-loading). */
 .veil-fade-enter-active {
-    transition: opacity 0.25s ease;
+    transition: opacity 0.25s ease, padding-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .veil-fade-leave-active {

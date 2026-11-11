@@ -33,6 +33,9 @@ class ApprovalController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
+        // Read-only list: rows on the same step share step-level lookups.
+        app(\App\Support\StepLookupMemo::class)->enable();
+
         return TransactionResource::collection(
             $this->inbox($request->user(), $data)
         );
