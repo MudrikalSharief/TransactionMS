@@ -17,15 +17,16 @@ class AuthController extends Controller
 {
     public function login(LoginRequest $request): JsonResponse
     {
+        if (!$request->hasSession()) {
+            return $this->sessionMissingResponse();
+        }
+
         $data = $request->validated();
 
-        // Username or email: an "@" means email (usernames can't hold one).
-        $login = trim((string) ($data['login'] ?? $data['email']));
-        $field = str_contains($login, '@') ? 'email' : 'username';
-        $value = $field === 'username' ? User::normalizeUsername($login) : $login;
+        $value = User::normalizeUsername($data['login']);
 
         $credentials = [
-            $field => $value,
+            'username' => $value,
             'password' => $data['password'],
         ];
 
@@ -38,7 +39,7 @@ class AuthController extends Controller
         }
 
         // Only a correct password reveals that the account is still waiting.
-        $user = User::where($field, $value)->first();
+        $user = User::where('username', $value)->first();
         if ($user?->isPendingApproval()) {
             return response()->json([
                 'message' => 'Your account is waiting for approval. You can sign in once an administrator approves it.',
@@ -54,6 +55,7 @@ class AuthController extends Controller
             'user' => [
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
+                'username' => $request->user()->username,
                 'email' => $request->user()->email,
             ],
         ]);
@@ -66,6 +68,10 @@ class AuthController extends Controller
      */
     public function guest(Request $request): JsonResponse
     {
+        if (!$request->hasSession()) {
+            return $this->sessionMissingResponse();
+        }
+
         $guest = User::where('email', config('auth.guest_email'))->first() ?? $this->createGuestAccount();
 
         // An existing account that was deactivated or given more roles is
@@ -85,9 +91,23 @@ class AuthController extends Controller
             'user' => [
                 'id' => $guest->id,
                 'name' => $guest->name,
+                'username' => $guest->username,
                 'email' => $guest->email,
             ],
         ]);
+    }
+
+    /**
+     * A stateless request reaching a session-auth endpoint means the browser
+     * host is missing from SANCTUM_STATEFUL_DOMAINS (or SESSION_DOMAIN points
+     * at a different host). Return a clear error instead of the framework's
+     * raw "Session store not set on request" exception.
+     */
+    private function sessionMissingResponse(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Session is not available. Open the app through the configured URL and check SANCTUM_STATEFUL_DOMAINS.',
+        ], 419);
     }
 
     private function createGuestAccount(): User
@@ -129,6 +149,7 @@ class AuthController extends Controller
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'username' => $user->username,
                     'email' => $user->email,
                     'office' => Office::mini($user->office),
                     'roles' => $user->roles->map(fn($r) => [

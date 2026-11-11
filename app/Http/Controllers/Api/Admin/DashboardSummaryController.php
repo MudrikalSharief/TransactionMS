@@ -8,6 +8,7 @@ use App\Models\Office;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\OfficeScope;
+use App\Support\WorkingTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,6 +26,8 @@ use Illuminate\Support\Collection;
  * ignores the process filter so the card can fade unpicked processes.
  * office_code limits everything to one office by its code (the dashboard
  * sends the office its graph covers).
+ * overdue_by_office: the five offices holding the most overdue transactions
+ * (the office of each one's current station), busiest first.
  *
  * The tile counts (__invoke) and the detail lists (details) share the same
  * queries below, so a list always has exactly as many rows as its tile.
@@ -66,11 +69,30 @@ class DashboardSummaryController extends Controller
                 ->map(fn ($row) => ['id' => (int) $row->id, 'name' => $row->name, 'count' => (int) $row->count])
                 ->values();
 
+            $overdue = $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0);
+
+            $overdueByOffice = $overdue
+                ->groupBy(fn (Transaction $tx) => $this->heldOffice($tx)?->id ?? 0)
+                ->map(function (Collection $txs, $officeId) {
+                    $office = $this->heldOffice($txs->first());
+
+                    return [
+                        'id' => $officeId ?: null,
+                        'code' => $office?->code,
+                        'name' => $office?->name ?? 'No office',
+                        'count' => $txs->count(),
+                    ];
+                })
+                ->sortBy([['count', 'desc'], ['name', 'asc']])
+                ->take(5)
+                ->values();
+
             return [
                 'period' => $this->periodMeta,
                 'completed' => $this->completedQuery()->count(),
                 'in_process' => $inProcess->count(),
-                'overdue' => $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)->count(),
+                'overdue' => $overdue->count(),
+                'overdue_by_office' => $overdueByOffice,
                 'deleted' => $this->deletedQuery()->count(),
                 'by_process' => $byProcess,
             ];
@@ -87,13 +109,18 @@ class DashboardSummaryController extends Controller
         abort_unless(in_array($category, self::CATEGORIES, true), 404);
         $this->resolveScope($request, extra: [
             'process_id' => [$category === 'process' ? 'required' : 'nullable', 'integer'],
+            // Overdue list for one office (where the transactions are now).
+            'at_office' => ['nullable', 'integer'],
         ]);
+        $atOffice = $request->filled('at_office') ? (int) $request->input('at_office') : null;
 
         $rows = match ($category) {
             'completed' => $this->completedRows(),
             'in_process' => $this->openRows($this->inProcess())
                 ->sortByDesc('waiting_minutes')->values(),
-            'overdue' => $this->openRows($this->inProcess()->filter(fn ($tx) => $this->overdueMinutes($tx) > 0))
+            'overdue' => $this->openRows($this->inProcess()
+                ->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)
+                ->filter(fn ($tx) => $atOffice === null || $this->heldOffice($tx)?->id === $atOffice))
                 ->sortByDesc('overdue_minutes')->values(),
             'deleted' => $this->deletedRows(),
             'process' => $this->processRows((int) $request->input('process_id')),
@@ -134,6 +161,7 @@ class DashboardSummaryController extends Controller
 
     private function filtered(Builder $q, bool $withProcess = true): Builder
     {
+        $q->where('transactions.is_archive', false);
         if ($withProcess && $this->processes) $q->whereIn('transactions.transaction_type_id', $this->processes);
         if ($this->offices) $q->whereIn('transactions.office_id', $this->offices);
         if ($this->officeId !== null) $q->where('transactions.office_id', $this->officeId);
@@ -163,7 +191,7 @@ class DashboardSummaryController extends Controller
     {
         return $this->createdInPeriod($this->filtered(Transaction::query()))
             ->where('is_done', false)
-            ->with(['state.currentStep', 'type', 'office', 'creator', 'workflow.stepRoles.role'])
+            ->with(['state.currentStep.office', 'type', 'office', 'creator', 'workflow.stepRoles.role'])
             ->get();
     }
 
@@ -172,14 +200,22 @@ class DashboardSummaryController extends Controller
         return $this->createdInPeriod($this->filtered(Transaction::onlyTrashed()));
     }
 
-    /** Minutes past the current station's SLA; 0 when on time or no SLA. */
+    /** The office holding the transaction now: its current station's office. */
+    private function heldOffice(Transaction $tx): ?Office
+    {
+        $step = $tx->state?->currentStep;
+
+        return $step ? $tx->effectiveStepOffice($step) : $tx->office;
+    }
+
+    /** Working minutes past the current station's SLA (weekends skipped); 0 when on time or no SLA. */
     private function overdueMinutes(Transaction $tx): int
     {
         $sla = (int) ($tx->state?->currentStep?->sla_minutes ?? 0);
         $enteredAt = $tx->state?->entered_at;
         if ($sla <= 0 || !$enteredAt) return 0;
 
-        return max(0, (int) $enteredAt->copy()->addMinutes($sla)->diffInMinutes(now(), false));
+        return max(0, WorkingTime::minutesBetween($enteredAt, now()) - $sla);
     }
 
     // ---- detail rows --------------------------------------------------------
@@ -212,7 +248,8 @@ class DashboardSummaryController extends Controller
             'current_step' => $step ? ['id' => $step->id, 'name' => $step->name, 'order_number' => (int) $step->order_number] : null,
             'handled_by' => $roles ?? [],
             'entered_at' => $enteredAt?->toIso8601String(),
-            'waiting_minutes' => $enteredAt ? (int) $enteredAt->diffInMinutes(now()) : null,
+            // Working minutes, so "waiting" compares directly with the limit.
+            'waiting_minutes' => $enteredAt ? WorkingTime::minutesBetween($enteredAt, now()) : null,
             'sla_minutes' => (int) ($step?->sla_minutes ?? 0),
             'overdue_minutes' => $this->overdueMinutes($tx),
         ];

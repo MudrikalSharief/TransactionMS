@@ -1,15 +1,11 @@
 <template>
     <TrackBackdrop quiet />
     <div class="track-detail">
-        <v-btn variant="text" color="grey-darken-3" prepend-icon="mdi-arrow-left" class="mb-3" @click="router.push('/track')">
-            Back to search
-        </v-btn>
 
         <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>
 
-        <div v-if="loading" class="d-flex align-center justify-center" style="height: 280px">
-            <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
-        </div>
+        <!-- Same loader as the rest of the system, with the tracking icon. -->
+        <TableLoader v-if="loading" label="transaction" icon="mdi-map-marker-path" compact class="track-loader" />
 
         <template v-else-if="tx">
             <!-- Summary -->
@@ -91,14 +87,14 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import StepProgress from "@/components/StepProgress.vue";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
+import TableLoader from "@/components/TableLoader.vue";
 
 const route = useRoute();
-const router = useRouter();
 const { api } = useApi();
 
 const tx = ref(null);
@@ -171,6 +167,11 @@ useSmartPoll(() => load({ silent: true }));
 </script>
 
 <style scoped>
+/* Loader keeps the old spinner's footprint so the page doesn't jump. */
+.track-loader {
+    min-height: 280px;
+    justify-content: center;
+}
 .track-detail {
     position: relative;
     z-index: 1;

@@ -11,13 +11,11 @@ class LoginRequest extends FormRequest
         return true;
     }
 
-    // `login` is an email or a username; `email` is still accepted from
-    // older callers.
+    // Keep the existing payload key, but accept a username only.
     public function rules(): array
     {
         return [
-            'login' => ['required_without:email', 'nullable', 'string', 'max:190'],
-            'email' => ['required_without:login', 'nullable', 'string', 'max:190'],
+            'login' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[a-zA-Z0-9](?:[a-zA-Z0-9._]*[a-zA-Z0-9])?$/'],
             'password' => ['required', 'string'],
             'remember' => ['sometimes', 'boolean'],
         ];
@@ -26,8 +24,15 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'login.required_without' => 'Enter your username or email.',
-            'email.required_without' => 'Enter your username or email.',
+            'login.required' => 'Enter your username.',
+            'login.regex' => 'Enter your username, using letters, numbers, dots or underscores.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('login'))) {
+            $this->merge(['login' => trim($this->input('login'))]);
+        }
     }
 }

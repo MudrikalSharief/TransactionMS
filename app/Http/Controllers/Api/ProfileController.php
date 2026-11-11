@@ -34,7 +34,7 @@ class ProfileController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => ['nullable', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
             'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'],
         ], [
             'email.unique' => 'Another account already uses this email.',
@@ -43,7 +43,7 @@ class ProfileController extends Controller
 
         $user->forceFill([
             'name' => $data['name'],
-            'email' => $data['email'],
+            'email' => array_key_exists('email', $data) ? $data['email'] : $user->email,
             'Contact_number' => $data['contact_number'] ?? null,
         ])->save();
 
@@ -95,6 +95,7 @@ class ProfileController extends Controller
         return [
             'id' => $user->id,
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'contact_number' => $user->Contact_number,
             'office' => Office::mini($user->office),

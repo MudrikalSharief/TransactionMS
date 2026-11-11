@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,12 +19,40 @@ class Transaction extends Model
         'reference_number',
         'title',
         'is_done',
+        'is_archive',
+        'is_private',
         'created_by',
+    ];
+
+    /**
+     * New transactions are PUBLIC by default: is_private ON means viewers can
+     * find and open it on Track (the column name is historical). An admin
+     * switches it to Private in the Access column to hide it from viewers.
+     */
+    protected $attributes = [
+        'is_private' => true,
     ];
 
     protected $casts = [
         'is_done' => 'boolean',
+        'is_archive' => 'boolean',
+        'is_private' => 'boolean',
     ];
+
+    /**
+     * Active transactions are still part of the operational queues.
+     * Archived rows stay in the database but are hidden from every
+     * normal list, dashboard count and write path.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_archive', false);
+    }
+
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->where('is_archive', true);
+    }
 
     public function type()
     {

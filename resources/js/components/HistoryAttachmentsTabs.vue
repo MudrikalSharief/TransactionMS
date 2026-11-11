@@ -4,12 +4,12 @@
             <v-tabs v-model="tab" color="primary" density="comfortable">
                 <v-tab :value="0">
                     <v-icon start>mdi-history</v-icon>
-                    Transaction History
+                    Route History
                     <v-chip size="x-small" variant="tonal" class="ml-2">{{ (runs || []).length }}</v-chip>
                 </v-tab>
                 <v-tab :value="1">
                     <v-icon start>mdi-paperclip</v-icon>
-                    Previous Transaction files
+                    Transaction files
                     <v-chip size="x-small" variant="tonal" class="ml-2">{{ previousFiles.length }}</v-chip>
                 </v-tab>
             </v-tabs>
@@ -75,12 +75,16 @@ const emit = defineEmits(['deleted'])
 
 const tab = ref(0)
 
-// Previous Transaction files: files of the steps before the current one.
-// The server already limits non-admins to the previous step (step file
-// rule), so here only the current step's own uploads are left out.
+// Transaction files: files that actually travelled with a move.
+// Unlinked uploads (step_run_id null) are drafts/stale files that never left
+// their station, so they must not appear as previous transaction files.
+// The server already limits non-admins to the previous step (step file rule).
 const previousFiles = computed(() =>
     (props.attachments || []).filter(
-        (a) => props.currentStepId == null || String(a.workflow_step_id) !== String(props.currentStepId),
+        (a) =>
+            a.step_run_id !== null &&
+            a.step_run_id !== undefined &&
+            (props.currentStepId == null || String(a.workflow_step_id) !== String(props.currentStepId)),
     ),
 )
 </script>

@@ -14,7 +14,7 @@
                         :src="'/tms-logo-128.png'"
                         alt="Transaction Management System emblem"
                         width="60"
-                        height="62"
+                        height="60"
                     />
                 </div>
                 <div class="eyebrow">Transaction tracker</div>
@@ -51,6 +51,21 @@
                 <span v-else>Track</span>
             </button>
         </form>
+
+        <!-- Date filter: month and/or year the transaction was created. -->
+        <div class="when" role="group" aria-label="Filter by date created">
+            <v-icon size="18" class="when-icon" aria-hidden="true">mdi-calendar-month-outline</v-icon>
+            <span class="when-label">Created in</span>
+            <select v-model="month" class="when-select" aria-label="Month created">
+                <option :value="null">Any month</option>
+                <option v-for="(name, i) in MONTHS" :key="name" :value="i + 1">{{ name }}</option>
+            </select>
+            <select v-model="year" class="when-select" aria-label="Year created">
+                <option :value="null">Any year</option>
+                <option v-for="y in YEARS" :key="y" :value="y">{{ y }}</option>
+            </select>
+            <button v-if="month || year" type="button" class="when-clear" @click="clearDate">Clear</button>
+        </div>
 
         <p v-if="!active" class="note">
             <v-icon size="16">mdi-eye-outline</v-icon>
@@ -158,6 +173,20 @@
                                 <div class="font-weight-bold">{{ fmtDate(item.created_at) }}</div>
                                 <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
                             </template>
+                            <!-- Tracking slip (preview, then print): view-only. -->
+                            <template v-slot:[`item.slip`]="{ item }">
+                                <v-btn
+                                    variant="outlined"
+                                    color="grey-darken-3"
+                                    rounded="0"
+                                    size="small"
+                                    prepend-icon="mdi-printer-outline"
+                                    :aria-label="`Print tracking slip for ${item.reference_number || item.id}`"
+                                    @click.stop="openSlip(item)"
+                                >
+                                    Print slip
+                                </v-btn>
+                            </template>
                             <template #bottom>
                                 <div v-if="meta.lastPage > 1" class="d-flex justify-center py-3">
                                     <v-pagination v-model="page" :length="meta.lastPage" :total-visible="5" density="compact" @update:model-value="goToPage" />
@@ -168,7 +197,7 @@
                         <div v-else-if="searched && !loading" class="empty">
                             <v-icon size="40" color="grey">mdi-file-search-outline</v-icon>
                             <div class="font-weight-bold mt-2">
-                                Nothing<template v-if="status !== 'all'"> {{ statusView.title.toLowerCase() }}</template> found for “{{ shownQuery }}”
+                                Nothing<template v-if="status !== 'all'"> {{ statusView.title.toLowerCase() }}</template> found for “{{ shownQuery }}”{{ dateLabel ? ` ${dateLabel}` : "" }}
                             </div>
                             <div class="text-caption text-medium-emphasis">
                                 Try a name, a reference number, a transaction type or an office.
@@ -178,6 +207,9 @@
                 </v-card>
             </div>
         </v-expand-transition>
+
+        <!-- Same slip as the transaction page (QR opens the tracking page). -->
+        <TrackingSlipDialog v-model="slipOpen" :tx="slipTx" />
     </div>
 </template>
 
@@ -188,6 +220,7 @@ import { useApi } from "@/composables/useApi";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import StepProgress from "@/components/StepProgress.vue";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
+import TrackingSlipDialog from "@/components/TrackingSlipDialog.vue";
 
 const router = useRouter();
 const { api } = useApi();
@@ -214,7 +247,16 @@ const headers = [
     // Where the transaction sits now (the current step's office).
     { title: "Office", key: "office", sortable: false },
     { title: "Created", key: "created_at" },
+    { title: "", key: "slip", sortable: false, align: "end" },
 ];
+
+// Tracking slip for one result (preview dialog, printed from there).
+const slipOpen = ref(false);
+const slipTx = ref(null);
+function openSlip(tx) {
+    slipTx.value = tx;
+    slipOpen.value = true;
+}
 
 // Status filter, applied by the server so paging stays right.
 // One button cycles All -> Incomplete -> Complete -> All.
@@ -232,6 +274,22 @@ const statusView = computed(() => ({
 function toggleStatus() {
     status.value = STATUS_CYCLE[(statusIndex.value + 1) % STATUS_CYCLE.length].value;
 }
+
+// Date filter (created date), applied by the server like the status filter.
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+const month = ref(null);
+const year = ref(null);
+function clearDate() {
+    month.value = null;
+    year.value = null;
+}
+// "in October 2026", "in 2026", "in October (any year)" for the empty state.
+const dateLabel = computed(() => {
+    if (!month.value && !year.value) return "";
+    if (month.value && year.value) return `in ${MONTHS[month.value - 1]} ${year.value}`;
+    return year.value ? `in ${year.value}` : `in ${MONTHS[month.value - 1]} (any year)`;
+});
 
 const resultsLabel = computed(() => {
     const n = meta.value.total || items.value.length;
@@ -252,6 +310,8 @@ async function fetchRows({ silent = false } = {}) {
                 page: page.value,
                 per_page: 25,
                 status: status.value === "all" ? undefined : status.value,
+                month: month.value ?? undefined,
+                year: year.value ?? undefined,
             },
         });
         if (mine !== seq) return; // a newer search is already running
@@ -294,7 +354,7 @@ watch(query, (v) => {
     }, 450);
 });
 
-watch(status, () => {
+watch([status, month, year], () => {
     page.value = 1;
     fetchRows();
 });
@@ -409,7 +469,7 @@ useSmartPoll(() => {
 .tms {
     display: block;
     width: 60px;
-    height: 62px;
+    height: 60px;
     object-fit: contain;
     /* ...and the system emblem into this one. */
     view-transition-name: tms-emblem;
@@ -554,6 +614,58 @@ useSmartPoll(() => {
     }
 }
 
+/* Date filter row under the search bar: square, primary-edged like the bar. */
+.when {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+}
+.when-icon {
+    color: rgb(var(--v-theme-primary));
+}
+.when-label {
+    font-weight: 600;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.when-select {
+    height: 36px;
+    min-width: 128px;
+    padding: 0 30px 0 10px;
+    border: 1px solid rgba(var(--v-theme-primary), 0.5);
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    /* Chevron: the native arrow is reset away by the theme. */
+    background: rgb(var(--v-theme-surface))
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23005EED' d='M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z'/%3E%3C/svg%3E")
+        no-repeat right 10px center;
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+.when-select:focus-visible,
+.when-clear:focus-visible {
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: 1px;
+}
+.when-clear {
+    height: 36px;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.when-clear:hover {
+    text-decoration: underline;
+}
 .note {
     display: flex;
     align-items: center;

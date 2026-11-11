@@ -7,15 +7,16 @@ use App\Http\Resources\TransactionListResource;
 use App\Models\Transaction;
 use App\Models\Office;
 use App\Services\RoutingEngine;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 /**
  * Read-only tracking for viewer accounts, progress and movement only.
  * Deliberately returns no attachments, field values, remarks or staff names.
  *
- * What a viewer can see: any transaction matching a keyword they type
- * (reference number, title, transaction type or office), tracking only.
- * Who created it is never shown unless it is the viewer's own.
+ * What a viewer can see: their own transactions, plus transactions the
+ * superadmin or office admin has marked searchable for Track (is_private).
+ * Tracking only. Who created it is never shown unless it is the viewer's own.
  */
 class ViewerTrackingController extends Controller
 {
@@ -26,13 +27,21 @@ class ViewerTrackingController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'status' => ['nullable', 'in:completed,in_process'],
+            // Date filter on the created date, in Manila time: a year, a month
+            // of a year, or a month in any year.
+            'month' => ['nullable', 'integer', 'between:1,12'],
+            'year' => ['nullable', 'integer', 'between:2000,2100'],
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
         $q = trim($data['q'] ?? '');
         $userId = $request->user()->id;
 
         $query = Transaction::query()
-            // No keyword: only the viewer's own. A keyword searches everything.
+            // Archived transactions leave Track entirely: they are hidden
+            // from the normal list, keyword search and direct detail opens.
+            ->where('transactions.is_archive', false)
+            // No keyword: only the viewer's own active transactions. A keyword
+            // searches their own rows plus rows shared for Track search.
             ->when($q === '', fn ($w) => $w->where('transactions.created_by', $userId))
             ->when(isset($data['status']), fn ($w) => $w->where('transactions.is_done', $data['status'] === 'completed'))
             ->with([
@@ -44,7 +53,27 @@ class ViewerTrackingController extends Controller
             ])
             ->latest();
 
+        if (!empty($data['year'])) {
+            $from = Carbon::create((int) $data['year'], (int) ($data['month'] ?? 1), 1, 0, 0, 0, 'Asia/Manila');
+            $to = empty($data['month']) ? $from->copy()->addYear() : $from->copy()->addMonthNoOverflow();
+            $query->where('transactions.created_at', '>=', $from->copy()->utc())
+                ->where('transactions.created_at', '<', $to->copy()->utc());
+        } elseif (!empty($data['month'])) {
+            // Stored in UTC; Manila is a fixed +08:00 (no daylight saving).
+            $query->whereRaw(
+                "MONTH(CONVERT_TZ(transactions.created_at, '+00:00', '+08:00')) = ?",
+                [(int) $data['month']]
+            );
+        }
+
         if ($q !== '') {
+            // Owners keep access to their own rows; everyone else needs the
+            // admin's Track-visibility toggle.
+            $query->where(function ($w) use ($userId) {
+                $w->where('transactions.created_by', $userId)
+                    ->orWhere('transactions.is_private', true);
+            });
+
             // Treat % and _ as plain characters, not wildcards.
             $like = '%' . addcslashes($q, '%_\\') . '%';
             $query->where(function ($w) use ($like) {
@@ -72,9 +101,18 @@ class ViewerTrackingController extends Controller
 
     public function show(Request $request, Transaction $transaction, RoutingEngine $routing)
     {
-        // Any transaction can be tracked (it is reachable by keyword anyway);
-        // the payload below carries tracking only.
+        // Archived rows are not part of Track, even by direct URL. 404 avoids
+        // revealing that the record exists.
+        if ((bool) $transaction->is_archive) {
+            abort(404);
+        }
+
+        // Owners may always track their own rows; everyone else needs the
+        // superadmin's Track-visibility toggle. 404 avoids leaking existence.
         $isOwner = (int) $transaction->created_by === (int) $request->user()->id;
+        if (!$isOwner && !(bool) $transaction->is_private) {
+            abort(404);
+        }
 
         $transaction->load([
             'type:id,code,name',

@@ -5,11 +5,43 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        // Internal account creation (guest access, seeders, admin tools) must
+        // also satisfy the username key. Public registration validates it first.
+        static::saving(function (User $user) {
+            if ($user->username === null || trim($user->username) === '') {
+                $user->username = static::availableUsername((string) $user->name);
+            }
+        });
+    }
+
+    public function setUsernameAttribute(?string $value): void
+    {
+        $this->attributes['username'] = static::normalizeUsername($value);
+    }
+
+    private static function availableUsername(string $name): string
+    {
+        $base = trim(preg_replace('/[^a-z0-9]+/', '.', Str::lower(Str::ascii($name))), '.');
+        $base = strlen($base) < 3 ? 'user' : rtrim(substr($base, 0, 30), '.');
+        $candidate = $base;
+        $number = 2;
+
+        while (static::whereRaw('LOWER(username) = ?', [$candidate])->exists()) {
+            $suffix = '.' . $number++;
+            $candidate = rtrim(substr($base, 0, 30 - strlen($suffix)), '.') . $suffix;
+        }
+
+        return $candidate;
+    }
 
     protected $fillable = [
         'name',
@@ -38,8 +70,7 @@ class User extends Authenticatable
     /**
      * Username format, shared by sign-up and the admin user forms:
      * 3-30 lowercase letters, numbers, dots or underscores, starting and
-     * ending with a letter or number. No "@", so sign-in can tell a
-     * username from an email.
+     * ending with a letter or number. Email addresses are not login identifiers.
      */
     public static function usernameRules(bool $required, ?int $ignoreId = null): array
     {

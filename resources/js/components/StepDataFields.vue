@@ -1,22 +1,31 @@
 <template>
     <template v-if="(stepData || []).length">
         <template v-if="modern">
-            <div v-for="(row, i) in (stepData || [])" :key="row.definition.id" class="mb-4">
-                <div class="text-h6 font-weight-bold mb-1">
-                    <template v-if="numbered">Step {{ startNumber + i }}: </template>{{ row.definition.display_name }}
-                    <v-chip v-if="row.definition.is_required" size="small" variant="tonal" color="error" rounded="pill" class="ml-2">Required</v-chip>
-                </div>
-                <div v-if="hintFor(row)" class="text-body-2 text-medium-emphasis mb-2">{{ hintFor(row) }}</div>
-                <v-text-field
-                    :model-value="form[row.definition.code] ?? ''"
-                    variant="outlined"
-                    density="comfortable"
-                    :disabled="saving"
-                    hide-details="auto"
-                    @update:model-value="(v) => setValue(row.definition.code, v)"
-                />
-                <div v-if="statusFor(row).text" class="text-body-2 mt-1" :class="statusFor(row).ok ? 'text-success' : 'text-error'">
-                    {{ statusFor(row).text }}
+            <div class="pm-field-grid pm-form">
+                <div
+                    v-for="(row, i) in (stepData || [])"
+                    :key="row.definition.id"
+                    class="pm-field"
+                    :data-pm-task="row.definition.display_name"
+                >
+                    <div class="pm-field-head">
+                        <label>
+                            <template v-if="numbered">Step {{ startNumber + i }}: </template>{{ row.definition.display_name }}
+                        </label>
+                        <span v-if="row.definition.is_required" class="pm-tag w">Required</span>
+                    </div>
+                    <div v-if="hintFor(row)" class="pm-hint">{{ hintFor(row) }}</div>
+                    <v-text-field
+                        :model-value="form[row.definition.code] ?? ''"
+                        variant="outlined"
+                        density="comfortable"
+                        :disabled="saving"
+                        hide-details="auto"
+                        @update:model-value="(v) => setValue(row.definition.code, v)"
+                    />
+                    <div v-if="statusFor(row).text" class="pm-hint" :class="{ 'is-error': !statusFor(row).ok, 'is-ok': statusFor(row).ok }">
+                        {{ statusFor(row).text }}
+                    </div>
                 </div>
             </div>
         </template>

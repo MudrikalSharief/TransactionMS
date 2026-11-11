@@ -1,50 +1,151 @@
 <template>
-    <div>
+    <div class="fit-page">
+        <!-- Deferred + guarded: right after login the app bar mounts in the
+             same render as this page, so the target doesn't exist yet. An
+             eager teleport to a missing target broke every later update
+             (page stuck behind the loader until a refresh). -->
+        <Teleport v-if="timeMetaReady" defer to="#app-bar-time-meta">
+            <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
+                <span>{{ todayLabel }}</span>
+                <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
+                <span v-if="scopeLabel">{{ scopeLabel }}</span>
+            </div>
+        </Teleport>
+        <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
             <div class="dash-hello-text">
-                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
+                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}.</div>
                 <div class="dash-hello-sub">
-                    <v-icon size="15">mdi-calendar-today</v-icon>{{ todayLabel }}
-                    <template v-if="scopeLabel"><span class="dash-hello-dot" />{{ scopeLabel }}</template>
-                    <template v-if="refreshedLabel"><span class="dash-hello-dot" />Updated {{ refreshedLabel }}</template>
+                    <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>
             </div>
             <div class="dash-hello-actions">
-                <template v-if="canSeeSummary">
-                    <v-select
-                        v-model="summaryPeriod"
-                        :items="periodOptions"
-                        label="Period"
-                        prepend-inner-icon="mdi-calendar-range"
-                        variant="outlined"
-                        density="compact"
-                        rounded="lg"
-                        hide-details
-                        class="dash-filter"
-                    />
-                    <v-select
-                        v-if="isSuperadmin"
-                        v-model="officeFilter"
-                        :items="officeOptions"
-                        label="Offices"
-                        placeholder="All offices"
-                        persistent-placeholder
-                        prepend-inner-icon="mdi-office-building-outline"
-                        variant="outlined"
-                        density="compact"
-                        rounded="lg"
-                        hide-details
-                        multiple
-                        clearable
-                        class="dash-filter"
+                <!-- Overview cards, or the monitoring Reports (superadmins and
+                     office admins); both follow Period / Offices below. -->
+                <v-btn-toggle
+                    v-if="canSeeSummary"
+                    v-model="view"
+                    mandatory
+                    density="comfortable"
+                    color="primary"
+                    variant="outlined"
+                    divided
+                    rounded="lg"
+                    class="dash-view"
+                >
+                    <v-btn value="overview" prepend-icon="mdi-view-dashboard-outline" class="text-none">Overview</v-btn>
+                    <v-btn value="reports" prepend-icon="mdi-chart-box-outline" class="text-none">Reports</v-btn>
+                </v-btn-toggle>
+                <!-- Period drives every card and the graph (all accounts);
+                     Offices narrows them for superadmins. -->
+                <v-select
+                    v-model="summaryPeriod"
+                    :items="periodOptions"
+                    label="Period"
+                    prepend-inner-icon="mdi-calendar-range"
+                    variant="outlined"
+                    density="compact"
+                    rounded="lg"
+                    hide-details
+                    class="dash-filter"
+                />
+                <template v-if="isSuperadmin">
+                    <v-menu
+                        v-model="officeMenuOpen"
+                        :close-on-content-click="false"
+                        location="bottom end"
+                        offset="8"
                     >
-                        <template v-slot:selection="{ item }">
-                            <v-chip size="small" variant="tonal" class="mr-1">{{ item.raw.code }}</v-chip>
+                        <template #activator="{ props }">
+                            <button
+                                v-bind="props"
+                                type="button"
+                                class="office-trigger"
+                                :class="{ 'is-open': officeMenuOpen }"
+                                aria-haspopup="listbox"
+                                aria-controls="dash-office-panel"
+                            >
+                                <span class="office-seal" :class="{ 'is-empty': !officePickerSeal }" aria-hidden="true">
+                                    <img v-if="officePickerSeal?.icon" :src="officePickerSeal.icon" alt="" />
+                                    <span v-else-if="officePickerSeal">{{ officePickerSeal.initials }}</span>
+                                    <v-icon v-else size="16">mdi-office-building-outline</v-icon>
+                                </span>
+                                <span class="office-trigger-copy">
+                                    <span class="office-trigger-label">Offices</span>
+                                    <span class="office-trigger-value" :title="officeFilterSummary">{{ officeFilterSummary }}</span>
+                                </span>
+                                <v-icon class="office-trigger-chevron" size="18" aria-hidden="true">mdi-chevron-down</v-icon>
+                            </button>
                         </template>
-                    </v-select>
+                        <v-card
+                            id="dash-office-panel"
+                            class="office-panel"
+                            rounded="lg"
+                            elevation="8"
+                            role="dialog"
+                            aria-label="Choose offices"
+                        >
+                            <div class="office-panel-head">
+                                <input
+                                    ref="officeSearchEl"
+                                    v-model="officeSearch"
+                                    class="office-search"
+                                    type="search"
+                                    placeholder="Search by name or abbreviation"
+                                    aria-label="Search offices"
+                                />
+                                <button type="button" class="office-clear" @click="clearOfficeFilter">
+                                    Show all offices
+                                </button>
+                            </div>
+                            <div
+                                class="office-grid"
+                                role="listbox"
+                                aria-label="Offices"
+                                aria-multiselectable="true"
+                            >
+                                <button
+                                    v-for="o in filteredOfficeOptions"
+                                    :key="o.value"
+                                    type="button"
+                                    class="office-card"
+                                    :class="{ 'is-selected': officeIds.has(o.value) }"
+                                    role="option"
+                                    :aria-selected="officeIds.has(o.value) ? 'true' : 'false'"
+                                    :aria-label="o.office?.name || o.title"
+                                    v-tooltip="o.office?.name || o.title"
+                                    @click="toggleOffice(o.value)"
+                                    @mouseenter="officeHover = o"
+                                    @mouseleave="officeHover = null"
+                                    @focus="officeHover = o"
+                                    @blur="officeHover = null"
+                                >
+                                    <span class="office-seal" aria-hidden="true">
+                                        <img v-if="o.icon" :src="o.icon" alt="" />
+                                        <span v-else>{{ o.initials }}</span>
+                                    </span>
+                                    <span class="office-card-abbr">{{ o.code }}</span>
+                                </button>
+                                <div v-if="!filteredOfficeOptions.length" class="office-no-match">
+                                    No offices match “{{ officeSearch }}”. Try the abbreviation.
+                                </div>
+                            </div>
+                            <div class="office-panel-foot">
+                                <template v-if="officeHover">
+                                    <b>{{ officeHover.code }}</b> · {{ officeHover.office?.name || officeHover.title }}
+                                </template>
+                                <template v-else-if="selectedOffices.length">
+                                    Selected: <b>{{ selectedOfficeNames }}</b>
+                                </template>
+                                <template v-else>
+                                    Hover or focus an office to see its full name.
+                                </template>
+                            </div>
+                        </v-card>
+                    </v-menu>
                 </template>
                 <v-btn
-                    v-if="layoutChanged"
+                    v-if="layoutChanged && view === 'overview'"
                     variant="tonal"
                     size="small"
                     color="primary"
@@ -56,11 +157,39 @@
                 </v-btn>
             </div>
         </div>
-        <!-- Cards render in the user's saved order; press-and-hold a card
-             for 2s, then drag it onto another card to swap them. -->
-        <v-row
-            align="stretch"
-            :class="{ 'dash-staff': isStaff }"
+        <!-- The headline numbers stay on top. -->
+        <div v-if="canSeeSummary">
+            <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
+                {{ summaryError }}
+            </v-alert>
+            <div class="summary-tiles" :class="{ 'summary-stale': summaryLoading && summary }">
+                <StatCard
+                    v-for="tile in summaryTiles"
+                    :key="tile.key"
+                    :ref="(el) => (tileEls[tile.key] = el?.$el ?? null)"
+                    :label="tile.label"
+                    :value="tile.value"
+                    :hint="tile.hint"
+                    :variant="tile.variant"
+                    :icon="tile.icon"
+                    :loading="summaryLoading && !summary"
+                    cta="Show list"
+                    @activate="openDetail(tile.key, tileEls[tile.key])"
+                />
+            </div>
+        </div>
+        <!-- Cards render in the user's saved order, each in the next slot of
+             the grid; press-and-hold a card for 2s, then drag it onto another
+             card to swap them. -->
+        <!-- Reports view: one card filling the grid's space (no page scroll). -->
+        <div v-if="view === 'reports'" class="dash-grid dash-grid--single">
+            <div class="dash-slot" style="--span: 12">
+                <MonitoringReportPanel :period="summaryPeriod" :offices="officeFilter" :scope-label="reportScopeLabel" />
+            </div>
+        </div>
+        <div
+            v-else
+            class="dash-grid"
             @pointerdown="onHoldStart"
             @pointermove="onHoldMove"
             @pointerup="onHoldEnd"
@@ -69,25 +198,15 @@
             @contextmenu="onRowContextMenu"
         >
             <template v-for="id in cardOrder" :key="id">
-                <v-col v-if="id === 'graph'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                <div v-if="id === 'graph'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 lgu-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">mdi-chart-bar</v-icon>
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">{{ scopeProcessTitle }}</span>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">{{ scopeProcessTitle }}</span>
                             <v-spacer />
-                            <v-select
-                                v-model="graphPeriod"
-                                :items="monthOptions"
-                                label="Month"
-                                prepend-inner-icon="mdi-calendar-blank-outline"
-                                variant="outlined"
-                                density="compact"
-                                rounded="lg"
-                                hide-details
-                                class="process-filter mr-2"
-                            />
+                            <!-- The period comes from the Period filter at the top. -->
                             <v-select
                                 v-model="processFilter"
                                 :items="processOptions"
@@ -110,165 +229,115 @@
                                 </template>
                             </v-select>
                         </v-card-title>
-                        <v-divider />
-                        <v-card-text class="pa-3 d-flex flex-column" style="flex: 1 1 auto">
+                                                <v-card-text class="pa-2 d-flex flex-column dash-body">
                             <GroupedBarChart
                                 :series="graphSeries"
-                                :group-labels="graphWeeks"
+                                :group-labels="graphGroups"
                                 :loading="loading"
-                                :height="190"
+                                :height="fit ? 80 : 190"
                                 :empty-text="graphEmptyText"
                                 :aria-label="graphAriaLabel"
                             />
                         </v-card-text>
                     </v-card>
-                </v-col>
-                <v-col v-else-if="id === 'start'" cols="12" :lg="isStaff ? 4 : 12" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card v-if="!isStaff" rounded="0" elevation="1" class="lgu-card dash-panel start-hero" style="width: 100%">
-                        <div class="start-hero-intro">
-                            <v-icon class="start-hero-rocket" size="40">mdi-rocket-launch</v-icon>
-                            <div>
-                                <div class="start-hero-title">Get Started</div>
-                                <div class="start-hero-sub">Quick access to the most important tools and resources.</div>
-                            </div>
-                        </div>
-                        <div class="start-hero-links">
+                </div>
+                <div v-else-if="id === 'start'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">mdi-rocket-launch-outline</v-icon>
+                            </v-avatar>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">Get Started</span>
+                        </v-card-title>
+                        <v-card-text class="pa-0 d-flex flex-column dash-body">
                             <div
                                 v-for="link in startLinks"
                                 :key="link.title"
-                                class="start-tile"
+                                class="start-row d-flex align-center px-3"
                                 role="button"
                                 tabindex="0"
                                 @click="link.go"
                                 @keydown.enter.prevent="link.go"
                             >
-                                <div class="start-tile-icon" :style="{ background: link.tile }">
-                                    <v-icon color="white" size="22">{{ link.icon }}</v-icon>
+                                <div class="start-icon mr-3" :style="{ background: link.tile }">
+                                    <v-icon color="white" size="18">{{ link.icon }}</v-icon>
                                 </div>
                                 <div class="flex-grow-1" style="min-width: 0">
-                                    <div class="start-tile-title">{{ link.title }}</div>
-                                    <div class="start-tile-sub text-truncate">{{ link.subtitle }}</div>
+                                    <div class="font-weight-bold start-title text-truncate">{{ link.title }}</div>
+                                    <div class="start-sub text-truncate" :title="link.subtitle">{{ link.subtitle }}</div>
                                 </div>
                                 <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
                             </div>
-                        </div>
-                    </v-card>
-                    <v-card v-else rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 lgu-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">mdi-rocket-launch-outline</v-icon>
-                            </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">Get Started</span>
-                        </v-card-title>
-                        <v-divider />
-                        <v-card-text class="pa-0 d-flex" :class="isStaff ? 'flex-column' : 'start-wide'" style="flex: 1 1 auto">
-                            <div
-                                v-for="link in startLinks"
-                                :key="link.title"
-                                class="start-row d-flex align-center px-4"
-                                style="flex: 1 1 0"
-                                @click="link.go"
-                            >
-                                <v-avatar :color="link.color" rounded="lg" size="38" class="mr-3">
-                                    <v-icon color="white" size="20">{{ link.icon }}</v-icon>
-                                </v-avatar>
-                                <div class="flex-grow-1" style="min-width: 0">
-                                    <div class="font-weight-bold start-title">{{ link.title }}</div>
-                                    <div class="text-caption text-medium-emphasis">{{ link.subtitle }}</div>
-                                </div>
-                                <v-icon size="small" color="grey">mdi-chevron-right</v-icon>
-                            </div>
                         </v-card-text>
                     </v-card>
-                </v-col>
-                <v-col v-else-if="id === 'summary'" cols="12" class="dash-col" :class="cardClass(id)" :data-card="id">
-                    <v-card rounded="0" elevation="0" class="summary-bare">
-                        <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
-                            {{ summaryError }}
-                        </v-alert>
-                        <div class="summary-tiles" :class="{ 'summary-stale': summaryLoading && summary }">
-                            <StatCard
-                                v-for="tile in summaryTiles"
-                                :key="tile.key"
-                                :ref="(el) => (tileEls[tile.key] = el?.$el ?? null)"
-                                :label="tile.label"
-                                :value="tile.value"
-                                :hint="tile.hint"
-                                :variant="tile.variant"
-                                :icon="tile.icon"
-                                :loading="summaryLoading && !summary"
-                                cta="Show list"
-                                @activate="openDetail(tile.key, tileEls[tile.key])"
-                            >
-                                <SummaryPopover
-                                    :category="tile.key"
-                                    :query="summaryQuery"
-                                    :period-label="summaryScopeText"
-                                    :disabled="!summary"
-                                    @expand="openDetail(tile.key, tileEls[tile.key])"
-                                />
-                            </StatCard>
-                        </div>
-                    </v-card>
-                </v-col>
-                <v-col v-else-if="id === 'byprocess'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                </div>
+                <div v-else-if="id === 'byprocess'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 lgu-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">mdi-format-list-bulleted-type</v-icon>
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">mdi-chart-pie</v-icon>
                             </v-avatar>
                             <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">By Process</div>
-                                <div class="dash-panel-sub text-truncate">{{ summaryScopeText }}</div>
+                                <div class="text-subtitle-1 font-weight-bold">Most Overdue Offices</div>
+                                <div class="dash-panel-sub text-truncate">Top 5 offices, {{ summaryScopeText }}</div>
                             </div>
                             <v-spacer />
-                            <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="goToQueue">
+                            <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openDetail('overdue', tileEls.overdue)">
                                 View all
                             </v-btn>
                         </v-card-title>
-                        <v-card-text class="pa-4 process-bars" :class="{ 'summary-stale': summaryLoading && summary }">
-                            <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
-                                No transactions created in this period.
+                        <v-card-text v-fit-body="'pie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <div v-if="summary && !overdueOfficeRows.length" class="text-caption text-medium-emphasis">
+                                No overdue transactions in this period.
                             </div>
-                            <div
-                                v-for="row in byProcessRows"
-                                :key="row.id"
-                                :ref="(el) => (barEls[row.id] = el)"
-                                class="process-bar-row"
-                                role="button"
-                                tabindex="0"
-                                :aria-label="`${row.name}: ${row.count} transactions. Press Enter for the full list`"
-                                @keydown.enter.prevent="openDetail('process', barEls[row.id], row)"
-                            >
-                                <SummaryPopover
-                                    category="process"
-                                    :process-id="row.id"
-                                    :process-name="`${row.name} transactions`"
-                                    :query="summaryQuery"
-                                    :period-label="summaryScopeText"
-                                    @expand="openDetail('process', barEls[row.id], row)"
+                            <template v-else-if="overdueOfficeRows.length">
+                                <ProcessPie
+                                    v-model:hover="overdueHover"
+                                    :slices="overdueOfficeRows"
+                                    :size="pieSize"
+                                    label="Overdue transactions by office"
+                                    @open="openOfficeOverdue"
                                 />
-                                <div class="bp-icon" :style="{ background: processColor(row.name) }">
-                                    <v-icon color="white" size="20">{{ processIcon(row.name) }}</v-icon>
-                                </div>
-                                <div class="bp-main">
-                                    <div class="process-bar-name text-truncate" :title="row.name">{{ row.name }}</div>
-                                    <div class="process-bar-track">
-                                        <div class="process-bar-fill" :style="{ width: row.pct + '%', background: processBarColor }" />
+                                <!-- Legend: office, overdue count and share; hover links
+                                     to its slice, click or Enter opens that office's
+                                     overdue list. -->
+                                <div class="pp-legend" :class="{ 'pp-legend--tight': legendTight }">
+                                    <div
+                                        v-for="row in legendRows"
+                                        :key="row.key"
+                                        :ref="(el) => (barEls[row.key] = el)"
+                                        class="process-bar-row"
+                                        :class="{ 'is-hot': overdueHover === row.key, 'is-cold': overdueHover && overdueHover !== row.key }"
+                                        role="button"
+                                        tabindex="0"
+                                        :aria-label="`${row.name}: ${row.count} overdue, ${row.pct}%. Press Enter for the list`"
+                                        @mouseenter="overdueHover = row.key"
+                                        @mouseleave="overdueHover = null"
+                                        @focus="overdueHover = row.key"
+                                        @blur="overdueHover = null"
+                                        @click="openOfficeOverdue(row)"
+                                        @keydown.enter.prevent="openOfficeOverdue(row)"
+                                    >
+                                        <i class="pp-swatch" :style="{ background: row.color }" aria-hidden="true" />
+                                        <span class="pp-name" :title="row.name">{{ row.name }}</span>
+                                        <span class="pp-num">
+                                            <span class="pp-count">{{ row.count }}</span>
+                                            <span class="pp-pct">{{ row.pct }}%</span>
+                                        </span>
                                     </div>
+                                    <div v-if="legendHidden" class="pp-more">and {{ legendHidden }} more</div>
                                 </div>
-                                <div class="process-bar-count">{{ row.count }}</div>
-                            </div>
+                            </template>
                         </v-card-text>
                     </v-card>
-                </v-col>
-                <v-col v-else-if="id === 'recent'" cols="12" :lg="isStaff ? 8 : 4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                </div>
+                <div v-else-if="id === 'recent'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 lgu-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">mdi-history</v-icon>
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">mdi-history</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">Recent Activity</span>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">Recent Activity</span>
                             <v-spacer />
                             <v-btn
                                 variant="text"
@@ -280,9 +349,8 @@
                                 View all
                             </v-btn>
                         </v-card-title>
-                        <v-divider />
-                        <v-card-text class="pa-2">
-                            <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+                                                <v-card-text v-fit-body="'recent'" class="pa-1 dash-body">
+                            <div v-if="loading" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
                             <v-alert
@@ -296,7 +364,7 @@
                             </v-alert>
                             <v-list v-else lines="two" class="py-0">
                                 <v-list-item
-                                    v-for="tx in recent"
+                                    v-for="tx in recent.slice(0, rows('recent', LIST_ROW_PX, 4))"
                                     :key="tx.id"
                                     rounded="0"
                                     class="recent-row"
@@ -308,7 +376,7 @@
                                         </div>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
-                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                        {{ txRef(tx) }}
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ txSubtitle(tx) }}</v-list-item-subtitle>
                                     <template v-slot:append>
@@ -319,16 +387,16 @@
                             </v-list>
                         </v-card-text>
                     </v-card>
-                </v-col>
-                <v-col v-else-if="id === 'action'" cols="12" lg="8" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                </div>
+                <div v-else-if="id === 'action'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 lgu-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">{{ isSuperadmin ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">{{ canApproveAccounts ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
                             </v-avatar>
-                            <div>
+                            <div class="dash-head-title">
                                 <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
-                                <div v-if="isSuperadmin" class="dash-panel-sub">Accounts waiting for approval</div>
+                                <div v-if="actionSub" class="dash-panel-sub text-truncate">{{ actionSub }}</div>
                             </div>
                             <v-spacer />
                             <v-btn
@@ -336,15 +404,15 @@
                                 size="small"
                                 color="primary"
                                 append-icon="mdi-arrow-right"
-                                @click="isSuperadmin ? goToAccounts() : goToQueue()"
+                                @click="canApproveAccounts ? goToAccounts() : goToQueue()"
                             >
-                                {{ isSuperadmin ? 'All accounts' : 'My queue' }}
+                                {{ canApproveAccounts ? (isSuperadmin ? 'All accounts' : 'Office users') : 'My queue' }}
                             </v-btn>
                         </v-card-title>
-                        <v-divider />
-                        <!-- Superadmin: new sign-ups to approve or reject. -->
-                        <v-card-text v-if="isSuperadmin" class="pa-0">
-                            <div v-if="accountsLoading && !pendingAccounts.length" class="d-flex align-center justify-center" style="height: 200px">
+                        <!-- Admins: new sign-ups to approve or reject. Office
+                             admins only see people who chose their office. -->
+                        <v-card-text v-if="canApproveAccounts" v-fit-body="'action'" class="pa-0 dash-body">
+                            <div v-if="accountsLoading && !pendingAccounts.length" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
                             <v-alert v-if="accountError" type="error" variant="tonal" rounded="0" density="compact" class="ma-4">
@@ -357,32 +425,33 @@
                                 rounded="0"
                                 class="ma-4"
                             >
-                                All clear — no accounts waiting for approval.
+                                {{ pendingEmptyText }}
                             </v-alert>
                             <v-table v-else-if="pendingAccounts.length" class="action-table">
                                 <thead>
                                     <tr>
                                         <th class="text-left">Account</th>
-                                        <th class="text-left">Office · Role</th>
-                                        <th class="text-left">Requested</th>
-                                        <th class="text-right">Approve / Reject</th>
+                                        <th class="text-left col-side">Office · Role</th>
+                                        <th class="text-left col-when">Requested</th>
+                                        <th class="text-right col-acts">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="u in pendingAccounts" :key="u.id">
+                                    <tr v-for="u in pendingAccounts.slice(0, actionRowsFit)" :key="u.id">
                                         <td>
                                             <div class="d-flex align-center ga-3">
                                                 <div class="row-icon account-icon">
                                                     <v-icon size="20">mdi-account-outline</v-icon>
                                                 </div>
                                                 <div style="min-width: 0">
-                                                    <div class="font-weight-bold action-title">{{ u.name }}</div>
-                                                    <div class="text-caption text-medium-emphasis">{{ u.email }}</div>
+                                                    <div class="font-weight-bold action-title text-truncate">{{ u.name }}</div>
+                                                    <div class="text-caption text-medium-emphasis text-truncate only-wide" :title="u.email">{{ u.email }}</div>
+                                                    <div class="text-caption text-medium-emphasis text-truncate only-narrow">{{ accountScope(u) }}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="text-body-2">{{ accountScope(u) }}</td>
-                                        <td class="font-weight-bold">{{ timeAgo(u.created_at) }}</td>
+                                        <td class="text-body-2 col-side text-truncate" :title="accountScope(u)">{{ accountScope(u) }}</td>
+                                        <td class="font-weight-bold col-when">{{ timeAgo(u.created_at) }}</td>
                                         <td class="text-right">
                                             <div class="d-inline-flex ga-2">
                                                 <v-btn
@@ -414,8 +483,8 @@
                                 </tbody>
                             </v-table>
                         </v-card-text>
-                        <v-card-text v-else class="pa-0">
-                            <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+                        <v-card-text v-else v-fit-body="'action'" class="pa-0 dash-body">
+                            <div v-if="loading" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
                             <v-alert
@@ -431,14 +500,14 @@
                                 <thead>
                                     <tr>
                                         <th class="text-left">Transaction</th>
-                                        <th class="text-left">Current Step</th>
-                                        <th class="text-left">Waiting</th>
+                                        <th class="text-left col-side">Current Step</th>
+                                        <th class="text-left col-when">Waiting</th>
                                         <th style="width: 40px" />
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr
-                                        v-for="tx in actionQueue"
+                                        v-for="tx in actionQueue.slice(0, actionRowsFit)"
                                         :key="tx.id"
                                         class="action-row"
                                         @click="openTx(tx)"
@@ -449,22 +518,25 @@
                                                     <v-icon size="20">{{ processIcon(txProcessName(tx)) }}</v-icon>
                                                 </div>
                                                 <div style="min-width: 0">
-                                                    <div class="font-weight-bold action-title">
-                                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                                    <div class="font-weight-bold action-title text-truncate">
+                                                        {{ txRef(tx) }}
                                                     </div>
-                                                    <div class="text-caption text-medium-emphasis">
+                                                    <div class="text-caption text-medium-emphasis text-truncate only-wide">
                                                         {{ txSubtitle(tx) }}
+                                                    </div>
+                                                    <div class="text-caption text-medium-emphasis text-truncate only-narrow">
+                                                        {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td class="col-side">
                                             <span class="step-pill" :style="tintStyle(txProcessName(tx))">
                                                 {{ tx.current_step?.name || tx.current_step?.code || 'Unassigned' }}
                                             </span>
                                         </td>
                                         <td
-                                            class="font-weight-bold"
+                                            class="font-weight-bold col-when"
                                             :class="{ 'waiting-late': isPastLimit(tx) }"
                                             :title="isPastLimit(tx) ? 'Past this station’s time limit' : undefined"
                                         >
@@ -476,19 +548,18 @@
                             </v-table>
                         </v-card-text>
                     </v-card>
-                </v-col>
-                <v-col v-else-if="id === 'intransit'" cols="12" lg="4" class="d-flex dash-col" :class="cardClass(id)" :data-card="id">
+                </div>
+                <div v-else-if="id === 'intransit'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center pa-4 lgu-head">
-                            <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                                <v-icon color="#005EED" size="24">mdi-truck-fast-outline</v-icon>
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">mdi-truck-fast-outline</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold">In Transit</span>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">In Transit</span>
                             <v-spacer />
                         </v-card-title>
-                        <v-divider />
-                        <v-card-text class="pa-2">
-                            <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+                                                <v-card-text v-fit-body="'intransit'" class="pa-1 dash-body">
+                            <div v-if="loading" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
                             <v-alert
@@ -502,7 +573,7 @@
                             </v-alert>
                             <v-list v-else lines="two" class="py-0">
                                 <v-list-item
-                                    v-for="tx in inTransit"
+                                    v-for="tx in inTransit.slice(0, rows('intransit', LIST_ROW_PX, 5))"
                                     :key="tx.id"
                                     rounded="0"
                                     class="recent-row"
@@ -514,7 +585,7 @@
                                         </div>
                                     </template>
                                     <v-list-item-title class="font-weight-bold">
-                                        {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                                        {{ txRef(tx) }}
                                     </v-list-item-title>
                                     <v-list-item-subtitle>{{ transitSubtitle(tx) }}</v-list-item-subtitle>
                                     <template v-slot:append>
@@ -525,9 +596,9 @@
                             </v-list>
                         </v-card-text>
                     </v-card>
-                </v-col>
+                </div>
             </template>
-        </v-row>
+        </div>
         <SummaryDetailDialog
             v-if="canSeeSummary"
             v-model:open="detail.open"
@@ -543,8 +614,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { summaryApiBase } from '@/composables/useSummaryRows'
@@ -554,16 +625,29 @@ import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
 import { useAdminUsers } from '@/composables/useAdminUsers'
+import { useFitScreen } from '@/composables/useFitScreen'
 import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
-import SummaryPopover from '@/components/SummaryPopover.vue'
+import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
+import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
+import LoadingVeil from '@/components/LoadingVeil.vue'
+import { useEntryVeil } from '@/composables/useEntryVeil'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
+import { officeIcon } from '@/utils/officeIcons'
+import {
+    periodOptions as dashPeriodOptions,
+    periodBuckets,
+    periodStart,
+    bucketIndexOf,
+    bucketUnit,
+} from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuth()
 const { api } = useApi()
 
@@ -572,7 +656,20 @@ const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
 const loading = ref(false)
+// Full-page loader shown each time the Dashboard is opened: brief when cached
+// cards/lists are already painted, otherwise until the first fetches finish.
+const { entering, settle } = useEntryVeil()
 const refreshedAt = ref(null)
+
+// The page fills the screen on desktop: lists show the rows that fit (no
+// scroll, no half rows) and the pie follows its card's height.
+const { fit, sizes, vFitBody, rows } = useFitScreen()
+const LIST_ROW_PX = 46
+const TABLE_ROW_PX = 42
+const TABLE_HEAD_PX = 28
+const LEGEND_ROW_PX = 38
+const LEGEND_TIGHT_ROW_PX = 24
+const actionRowsFit = computed(() => rows('action', TABLE_ROW_PX, 5, TABLE_HEAD_PX))
 
 const isSuperadmin = computed(() => {
     const roles = auth.user.value?.roles ?? []
@@ -587,6 +684,30 @@ const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
 // analytics, queue tightened to what is actually waiting on them, and an
 // in-transit card showing where their office's papers currently sit.
 const isStaff = computed(() => !canSeeSummary.value)
+
+// ---- Overview cards or the monitoring Reports (was its own page) ----
+// Kept in the address (?view=reports) so links, refresh and Back keep it.
+const view = ref(canSeeSummary.value && route.query.view === 'reports' ? 'reports' : 'overview')
+watch(view, (v) => {
+    router.replace({ query: { ...route.query, view: v === 'reports' ? 'reports' : undefined } })
+})
+watch(() => route.query.view, (v) => {
+    view.value = canSeeSummary.value && v === 'reports' ? 'reports' : 'overview'
+})
+const reportScopeLabel = computed(() => {
+    if (!isSuperadmin.value) {
+        const office = auth.user.value?.office
+        return `${office?.code || office?.name || 'Your office'} (filed by or passing through it)`
+    }
+    return officeScopeChips.value.length ? officeScopeLabel.value : 'All offices'
+})
+
+// Superadmins approve accounts from any office; office admins approve
+// sign-ups that chose their office.
+const canApproveAccounts = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+const myOfficeId = computed(
+    () => auth.user.value?.office_id ?? auth.user.value?.office?.id ?? null,
+)
 
 // ---- Greeting strip ----
 const greeting = computed(() => {
@@ -606,14 +727,19 @@ const refreshedLabel = computed(() =>
 
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
-// Default order; Transaction Summary is superadmin / office admin only,
-// and the staff layout swaps the graph + Get Started hero for the queue.
+// Default order; the staff layout swaps the graph for the queue. The
+// Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['summary', 'graph', 'byprocess', 'action', 'recent', 'start']
+        return ['graph', 'byprocess', 'action', 'recent', 'start']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
+// Width of each grid slot, out of 12 columns; two rows.
+const slotSpans = computed(() => (canSeeSummary.value ? [8, 4, 5, 4, 3] : [8, 4, 8, 4]))
+function slotStyle(id) {
+    return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
+}
 const {
     order: cardOrder,
     changed: layoutChanged,
@@ -679,6 +805,7 @@ function onHoldStart(e) {
 
 function onHoldMove(e) {
     if (dragId.value) {
+        window.getSelection()?.removeAllRanges()
         // Armed: track the drop target under the pointer (works for mouse + touch).
         const el = document.elementFromPoint(e.clientX, e.clientY)
         const col = el?.closest?.('[data-card]')
@@ -741,12 +868,13 @@ onUnmounted(() => {
 // see everything while regular users see their office/role queue.
 const scopeSource = computed(() => txStore.items.value || [])
 
-// Series colors: validated categorical palette (dataviz reference
-// palette, adjacent-pair safe in both modes), light and dark steps.
-// Gray is reserved for the folded "Other processes" bar.
+// Series colors for the bar chart and the By Process pie, light and dark
+// steps; adjacent pairs pass the colour-blind separation checks in both
+// modes. Slot 3 is violet (no black in the charts). Gray is reserved for
+// the folded "Other processes" bar/slice.
 const SERIES_PALETTE = {
-    light: ['#005EED', '#F26B21', '#1A1F2B', '#FFA94D', '#4D94FF', '#B84A0F', '#8FBBFF'],
-    dark: ['#4D94FF', '#FF8A4C', '#B9D4FF', '#FFB27A', '#1F6FFF', '#D9622B', '#8FBBFF'],
+    light: ['#005EED', '#F26B21', '#6250D6', '#FFA94D', '#4D94FF', '#B84A0F', '#8FBBFF'],
+    dark: ['#4D94FF', '#FF8A4C', '#9085E9', '#FFB27A', '#1F6FFF', '#D9622B', '#8FBBFF'],
 }
 const OTHER_PROCESSES = 'Other processes'
 const OTHER_COLOR = { light: '#898781', dark: '#898781' }
@@ -764,11 +892,87 @@ const scopeCode = computed(() => myOffice.value?.code?.toUpperCase() ?? null)
 const officeFilter = ref([])
 const officeById = computed(() => new Map((officeStore.items.value || []).map((o) => [o.id, o])))
 const officeIds = computed(() => new Set(officeFilter.value || []))
+
+function officeInitials(office) {
+    const code = String(office?.code || '').trim()
+    if (code) return code.slice(0, 2).toUpperCase()
+    return (
+        String(office?.name || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || '')
+            .join('')
+            .toUpperCase() || '?'
+    )
+}
+
 const officeOptions = computed(() =>
     [...(officeStore.items.value || [])]
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id, code: o.code || o.name }))
+        .map((o) => {
+            const title = o.code ? `${o.name} (${o.code})` : o.name
+            return {
+                title,
+                value: o.id,
+                code: o.code || o.name,
+                office: o,
+                icon: officeIcon(o),
+                initials: officeInitials(o),
+            }
+        })
 )
+
+const officeMenuOpen = ref(false)
+const officeSearch = ref('')
+const officeSearchEl = ref(null)
+const officeHover = ref(null)
+
+const selectedOffices = computed(() =>
+    officeOptions.value.filter((o) => officeIds.value.has(o.value))
+)
+const officePickerSeal = computed(() => selectedOffices.value[0] || null)
+const officeFilterSummary = computed(() => {
+    const count = officeFilter.value?.length || 0
+    if (!count) return 'All offices'
+    const codes = selectedOffices.value.map((o) => o.code)
+    if (!codes.length) return 'All offices'
+    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
+})
+const selectedOfficeNames = computed(() => {
+    const names = selectedOffices.value.map((o) => o.office?.name || o.code)
+    if (names.length <= 2) return names.join(', ')
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`
+})
+const filteredOfficeOptions = computed(() => {
+    const q = officeSearch.value.trim().toLowerCase()
+    if (!q) return officeOptions.value
+    return officeOptions.value.filter((o) =>
+        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q)
+    )
+})
+
+function toggleOffice(id) {
+    const next = new Set(officeFilter.value || [])
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    officeFilter.value = [...next]
+}
+
+function clearOfficeFilter() {
+    officeFilter.value = []
+}
+
+watch(officeMenuOpen, async (open) => {
+    officeSearch.value = ''
+    officeHover.value = null
+    if (!open) return
+    await nextTick()
+    officeSearchEl.value?.focus()
+})
+watch(officeSearch, () => {
+    officeHover.value = null
+})
 const officeScopeChips = computed(() =>
     officeFilter.value
         .map((id) => officeById.value.get(id)?.code?.toUpperCase())
@@ -781,7 +985,7 @@ const officeScopeLabel = computed(() => {
         : `${officeScopeChips.value.length} offices`
 })
 const scopeProcessTitle = computed(() =>
-    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions per Process` : 'All Transactions per Process'
+    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions Overview` : 'All Transactions Overview'
 )
 
 function inOfficeScope(tx) {
@@ -796,88 +1000,78 @@ watch(officeOptions, (options) => {
     }
 })
 
-// ---- Graph: the office's transactions per process, one bar per process per week ----
-const monthValue = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-
-// The last 12 months, newest first (shared with the summary card's Period).
-const monthOptions = computed(() => {
-    const now = new Date()
-    return Array.from({ length: 12 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        return { title: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }), value: monthValue(d) }
-    })
-})
-
-// Graph month 'YYYY-MM' (default: the current month). One group of bars per week.
-const graphPeriod = ref(monthValue(new Date()))
-const DAY_MS = 86400000
-
-function weekLabel(start, endExclusive) {
-    const last = new Date(endExclusive.getTime() - DAY_MS)
-    const md = (d) => d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
-    if (last.getTime() <= start.getTime()) return md(start)
-    return start.getMonth() === last.getMonth() ? `${md(start)}–${last.getDate()}` : `${md(start)}–${md(last)}`
-}
-
-// Weekly windows for the chosen month: its calendar weeks (1–7, 8–14, …),
-// never reaching past today. For the current month, only weeks that have started.
-const weekWindows = computed(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const endOfToday = new Date(today.getTime() + DAY_MS)
-    const windows = []
-
-    const [y, m] = graphPeriod.value.split('-').map(Number)
-    const monthStart = new Date(y, m - 1, 1)
-    const monthEnd = new Date(y, m, 1)
-    for (let start = monthStart; start < monthEnd && start < endOfToday;) {
-        const end = new Date(Math.min(start.getTime() + 7 * DAY_MS, monthEnd.getTime()))
-        windows.push({ start, end, label: weekLabel(start, end) })
-        start = end
-    }
-    return windows
-})
-const graphWeeks = computed(() => weekWindows.value.map((w) => w.label))
-
-const graphPeriodLabel = computed(
-    () => monthOptions.value.find((o) => o.value === graphPeriod.value)?.title || graphPeriod.value,
+// Superadmin: the office filter starts on CSD once the office list is in.
+// Set once per visit, so picking other offices or "Show all offices" sticks.
+const DEFAULT_OFFICE_CODE = 'CSD'
+let officeDefaultApplied = false
+watch(
+    [officeOptions, isSuperadmin],
+    ([options, superadmin]) => {
+        if (officeDefaultApplied || !superadmin || !options.length) return
+        officeDefaultApplied = true
+        if (officeFilter.value?.length) return
+        const csd = options.find((o) => String(o.office?.code || '').toUpperCase() === DEFAULT_OFFICE_CODE)
+        if (csd) officeFilter.value = [csd.value]
+    },
+    { immediate: true },
 )
+
+// ---- Period filter ----
+// All time by default so pending work never hides on a week/month
+// rollover; switchable to this week (current Mon–Sun week) or one of the
+// last 12 months (Manila calendar). It drives the tiles, the By Process pie,
+// the graph and Recent Activity. Completed counts by finalize date, the rest
+// by created date (server side). Declared before the graph: its computeds
+// can run during setup when the transaction list is already cached (e.g.
+// clicking Dashboard from another page).
+const summaryPeriod = ref('all')
+const periodOptions = computed(() => dashPeriodOptions())
+
+// ---- Graph: the office's transactions per process over the Period filter ----
+// One group of bars per day (this week), week (a month) or month (all time),
+// never past today; see utils/dashPeriod.js.
+const oldestInScope = computed(() => {
+    let oldest = null
+    for (const tx of scopeSource.value) {
+        if (tx.created_at && inOfficeScope(tx) && (!oldest || tx.created_at < oldest)) oldest = tx.created_at
+    }
+    return oldest
+})
+const graphBuckets = computed(() => periodBuckets(summaryPeriod.value, { oldest: oldestInScope.value }))
+const graphGroups = computed(() => graphBuckets.value.map((b) => b.label))
+const graphUnit = computed(() => bucketUnit(summaryPeriod.value, graphBuckets.value))
 
 const graphEmptyText = computed(() =>
     officeScopeLabel.value
-        ? `No ${officeScopeLabel.value} transactions in ${graphPeriodLabel.value}`
-        : `No transactions in ${graphPeriodLabel.value}`
+        ? `No ${officeScopeLabel.value} transactions in ${summaryScopeText.value}`
+        : `No transactions in ${summaryScopeText.value}`
 )
 const graphAriaLabel = computed(() =>
     officeScopeLabel.value
-        ? `${officeScopeLabel.value} transactions per process per week, ${graphPeriodLabel.value}`
-        : `Transactions per process per week, ${graphPeriodLabel.value}`
+        ? `${officeScopeLabel.value} transactions per process per ${graphUnit.value}, ${summaryScopeText.value}`
+        : `Transactions per process per ${graphUnit.value}, ${summaryScopeText.value}`
 )
 
-function weekIndexOf(tx) {
-    if (!tx.created_at) return -1
-    const t = new Date(tx.created_at).getTime()
-    return weekWindows.value.findIndex((w) => t >= w.start.getTime() && t < w.end.getTime())
-}
+const groupIndexOf = (tx) => bucketIndexOf(graphBuckets.value, tx.created_at)
 
 function txTypeLabel(tx) {
     return tx.transaction_type?.name || tx.transaction_type_name
 }
 
-// Visible transactions created in the chosen month (own office, if assigned,
+// Visible transactions created in the period (own office, if assigned,
 // or the offices picked by a superadmin).
 const graphTx = computed(() =>
-    scopeSource.value.filter((tx) => inOfficeScope(tx) && weekIndexOf(tx) >= 0)
+    scopeSource.value.filter((tx) => inOfficeScope(tx) && groupIndexOf(tx) >= 0)
 )
 
-// Per-process weekly counts, busiest process first.
+// Per-process counts per bar group, busiest process first.
 const processRanking = computed(() => {
     const byName = new Map()
     for (const tx of graphTx.value) {
         const name = txTypeLabel(tx)
         if (!name) continue
-        if (!byName.has(name)) byName.set(name, weekWindows.value.map(() => 0))
-        byName.get(name)[weekIndexOf(tx)]++
+        if (!byName.has(name)) byName.set(name, graphBuckets.value.map(() => 0))
+        byName.get(name)[groupIndexOf(tx)]++
     }
     return [...byName.entries()]
         .map(([label, values]) => ({ label, values, total: values.reduce((s, v) => s + v, 0) }))
@@ -896,7 +1090,7 @@ const systemProcessNames = computed(() =>
         : []
 )
 
-// Options: every process, with its count for the month (0 when it has none),
+// Options: every process, with its count for the period (0 when it has none),
 // busiest first.
 const processOptions = computed(() => {
     const totals = new Map(processRanking.value.map((p) => [p.label, p.total]))
@@ -915,11 +1109,15 @@ watch(processOptions, (options) => {
 })
 
 // Stable color slot per process: alphabetical position among ALL processes
-// in the month, so the Process filter never repaints a bar. Past 7 processes
+// in the period, so the Process filter never repaints a bar. Past 7 processes
 // this can't be global, so the slot falls back to the position among the
 // bars currently drawn.
+// One colour per process, shared by the bar chart and the By Process pie:
+// every process either shows, alphabetical, takes the next palette slot.
 const processColorSlot = computed(() => {
-    const names = processRanking.value.map((p) => p.label).sort()
+    const names = [
+        ...new Set([...processRanking.value.map((p) => p.label), ...(summary.value?.by_process || []).map((r) => r.name)]),
+    ].sort()
     return names.length <= MAX_PROCESS_BARS ? new Map(names.map((n, i) => [n, i])) : null
 })
 
@@ -943,30 +1141,21 @@ const graphSeries = computed(() => {
         series.push({
             label: OTHER_PROCESSES,
             color: OTHER_COLOR[themeMode.value],
-            values: weekWindows.value.map((_, wi) => rest.reduce((s, p) => s + p.values[wi], 0)),
+            values: graphBuckets.value.map((_, wi) => rest.reduce((s, p) => s + p.values[wi], 0)),
         })
     }
     return series
 })
 
 // ---- Transaction Summary card (superadmin) ----
-// Period: all time by default so pending work never hides on a week/month
-// rollover; switchable to this week (current Mon–Sun week) or one of the
-// last 12 months (Manila calendar).
-// Completed counts by finalize date, the rest by created date (server side).
-const summaryPeriod = ref('all')
-const periodOptions = computed(() => [
-    { title: 'All time', value: 'all' },
-    { title: 'This week', value: 'this_week' },
-    ...monthOptions.value,
-])
+// (The Period filter, summaryPeriod, is declared above the graph.)
 
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// Same scope as the graph, but independent of the graph's Month and
-// Process filters. No office assigned: the backend aggregates all offices.
+// Same scope and period as the graph, but independent of its Process
+// filter. No office assigned: the backend aggregates all offices.
 // Office admins send no office: the server forces their office's full scope
 // (filed by it or passing through it), which an office_code would narrow.
 const summaryQuery = computed(() => ({
@@ -1020,12 +1209,10 @@ const summaryScopeText = computed(
     () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'All time',
 )
 
-// Status tiles: each card takes its color and illustration from its variant.
+// Status tile (Overdue only): takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
     const s = summary.value || {}
     return [
-        { key: 'completed', label: 'Completed', icon: 'mdi-check-bold', variant: 'success', value: s.completed ?? '—', hint: 'Finalized in this period' },
-        { key: 'in_process', label: 'In-process', icon: 'mdi-timer-sand', variant: 'warning', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
         { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', variant: 'danger', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
     ]
 })
@@ -1044,19 +1231,31 @@ function openDetail(category, el, processRow = null) {
     detail.open = true
 }
 
-// By-process bars: one hue (it's a magnitude comparison); processes picked in
-// the Process filter stay full strength, the rest are faded but visible.
-const processBarColor = computed(() => SERIES_PALETTE[themeMode.value][0])
-const byProcessRows = computed(() => {
-    const rows = summary.value?.by_process || []
-    const max = Math.max(1, ...rows.map((r) => r.count))
-    return rows.map((r) => ({
-        ...r,
-        pct: Math.max(4, Math.round((r.count / max) * 100)),
+// Most Overdue Offices pie: the five offices holding the most overdue
+// transactions (the office of each one's current station), busiest first,
+// in palette order so neighbouring slices are validated palette neighbours.
+const overdueHover = ref(null)
+const overdueOfficeRows = computed(() => {
+    const rows = (summary.value?.overdue_by_office || []).filter((r) => r.count > 0).slice(0, 5)
+    const total = rows.reduce((sum, r) => sum + r.count, 0)
+    if (!total) return []
+    const palette = SERIES_PALETTE[themeMode.value]
+    return rows.map((r, i) => ({
+        key: `o${r.id ?? 'none'}`,
+        id: r.id,
+        name: r.name,
+        count: r.count,
+        pct: Math.round((r.count / total) * 1000) / 10,
+        color: palette[i],
     }))
 })
 
-// Oldest first: longest-waiting items the user can act on (max 5).
+// One office's overdue list, opened from its slice or legend row.
+function openOfficeOverdue(row) {
+    openDetail('overdue', barEls[row.key], row.id != null ? { id: row.id, name: row.name } : null)
+}
+
+// Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
 // flags as waiting on them (same gate the write endpoints enforce), so
 // the queue never lists a paper parked at another office.
@@ -1065,7 +1264,7 @@ const actionQueue = computed(() => {
         (tx) => !isStaff.value || tx.needs_action,
     )
     base.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
-    return base.slice(0, 5)
+    return base
 })
 
 // Staff only: the office's own papers currently parked at another office
@@ -1082,22 +1281,33 @@ const inTransit = computed(() => {
             Number(tx.current_step.office_id) !== Number(myOfficeId),
     )
     list.sort((a, b) => new Date(a.entered_at || a.created_at || 0) - new Date(b.entered_at || b.created_at || 0))
-    return list.slice(0, 5)
+    return list
 })
 const inTransitIds = computed(() => new Set(inTransit.value.map((tx) => tx.id)))
 
+// Created in the Period filter's range (all time: everything).
+const recentFrom = computed(() => periodStart(summaryPeriod.value)?.getTime() ?? null)
+const recentTo = computed(() => {
+    const buckets = summaryPeriod.value === 'all' ? null : periodBuckets(summaryPeriod.value)
+    return buckets?.length ? buckets[buckets.length - 1].end.getTime() : null
+})
 const recent = computed(() => {
     const source = scopeSource.value || []
-    const list = officeIds.value.size
-        ? source.filter((tx) => officeIds.value.has(tx.office?.id))
-        : [...source]
+    const from = recentFrom.value
+    const to = recentTo.value
+    const list = source.filter((tx) => {
+        if (officeIds.value.size && !officeIds.value.has(tx.office?.id)) return false
+        if (from == null) return true
+        const at = new Date(tx.created_at || 0).getTime()
+        return at >= from && (to == null || at < to)
+    })
     // Staff: the feed holds the rest — never duplicates the queue or the
     // in-transit card.
     const feed = isStaff.value
         ? list.filter((tx) => !tx.needs_action && !inTransitIds.value.has(tx.id))
         : list
     feed.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-    return feed.slice(0, 4)
+    return feed
 })
 
 // Evenly-distributed shortcut rows that always fill the Get Started card.
@@ -1140,14 +1350,34 @@ const startLinks = computed(() => {
     return links
 })
 
+// Overdue offices: the pie takes the card's height; the legend lists what fits.
+const pieSize = computed(() => {
+    const s = sizes.pie
+    if (!fit.value || !s) return 168
+    return Math.round(Math.min(220, Math.max(84, Math.min(s.h, s.w * 0.45))))
+})
+const legendTight = computed(() => fit.value && (sizes.pie?.h ?? 999) < 150)
+const legendRows = computed(() => {
+    const all = overdueOfficeRows.value
+    const room = rows('pie', legendTight.value ? LEGEND_TIGHT_ROW_PX : LEGEND_ROW_PX, all.length)
+    return all.length <= room ? all : all.slice(0, Math.max(1, room - 1))
+})
+const legendHidden = computed(() => overdueOfficeRows.value.length - legendRows.value.length)
+
 // Tinted chip/icon in the process's color (same color on every card).
 function tintStyle(name) {
     const c = processColor(name)
     return { color: c, background: `color-mix(in srgb, ${c} 14%, transparent)` }
 }
 
+// Rows lead with the reference code (every transaction has one; titles are
+// optional), then the title and process underneath.
+function txRef(tx) {
+    return tx.reference_number || `Transaction #${tx.id}`
+}
+
 function txSubtitle(tx) {
-    return [tx.reference_number, tx.transaction_type?.name || tx.transaction_type_name]
+    return [tx.title, tx.transaction_type?.name || tx.transaction_type_name]
         .filter(Boolean)
         .join(' · ') || tx.current_step?.name || ''
 }
@@ -1177,8 +1407,10 @@ function goToQueue() {
     router.push('/transactions')
 }
 
-// ---- Superadmin: accounts waiting for approval (Needs My Action) ----
-const accountStore = useAdminUsers()
+// ---- Admins: accounts waiting for approval (Needs My Action) ----
+// Superadmins use the system-wide list; office admins use the office
+// endpoints, which only return people assigned to their own office.
+const accountStore = useAdminUsers({ office: isOfficeAdmin.value })
 const accountsLoading = computed(() => accountStore.loading.value)
 const accountBusyId = ref(null)
 const accountError = ref('')
@@ -1187,7 +1419,34 @@ const accountError = ref('')
 const pendingAccounts = computed(() =>
     (accountStore.users.value || [])
         .filter((u) => u.pending_approval)
+        // The office endpoint already scopes this; keep the guard so a
+        // misconfigured source can never surface another office's request.
+        .filter(
+            (u) =>
+                !isOfficeAdmin.value ||
+                (myOfficeId.value != null && Number(u.office_id) === Number(myOfficeId.value)),
+        )
         .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)),
+)
+// Says so when the card has more rows than fit.
+const actionSub = computed(() => {
+    if (canApproveAccounts.value) {
+        const total = pendingAccounts.value.length
+        const more = total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
+        const label = isSuperadmin.value
+            ? 'Accounts waiting for approval'
+            : 'Accounts in your office waiting for approval'
+        return more ? `${label}: ${more.toLowerCase()}` : label
+    }
+
+    const total = actionQueue.value.length
+    return total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
+})
+
+const pendingEmptyText = computed(() =>
+    isOfficeAdmin.value
+        ? 'All clear — no accounts in your office are waiting for approval.'
+        : 'All clear — no accounts waiting for approval.',
 )
 
 function accountScope(u) {
@@ -1197,7 +1456,7 @@ function accountScope(u) {
 }
 
 function loadAccounts(opts = {}) {
-    if (!isSuperadmin.value) return
+    if (!canApproveAccounts.value) return
     return accountStore.fetchUsers(opts).catch(() => {})
 }
 
@@ -1236,14 +1495,27 @@ async function rejectAccount(u) {
 }
 
 function goToAccounts() {
-    router.push('/admin/users')
+    router.push(isSuperadmin.value ? '/admin/users' : '/office/users')
 }
 
 function goToHelp() {
     router.push('/help')
 }
 
+// The date chip teleports into the app bar's #app-bar-time-meta slot. Only
+// render it once that slot is in the DOM (after login it mounts alongside this
+// page); a few frames of polling covers the app bar's first render.
+const timeMetaReady = ref(false)
+function waitForTimeMeta(tries = 60) {
+    if (document.getElementById('app-bar-time-meta')) {
+        timeMetaReady.value = true
+    } else if (tries > 0) {
+        requestAnimationFrame(() => waitForTimeMeta(tries - 1))
+    }
+}
+
 onMounted(async () => {
+    nextTick(() => waitForTimeMeta())
     // Dashboard only: hide the page scrollbar (restored on leave).
     document.documentElement.classList.add('hide-page-scroll')
 
@@ -1256,20 +1528,23 @@ onMounted(async () => {
         isCached(scopedKey(CacheKeys.transactions, uid))
     loading.value = !warm
     const opts = { silent: warm }
-    loadSummary()
+    const summaryDone = loadSummary()
     // Process/office filter options; cached, so these never hold up the page.
     if (isSuperadmin.value) {
         typeStore.fetchAll({ silent: true }).catch(() => {})
         officeStore.fetchAll({ silent: true }).catch(() => {})
-        loadAccounts()
     }
+    if (canApproveAccounts.value) loadAccounts()
 
-    try {
-        await txStore.fetchAll(opts)
-    } catch { /* keep defaults */ }
-
-    refreshedAt.value = new Date()
-    loading.value = false
+    const txDone = txStore.fetchAll(opts)
+        .catch(() => { /* keep defaults */ })
+        .then(() => {
+            refreshedAt.value = new Date()
+            loading.value = false
+        })
+    // Warm (cached cards/lists already painted): brief veil, refresh in the
+    // background. Cold: veil stays until both first fetches finish.
+    settle(Promise.all([txDone, summaryDone.catch(() => {})]), { warm: !txStore.loading.value })
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
@@ -1302,21 +1577,33 @@ onUnmounted(() => {
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    margin: 0 0 14px;
 }
 .dash-hello-title {
-    font-size: 1.45rem;
+    font-size: 1.25rem;
     font-weight: 800;
     line-height: 1.2;
     color: rgb(var(--v-theme-on-surface));
+}
+/* Date + office scope, teleported into the app bar above the clock. */
+.dash-time-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.1;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    white-space: nowrap;
+}
+.dash-time-dot {
+    opacity: 0.55;
 }
 .dash-hello-sub {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 2px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .dash-hello-dot {
@@ -1328,35 +1615,61 @@ onUnmounted(() => {
     margin: 0 4px;
 }
 
-/* ---- Movable cards (press and hold 2s, then drag) ---- */
-/* Each card keeps its width but grows to fill its row, so no order leaves a gap. */
-.dash-col {
-    flex-grow: 1;
-    max-width: 100%;
-}
-/* Staff layout: the two rows stretch to fill the viewport instead of
-   hugging the top and leaving dead space below (desktop only; on small
-   screens the cards stack and size to content). */
-@media (min-width: 1280px) {
-    .dash-staff {
-        align-content: stretch;
-        min-height: calc(100vh - 190px);
+/* ---- Card grid (shared rules: "Dashboards" in app.css) ---- */
+@media (min-width: 1100px) and (min-height: 560px) {
+    .dash-grid {
+        grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    }
+    /* Reports view: one card takes the whole grid height. */
+    .dash-grid--single {
+        grid-template-rows: minmax(0, 1fr);
+    }
+    .dash-body .start-row {
+        flex: 1 1 0;
+        max-height: 72px;
+        min-height: 0;
+    }
+    /* The pie's tooltip may rise over the card head. */
+    .dash-slot[data-card='byprocess'] > .v-card,
+    .dash-slot[data-card='byprocess'] .process-pie-body {
+        overflow: visible !important;
     }
 }
-/* Keep Get Started shortcut rows at their natural height so a single
-   row doesn't balloon to fill the taller card; content stays top-aligned. */
-.dash-staff [data-card='start'] /* ---- Row icons, step pills, waiting ---- */
+.dash-loading {
+    height: 100%;
+    min-height: 120px;
+}
+/* Narrow card: the side column's text moves under the row title. */
+.only-narrow {
+    display: none;
+}
+@container (max-width: 460px) {
+    .col-side,
+    .only-wide {
+        display: none;
+    }
+    .only-narrow {
+        display: block;
+    }
+}
+/* Small screens: the head's filters wrap below the title. */
+@media (max-width: 1099.98px) {
+    .dash-slot[data-card='graph'] .dash-head {
+        flex-wrap: wrap;
+        row-gap: 10px;
+    }
+    .dash-slot[data-card='graph'] .process-filter {
+        flex: 1 1 140px;
+    }
+}
+/* ---- Row icons, step pills, waiting ---- */
 .row-icon {
     display: grid;
     place-items: center;
     flex: 0 0 auto;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    margin-right: 12px;
-}
-.action-table .row-icon {
-    margin-right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
 }
 .row-icon .v-icon {
     color: inherit;
@@ -1366,17 +1679,17 @@ onUnmounted(() => {
     background: color-mix(in srgb, #005EED 14%, transparent);
 }
 .row-time {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     white-space: nowrap;
-    margin-right: 10px;
+    margin-right: 6px;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .step-pill {
     display: inline-block;
-    max-width: 260px;
-    padding: 4px 12px;
+    max-width: 100%;
+    padding: 3px 10px;
     border-radius: 999px;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -1385,79 +1698,6 @@ onUnmounted(() => {
 }
 .waiting-late {
     color: #e5383b;
-}
-/* ---- Get Started hero strip (admin layout) ---- */
-.start-hero {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 18px;
-    padding: 20px 24px;
-    background: linear-gradient(100deg, #eaf2ff 0%, #f4f8ff 55%, #e2edff 100%) !important;
-}
-.start-hero-intro {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex: 1 1 280px;
-    min-width: 0;
-}
-.start-hero-rocket {
-    color: rgb(var(--v-theme-primary));
-    transform: rotate(-12deg);
-}
-.start-hero-title {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: rgb(var(--v-theme-on-surface));
-}
-.start-hero-sub {
-    font-size: 0.85rem;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.start-hero-links {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 14px;
-    flex: 3 1 640px;
-    min-width: 0;
-}
-.start-tile {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
-    border-radius: 12px;
-    background: rgb(var(--v-theme-surface));
-    box-shadow: 0 6px 16px -12px rgba(15, 23, 42, 0.35);
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.start-tile:hover,
-.start-tile:focus-visible {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 22px -14px rgba(0, 94, 237, 0.55);
-    outline: none;
-}
-.start-tile-icon {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-}
-.start-tile-title {
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: rgb(var(--v-theme-on-surface));
-}
-.start-tile-sub {
-    font-size: 0.75rem;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.start-row {
-    flex: 0 0 auto !important;
 }
 /* Armed card: lifted, grabbing cursor, frozen scroll/selection while moving. */
 .dash-dragging {
@@ -1480,24 +1720,41 @@ onUnmounted(() => {
 }
 .recent-row {
     cursor: pointer;
+    min-height: 46px !important;
+    padding-block: 2px !important;
+    padding-inline: 8px !important;
 }
 .recent-row:hover {
     background: rgba(var(--v-theme-on-surface), 0.05);
 }
-/* Slimmer recent rows: smaller type instead of cramped spacing */
+/* One line each, so every row is the same height. */
 .recent-row :deep(.v-list-item-title) {
     font-size: 0.85rem;
     line-height: 1.25;
 }
 .recent-row :deep(.v-list-item-subtitle) {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
     font-size: 0.72rem;
     line-height: 1.3;
 }
 .recent-row :deep(.v-list-item__prepend) {
-    padding-right: 10px;
+    width: 42px;
+}
+.recent-row :deep(.v-list-item__spacer) {
+    display: none;
 }
 .action-table {
-    --v-table-header-height: 44px;
+    --v-table-header-height: 28px;
+    --v-table-row-height: 42px;
+    background: transparent;
+}
+.action-table :deep(table) {
+    table-layout: fixed;
 }
 .action-row {
     cursor: pointer;
@@ -1506,21 +1763,37 @@ onUnmounted(() => {
     background: rgba(var(--v-theme-on-surface), 0.05);
 }
 .action-title {
-    font-size: 0.9rem;
-    line-height: 1.35;
-    margin-bottom: 2px;
+    font-size: 0.85rem;
+    line-height: 1.3;
 }
 .action-table :deep(th) {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-    padding-bottom: 10px;
+}
+.action-table :deep(th),
+.action-table :deep(td) {
+    padding-inline: 12px !important;
 }
 .action-table :deep(td) {
-    padding-top: 12px;
-    padding-bottom: 12px;
+    height: 42px !important;
     vertical-align: middle;
+}
+.action-table .col-side {
+    width: 26%;
+}
+.action-table .col-when {
+    width: 112px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.action-table .col-acts {
+    width: 112px;
+}
+.action-table :deep(.v-btn--icon) {
+    width: 32px;
+    height: 32px;
 }
 .action-table :deep(tbody tr:not(:last-child) td) {
     border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
@@ -1528,25 +1801,38 @@ onUnmounted(() => {
 .action-table :deep(td:last-child) {
     white-space: nowrap;
 }
+/* The filters give up width before the title does. */
 .process-filter {
-    flex: 0 1 240px;
-    min-width: 160px;
+    flex: 0 20 224px;
+    min-width: 120px;
+}
+.process-filter :deep(.v-field__input) {
+    font-size: 0.875rem;
+}
+@container (max-width: 720px) {
+    .process-filter :deep(.v-field__prepend-inner) {
+        display: none;
+    }
 }
 /* ---- Transaction Summary card ---- */
 .summary-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-}
-.summary-bare {
-    background: transparent !important;
-    box-shadow: none !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
 }
 .dash-hello-actions {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+}
+.dash-view {
+    height: 40px !important;
+}
+.dash-view :deep(.v-btn) {
+    height: 40px !important;
+    letter-spacing: 0;
+    font-weight: 600;
 }
 /* Explicit width too: Firefox sizes the wrapping row from the select's
    content, not its flex-basis, and stacked the two filters. */
@@ -1555,38 +1841,253 @@ onUnmounted(() => {
     width: 200px;
     min-width: 170px;
 }
+/* ---- Office picker (dashboard header) ---- */
+.office-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 230px;
+    max-width: 260px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 10px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.office-trigger:hover {
+    border-color: rgba(var(--v-theme-primary), 0.55);
+}
+.office-trigger.is-open {
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
+}
+.office-seal {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    overflow: hidden;
+    border: 2px solid rgb(var(--v-theme-surface));
+    border-radius: 50%;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 1px rgba(var(--v-border-color), 0.35);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+}
+.office-seal.is-empty {
+    background: rgba(var(--v-theme-on-surface), 0.1);
+    color: rgba(var(--v-theme-on-surface), 0.6);
+}
+.office-seal img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.office-trigger-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+.office-trigger-label {
+    color: rgba(var(--v-theme-on-surface), 0.6);
+    font-size: 11px;
+    line-height: 1;
+}
+.office-trigger-value {
+    display: block;
+    overflow: hidden;
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-trigger-chevron {
+    flex: none;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    transition: transform 0.15s ease;
+}
+.office-trigger.is-open .office-trigger-chevron {
+    transform: rotate(180deg);
+}
+.office-panel {
+    width: min(640px, calc(100vw - 32px));
+    padding: 16px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+.office-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.office-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 8px;
+    background: rgba(var(--v-theme-on-surface), 0.035);
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+}
+.office-search:focus-visible {
+    outline: 3px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
+.office-clear {
+    padding: 8px;
+    border: 0;
+    background: none;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.office-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 340px;
+    padding: 4px 4px 8px;
+    overflow-y: auto;
+}
+.office-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 8px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 12px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+}
+.office-card:hover {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.08);
+    transform: translateY(-2px);
+}
+.office-card.is-selected {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.12);
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.25);
+}
+.office-card.is-selected::after {
+    content: "✓";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    font-size: 12px;
+    font-weight: 700;
+}
+.office-card .office-seal {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+    font-size: 13px;
+}
+.office-card-abbr {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-no-match {
+    grid-column: 1 / -1;
+    padding: 24px;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    text-align: center;
+}
+.office-panel-foot {
+    min-height: 34px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    font-size: 13px;
+}
+.office-panel-foot b {
+    color: rgb(var(--v-theme-on-surface));
+}
+@media (max-width: 620px) {
+    .office-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .office-trigger {
+        min-width: 200px;
+    }
+}
 .dash-panel-sub {
     font-size: 0.75rem;
     font-weight: 400;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
-/* By Process card: one column of bars, scrolls when there are many */
-.process-bars {
+/* By Process card: pie beside its legend; stacks only on small screens. */
+.process-pie-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px 16px;
+    flex: 1 1 auto;
+}
+@media (min-width: 1100px) {
+    .process-pie-body {
+        flex-wrap: nowrap;
+    }
+}
+.pp-legend {
+    flex: 1 1 180px;
+    min-width: 0;
+    max-width: 320px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    flex: 1 1 auto;
-    max-height: 300px;
-    overflow-y: auto;
+    gap: 2px;
 }
-/* Get Started as a horizontal strip of shortcuts (admin layout) */
-.start-wide {
+.pp-legend--tight {
+    gap: 0;
+}
+.pp-legend--tight .pp-name {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+}
+.pp-legend--tight .pp-num {
     flex-direction: row;
-    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
 }
-.start-wide .start-row {
-    flex: 1 1 260px !important;
-    min-height: 72px;
-}
-.start-wide .start-row + .start-row {
-    border-top: none;
-    border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-@media (max-width: 960px) {
-    .start-wide .start-row + .start-row {
-        border-left: none;
-        border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    }
+.pp-more {
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .summary-stale {
     opacity: 0.6;
@@ -1594,71 +2095,91 @@ onUnmounted(() => {
 }
 .process-bar-row {
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 36px;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 14px;
-    padding: 8px 6px;
-    margin: 0 -6px;
-    border-radius: 10px;
+    gap: 8px;
+    padding: 2px 8px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.15s;
+    transition: background-color 0.15s, opacity 0.15s;
+}
+.process-bar-row:not([role="button"]) {
+    cursor: default;
 }
 .process-bar-row:hover,
-.process-bar-row:focus-visible {
-    background: rgba(var(--v-theme-on-surface), 0.05);
+.process-bar-row:focus-visible,
+.process-bar-row.is-hot {
+    background: rgba(var(--v-theme-on-surface), 0.06);
     outline: none;
 }
-.process-bar-row.faded {
-    opacity: 0.3;
+.process-bar-row.is-cold {
+    opacity: 0.55;
 }
-.bp-icon {
-    display: grid;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+.pp-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
 }
-.bp-main {
+.pp-name {
+    font-size: 0.8rem;
+    font-weight: 600;
     min-width: 0;
-}
-.bp-main .process-bar-name {
-    margin-bottom: 6px;
-}
-.process-bar-name {
-    font-size: 0.85rem;
-    font-weight: 700;
-    min-width: 0;
+    /* Long process names wrap to two lines instead of being cut. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    /* Wrap between words; only an over-long single word breaks. */
+    overflow-wrap: break-word;
+    line-height: 1.25;
     color: rgb(var(--v-theme-on-surface));
 }
-.process-bar-track {
-    height: 10px;
-    min-width: 0;
-    background: rgba(var(--v-theme-on-surface), 0.07);
-    border-radius: 999px;
-    overflow: hidden;
+/* Count over its share, right-aligned, so names keep the width. */
+.pp-num {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.2;
 }
-.process-bar-fill {
-    height: 100%;
-    border-radius: 999px;
-}
-.process-bar-count {
+.pp-count {
     font-size: 0.85rem;
     font-weight: 800;
     text-align: right;
     color: rgb(var(--v-theme-on-surface));
 }
+.pp-pct {
+    font-size: 0.72rem;
+    text-align: right;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
 .start-row {
     cursor: pointer;
-    min-height: 64px;
+    min-height: 56px;
 }
 .start-row + .start-row {
     border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.start-row:hover {
+.start-row:hover,
+.start-row:focus-visible {
     background: rgba(var(--v-theme-on-surface), 0.05);
+    outline: none;
+}
+.start-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
 }
 .start-title {
     font-size: 0.85rem;
     line-height: 1.25;
+}
+.start-sub {
+    font-size: 0.72rem;
+    line-height: 1.25;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 </style>

@@ -22,6 +22,8 @@ use App\Http\Controllers\Api\Admin\WorkflowDefinitionController;
 use App\Http\Controllers\Api\Admin\WorkflowStepController;
 use App\Http\Controllers\Api\Admin\WorkflowRouteController;
 use App\Http\Controllers\Api\Admin\DashboardSummaryController;
+use App\Http\Controllers\Api\Admin\MonitoringReportController;
+use App\Http\Controllers\Api\Admin\ActivityLogController;
 
 use App\Http\Controllers\Api\Admin\FieldDefinitionController;
 use App\Http\Controllers\Api\Admin\StepFieldController;
@@ -32,6 +34,7 @@ use App\Http\Controllers\Api\Admin\StepChecklistController;
 use App\Http\Controllers\Api\Admin\StepDataController;
 
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\TransactionArchiveController;
 use App\Http\Controllers\Api\TransactionRequirementController;
 use App\Http\Controllers\Api\TransactionChecklistController;
 use App\Http\Controllers\Api\TransactionAttachmentController;
@@ -251,6 +254,13 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
             ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process'])
             ->middleware(EnsureOfficeAdmin::class);
 
+        // Monitoring report (read-only; office admins get their office's scope).
+        Route::get('/reports/monitoring', MonitoringReportController::class)
+            ->middleware(EnsureOfficeAdmin::class);
+        // Activity log (read-only): transaction activity; setup changes for superadmins.
+        Route::get('/activity', ActivityLogController::class)
+            ->middleware(EnsureOfficeAdmin::class);
+
         // Transactions: the list/detail/steps are open to everyone. Regular
         // users see their own office's rows plus rows waiting on one of
         // their roles at their office; office admins see rows parked at
@@ -258,9 +268,18 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // with an office (non-superadmin creations are forced to their own
         // office); reassign stays superadmin-only.
         Route::get('/transactions', [TransactionController::class, 'index']);
+        // Static path must precede {transaction} so "archive" is not bound as an id.
+        // Read-only for staff: visibility is scoped by TransactionVisibility.
+        Route::get('/transactions/archive', [TransactionArchiveController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
             ->middleware(EnsureTransactionOffice::class);
+        Route::post('/transactions/{transaction}/archive', [TransactionArchiveController::class, 'store'])
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
+        Route::post('/transactions/{transaction}/unarchive', [TransactionArchiveController::class, 'unarchive'])
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
+        Route::patch('/transactions/{transaction}/privacy', [TransactionController::class, 'updatePrivacy'])
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice'])
             ->middleware(EnsureRole::class.':superadmin');
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction'])

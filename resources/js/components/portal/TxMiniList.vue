@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div v-if="loading" class="d-flex align-center justify-center" style="height: 200px">
+        <div v-if="loading" class="d-flex align-center justify-center mini-loading">
             <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
         </div>
         <v-alert v-else-if="!rows.length" type="info" variant="tonal" rounded="0" class="ma-2">
@@ -10,20 +10,20 @@
             <v-list-item v-for="tx in rows" :key="tx.id" rounded="0" class="mini-row" @click="emit('open', tx)">
                 <template #prepend>
                     <div class="mini-icon" :style="tint(tx)">
-                        <v-icon size="20">mdi-file-document-outline</v-icon>
+                        <v-icon size="18">mdi-file-document-outline</v-icon>
                     </div>
                 </template>
                 <v-list-item-title class="font-weight-bold">
-                    {{ tx.title || tx.reference_number || `Transaction #${tx.id}` }}
+                    {{ tx.reference_number || `Transaction #${tx.id}` }}
                 </v-list-item-title>
-                <v-list-item-subtitle>
+                <v-list-item-subtitle :title="subtitle(tx)">
                     {{ subtitle(tx) }}
                 </v-list-item-subtitle>
                 <template #append>
                     <v-chip v-if="tx.is_done" size="x-small" color="success" variant="flat" rounded="0" class="mr-2">
                         Done
                     </v-chip>
-                    <span v-else-if="tx.current_step" class="mini-pill mr-2" :style="tint(tx)">
+                    <span v-else-if="tx.current_step" class="mini-pill mr-2" :style="tint(tx)" :title="tx.current_step.name || tx.current_step.code">
                         {{ tx.current_step.name || tx.current_step.code }}
                     </span>
                     <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
@@ -59,7 +59,8 @@ function tint(tx) {
 }
 
 function subtitle(tx) {
-    const base = [tx.reference_number, tx.transaction_type?.name || tx.transaction_type_name]
+    // Reference is the row title; the title (optional) and process sit here.
+    const base = [tx.title, tx.transaction_type?.name || tx.transaction_type_name]
         .filter(Boolean)
         .join(" · ");
     return [base, timeAgo(tx.created_at)].filter(Boolean).join(" · ");
@@ -67,8 +68,35 @@ function subtitle(tx) {
 </script>
 
 <style scoped>
+.mini-loading {
+    min-height: 120px;
+}
 .mini-row {
     cursor: pointer;
+    min-height: 46px !important;
+    padding-block: 2px !important;
+    padding-inline: 8px !important;
+}
+/* One line each, so every row is the same height. */
+.mini-row :deep(.v-list-item-title) {
+    font-size: 0.85rem;
+    line-height: 1.25;
+}
+.mini-row :deep(.v-list-item-subtitle) {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    font-size: 0.72rem;
+    line-height: 1.3;
+}
+.mini-row :deep(.v-list-item__prepend) {
+    width: 42px;
+}
+.mini-row :deep(.v-list-item__spacer) {
+    display: none;
 }
 .mini-row:hover {
     background: rgba(var(--v-theme-on-surface), 0.05);
@@ -76,17 +104,16 @@ function subtitle(tx) {
 .mini-icon {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 38px;
-    margin-right: 12px;
-    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
 }
 .mini-icon .v-icon {
     color: inherit;
 }
 .mini-pill {
     display: inline-block;
-    max-width: 180px;
+    max-width: 130px;
     padding: 3px 10px;
     border-radius: 999px;
     font-size: 0.72rem;

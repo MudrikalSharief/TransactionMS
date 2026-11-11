@@ -1,21 +1,49 @@
 <template>
-    <v-row v-if="(fields || []).length">
-        <v-col v-for="row in fields" :key="row.definition.id" cols="12" md="6">
-            <!-- eslint-disable vue/no-mutating-props -- form is the page's shared draft, changed in place on purpose -->
-            <component
-                :is="componentFor(row.definition.type)"
-                v-model="form[row.definition.code]"
-                :label="row.definition.name + (row.definition.required ? ' *' : '')"
-                :items="row.definition.options || []"
-                :multiple="row.definition.type === 'multiselect'"
-                :type="inputTypeFor(row.definition.type)"
-                :error="isEmpty(row)"
-                :error-messages="isEmpty(row) ? ['* required'] : []"
-                clearable
-            />
-            <!-- eslint-enable vue/no-mutating-props -->
-        </v-col>
-    </v-row>
+    <!-- eslint-disable vue/no-mutating-props -- form is the page's shared draft, changed in place on purpose -->
+    <template v-if="(fields || []).length">
+        <div v-if="modern" class="pm-field-grid pm-form">
+            <div
+                v-for="row in fields"
+                :key="row.definition.id"
+                class="pm-field"
+                :data-pm-task="row.definition.name"
+            >
+                <div class="pm-field-head">
+                    <label>{{ row.definition.name }}</label>
+                    <span v-if="row.definition.required" class="pm-tag w">Required</span>
+                </div>
+                <component
+                    :is="componentFor(row.definition.type)"
+                    v-model="form[row.definition.code]"
+                    :items="row.definition.options || []"
+                    :multiple="row.definition.type === 'multiselect'"
+                    :type="inputTypeFor(row.definition.type)"
+                    :error="isEmpty(row)"
+                    :error-messages="isEmpty(row) ? ['* required'] : []"
+                    variant="outlined"
+                    density="comfortable"
+                    hide-details="auto"
+                    clearable
+                />
+            </div>
+        </div>
+        <v-row v-else>
+            <v-col v-for="row in fields" :key="row.definition.id" cols="12" md="6">
+                <component
+                    :is="componentFor(row.definition.type)"
+                    v-model="form[row.definition.code]"
+                    :label="row.definition.name + (row.definition.required ? ' *' : '')"
+                    :items="row.definition.options || []"
+                    :multiple="row.definition.type === 'multiselect'"
+                    :type="inputTypeFor(row.definition.type)"
+                    :error="isEmpty(row)"
+                    :error-messages="isEmpty(row) ? ['* required'] : []"
+                    clearable
+                />
+            </v-col>
+        </v-row>
+    </template>
+    <!-- eslint-enable vue/no-mutating-props -->
 </template>
 
 <script setup>
@@ -24,6 +52,9 @@
 const props = defineProps({
     fields: { type: Array, default: () => [] },
     form: { type: Object, required: true },
+    // Redesigned proceed-modal layout: labels above comfortable inputs in a
+    // single-column stack instead of a two-column Vuetify grid.
+    modern: { type: Boolean, default: false },
 });
 
 function componentFor(type) {

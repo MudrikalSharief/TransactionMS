@@ -359,7 +359,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useAuth } from '@/composables/useAuth'
+import { useAuth, userKind, isOfficeAdminUser } from '@/composables/useAuth'
 
 const auth = useAuth()
 
@@ -367,6 +367,10 @@ const isSuperadmin = computed(() => {
     const roles = auth.user.value?.roles ?? []
     return roles.some((r) => r.code === 'superadmin')
 })
+const isStaff = computed(() => userKind(auth.user.value) === 'staff')
+const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
+const transactionsPath = computed(() => (isStaff.value ? '/portal/transactions' : '/transactions'))
+const archivePath = computed(() => (isStaff.value ? '/portal/history' : '/transactions/archive'))
 
 // Search + expanded panels (inline reading, no popups).
 const query = ref('')
@@ -391,16 +395,25 @@ const userSteps = computed(() => [
             icon: 'mdi-swap-horizontal',
             title: 'Transactions',
             hint: 'All requests in the system',
-            text: 'This is the full queue — every request in the system appears here, with New Transaction and delete actions.',
-            to: '/transactions',
+            text: 'This is the full queue — every request in the system appears here, with New Transaction and archive actions. Archiving keeps the record and moves it to Archive.',
+            to: transactionsPath.value,
         }
         : {
             icon: 'mdi-swap-horizontal',
             title: 'Transactions',
             hint: 'Your queue by office and role',
             text: 'Requests for your office and items waiting on your role appear here.',
-            to: '/transactions',
+            to: transactionsPath.value,
         },
+    ...(isSuperadmin.value || isOfficeAdmin.value
+        ? [{
+            icon: 'mdi-archive-outline',
+            title: 'Archive',
+            hint: 'Archived, never deleted',
+            text: 'Archived requests leave the active queue but stay here with their files and full history. They are view-only until unarchived.',
+            to: archivePath.value,
+        }]
+        : []),
     {
         icon: 'mdi-mouse-left-click-outline',
         title: 'Open a request',
@@ -454,13 +467,6 @@ const adminSteps = [
         to: '/admin/transaction-types',
     },
     {
-        icon: 'mdi-form-textbox',
-        title: 'Fields',
-        hint: 'Form inputs per step',
-        text: 'Define the form fields (text, number, date, select…). Mark which are required or unique.',
-        to: '/admin/fields',
-    },
-    {
         icon: 'mdi-clipboard-check-outline',
         title: 'Requirements',
         hint: 'Checklist items per step',
@@ -475,18 +481,11 @@ const adminSteps = [
         to: '/admin/transaction-types',
     },
     {
-        icon: 'mdi-bank',
-        title: 'Gov References',
-        hint: 'RA, IRR, COA citations',
-        text: 'Attach the governing references (RA, IRR, COA…) so the transaction type cites its legal basis.',
-        to: '/admin/government-references',
-    },
-    {
         icon: 'mdi-swap-horizontal',
         title: 'Transactions',
         hint: 'Watch requests flow',
         text: 'New transactions automatically follow the current steps for their type. Watch them flow through the steps here.',
-        to: '/transactions',
+        to: transactionsPath.value,
     },
 ]
 

@@ -132,7 +132,7 @@ let observer = null
 // Render the SVG in true pixels (viewBox matches rendered size 1:1)
 // so bars and text stay crisp at any container size.
 const viewW = computed(() => Math.max(280, Math.round(wrapW.value || 640)))
-const viewH = computed(() => Math.max(140, Math.round(wrapH.value || props.height)))
+const viewH = computed(() => Math.max(70, Math.round(wrapH.value || props.height)))
 
 const leftPad = 30
 const rightPad = 8

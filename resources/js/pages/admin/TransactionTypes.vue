@@ -1,6 +1,6 @@
 <template>
     <LoadingVeil
-        :show="loading"
+        :show="loading || entering"
         label="transaction types"
         icon="mdi-format-list-bulleted-type"
     />
@@ -77,21 +77,139 @@
                 class="tt-table"
             >
                 <template v-slot:[`item.code`]="{ item }">
-                    <span class="tt-code" :title="item.code">{{
-                        item.code
-                    }}</span>
+                    <div v-if="editingCodeId === item.id" class="tt-cell-edit">
+                        <input
+                            :ref="setCodeInput"
+                            :value="codeDraft"
+                            type="text"
+                            class="tt-inline-input tt-mono"
+                            maxlength="50"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-label="Edit transaction type code"
+                            :disabled="inlineSavingId != null"
+                            @input="onCodeDraftInput"
+                            @keyup.enter="saveCode(item)"
+                            @keyup.esc="cancelCodeEdit"
+                            @blur="saveCode(item)"
+                        />
+                        <span
+                            v-if="inlineSavingId === item.id"
+                            class="tt-inline-spin"
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <button
+                        v-else
+                        type="button"
+                        class="tt-cell-btn tt-code-btn"
+                        :disabled="!canManage || inlineSavingId != null"
+                        title="Click to edit code"
+                        @click="startCodeEdit(item)"
+                    >
+                        <span class="tt-code" :title="item.code">{{
+                            item.code
+                        }}</span>
+                        <v-icon
+                            v-if="canManage"
+                            class="tt-edit-hint"
+                            size="14"
+                            aria-hidden="true"
+                            >mdi-pencil</v-icon
+                        >
+                    </button>
                 </template>
 
                 <template v-slot:[`item.name`]="{ item }">
-                    <span class="tt-name" v-tooltip="item.name">{{
-                        item.name
-                    }}</span>
+                    <div v-if="editingNameId === item.id" class="tt-cell-edit">
+                        <input
+                            :ref="setNameInput"
+                            v-model="nameDraft"
+                            type="text"
+                            class="tt-inline-input"
+                            maxlength="120"
+                            autocomplete="off"
+                            aria-label="Edit transaction type name"
+                            :disabled="inlineSavingId != null"
+                            @keyup.enter="saveName(item)"
+                            @keyup.esc="cancelNameEdit"
+                            @blur="saveName(item)"
+                        />
+                        <span
+                            v-if="inlineSavingId === item.id"
+                            class="tt-inline-spin"
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <button
+                        v-else
+                        type="button"
+                        class="tt-cell-btn tt-name-btn"
+                        :disabled="!canManage || inlineSavingId != null"
+                        title="Click to edit name"
+                        @click="startNameEdit(item)"
+                    >
+                        <span class="tt-name" :title="item.name">{{
+                            item.name
+                        }}</span>
+                        <v-icon
+                            v-if="canManage"
+                            class="tt-edit-hint"
+                            size="14"
+                            aria-hidden="true"
+                            >mdi-pencil</v-icon
+                        >
+                    </button>
                 </template>
 
                 <template v-slot:[`item.description`]="{ item }">
-                    <span class="tt-desc" :title="item.description || ''">{{
-                        item.description || "—"
-                    }}</span>
+                    <div
+                        v-if="editingDescId === item.id"
+                        class="tt-cell-edit tt-desc-edit"
+                    >
+                        <textarea
+                            :ref="setDescInput"
+                            v-model="descDraft"
+                            class="tt-desc-input"
+                            rows="2"
+                            maxlength="200"
+                            aria-label="Edit transaction type description"
+                            :disabled="inlineSavingId != null"
+                            @keydown.esc.prevent="cancelDescEdit"
+                            @keydown.ctrl.enter.prevent="saveDescription(item)"
+                            @keydown.meta.enter.prevent="saveDescription(item)"
+                            @blur="saveDescription(item)"
+                        ></textarea>
+                        <div class="tt-inline-hint">
+                            Ctrl+Enter to save · Esc to cancel
+                            <span
+                                v-if="inlineSavingId === item.id"
+                                class="tt-inline-spin"
+                                aria-hidden="true"
+                            />
+                        </div>
+                    </div>
+                    <button
+                        v-else
+                        type="button"
+                        class="tt-cell-btn tt-desc-btn"
+                        :disabled="!canManage || inlineSavingId != null"
+                        title="Click to edit description"
+                        @click="startDescEdit(item)"
+                    >
+                        <span
+                            class="tt-desc"
+                            :title="item.description || ''"
+                            >{{ item.description || "—" }}</span
+                        >
+                        <v-icon
+                            v-if="canManage"
+                            class="tt-edit-hint"
+                            size="14"
+                            aria-hidden="true"
+                            >mdi-pencil</v-icon
+                        >
+                    </button>
                 </template>
 
                 <template v-slot:[`item.steps`]="{ item }">
@@ -129,60 +247,215 @@
                 </template>
 
                 <template v-slot:[`item.offices`]="{ item }">
-                    <div v-if="(item.offices || []).length" class="tt-offices">
-                        <span
-                            v-for="o in item.offices"
-                            :key="o.id"
-                            class="tt-office is-specific"
-                            v-tooltip="o.name"
-                            :aria-label="o.name"
-                        >
-                            <img
-                                v-if="officeIcon(o)"
-                                class="tt-office-icon"
-                                :src="officeIcon(o)"
-                                :alt="`${o.name} icon`"
-                            />
-                            <span
-                                v-else
-                                class="tt-office-icon-placeholder"
-                                aria-label="No office icon"
-                            >
-                                ?
-                            </span>
-                            <span class="tt-office-text">{{ o.code }}</span>
-                        </span>
-                    </div>
-                    <span
-                        v-else
-                        class="tt-office"
-                        v-tooltip="'Available to every office'"
+                    <v-menu
+                        :model-value="officeMenuId === item.id"
+                        :disabled="!isSuperadmin || inlineSavingId != null"
+                        location="bottom start"
+                        :close-on-content-click="false"
+                        @update:model-value="
+                            (open) => onOfficeMenuUpdate(item, open)
+                        "
                     >
-                        <img
-                            class="tt-office-icon"
-                            :src="anyOfficeIcon"
-                            alt="Zamboanga City seal"
-                        />
-                        <span class="tt-office-text">Any Office</span>
-                    </span>
+                        <template #activator="{ props }">
+                            <button
+                                v-bind="props"
+                                type="button"
+                                class="tt-cell-btn tt-office-btn"
+                                :disabled="
+                                    !isSuperadmin || inlineSavingId != null
+                                "
+                                :title="
+                                    isSuperadmin
+                                        ? 'Click to change allowed office'
+                                        : ''
+                                "
+                                @click.stop
+                            >
+                                <div
+                                    v-if="(item.offices || []).length"
+                                    class="tt-offices"
+                                >
+                                    <span
+                                        v-for="o in item.offices"
+                                        :key="o.id"
+                                        class="tt-office is-specific"
+                                        v-tooltip="o.name"
+                                        :aria-label="o.name"
+                                    >
+                                        <img
+                                            v-if="officeIcon(o)"
+                                            class="tt-office-icon"
+                                            :src="officeIcon(o)"
+                                            :alt="`${o.name} icon`"
+                                        />
+                                        <span
+                                            v-else
+                                            class="tt-office-icon-placeholder"
+                                            aria-label="No office icon"
+                                        >
+                                            ?
+                                        </span>
+                                        <span class="tt-office-text">{{
+                                            o.code
+                                        }}</span>
+                                    </span>
+                                </div>
+                                <span
+                                    v-else
+                                    class="tt-office"
+                                    v-tooltip="'Available to every office'"
+                                >
+                                    <img
+                                        class="tt-office-icon"
+                                        :src="anyOfficeIcon"
+                                        alt="Zamboanga City seal"
+                                    />
+                                    <span class="tt-office-text"
+                                        >Any Office</span
+                                    >
+                                </span>
+                                <v-icon
+                                    v-if="isSuperadmin"
+                                    class="tt-edit-hint"
+                                    size="14"
+                                    aria-hidden="true"
+                                    >mdi-pencil</v-icon
+                                >
+                            </button>
+                        </template>
+                        <v-card
+                            rounded="0"
+                            style="min-width: 280px; max-width: 360px; max-height: 360px; overflow-y: auto"
+                        >
+                            <div class="tt-office-search">
+                                <v-text-field
+                                    v-model="officeEditSearch"
+                                    placeholder="Search office"
+                                    prepend-inner-icon="mdi-magnify"
+                                    variant="outlined"
+                                    density="compact"
+                                    hide-details
+                                    clearable
+                                    autofocus
+                                />
+                            </div>
+                            <v-list density="compact" class="py-1">
+                                <v-list-subheader>Allowed Office</v-list-subheader>
+                                <v-list-item
+                                    :active="
+                                        currentOfficeId(item) === ALL_OFFICES
+                                    "
+                                    @click="
+                                        saveAllowedOffice(item, ALL_OFFICES)
+                                    "
+                                >
+                                    <template #prepend>
+                                        <img
+                                            :src="anyOfficeIcon"
+                                            class="tt-menu-office-icon"
+                                            alt=""
+                                        />
+                                    </template>
+                                    <v-list-item-title
+                                        >Any Office</v-list-item-title
+                                    >
+                                    <v-list-item-subtitle
+                                        >Available to every office</v-list-item-subtitle
+                                    >
+                                    <template #append>
+                                        <v-icon
+                                            v-if="
+                                                currentOfficeId(item) ===
+                                                ALL_OFFICES
+                                            "
+                                            size="18"
+                                            >mdi-check</v-icon
+                                        >
+                                    </template>
+                                </v-list-item>
+                                <v-list-item
+                                    v-for="o in filteredOfficeList"
+                                    :key="o.id"
+                                    :active="currentOfficeId(item) === o.id"
+                                    @click="saveAllowedOffice(item, o.id)"
+                                >
+                                    <template #prepend>
+                                        <img
+                                            v-if="o.icon"
+                                            :src="o.icon"
+                                            class="tt-menu-office-icon"
+                                            alt=""
+                                        />
+                                        <span
+                                            v-else
+                                            class="tt-menu-office-icon-ph"
+                                            >?</span
+                                        >
+                                    </template>
+                                    <v-list-item-title>{{
+                                        o.title
+                                    }}</v-list-item-title>
+                                    <v-list-item-subtitle>{{
+                                        o.subtitle
+                                    }}</v-list-item-subtitle>
+                                    <template #append>
+                                        <v-icon
+                                            v-if="
+                                                currentOfficeId(item) === o.id
+                                            "
+                                            size="18"
+                                            >mdi-check</v-icon
+                                        >
+                                    </template>
+                                </v-list-item>
+                                <v-list-item
+                                    v-if="!filteredOfficeList.length"
+                                    disabled
+                                >
+                                    <v-list-item-title
+                                        >No offices found</v-list-item-title
+                                    >
+                                </v-list-item>
+                            </v-list>
+                        </v-card>
+                    </v-menu>
                 </template>
 
                 <template v-slot:[`item.is_active`]="{ item }">
-                    <v-menu open-on-hover location="end" open-delay="250">
+                    <v-menu
+                        open-on-hover
+                        :open-on-click="false"
+                        location="end"
+                        open-delay="250"
+                    >
                         <template #activator="{ props }">
-                            <button
-                                type="button"
-                                class="tt-status"
-                                :class="{ 'is-off': !item.is_active }"
-                                v-bind="props"
-                                :title="`Workflow versions for ${item.name || item.code}`"
-                            >
-                                <span
-                                    class="tt-status-dot"
-                                    aria-hidden="true"
-                                />
-                                {{ item.is_active ? "Active" : "Inactive" }}
-                            </button>
+                            <span v-bind="props" class="tt-status-wrap">
+                                <button
+                                    type="button"
+                                    class="tt-switch"
+                                    :class="{ 'is-on': item.is_active }"
+                                    role="switch"
+                                    :aria-checked="
+                                        item.is_active ? 'true' : 'false'
+                                    "
+                                    :aria-label="`Set ${item.name || item.code} ${item.is_active ? 'inactive' : 'active'}`"
+                                    :title="`Toggle status · hover for workflow versions (${item.name || item.code})`"
+                                    :disabled="
+                                        !canManage || inlineSavingId != null
+                                    "
+                                    @click.stop="toggleStatus(item)"
+                                >
+                                    <span
+                                        class="tt-switch-track"
+                                        aria-hidden="true"
+                                    >
+                                        <span class="tt-switch-thumb" />
+                                    </span>
+                                    <span class="tt-switch-label">{{
+                                        item.is_active ? "Active" : "Inactive"
+                                    }}</span>
+                                </button>
+                            </span>
                         </template>
                         <v-card
                             rounded="0"
@@ -298,6 +571,7 @@
                             size="small"
                             variant="outlined"
                             rounded="0"
+                            :disabled="inlineSavingId != null"
                             @click="openEdit(item)"
                         />
                         <v-btn
@@ -308,6 +582,7 @@
                             size="small"
                             variant="outlined"
                             rounded="0"
+                            :disabled="inlineSavingId != null"
                             @click="removeRow(item)"
                         />
                     </div>
@@ -662,7 +937,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth, isOfficeAdminUser } from "@/composables/useAuth";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
@@ -674,12 +949,18 @@ import {
     wfStatusLabel,
 } from "@/utils/workflowStatus";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import { useEntryVeil } from "@/composables/useEntryVeil";
+import { toast } from "@/composables/useToast";
 import { anyOfficeIcon, officeIcon } from "@/utils/officeIcons";
 
 const router = useRouter();
 const auth = useAuth();
 const { items, loading, fetchAll, create, update, remove } =
     useTransactionTypes();
+
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil();
 const {
     defs,
     loading: defsLoading,
@@ -719,10 +1000,10 @@ const officeItemProps = (item) => ({ subtitle: item.subtitle });
 
 const headers = [
     { title: "Code", key: "code", width: "17%" },
-    { title: "Name", key: "name", width: "18.5%" },
-    { title: "Description", key: "description", width: "19%" },
+    { title: "Name", key: "name", width: "17.5%" },
+    { title: "Description", key: "description", width: "17%" },
     { title: "Allowed Office", key: "offices", sortable: false, width: "16.5%" },
-    { title: "Status", key: "is_active", width: "9%" },
+    { title: "Status", key: "is_active", width: "13%" },
     { title: "Steps", key: "steps", sortable: false, width: "9%" },
     { title: "", key: "actions", sortable: false, width: "10%", align: "end" },
 ];
@@ -834,6 +1115,333 @@ const searchInput = ref(null);
 const PER_PAGE = 8;
 const page = ref(1);
 
+// ---- Inline table editing ----
+const editingCodeId = ref(null);
+const codeDraft = ref("");
+const editingNameId = ref(null);
+const nameDraft = ref("");
+const editingDescId = ref(null);
+const descDraft = ref("");
+const inlineSavingId = ref(null);
+const officeMenuId = ref(null);
+const officeEditSearch = ref("");
+
+let codeInputEl = null;
+let nameInputEl = null;
+let descInputEl = null;
+
+function setCodeInput(el) {
+    codeInputEl = el;
+}
+function setNameInput(el) {
+    nameInputEl = el;
+}
+function setDescInput(el) {
+    descInputEl = el;
+}
+
+// The update endpoint requires code and name. office_ids is only sent when
+// changing the allowed office so normal edits never rewrite assignments.
+function typePayload(item, overrides = {}) {
+    return {
+        code: item.code,
+        name: item.name,
+        description: item.description ?? "",
+        is_active: !!item.is_active,
+        ...overrides,
+    };
+}
+
+function replaceType(updated) {
+    if (updated?.id == null) return;
+    const idx = (items.value || []).findIndex(
+        (t) => Number(t.id) === Number(updated.id),
+    );
+    if (idx >= 0) items.value[idx] = updated;
+}
+
+function apiErrorMessage(e, fallback) {
+    const errs = e?.response?.data?.errors;
+    if (errs) {
+        const first = Object.values(errs).flat()[0];
+        if (first) return Array.isArray(first) ? first[0] : String(first);
+    }
+    return e?.response?.data?.message || fallback;
+}
+
+function validateCode(item, value) {
+    const code = String(value ?? "").trim();
+    if (!code) return "Enter a code.";
+    if (!/^[a-z0-9_]+$/.test(code)) {
+        return "Use lowercase letters, numbers and underscores only.";
+    }
+    if (code.length > 50) return "Keep the code to 50 characters or fewer.";
+    if (
+        (items.value || []).some(
+            (t) =>
+                String(t.id) !== String(item.id) &&
+                String(t.code ?? "") === code,
+        )
+    ) {
+        return "This code is already used by another transaction type.";
+    }
+    return "";
+}
+
+function validateName(value) {
+    const name = String(value ?? "").trim();
+    if (!name) return "Enter a name.";
+    if (name.length > 120) return "Keep the name to 120 characters or fewer.";
+    return "";
+}
+
+function validateDescription(value) {
+    if (String(value ?? "").length > 200) {
+        return "Keep the description to 200 characters or fewer.";
+    }
+    return "";
+}
+
+async function startCodeEdit(item) {
+    if (!canManage.value || inlineSavingId.value != null) return;
+    editingCodeId.value = item.id;
+    codeDraft.value = item.code ?? "";
+    await nextTick();
+    codeInputEl?.focus();
+    codeInputEl?.select?.();
+}
+
+function onCodeDraftInput(event) {
+    codeDraft.value = String(event.target.value || "").toLowerCase();
+}
+
+function cancelCodeEdit() {
+    if (inlineSavingId.value != null) return;
+    editingCodeId.value = null;
+    codeDraft.value = "";
+}
+
+async function saveCode(item) {
+    if (editingCodeId.value !== item.id || inlineSavingId.value != null) return;
+    const code = codeDraft.value.trim();
+    const problem = validateCode(item, code);
+    if (problem) {
+        toast.error(problem);
+        codeInputEl?.focus();
+        return;
+    }
+    if (code === String(item.code ?? "")) {
+        editingCodeId.value = null;
+        codeDraft.value = "";
+        return;
+    }
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await update(item.id, typePayload(item, { code }));
+        replaceType(updated);
+        editingCodeId.value = null;
+        codeDraft.value = "";
+        toast.success(`Code changed to "${code}".`);
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the code."));
+        inlineSavingId.value = null;
+        await nextTick();
+        codeInputEl?.focus();
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+async function startNameEdit(item) {
+    if (!canManage.value || inlineSavingId.value != null) return;
+    editingNameId.value = item.id;
+    nameDraft.value = item.name ?? "";
+    await nextTick();
+    nameInputEl?.focus();
+    nameInputEl?.select?.();
+}
+
+function cancelNameEdit() {
+    if (inlineSavingId.value != null) return;
+    editingNameId.value = null;
+    nameDraft.value = "";
+}
+
+async function saveName(item) {
+    if (editingNameId.value !== item.id || inlineSavingId.value != null) return;
+    const name = nameDraft.value.trim();
+    const problem = validateName(name);
+    if (problem) {
+        toast.error(problem);
+        nameInputEl?.focus();
+        return;
+    }
+    if (name === String(item.name ?? "").trim()) {
+        editingNameId.value = null;
+        nameDraft.value = "";
+        return;
+    }
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await update(item.id, typePayload(item, { name }));
+        replaceType(updated);
+        editingNameId.value = null;
+        nameDraft.value = "";
+        toast.success(`"${name}" updated.`);
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the name."));
+        inlineSavingId.value = null;
+        await nextTick();
+        nameInputEl?.focus();
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+async function startDescEdit(item) {
+    if (!canManage.value || inlineSavingId.value != null) return;
+    editingDescId.value = item.id;
+    descDraft.value = item.description ?? "";
+    await nextTick();
+    descInputEl?.focus();
+    const len = descInputEl?.value?.length ?? 0;
+    descInputEl?.setSelectionRange?.(len, len);
+}
+
+function cancelDescEdit() {
+    if (inlineSavingId.value != null) return;
+    editingDescId.value = null;
+    descDraft.value = "";
+}
+
+async function saveDescription(item) {
+    if (editingDescId.value !== item.id || inlineSavingId.value != null) return;
+    const description = String(descDraft.value || "").trim();
+    const problem = validateDescription(description);
+    if (problem) {
+        toast.error(problem);
+        descInputEl?.focus();
+        return;
+    }
+    if (description === String(item.description ?? "").trim()) {
+        editingDescId.value = null;
+        descDraft.value = "";
+        return;
+    }
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await update(
+            item.id,
+            typePayload(item, { description }),
+        );
+        replaceType(updated);
+        editingDescId.value = null;
+        descDraft.value = "";
+        toast.success("Description updated.");
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the description."));
+        inlineSavingId.value = null;
+        await nextTick();
+        descInputEl?.focus();
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+function currentOfficeId(item) {
+    const ids = officeIdsOf(item);
+    return ids[0] ?? ALL_OFFICES;
+}
+
+const filteredOfficeOptions = computed(() => {
+    const q = officeEditSearch.value.trim().toLowerCase();
+    if (!q) return officeOptions.value;
+    return officeOptions.value.filter((o) =>
+        `${o.title || ""} ${o.subtitle || ""}`.toLowerCase().includes(q),
+    );
+});
+
+const filteredOfficeList = computed(() =>
+    filteredOfficeOptions.value.filter((o) => o.id !== ALL_OFFICES),
+);
+
+function onOfficeMenuUpdate(item, open) {
+    if (open) {
+        if (!isSuperadmin.value || inlineSavingId.value != null) return;
+        officeMenuId.value = item.id;
+        officeEditSearch.value = "";
+        return;
+    }
+    if (officeMenuId.value === item.id) officeMenuId.value = null;
+}
+
+async function saveAllowedOffice(item, officeId) {
+    if (!isSuperadmin.value || inlineSavingId.value != null) return;
+    officeMenuId.value = null;
+
+    const nextIds = officeId === ALL_OFFICES ? [] : [Number(officeId)];
+    const currentIds = officeIdsOf(item).filter((id) => id !== ALL_OFFICES);
+    const same =
+        currentIds.length === nextIds.length &&
+        currentIds.every(
+            (id, index) => Number(id) === Number(nextIds[index]),
+        );
+    if (same) return;
+
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await update(
+            item.id,
+            typePayload(item, { office_ids: nextIds }),
+        );
+        replaceType(updated);
+        toast.success(
+            nextIds.length
+                ? "Allowed office updated."
+                : "Transaction type opened to all offices.",
+        );
+    } catch (e) {
+        toast.error(
+            apiErrorMessage(e, "Could not update the allowed office."),
+        );
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+async function toggleStatus(item) {
+    if (!canManage.value || inlineSavingId.value != null) return;
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await update(
+            item.id,
+            typePayload(item, { is_active: !item.is_active }),
+        );
+        replaceType(updated);
+        toast.success(
+            updated.is_active
+                ? `"${updated.name}" activated.`
+                : `"${updated.name}" deactivated.`,
+        );
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the status."));
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+function resetInlineEditors() {
+    editingCodeId.value = null;
+    editingNameId.value = null;
+    editingDescId.value = null;
+    codeDraft.value = "";
+    nameDraft.value = "";
+    descDraft.value = "";
+    officeMenuId.value = null;
+    officeEditSearch.value = "";
+}
+
+
 // Client-side search: master data is small, filter loaded rows by
 // code / name / description / office without extra requests.
 const filtered = computed(() => {
@@ -889,6 +1497,10 @@ function clearSearch() {
 
 watch(search, () => {
     page.value = 1;
+    resetInlineEditors();
+});
+watch(page, () => {
+    resetInlineEditors();
 });
 watch(
     () => filtered.value.length,
@@ -935,6 +1547,7 @@ function officeIdsOf(item) {
 }
 
 function openCreate() {
+    if (inlineSavingId.value != null) return;
     error.value = "";
     fieldErrors.value = {};
     dialogError.value = "";
@@ -950,6 +1563,7 @@ function openCreate() {
 }
 
 function openEdit(item) {
+    if (inlineSavingId.value != null) return;
     error.value = "";
     fieldErrors.value = {};
     dialogError.value = "";
@@ -1008,6 +1622,7 @@ async function save() {
 }
 
 async function removeRow(item) {
+    if (inlineSavingId.value != null) return;
     error.value = "";
     try {
         await remove(item.id);
@@ -1020,7 +1635,7 @@ async function removeRow(item) {
 onMounted(() => {
     // Independent lookups: run in parallel so one slow endpoint never blocks
     // the others. Each paints cache first, then revalidates silently.
-    fetchAll().catch(() => {});
+    settle(fetchAll(), { warm: !loading.value });
     fetchDefinitions().catch(() => {});
     fetchOffices().catch(() => {});
 });
@@ -1450,6 +2065,206 @@ html.dark .tt-page {
     height: 7px;
     flex: none;
     background: currentColor;
+}
+/* ---- Inline editing ---- */
+.tt-cell-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.tt-cell-btn:disabled {
+    opacity: 1;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+    cursor: default;
+}
+.tt-cell-btn:hover .tt-code,
+.tt-cell-btn:hover .tt-name,
+.tt-cell-btn:hover .tt-desc {
+    color: var(--tt-blue);
+}
+.tt-edit-hint {
+    flex: none;
+    margin-left: auto;
+    color: var(--tt-muted);
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+.tt-cell-btn:hover .tt-edit-hint,
+.tt-cell-btn:focus-visible .tt-edit-hint {
+    opacity: 0.85;
+    color: var(--tt-blue);
+}
+.tt-code-btn .tt-code,
+.tt-name-btn .tt-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.tt-desc-btn {
+    align-items: flex-start;
+}
+.tt-desc-btn .tt-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.tt-office-btn {
+    align-items: flex-start;
+}
+.tt-office-btn .tt-offices,
+.tt-office-btn > .tt-office {
+    flex: 1 1 auto;
+}
+.tt-cell-edit {
+    position: relative;
+}
+.tt-inline-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 8px;
+    border: 1.5px solid var(--tt-blue);
+    border-radius: 0;
+    background: var(--tt-panel);
+    color: var(--tt-ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--tt-ring);
+}
+.tt-inline-input.tt-mono {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+}
+.tt-desc-input {
+    width: 100%;
+    min-height: 64px;
+    padding: 8px;
+    border: 1.5px solid var(--tt-blue);
+    border-radius: 0;
+    background: var(--tt-panel);
+    color: var(--tt-ink);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--tt-ring);
+    resize: vertical;
+}
+.tt-inline-hint {
+    margin-top: 4px;
+    color: var(--tt-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+.tt-inline-spin {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--tt-line);
+    border-top-color: var(--tt-blue);
+    border-radius: 50%;
+    animation: tt-spin 0.7s linear infinite;
+}
+.tt-inline-hint .tt-inline-spin {
+    position: static;
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+@keyframes tt-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+/* Status switch */
+.tt-status-wrap {
+    display: inline-flex;
+    align-items: center;
+}
+.tt-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--tt-muted);
+    font: inherit;
+    cursor: pointer;
+}
+.tt-switch:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.tt-switch-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    flex: none;
+    border: 1px solid var(--tt-line);
+    background: var(--tt-field);
+    transition: background 0.15s, border-color 0.15s;
+}
+.tt-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--tt-muted);
+    transition: transform 0.15s, background 0.15s;
+}
+.tt-switch.is-on .tt-switch-track {
+    background: var(--tt-ok-bg);
+    border-color: var(--tt-ok);
+}
+.tt-switch.is-on .tt-switch-thumb {
+    background: var(--tt-ok);
+    transform: translateX(14px);
+}
+.tt-switch-label {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.tt-switch.is-on .tt-switch-label {
+    color: var(--tt-ok);
+}
+/* Allowed-office menu (teleported: use global theme vars) */
+.tt-office-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px;
+    background: rgb(var(--v-theme-surface));
+}
+.tt-menu-office-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+.tt-menu-office-icon-ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-size: 13px;
+    font-weight: 800;
 }
 .tt-actions {
     display: flex;

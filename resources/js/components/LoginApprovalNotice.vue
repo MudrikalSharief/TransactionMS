@@ -114,7 +114,8 @@ import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals, userKind } from "@/composables/useAuth";
-import { takeLoginNotice, approvalsSeenAt, markApprovalsSeen } from "@/composables/useLoginNotice";
+import { takeLoginNotice, approvalsSeenAt, markApprovalsSeen, trayBusy } from "@/composables/useLoginNotice";
+import { workingMs } from "@/utils/processColor";
 
 const route = useRoute();
 const router = useRouter();
@@ -131,14 +132,15 @@ const rows = ref([]);
 const seenAt = ref(null);
 const now = ref(Date.now());
 
-// Pending items whose step has a time limit, with the time left (ms).
+// Pending items whose step has a time limit, with the working time left
+// (ms, weekends skipped).
 const timed = computed(() =>
     rows.value
         .map((tx) => {
             const sla = Number(tx.current_step?.sla_minutes || 0);
             const entered = Date.parse(tx.entered_at || "");
             if (!sla || !Number.isFinite(entered)) return null;
-            return { tx, sla, left: entered + sla * 60000 - now.value };
+            return { tx, sla, left: sla * 60000 - workingMs(entered, now.value) };
         })
         .filter(Boolean),
 );
@@ -228,21 +230,27 @@ watch(
         const u = user.value;
         if (!id || userKind(u) !== "staff" || !canUseApprovals(u)) return;
         if (!takeLoginNotice(id)) return;
+        trayBusy.value = true;
         try {
             rows.value = await loadAll();
         } catch {
+            trayBusy.value = false;
             return;
         }
         seenAt.value = approvalsSeenAt(id);
         now.value = Date.now();
         if (total.value > 0) open.value = true;
-        else markApprovalsSeen(id);
+        else {
+            markApprovalsSeen(id);
+            trayBusy.value = false;
+        }
     },
     { immediate: true },
 );
 
 function markSeen() {
     if (user.value?.id) markApprovalsSeen(user.value.id, now.value);
+    trayBusy.value = false;
 }
 
 function openApprovals() {

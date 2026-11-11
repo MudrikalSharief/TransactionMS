@@ -96,7 +96,7 @@ export function useAuth() {
         return revalidate();
     }
 
-    // `login` is the username or email the person typed.
+    // `login` contains the person's username; email sign-in is not supported.
     async function login({ login, password, remember = false }) {
         // Drop any previous user's painted session first: init() must await
         // the network and paint THIS user, never flash the last one.

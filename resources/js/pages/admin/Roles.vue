@@ -1,5 +1,5 @@
 <template>
-    <LoadingVeil :show="loading" label="roles" icon="mdi-shield-account" />
+    <LoadingVeil :show="loading || entering" label="roles" icon="mdi-shield-account" />
     <v-card rounded="0" elevation="0" class="ro-page mb-4">
         <header class="ro-hd">
             <div class="ro-badge" aria-hidden="true">
@@ -72,48 +72,156 @@
                 class="ro-table"
             >
                 <template v-slot:[`item.code`]="{ item }">
-                    <span class="ro-code" :title="item.code">{{
-                        item.code
-                    }}</span>
+                    <div v-if="editingCodeId === item.id" class="ro-cell-edit">
+                        <input
+                            :ref="setCodeInput"
+                            v-model="codeDraft"
+                            type="text"
+                            class="ro-inline-input ro-mono"
+                            maxlength="50"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-label="Edit role code"
+                            :disabled="inlineSavingId != null"
+                            @keyup.enter="saveCode(item)"
+                            @keyup.esc="cancelCodeEdit"
+                            @blur="saveCode(item)"
+                        />
+                        <span
+                            v-if="inlineSavingId === item.id"
+                            class="ro-inline-spin"
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <button
+                        v-else-if="item.code !== 'superadmin'"
+                        type="button"
+                        class="ro-cell-btn ro-code-btn"
+                        :disabled="inlineSavingId != null"
+                        title="Click to edit code"
+                        @click="startCodeEdit(item)"
+                    >
+                        <span class="ro-code" :title="item.code">{{
+                            item.code
+                        }}</span>
+                        <v-icon
+                            class="ro-edit-hint"
+                            size="14"
+                            aria-hidden="true"
+                            >mdi-pencil</v-icon
+                        >
+                    </button>
+                    <span
+                        v-else
+                        class="ro-code ro-code-locked"
+                        title="The superadmin code cannot be changed"
+                    >
+                        {{ item.code }}
+                        <v-icon size="14" aria-hidden="true"
+                            >mdi-lock-outline</v-icon
+                        >
+                    </span>
                 </template>
 
                 <template v-slot:[`item.name`]="{ item }">
-                    <span class="ro-name" v-tooltip="item.name">{{
-                        item.name
-                    }}</span>
+                    <div v-if="editingNameId === item.id" class="ro-cell-edit">
+                        <input
+                            :ref="setNameInput"
+                            v-model="nameDraft"
+                            type="text"
+                            class="ro-inline-input"
+                            maxlength="100"
+                            autocomplete="off"
+                            aria-label="Edit role name"
+                            :disabled="inlineSavingId != null"
+                            @keyup.enter="saveName(item)"
+                            @keyup.esc="cancelNameEdit"
+                            @blur="saveName(item)"
+                        />
+                        <span
+                            v-if="inlineSavingId === item.id"
+                            class="ro-inline-spin"
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <button
+                        v-else
+                        type="button"
+                        class="ro-cell-btn ro-name-btn"
+                        :disabled="inlineSavingId != null"
+                        title="Click to edit name"
+                        @click="startNameEdit(item)"
+                    >
+                        <span class="ro-name" :title="item.name">{{
+                            item.name
+                        }}</span>
+                        <v-icon
+                            class="ro-edit-hint"
+                            size="14"
+                            aria-hidden="true"
+                            >mdi-pencil</v-icon
+                        >
+                    </button>
                 </template>
 
                 <template v-slot:[`item.description`]="{ item }">
-                    <span class="ro-desc" :title="item.description || ''">{{
-                        item.description || "—"
-                    }}</span>
+                    <div
+                        v-if="editingDescId === item.id"
+                        class="ro-cell-edit ro-desc-edit"
+                    >
+                        <textarea
+                            :ref="setDescInput"
+                            v-model="descDraft"
+                            class="ro-desc-input"
+                            rows="2"
+                            maxlength="1000"
+                            aria-label="Edit role description"
+                            :disabled="inlineSavingId != null"
+                            @keydown.esc.prevent="cancelDescEdit"
+                            @keydown.ctrl.enter.prevent="saveDescription(item)"
+                            @keydown.meta.enter.prevent="saveDescription(item)"
+                            @blur="saveDescription(item)"
+                        />
+                        <div class="ro-inline-hint">
+                            Ctrl+Enter to save · Esc to cancel
+                            <span
+                                v-if="inlineSavingId === item.id"
+                                class="ro-inline-spin"
+                                aria-hidden="true"
+                            />
+                        </div>
+                    </div>
+                    <button
+                        v-else
+                        type="button"
+                        class="ro-cell-btn ro-desc-btn"
+                        :disabled="inlineSavingId != null"
+                        title="Click to edit description"
+                        @click="startDescEdit(item)"
+                    >
+                        <span class="ro-desc" :title="item.description || ''">{{
+                            item.description || "—"
+                        }}</span>
+                        <v-icon
+                            class="ro-edit-hint"
+                            size="14"
+                            aria-hidden="true"
+                            >mdi-pencil</v-icon
+                        >
+                    </button>
                 </template>
 
                 <template v-slot:[`item.actions`]="{ item }">
-                    <div class="ro-actions">
-                        <v-btn
-                            class="ro-ib is-edit"
-                            icon="mdi-pencil"
-                            aria-label="Edit role"
-                            v-tooltip="'Edit role'"
-                            size="small"
-                            variant="outlined"
-                            rounded="0"
-                            @click="openEdit(item)"
-                        />
+                    <div v-if="item.code !== 'superadmin'" class="ro-actions">
                         <v-btn
                             class="ro-ib is-delete"
                             icon="mdi-delete"
                             aria-label="Delete role"
-                            v-tooltip="
-                                item.code === 'superadmin'
-                                    ? 'The superadmin role cannot be deleted'
-                                    : 'Delete role'
-                            "
+                            v-tooltip="'Delete role'"
                             size="small"
                             variant="outlined"
                             rounded="0"
-                            :disabled="item.code === 'superadmin'"
+                            :disabled="inlineSavingId != null"
                             @click="removeRow(item)"
                         />
                     </div>
@@ -208,15 +316,9 @@
                     <v-icon color="primary">mdi-shield-account-outline</v-icon>
                 </v-avatar>
                 <div class="nro-hd-t">
-                    <div class="nro-title">
-                        {{ form.id ? "Edit Role" : "New Role" }}
-                    </div>
+                    <div class="nro-title">New Role</div>
                     <div class="nro-sub">
-                        {{
-                            form.id
-                                ? "Update the role's details."
-                                : "Define a role used for access and workflow steps."
-                        }}
+                        Define a role used for access and workflow steps.
                     </div>
                 </div>
                 <v-btn
@@ -323,13 +425,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoles } from "@/composables/useRoles";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import { useEntryVeil } from "@/composables/useEntryVeil";
 import { toast } from "@/composables/useToast";
 
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } =
     useRoles();
+
+// Full-page loader on every visit: brief when cached rows are already
+// painted, otherwise until the first fetch finishes.
+const { entering, settle } = useEntryVeil();
 
 const headers = [
     { title: "Code", key: "code", width: "16%" },
@@ -405,7 +512,7 @@ watch(
     },
 );
 
-const form = ref({ id: null, code: "", name: "", description: "" });
+const form = ref({ code: "", name: "", description: "" });
 // 422 field errors render under their inputs; `dialogError` holds anything
 // that isn't field-specific (the page-level alert sits behind the dialog).
 const fieldErrors = ref({});
@@ -423,6 +530,239 @@ function clearFieldError(key) {
 // against the loaded roles (server enforces it too, soft-delete aware).
 const CODE_RE = /^[a-z0-9_]+$/;
 
+// ---- Inline table editing ----
+const editingCodeId = ref(null);
+const codeDraft = ref("");
+const editingNameId = ref(null);
+const nameDraft = ref("");
+const editingDescId = ref(null);
+const descDraft = ref("");
+const inlineSavingId = ref(null);
+
+let codeInputEl = null;
+let nameInputEl = null;
+let descInputEl = null;
+
+function setCodeInput(el) {
+    codeInputEl = el;
+}
+function setNameInput(el) {
+    nameInputEl = el;
+}
+function setDescInput(el) {
+    descInputEl = el;
+}
+
+// The update endpoint requires code, name and description, so every inline
+// save sends the full role plus the one field that changed.
+function rolePayload(item, overrides = {}) {
+    return {
+        code: item.code,
+        name: item.name,
+        description: item.description ?? null,
+        ...overrides,
+    };
+}
+
+function replaceRole(updated) {
+    if (updated?.id == null) return;
+    const idx = (roles.value || []).findIndex(
+        (r) => Number(r.id) === Number(updated.id),
+    );
+    if (idx >= 0) roles.value[idx] = updated;
+}
+
+function apiErrorMessage(e, fallback) {
+    const errs = e?.response?.data?.errors;
+    if (errs) {
+        const first = Object.values(errs).flat()[0];
+        if (first) return Array.isArray(first) ? first[0] : String(first);
+    }
+    return e?.response?.data?.message || fallback;
+}
+
+function validateCode(item, value) {
+    const code = String(value || "").trim();
+    if (!code) return "The code is required.";
+    if (!CODE_RE.test(code))
+        return "Code may only contain lowercase letters, numbers and underscores.";
+    if (code.length > 50)
+        return "The code may not be greater than 50 characters.";
+    if (
+        (roles.value || []).some(
+            (r) => r.code === code && Number(r.id) !== Number(item.id),
+        )
+    )
+        return "The code has already been taken.";
+    return "";
+}
+
+function validateName(value) {
+    const name = String(value || "").trim();
+    if (!name) return "The name is required.";
+    if (name.length > 100)
+        return "The name may not be greater than 100 characters.";
+    return "";
+}
+
+function validateDescription(value) {
+    if (String(value || "").length > 1000)
+        return "The description may not be greater than 1000 characters.";
+    return "";
+}
+
+async function startCodeEdit(item) {
+    if (item.code === "superadmin" || inlineSavingId.value != null) return;
+    editingCodeId.value = item.id;
+    codeDraft.value = item.code || "";
+    await nextTick();
+    codeInputEl?.focus();
+    codeInputEl?.select?.();
+}
+
+function cancelCodeEdit() {
+    if (inlineSavingId.value != null) return;
+    editingCodeId.value = null;
+    codeDraft.value = "";
+}
+
+async function saveCode(item) {
+    if (editingCodeId.value !== item.id || inlineSavingId.value != null) return;
+    const code = codeDraft.value.trim();
+    const problem = validateCode(item, code);
+    if (problem) {
+        toast.error(problem);
+        codeInputEl?.focus();
+        return;
+    }
+    if (code === item.code) {
+        editingCodeId.value = null;
+        codeDraft.value = "";
+        return;
+    }
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await updateRole(item.id, rolePayload(item, { code }));
+        replaceRole(updated);
+        editingCodeId.value = null;
+        codeDraft.value = "";
+        toast.success(`Role code changed to “${code}”.`);
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the role code."));
+        inlineSavingId.value = null;
+        await nextTick();
+        codeInputEl?.focus();
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+async function startNameEdit(item) {
+    if (inlineSavingId.value != null) return;
+    editingNameId.value = item.id;
+    nameDraft.value = item.name || "";
+    await nextTick();
+    nameInputEl?.focus();
+    nameInputEl?.select?.();
+}
+
+function cancelNameEdit() {
+    if (inlineSavingId.value != null) return;
+    editingNameId.value = null;
+    nameDraft.value = "";
+}
+
+async function saveName(item) {
+    if (editingNameId.value !== item.id || inlineSavingId.value != null) return;
+    const name = nameDraft.value.trim();
+    const problem = validateName(name);
+    if (problem) {
+        toast.error(problem);
+        nameInputEl?.focus();
+        return;
+    }
+    if (name === item.name) {
+        editingNameId.value = null;
+        nameDraft.value = "";
+        return;
+    }
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await updateRole(item.id, rolePayload(item, { name }));
+        replaceRole(updated);
+        editingNameId.value = null;
+        nameDraft.value = "";
+        toast.success(`Role “${name}” updated.`);
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the role name."));
+        inlineSavingId.value = null;
+        await nextTick();
+        nameInputEl?.focus();
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+async function startDescEdit(item) {
+    if (inlineSavingId.value != null) return;
+    editingDescId.value = item.id;
+    descDraft.value = item.description || "";
+    await nextTick();
+    descInputEl?.focus();
+    const len = descInputEl?.value?.length ?? 0;
+    descInputEl?.setSelectionRange?.(len, len);
+}
+
+function cancelDescEdit() {
+    if (inlineSavingId.value != null) return;
+    editingDescId.value = null;
+    descDraft.value = "";
+}
+
+async function saveDescription(item) {
+    if (editingDescId.value !== item.id || inlineSavingId.value != null) return;
+    const description = String(descDraft.value || "").trim();
+    const problem = validateDescription(description);
+    if (problem) {
+        toast.error(problem);
+        descInputEl?.focus();
+        return;
+    }
+    if (description === String(item.description || "").trim()) {
+        editingDescId.value = null;
+        descDraft.value = "";
+        return;
+    }
+    inlineSavingId.value = item.id;
+    try {
+        const updated = await updateRole(
+            item.id,
+            rolePayload(item, { description: description || null }),
+        );
+        replaceRole(updated);
+        editingDescId.value = null;
+        descDraft.value = "";
+        toast.success("Role description updated.");
+    } catch (e) {
+        toast.error(apiErrorMessage(e, "Could not update the description."));
+        inlineSavingId.value = null;
+        await nextTick();
+        descInputEl?.focus();
+    } finally {
+        inlineSavingId.value = null;
+    }
+}
+
+// Close inline editors when the visible page changes.
+watch([search, page], () => {
+    editingCodeId.value = null;
+    editingNameId.value = null;
+    editingDescId.value = null;
+    codeDraft.value = "";
+    nameDraft.value = "";
+    descDraft.value = "";
+});
+
 function validateForm() {
     const errs = {};
     const code = String(form.value.code || "").trim();
@@ -431,11 +771,7 @@ function validateForm() {
         errs.code = "Code may only contain lowercase letters, numbers and underscores.";
     else if (code.length > 50)
         errs.code = "The code may not be greater than 50 characters.";
-    else if (
-        (roles.value || []).some(
-            (r) => r.code === code && Number(r.id) !== Number(form.value.id),
-        )
-    )
+    else if ((roles.value || []).some((r) => r.code === code))
         errs.code = "The code has already been taken.";
 
     const name = String(form.value.name || "").trim();
@@ -451,23 +787,11 @@ function validateForm() {
 }
 
 function openCreate() {
+    if (inlineSavingId.value != null) return;
     error.value = "";
     fieldErrors.value = {};
     dialogError.value = "";
-    form.value = { id: null, code: "", name: "", description: "" };
-    dialog.value = true;
-}
-
-function openEdit(item) {
-    error.value = "";
-    fieldErrors.value = {};
-    dialogError.value = "";
-    form.value = {
-        id: item.id,
-        code: item.code,
-        name: item.name,
-        description: item.description ?? "",
-    };
+    form.value = { code: "", name: "", description: "" };
     dialog.value = true;
 }
 
@@ -490,13 +814,8 @@ async function save() {
             name: String(form.value.name || "").trim(),
             description: form.value.description,
         };
-        if (form.value.id) {
-            await updateRole(form.value.id, payload);
-            toast.success(`Role “${payload.name}” updated.`);
-        } else {
-            await createRole(payload);
-            toast.success(`Role “${payload.name}” saved.`);
-        }
+        await createRole(payload);
+        toast.success(`Role “${payload.name}” saved.`);
         dialog.value = false;
         await fetchRoles({ silent: true });
     } catch (e) {
@@ -520,6 +839,7 @@ async function save() {
 }
 
 async function removeRow(item) {
+    if (item.code === "superadmin" || inlineSavingId.value != null) return;
     error.value = "";
     try {
         await deleteRole(item.id);
@@ -531,7 +851,7 @@ async function removeRow(item) {
 }
 
 onMounted(() => {
-    fetchRoles().catch(() => {});
+    settle(fetchRoles(), { warm: !loading.value });
 });
 </script>
 
@@ -857,6 +1177,129 @@ html.dark .ro-page {
     overflow: hidden;
     overflow-wrap: anywhere;
 }
+/* ---- Inline editing ---- */
+.ro-cell-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.ro-cell-btn:disabled {
+    opacity: 1;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+    cursor: default;
+}
+.ro-cell-btn:hover .ro-code,
+.ro-cell-btn:hover .ro-name,
+.ro-cell-btn:hover .ro-desc {
+    color: var(--ro-blue);
+}
+.ro-edit-hint {
+    flex: none;
+    margin-left: auto;
+    color: var(--ro-muted);
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+.ro-cell-btn:hover .ro-edit-hint,
+.ro-cell-btn:focus-visible .ro-edit-hint {
+    opacity: 0.85;
+    color: var(--ro-blue);
+}
+.ro-code-btn .ro-code,
+.ro-name-btn .ro-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.ro-desc-btn {
+    align-items: flex-start;
+}
+.ro-desc-btn .ro-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.ro-code-locked {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+}
+.ro-code-locked .v-icon {
+    color: var(--ro-muted);
+}
+.ro-cell-edit {
+    position: relative;
+}
+.ro-inline-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 8px;
+    border: 1.5px solid var(--ro-blue);
+    border-radius: 0;
+    background: var(--ro-panel);
+    color: var(--ro-ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ro-ring);
+}
+.ro-inline-input.ro-mono {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+}
+.ro-desc-input {
+    width: 100%;
+    min-height: 64px;
+    padding: 8px;
+    border: 1.5px solid var(--ro-blue);
+    border-radius: 0;
+    background: var(--ro-panel);
+    color: var(--ro-ink);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ro-ring);
+    resize: vertical;
+}
+.ro-inline-hint {
+    margin-top: 4px;
+    color: var(--ro-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+.ro-inline-spin {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--ro-line);
+    border-top-color: var(--ro-blue);
+    border-radius: 50%;
+    animation: ro-spin 0.7s linear infinite;
+}
+.ro-inline-hint .ro-inline-spin {
+    position: static;
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+@keyframes ro-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
 .ro-actions {
     display: flex;
     justify-content: flex-end;
@@ -987,7 +1430,7 @@ html.dark .ro-page {
 </style>
 
 <style scoped>
-/* ---- New / Edit Role modal ---- */
+/* ---- New Role modal ---- */
 /* Header: tinted badge + title + subtitle + close. */
 .nro-hd {
     display: flex;

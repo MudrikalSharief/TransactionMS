@@ -11,7 +11,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Per-request memo for step lookups repeated across list rows.
+        $this->app->scoped(\App\Support\StepLookupMemo::class);
     }
 
     public function boot(): void

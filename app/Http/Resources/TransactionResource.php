@@ -19,6 +19,10 @@ class TransactionResource extends JsonResource
 
         $currentStepFields = [];
         $currentStep = $state?->currentStep;
+        // Step-level lookups below don't depend on this transaction; list
+        // endpoints memoize them so rows on the same step share one query.
+        $memo = \app(\App\Support\StepLookupMemo::class);
+        $sid = (int) ($currentStep?->id ?? 0);
 
         if ($currentStep) {
             $this->loadMissing(['fieldValues.fieldDefinition']);
@@ -26,10 +30,10 @@ class TransactionResource extends JsonResource
             $valuesByDefId = collect($this->fieldValues ?? [])
                 ->keyBy('field_definition_id');
 
-            $defs = $currentStep->fieldDefinitions()
+            $defs = $memo->remember("fields:{$sid}", fn () => $currentStep->fieldDefinitions()
                 ->orderBy('field_definition_workflow_step.display_order')
                 ->orderBy('field_definitions.order_number')
-                ->get();
+                ->get());
 
             foreach ($defs as $def) {
                 $fv = $valuesByDefId->get($def->id);
@@ -120,10 +124,10 @@ class TransactionResource extends JsonResource
                 ->where('workflow_step_id', (int) $currentStep->id)
                 ->groupBy(fn ($a) => (int) ($a->requirement_definition_id ?? 0));
 
-            $reqs = $currentStep->requirementDefinitions()
+            $reqs = $memo->remember("reqs:{$sid}", fn () => $currentStep->requirementDefinitions()
                 ->orderBy('step_requirements.display_order')
                 ->orderBy('requirement_definitions.order_number')
-                ->get();
+                ->get());
 
             // Previous-station ticks for the two-column verify layout: the
             // first column mirrors what the predecessor station(s) checked.
@@ -134,10 +138,12 @@ class TransactionResource extends JsonResource
             $checksByStepReq = collect($this->requirementChecks ?? [])
                 ->keyBy(fn ($c) => ((int) $c->workflow_step_id) . ':' . ((int) $c->requirement_definition_id));
             $checklistServiceForPrev = \app(\App\Services\ChecklistService::class);
-            $predSteps = $checklistServiceForPrev->predecessorsFor($currentStep)->values();
+            $predSteps = $memo->remember("preds:{$sid}", fn () => $checklistServiceForPrev->predecessorsFor($currentStep))->values();
             $predReqIdsByCode = [];
             foreach ($predSteps as $pred) {
-                foreach ($pred->requirementDefinitions()->get(['requirement_definitions.id', 'requirement_definitions.code']) as $pr) {
+                $predReqs = $memo->remember('pred-req-codes:' . (int) $pred->id, fn () => $pred->requirementDefinitions()
+                    ->get(['requirement_definitions.id', 'requirement_definitions.code']));
+                foreach ($predReqs as $pr) {
                     $predReqIdsByCode[strtolower(trim((string) $pr->code))][$pred->id] ??= (int) $pr->id;
                 }
             }
@@ -214,15 +220,17 @@ class TransactionResource extends JsonResource
             // paths (requirements/routes/checklist admins + transitions), so
             // list/detail reads never WRITE — critical for bad-network retries.
             $checklistService = \app(\App\Services\ChecklistService::class);
-            $checklistItems = $checklistService->itemsFor($currentStep);
+            $checklistItems = $memo->remember("checklist:{$sid}", fn () => $checklistService->itemsFor($currentStep));
 
             // Items mirrored from a predecessor's requirement carry that
             // station and the files it uploaded, so the reviewer can see
             // what they are validating (Approvals page).
             $sourceStepByReq = [];
             $ownerStepIdsByReq = [];
-            foreach ($checklistService->predecessorsFor($currentStep) as $pred) {
-                foreach ($pred->requirementDefinitions()->pluck('requirement_definitions.id') as $reqId) {
+            foreach ($memo->remember("preds:{$sid}", fn () => $checklistService->predecessorsFor($currentStep)) as $pred) {
+                $predReqIds = $memo->remember('pred-req-ids:' . (int) $pred->id, fn () => $pred->requirementDefinitions()
+                    ->pluck('requirement_definitions.id'));
+                foreach ($predReqIds as $reqId) {
                     $sourceStepByReq[(int) $reqId] ??= $pred;
                     $ownerStepIdsByReq[(int) $reqId][] = (int) $pred->id;
                 }
@@ -432,6 +440,8 @@ class TransactionResource extends JsonResource
             'reference_number' => $this->reference_number,
             'title' => $this->title,
             'is_done' => (bool) $this->is_done,
+            'is_archive' => (bool) $this->is_archive,
+            'is_private' => (bool) $this->is_private,
 
             'transaction_type' => $this->type?->only(['id','code','name']),
             'office' => Office::mini($this->office),
@@ -450,6 +460,12 @@ class TransactionResource extends JsonResource
                 $this->stepOfficePayload($state->currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
+            // Inbox lists only (withExists in ApprovalController): sent to the
+            // current station but not received there yet.
+            'awaiting_receipt' => $this->when(
+                array_key_exists('awaiting_receipt', $this->resource->getAttributes()),
+                fn () => (bool) $this->resource->getAttribute('awaiting_receipt')
+            ),
 
             'workflow_steps' => $this->workflow?->steps?->map(fn($s) => array_merge(
                 $s->only(['id','order_number','parent_id','code','name','stage','is_start','is_end','office_id']),
@@ -541,6 +557,14 @@ class TransactionResource extends JsonResource
 
         $performer = $lastRun->relationLoaded('performer') ? $lastRun->performer : null;
 
+        // Only files stamped to this move left the previous station with it.
+        // Unlinked uploads sitting on the same step are drafts/stale files,
+        // not part of what the previous step sent.
+        $attachments = collect($station['attachments'] ?? [])
+            ->filter(fn ($a) => (int) ($a['step_run_id'] ?? 0) === (int) $lastRun->id)
+            ->values()
+            ->all();
+
         return [
             'step' => [
                 'id' => $prevStepId,
@@ -556,7 +580,7 @@ class TransactionResource extends JsonResource
             ],
             'fields' => $fields,
             'step_data' => $stepData,
-            'attachments' => array_values($station['attachments'] ?? []),
+            'attachments' => $attachments,
         ];
     }
 
@@ -566,7 +590,10 @@ class TransactionResource extends JsonResource
             return [];
         }
         $this->loadMissing(['stepData.definition', 'stepData.enterer']);
-        $defs = $currentStep->stepDataDefinitions()->orderBy('display_order')->get();
+        $defs = \app(\App\Support\StepLookupMemo::class)->remember(
+            'step-data-defs:' . (int) $currentStep->id,
+            fn () => $currentStep->stepDataDefinitions()->orderBy('display_order')->get()
+        );
         // Latest value per definition for this transaction (history kept per run).
         $latestByDef = collect($this->stepData ?? [])
             ->sortByDesc(fn ($r) => $r->entered_at?->timestamp ?? $r->id)
