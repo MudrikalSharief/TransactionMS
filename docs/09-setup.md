@@ -29,9 +29,18 @@ npm run lint   # finds unused code and likely mistakes in resources/js and publi
 Rules are in `eslint.config.js`. No output means nothing was found.
 
 ## Login check
-- Super admin: `vinzmuloc@gmail.com / admin123`
-- Role test: `gso@lgu.test / admin123`, `cbo@lgu.test / admin123`, etc.
-- If login fails: check `is_active=1`, correct DB (MySQL `transaction` vs stray `database/database.sqlite`), rerun `php artisan db:seed --class=SuperAdminSeeder`.
+Sign in with the username (not the email). Usernames follow role and office: `<office code>admin` or `<office code>clerk`, and a second clerk in the same office ends in `2`.
+
+| Username | Password |
+|---|---|
+| `superadmin` | `admin123` |
+| `csdadmin` | `admin123` |
+| `csdclerk`, `csdclerk2`, `ocmclerk`, `ocasclerk`, `chrmoclerk`, `gsoclerk`, `ocbclerk`, `ocbclerk2`, `paadclerk` | `password123` |
+| `enduser`, `viewer` (the "Track your transaction" button) | unchanged |
+
+After pulling, run `php artisan migrate`: the migration `2026_11_11_000001_set_team_account_usernames` gives these accounts (found by email) their usernames and passwords. A fresh import of `lATESTBOMBOM.sql` already has them.
+
+- If login fails: check `is_active=1`, correct DB (MySQL `transaction` vs stray `database/database.sqlite`), run `php artisan migrate`.
 
 ## Notes / known quirks
 - Requirements routes: the library index uses `admin.requirements` (`/admin/requirements`); the workflow-scoped page uses `admin.workflow-requirements` (`/admin/workflows/:workflowId/requirements`). Keep the names distinct — duplicate names make one path unreachable.
