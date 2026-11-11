@@ -219,6 +219,128 @@ class DashboardSummaryTest extends TestCase
             ]);
     }
 
+    public function test_monthly_status_series_covers_the_last_three_months(): void
+    {
+        // July: one open, on time.
+        $this->tx($this->payroll, 70, ['enteredHoursAgo' => 1]);
+        // August: one open overdue, one completed (created July, finalized August).
+        $this->tx($this->payroll, 40, ['enteredHoursAgo' => 999]);
+        $this->tx($this->procurement, 70, ['finalizedDaysAgo' => 40]);
+        // September: one completed, one open.
+        $this->tx($this->procurement, 2, ['finalizedDaysAgo' => 1]);
+        $this->tx($this->payroll, 2, ['enteredHoursAgo' => 1]);
+
+        $this->summary()
+            ->assertJsonCount(3, 'monthly')
+            ->assertJsonPath('monthly.0.month', '2026-07')
+            ->assertJsonPath('monthly.0.label', 'Jul 2026')
+            ->assertJsonPath('monthly.0.completed', 0)
+            ->assertJsonPath('monthly.0.in_process', 1)
+            ->assertJsonPath('monthly.0.overdue', 0)
+            ->assertJsonPath('monthly.1.month', '2026-08')
+            ->assertJsonPath('monthly.1.label', 'Aug 2026')
+            ->assertJsonPath('monthly.1.completed', 1)
+            ->assertJsonPath('monthly.1.in_process', 0)
+            ->assertJsonPath('monthly.1.overdue', 1)
+            ->assertJsonPath('monthly.2.month', '2026-09')
+            ->assertJsonPath('monthly.2.label', 'Sep 2026')
+            ->assertJsonPath('monthly.2.completed', 1)
+            ->assertJsonPath('monthly.2.in_process', 1)
+            ->assertJsonPath('monthly.2.overdue', 0);
+
+        // The Period filter does not move this fixed graph window.
+        $this->summary(['month' => '2026-07'])
+            ->assertJsonCount(3, 'monthly')
+            ->assertJsonPath('monthly.0.month', '2026-07')
+            ->assertJsonPath('monthly.2.month', '2026-09');
+    }
+
+    public function test_monthly_status_series_respects_office_filters(): void
+    {
+        $this->tx($this->payroll, 2, ['office' => $this->chrmo->id]);
+        $this->tx($this->payroll, 2);
+
+        $this->summary()->assertJsonPath('monthly.2.in_process', 2);
+        $this->summary(['offices' => [$this->chrmo->id]])
+            ->assertJsonPath('monthly.2.in_process', 1);
+        $this->summary(['office_code' => 'chrmo'])
+            ->assertJsonPath('monthly.2.in_process', 1);
+    }
+
+    public function test_step_and_transaction_overdue_counts_use_different_rules(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-23 04:00:00', 'UTC')); // Wed 12:00 Manila
+
+        $this->payrollStep->update(['sla_minutes' => 60]);
+        $endStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->payrollStep->workflow_definition_id,
+            'order_number' => 2,
+            'code' => 'payroll_end',
+            'name' => 'Payroll end',
+            'is_end' => true,
+            'sla_minutes' => 60,
+        ]);
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+
+        $addRun = function (Transaction $tx, int $fromStep, int $toStep, int $minutesAgo, string $action = 'proceed') {
+            TransactionStepRun::create([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $fromStep,
+                'to_step_id' => $toStep,
+                'action_code' => $action,
+                'performed_by' => $this->admin->id,
+                'performed_at' => now()->subMinutes($minutesAgo),
+                'received_at' => now()->subMinutes($minutesAgo),
+                'sla_minutes_snapshot' => 60,
+            ]);
+        };
+
+        // Both visits are over 60 minutes: 120 + 180 = 300 actual vs 120 SLA.
+        $bothOver = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+        $addRun($bothOver, $this->payrollStep->id, $this->payrollStep->id, 300, 'create');
+        $addRun($bothOver, $this->payrollStep->id, $endStep->id, 180);
+        TransactionState::where('transaction_id', $bothOver->id)->update([
+            'current_step_id' => $endStep->id,
+            'entered_at' => now()->subMinutes(180),
+        ]);
+
+        // One visit over (90) and one under (30): total 120 actual vs 120 SLA.
+        $onlyOneOver = $this->tx($this->payroll, 1, ['office' => $gso->id]);
+        $addRun($onlyOneOver, $this->payrollStep->id, $this->payrollStep->id, 120, 'create');
+        $addRun($onlyOneOver, $this->payrollStep->id, $endStep->id, 30);
+        TransactionState::where('transaction_id', $onlyOneOver->id)->update([
+            'current_step_id' => $endStep->id,
+            'entered_at' => now()->subMinutes(30),
+        ]);
+
+        // Step visits: 2 from the first + 1 from the second = 3.
+        // Transactions: only the first one's total actual time exceeds its total SLA.
+        $this->summary()
+            ->assertJsonPath('overdue_steps', 3)
+            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonCount(1, 'overdue_by_office')
+            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
+            ->assertJsonPath('overdue_by_office.0.count', 1)
+            ->assertJsonCount(2, 'overdue_steps_by_office')
+            ->assertJsonPath('overdue_steps_by_office.0.code', 'CHRMO')
+            ->assertJsonPath('overdue_steps_by_office.0.count', 2)
+            ->assertJsonPath('overdue_steps_by_office.1.code', 'GSO')
+            ->assertJsonPath('overdue_steps_by_office.1.count', 1);
+
+        $this->summary(['month' => '2026-09'])
+            ->assertJsonPath('overdue_steps', 3)
+            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonCount(2, 'overdue_steps_by_office');
+
+        // August has no step visits, but the open transactions still count
+        // in the all-current transaction metric.
+        $this->summary(['month' => '2026-08'])
+            ->assertJsonPath('overdue_steps', 0)
+            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
+            ->assertJsonCount(0, 'overdue_steps_by_office');
+    }
+
     public function test_invalid_month_is_rejected(): void
     {
         Sanctum::actingAs($this->admin);

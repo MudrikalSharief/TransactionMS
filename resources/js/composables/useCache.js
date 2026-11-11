@@ -135,7 +135,7 @@ export const CacheKeys = {
     stepRequirements: 'step-reqs',
     stepChecklist: 'step-checklist',
     officeSteps: 'office-steps',
-    summary: 'dash-summary',
+    summary: 'dash-summary:v4',
     approvalCount: 'approval-count',
     authUser: 'auth-user',
 }
