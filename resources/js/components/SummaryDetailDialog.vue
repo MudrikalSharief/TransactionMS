@@ -140,7 +140,12 @@ const isDark = computed(() => theme.global.name.value === 'pixivDark')
 
 const meta = computed(() => summaryMeta(props.category))
 const accent = computed(() => (isDark.value ? meta.value.dark : meta.value.light))
-const title = computed(() => (props.category === 'process' ? `${props.processName} transactions` : meta.value.title))
+const title = computed(() => {
+    if (props.category === 'process') return `${props.processName} transactions`
+    // Overdue list for one office (from the Most Overdue Offices pie).
+    if (props.category === 'overdue' && props.processName) return `Overdue at ${props.processName}`
+    return meta.value.title
+})
 const isDeleted = computed(() => props.category === 'deleted')
 
 // ---- data -------------------------------------------------------------

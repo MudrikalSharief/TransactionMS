@@ -175,15 +175,7 @@
                     :loading="summaryLoading && !summary"
                     cta="Show list"
                     @activate="openDetail(tile.key, tileEls[tile.key])"
-                >
-                    <SummaryPopover
-                        :category="tile.key"
-                        :query="summaryQuery"
-                        :period-label="summaryScopeText"
-                        :disabled="!summary"
-                        @expand="openDetail(tile.key, tileEls[tile.key])"
-                    />
-                </StatCard>
+                />
             </div>
         </div>
         <!-- Cards render in the user's saved order, each in the next slot of
@@ -286,53 +278,46 @@
                                 <v-icon color="#005EED" size="20">mdi-chart-pie</v-icon>
                             </v-avatar>
                             <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">Most Used Transaction Type</div>
-                                <div class="dash-panel-sub text-truncate">{{ summaryScopeText }}</div>
+                                <div class="text-subtitle-1 font-weight-bold">Most Overdue Offices</div>
+                                <div class="dash-panel-sub text-truncate">Top 5 offices, {{ summaryScopeText }}</div>
                             </div>
                             <v-spacer />
-                            <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="goToQueue">
+                            <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openDetail('overdue', tileEls.overdue)">
                                 View all
                             </v-btn>
                         </v-card-title>
                         <v-card-text v-fit-body="'pie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
-                            <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
-                                No transactions created in this period.
+                            <div v-if="summary && !overdueOfficeRows.length" class="text-caption text-medium-emphasis">
+                                No overdue transactions in this period.
                             </div>
-                            <template v-else-if="byProcessRows.length">
+                            <template v-else-if="overdueOfficeRows.length">
                                 <ProcessPie
-                                    v-model:hover="byProcessHover"
-                                    :slices="byProcessRows"
+                                    v-model:hover="overdueHover"
+                                    :slices="overdueOfficeRows"
                                     :size="pieSize"
-                                    @open="(s) => openDetail('process', barEls[s.id], s)"
+                                    label="Overdue transactions by office"
+                                    @open="openOfficeOverdue"
                                 />
-                                <!-- Legend: name, count and share for every slice;
-                                     hover links to its slice, Enter or the pop-up
-                                     opens the full list. -->
+                                <!-- Legend: office, overdue count and share; hover links
+                                     to its slice, click or Enter opens that office's
+                                     overdue list. -->
                                 <div class="pp-legend" :class="{ 'pp-legend--tight': legendTight }">
                                     <div
                                         v-for="row in legendRows"
                                         :key="row.key"
-                                        :ref="(el) => row.id != null && (barEls[row.id] = el)"
+                                        :ref="(el) => (barEls[row.key] = el)"
                                         class="process-bar-row"
-                                        :class="{ 'is-hot': byProcessHover === row.key, 'is-cold': byProcessHover && byProcessHover !== row.key }"
-                                        :role="row.id != null ? 'button' : undefined"
-                                        :tabindex="row.id != null ? 0 : undefined"
-                                        :aria-label="`${row.name}: ${row.count} transactions, ${row.pct}%${row.id != null ? '. Press Enter for the full list' : ''}`"
-                                        @mouseenter="byProcessHover = row.key"
-                                        @mouseleave="byProcessHover = null"
-                                        @focus="byProcessHover = row.key"
-                                        @blur="byProcessHover = null"
-                                        @keydown.enter.prevent="row.id != null && openDetail('process', barEls[row.id], row)"
+                                        :class="{ 'is-hot': overdueHover === row.key, 'is-cold': overdueHover && overdueHover !== row.key }"
+                                        role="button"
+                                        tabindex="0"
+                                        :aria-label="`${row.name}: ${row.count} overdue, ${row.pct}%. Press Enter for the list`"
+                                        @mouseenter="overdueHover = row.key"
+                                        @mouseleave="overdueHover = null"
+                                        @focus="overdueHover = row.key"
+                                        @blur="overdueHover = null"
+                                        @click="openOfficeOverdue(row)"
+                                        @keydown.enter.prevent="openOfficeOverdue(row)"
                                     >
-                                        <SummaryPopover
-                                            v-if="row.id != null"
-                                            category="process"
-                                            :process-id="row.id"
-                                            :process-name="`${row.name} transactions`"
-                                            :query="summaryQuery"
-                                            :period-label="summaryScopeText"
-                                            @expand="openDetail('process', barEls[row.id], row)"
-                                        />
                                         <i class="pp-swatch" :style="{ background: row.color }" aria-hidden="true" />
                                         <span class="pp-name" :title="row.name">{{ row.name }}</span>
                                         <span class="pp-num">
@@ -645,7 +630,6 @@ import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
-import SummaryPopover from '@/components/SummaryPopover.vue'
 import ProcessPie from '@/components/ProcessPie.vue'
 import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
@@ -1016,6 +1000,22 @@ watch(officeOptions, (options) => {
     }
 })
 
+// Superadmin: the office filter starts on CSD once the office list is in.
+// Set once per visit, so picking other offices or "Show all offices" sticks.
+const DEFAULT_OFFICE_CODE = 'CSD'
+let officeDefaultApplied = false
+watch(
+    [officeOptions, isSuperadmin],
+    ([options, superadmin]) => {
+        if (officeDefaultApplied || !superadmin || !options.length) return
+        officeDefaultApplied = true
+        if (officeFilter.value?.length) return
+        const csd = options.find((o) => String(o.office?.code || '').toUpperCase() === DEFAULT_OFFICE_CODE)
+        if (csd) officeFilter.value = [csd.value]
+    },
+    { immediate: true },
+)
+
 // ---- Period filter ----
 // All time by default so pending work never hides on a week/month
 // rollover; switchable to this week (current Mon–Sun week) or one of the
@@ -1209,12 +1209,10 @@ const summaryScopeText = computed(
     () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'All time',
 )
 
-// Status tiles: each card takes its color and illustration from its variant.
+// Status tile (Overdue only): takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
     const s = summary.value || {}
     return [
-        { key: 'completed', label: 'Completed', icon: 'mdi-check-bold', variant: 'success', value: s.completed ?? '—', hint: 'Finalized in this period' },
-        { key: 'in_process', label: 'In-process', icon: 'mdi-timer-sand', variant: 'warning', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
         { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', variant: 'danger', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
     ]
 })
@@ -1233,32 +1231,29 @@ function openDetail(category, el, processRow = null) {
     detail.open = true
 }
 
-// By Process pie: share of the period's transactions per process, in the
-// same colours as the bar chart. Up to 7 named slices (the busiest); the
-// rest fold into one gray "Other processes" slice. Slices and legend run in
-// palette order, so neighbouring slices are validated palette neighbours.
-const byProcessHover = ref(null)
-const byProcessRows = computed(() => {
-    const rows = [...(summary.value?.by_process || [])].filter((r) => r.count > 0)
-    const total = rows.reduce((s, r) => s + r.count, 0)
+// Most Overdue Offices pie: the five offices holding the most overdue
+// transactions (the office of each one's current station), busiest first,
+// in palette order so neighbouring slices are validated palette neighbours.
+const overdueHover = ref(null)
+const overdueOfficeRows = computed(() => {
+    const rows = (summary.value?.overdue_by_office || []).filter((r) => r.count > 0).slice(0, 5)
+    const total = rows.reduce((sum, r) => sum + r.count, 0)
     if (!total) return []
-    const pct = (n) => Math.round((n / total) * 1000) / 10
     const palette = SERIES_PALETTE[themeMode.value]
-    const busiest = rows.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    const named = busiest.slice(0, MAX_PROCESS_BARS)
-    const rest = busiest.slice(MAX_PROCESS_BARS)
-    const slots = processColorSlot.value
-    const fallback = new Map([...named].map((r) => r.name).sort().map((n, i) => [n, i]))
-    const slotOf = (name) => (slots?.has(name) ? slots.get(name) : fallback.get(name))
-    const out = named
-        .map((r) => ({ ...r, key: `p${r.id}`, pct: pct(r.count), color: palette[slotOf(r.name)], slot: slotOf(r.name) }))
-        .sort((a, b) => a.slot - b.slot)
-    if (rest.length) {
-        const count = rest.reduce((s, r) => s + r.count, 0)
-        out.push({ key: 'other', id: null, name: OTHER_PROCESSES, count, pct: pct(count), color: OTHER_COLOR[themeMode.value] })
-    }
-    return out
+    return rows.map((r, i) => ({
+        key: `o${r.id ?? 'none'}`,
+        id: r.id,
+        name: r.name,
+        count: r.count,
+        pct: Math.round((r.count / total) * 1000) / 10,
+        color: palette[i],
+    }))
 })
+
+// One office's overdue list, opened from its slice or legend row.
+function openOfficeOverdue(row) {
+    openDetail('overdue', barEls[row.key], row.id != null ? { id: row.id, name: row.name } : null)
+}
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1355,7 +1350,7 @@ const startLinks = computed(() => {
     return links
 })
 
-// By Process: the pie takes the card's height; the legend lists what fits.
+// Overdue offices: the pie takes the card's height; the legend lists what fits.
 const pieSize = computed(() => {
     const s = sizes.pie
     if (!fit.value || !s) return 168
@@ -1363,11 +1358,11 @@ const pieSize = computed(() => {
 })
 const legendTight = computed(() => fit.value && (sizes.pie?.h ?? 999) < 150)
 const legendRows = computed(() => {
-    const all = byProcessRows.value
+    const all = overdueOfficeRows.value
     const room = rows('pie', legendTight.value ? LEGEND_TIGHT_ROW_PX : LEGEND_ROW_PX, all.length)
     return all.length <= room ? all : all.slice(0, Math.max(1, room - 1))
 })
-const legendHidden = computed(() => byProcessRows.value.length - legendRows.value.length)
+const legendHidden = computed(() => overdueOfficeRows.value.length - legendRows.value.length)
 
 // Tinted chip/icon in the process's color (same color on every card).
 function tintStyle(name) {

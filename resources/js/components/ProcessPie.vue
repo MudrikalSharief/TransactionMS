@@ -1,5 +1,5 @@
 <template>
-    <!-- Part-to-whole of transactions by process. Slices come in the colour
+    <!-- Part-to-whole pie (e.g. overdue transactions by office). Slices come in the colour
          palette's own order (the caller sorts them), so neighbouring slices
          are always palette neighbours, the pairs the palette is validated
          for. A 2px surface gap separates slices; names, counts and shares
@@ -56,6 +56,8 @@ const props = defineProps({
     slices: { type: Array, default: () => [] },
     size: { type: Number, default: 168 },
     hover: { type: [String, Number, null], default: null },
+    // What the pie shows, for screen readers.
+    label: { type: String, default: "Transactions by process" },
 });
 const emit = defineEmits(["update:hover", "open"]);
 
@@ -101,7 +103,7 @@ const hovered = computed(() => arcs.value.find((s) => s.key === props.hover) || 
 
 const ariaLabel = computed(
     () =>
-        "Transactions by process: " +
+        props.label + ": " +
         props.slices.map((s) => `${s.name} ${s.count} (${s.pct}%)`).join(", "),
 );
 </script>

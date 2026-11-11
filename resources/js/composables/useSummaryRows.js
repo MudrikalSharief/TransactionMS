@@ -137,6 +137,8 @@ const TTL_MS = 60_000
 export async function fetchSummaryRows(api, category, query, processId, { silentRefresh = true } = {}) {
     const params = { ...query }
     if (category === 'process') params.process_id = processId
+    // Overdue list for one office (where the transactions are now).
+    else if (category === 'overdue' && processId != null) params.at_office = processId
     const base = summaryApiBase()
     // Per user: an office admin's rows differ by office.
     const key = `${useAuth().user.value?.id ?? ''}|${category}|${JSON.stringify(params)}`
