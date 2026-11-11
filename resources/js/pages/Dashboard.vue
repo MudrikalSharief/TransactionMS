@@ -14,7 +14,7 @@
         <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
             <div class="dash-hello-text">
-                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
+                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}.</div>
                 <div class="dash-hello-sub">
                     <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>

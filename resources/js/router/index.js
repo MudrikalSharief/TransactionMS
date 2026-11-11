@@ -78,14 +78,14 @@ export function createRouter() {
                 path: "/",
                 name: "dashboard",
                 component: Dashboard,
-                meta: { requiresAuth: true, title: "Dashboard", kind: "admin", fit: true },
+                meta: { requiresAuth: true, title: "Dashboard", kind: "admin", fit: true, noFooter: true },
             },
 
             {
                 path: "/portal",
                 name: "portal",
                 component: PortalHome,
-                meta: { requiresAuth: true, title: "Home", kind: "staff", fit: true },
+                meta: { requiresAuth: true, title: "Home", kind: "staff", fit: true, noFooter: true },
             },
             {
                 path: "/portal/transactions",

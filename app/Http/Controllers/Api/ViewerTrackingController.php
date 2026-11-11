@@ -7,6 +7,7 @@ use App\Http\Resources\TransactionListResource;
 use App\Models\Transaction;
 use App\Models\Office;
 use App\Services\RoutingEngine;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 /**
@@ -26,6 +27,10 @@ class ViewerTrackingController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'status' => ['nullable', 'in:completed,in_process'],
+            // Date filter on the created date, in Manila time: a year, a month
+            // of a year, or a month in any year.
+            'month' => ['nullable', 'integer', 'between:1,12'],
+            'year' => ['nullable', 'integer', 'between:2000,2100'],
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
         $q = trim($data['q'] ?? '');
@@ -47,6 +52,19 @@ class ViewerTrackingController extends Controller
                 'creator:id,name,email',
             ])
             ->latest();
+
+        if (!empty($data['year'])) {
+            $from = Carbon::create((int) $data['year'], (int) ($data['month'] ?? 1), 1, 0, 0, 0, 'Asia/Manila');
+            $to = empty($data['month']) ? $from->copy()->addYear() : $from->copy()->addMonthNoOverflow();
+            $query->where('transactions.created_at', '>=', $from->copy()->utc())
+                ->where('transactions.created_at', '<', $to->copy()->utc());
+        } elseif (!empty($data['month'])) {
+            // Stored in UTC; Manila is a fixed +08:00 (no daylight saving).
+            $query->whereRaw(
+                "MONTH(CONVERT_TZ(transactions.created_at, '+00:00', '+08:00')) = ?",
+                [(int) $data['month']]
+            );
+        }
 
         if ($q !== '') {
             // Owners keep access to their own rows; everyone else needs the

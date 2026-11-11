@@ -24,6 +24,15 @@ class Transaction extends Model
         'created_by',
     ];
 
+    /**
+     * New transactions are PUBLIC by default: is_private ON means viewers can
+     * find and open it on Track (the column name is historical). An admin
+     * switches it to Private in the Access column to hide it from viewers.
+     */
+    protected $attributes = [
+        'is_private' => true,
+    ];
+
     protected $casts = [
         'is_done' => 'boolean',
         'is_archive' => 'boolean',

@@ -54,7 +54,7 @@ const edgeGradients = [
     --tf-blue: #2563EB;
     position: relative;
     z-index: 1;
-    margin-top: 15px;
+    margin-top: 8px;
     color: #fff;
 }
 
@@ -62,8 +62,9 @@ const edgeGradients = [
 .tf-skyline {
     position: relative;
     /* Width of the City Hall artwork (1000 x 310); everything below scales
-       from it so the swooshes always meet the ground. */
-    --hw: clamp(328px, 50.2vw, 852px);
+       from it so the swooshes always meet the ground. Footer kept at 35% of
+       its original size (2026-11-10). */
+    --hw: clamp(115px, 17.57vw, 298px);
     height: calc(var(--hw) * 0.31);
 }
 .tf-hall {
@@ -92,8 +93,8 @@ const edgeGradients = [
     height: calc(var(--hw) * 0.162);
 }
 .tf-navy { fill: var(--tf-navy); }
-.tf-gold { stroke-width: 2; }
-.tf-blue { stroke-width: 6; }
+.tf-gold { stroke-width: 1; }
+.tf-blue { stroke-width: 2.5; }
 
 /* ---- navy band ---- */
 .tf-band {
@@ -104,7 +105,7 @@ const edgeGradients = [
         linear-gradient(180deg, var(--tf-navy) 0%, var(--tf-deep) 100%);
     /* The bottom room keeps the credit row above the curved swoosh
        (::after), which otherwise draws a line straight through it. */
-    padding: 6px 18px 16px;
+    padding: 3px 18px 7px;
     text-align: center;
 }
 /* Lighter blue swoosh along the bottom edge. */
@@ -113,7 +114,7 @@ const edgeGradients = [
     position: absolute;
     left: -10%;
     right: -10%;
-    bottom: -52px;
+    bottom: -58px;
     height: 60px;
     border-radius: 50%;
     border-top: 3px solid rgba(96, 165, 250, 0.45);
@@ -127,8 +128,8 @@ const edgeGradients = [
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin-top: 6px;
-    font-size: 0.74rem;
+    margin-top: 0;
+    font-size: 0.66rem;
     color: rgba(255, 255, 255, 0.9);
 }
 .tf-credit b {
@@ -136,7 +137,7 @@ const edgeGradients = [
     font-weight: 800;
 }
 .tf-credit-line {
-    width: 60px;
+    width: 40px;
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.8));
 }
@@ -154,25 +155,25 @@ const edgeGradients = [
         margin-top: 0;
     }
     .tf--fit .tf-skyline {
-        --hw: clamp(260px, 35vh, 568px);
+        --hw: clamp(91px, 12.25vh, 199px);
     }
     .tf--fit .tf-band {
-        padding: clamp(2px, 0.3vh, 5px) 18px clamp(8px, 1vh, 12px);
+        padding: 2px 18px clamp(5px, 0.6vh, 7px);
     }
     /* Keep the bottom swoosh below the credit row at the smaller padding. */
     .tf--fit .tf-band::after {
         bottom: -58px;
     }
     .tf--fit .tf-credit {
-        margin-top: clamp(1px, 0.3vh, 4px);
-        font-size: clamp(0.58rem, 1.05vh, 0.66rem);
+        margin-top: 0;
+        font-size: clamp(0.58rem, 1.05vh, 0.64rem);
     }
 }
 
 /* Phones: the artwork fills the width; the credit may wrap. */
 @media (max-width: 700px) {
     .tf-skyline {
-        --hw: min(100vw, 568px);
+        --hw: min(35vw, 199px);
     }
     .tf-credit {
         flex-wrap: wrap;

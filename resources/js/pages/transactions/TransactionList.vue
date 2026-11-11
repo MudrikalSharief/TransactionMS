@@ -459,6 +459,50 @@
             <div class="tl-ago">{{ timeAgo(item.created_at) }}</div>
           </template>
 
+          <template v-slot:[`header.is_private`]="{ column }">
+            <v-menu
+              v-model="accessMenuOpen"
+              location="bottom end"
+              :close-on-content-click="false"
+            >
+              <template #activator="{ props }">
+                <button
+                  v-bind="props"
+                  type="button"
+                  class="tl-th-filter"
+                  :class="{ 'is-active': !!filterAccess }"
+                  :title="filterAccess ? 'Filtered by access' : 'Filter by access'"
+                  @click.stop
+                >
+                  <span>{{ column.title }}</span>
+                  <v-icon size="16">{{
+                    filterAccess ? 'mdi-filter' : 'mdi-filter-outline'
+                  }}</v-icon>
+                </button>
+              </template>
+              <v-card rounded="0" style="min-width: 240px">
+                <v-list density="compact" class="py-1">
+                  <v-list-subheader>Access</v-list-subheader>
+                  <v-list-item
+                    v-for="opt in ACCESS_OPTIONS"
+                    :key="opt.title"
+                    :active="filterAccess === opt.value"
+                    @click="setAccessFilter(opt.value)"
+                  >
+                    <v-list-item-title>{{ opt.title }}</v-list-item-title>
+                    <v-list-item-subtitle v-if="opt.hint">{{ opt.hint }}</v-list-item-subtitle>
+                    <template #append>
+                      <v-icon v-if="filterAccess === opt.value" size="18">mdi-check</v-icon>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-menu>
+          </template>
+
+          <!-- Access: the is_private flag ON means PUBLIC (viewers can find and
+               open it on Track); OFF means PRIVATE (hidden from viewers). The
+               column name is historical; only the labels say Public/Private. -->
           <template v-slot:[`item.is_private`]="{ item }">
             <div class="tl-private" @click.stop>
               <button
@@ -467,15 +511,15 @@
                 :class="{ 'is-on': item.is_private }"
                 role="switch"
                 :aria-checked="item.is_private ? 'true' : 'false'"
-                :aria-label="`Set ${item.reference_number || 'transaction'} ${item.is_private ? 'hidden from' : 'searchable on'} Track`"
-                :title="item.is_private ? 'Private · searchable on Track' : 'Private · hidden from Track search'"
+                :aria-label="`Make ${item.reference_number || 'transaction'} ${item.is_private ? 'private (hidden from viewers)' : 'public (viewers can find it on Track)'}`"
+                :title="item.is_private ? 'Public: viewers can find and open it on Track. Click to make it private.' : 'Private: hidden from viewers. Click to make it public.'"
                 :disabled="privacySavingId === item.id"
                 @click="togglePrivacy(item, !item.is_private)"
               >
                 <span class="tl-switch-track" aria-hidden="true">
                   <span class="tl-switch-thumb" />
                 </span>
-                <span class="tl-switch-label">{{ item.is_private ? 'Private' : 'Public' }}</span>
+                <span class="tl-switch-label">{{ item.is_private ? 'Public' : 'Private' }}</span>
               </button>
             </div>
           </template>
@@ -653,6 +697,14 @@ const error = ref('')
 const search = ref('')
 const filterType = ref(null)
 const filterOffice = ref(null)
+// Access column: null (all), 'public' or 'private'.
+const filterAccess = ref(null)
+const accessMenuOpen = ref(false)
+const ACCESS_OPTIONS = [
+  { value: null, title: 'All access' },
+  { value: 'public', title: 'Public', hint: 'Viewers can find it on Track' },
+  { value: 'private', title: 'Private', hint: 'Hidden from viewers' },
+]
 const dateFrom = ref('')
 const dateTo = ref('')
 const officeFilterSearch = ref('')
@@ -670,7 +722,7 @@ const actionSaving = ref(false)
 const privacySavingId = ref(null)
 
 const hasFilters = computed(
-  () => !!(filterType.value || filterOffice.value || dateFrom.value || dateTo.value)
+  () => !!(filterType.value || filterOffice.value || filterAccess.value || dateFrom.value || dateTo.value)
 )
 
 function requestParams(pageNo) {
@@ -681,6 +733,7 @@ function requestParams(pageNo) {
     office_id: filterOffice.value || null,
     date_from: dateFrom.value || '',
     date_to: dateTo.value || '',
+    access: filterAccess.value || '',
   }
 }
 
@@ -780,7 +833,7 @@ const headers = computed(() => {
   ]
   if (canManageArchive.value) {
     if (!isArchive.value) {
-      base.push({ title: 'Private', key: 'is_private', sortable: false, width: '110px', align: 'center' })
+      base.push({ title: 'Access', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }
     base.push({ title: '', key: 'actions', sortable: false, width: '64px', align: 'end' })
   }
@@ -842,7 +895,7 @@ watch(search, () => {
 })
 
 let filterTimer = null
-watch([filterType, filterOffice, dateFrom, dateTo], () => {
+watch([filterType, filterOffice, filterAccess, dateFrom, dateTo], () => {
   if (filterTimer) clearTimeout(filterTimer)
   filterTimer = setTimeout(async () => {
     page.value = 1
@@ -873,6 +926,11 @@ function setOfficeFilter(id) {
   officeMenuOpen.value = false
 }
 
+function setAccessFilter(value) {
+  filterAccess.value = value
+  accessMenuOpen.value = false
+}
+
 watch(dateMenuOpen, (open) => {
   if (!open) return
   dateFromDraft.value = dateFrom.value
@@ -896,10 +954,12 @@ function clearDateFilter() {
 function clearFilters() {
   filterType.value = null
   filterOffice.value = null
+  filterAccess.value = null
   dateFrom.value = ''
   dateTo.value = ''
   typeMenuOpen.value = false
   officeMenuOpen.value = false
+  accessMenuOpen.value = false
   dateMenuOpen.value = false
 }
 
@@ -985,8 +1045,8 @@ async function togglePrivacy(item, value) {
     item.is_private = !!value
     toast.success(
       value
-        ? 'Transaction is now searchable on Track.'
-        : 'Transaction removed from Track search.',
+        ? 'Transaction is now public: viewers can find it on Track.'
+        : 'Transaction is now private: hidden from viewers.',
     )
   } catch (e) {
     error.value = e?.response?.data?.message || 'Privacy update failed.'
