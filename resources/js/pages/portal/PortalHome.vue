@@ -13,8 +13,22 @@
                              shorten with "…", role chips hide and the button
                              keeps only its icon. -->
                         <div class="head-text">
-                            <div class="text-subtitle-1 font-weight-bold">Welcome, {{ user?.name }}</div>
-                            <div class="text-caption text-medium-emphasis">
+                            <!-- Role chips sit right after the name. -->
+                            <div class="head-name">
+                                <span class="text-subtitle-1 font-weight-bold head-name-text">Welcome, {{ user?.name }}</span>
+                                <v-chip
+                                    v-for="r in user?.roles || []"
+                                    :key="r.code"
+                                    size="small"
+                                    variant="tonal"
+                                    color="primary"
+                                    rounded="0"
+                                    class="font-weight-bold d-none d-sm-inline-flex head-role"
+                                >
+                                    {{ r.name || r.code }}
+                                </v-chip>
+                            </div>
+                            <div class="text-caption text-medium-emphasis head-office">
                                 {{ summary?.office?.name || 'No office assigned' }}
                             </div>
                         </div>
@@ -31,17 +45,6 @@
                             hide-details
                             class="home-period"
                         />
-                        <v-chip
-                            v-for="r in user?.roles || []"
-                            :key="r.code"
-                            size="small"
-                            variant="tonal"
-                            color="primary"
-                            rounded="0"
-                            class="font-weight-bold d-none d-sm-inline-flex"
-                        >
-                            {{ r.name || r.code }}
-                        </v-chip>
                         <v-btn
                             v-if="canCreate"
                             color="primary"
@@ -292,10 +295,20 @@ useSmartPoll(load);
     flex: 1 1 0;
     min-width: 0;
 }
-.head-text > div {
+.head-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.head-name-text,
+.head-office {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+.head-role {
+    flex: 0 0 auto;
 }
 .home-period {
     flex: 0 1 210px;
