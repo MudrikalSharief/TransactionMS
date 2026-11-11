@@ -37,7 +37,27 @@ export const SUMMARY_META = {
         explain: 'Every transaction of this process created in this period, newest first.',
         empty: 'No transactions of this process were created in this period.',
     },
+    on_time: {
+        title: 'On-time transactions', short: 'On time', icon: 'mdi-timer-check-outline', light: '#008300', dark: '#2fa84f',
+        explain: 'Finalized in this period before their deadline (the total of their stations’ time limits), archived ones included. Newest first.',
+        empty: 'No transactions were finished on time in this period.',
+    },
+    returns: {
+        title: 'Returned transactions', short: 'Returns', icon: 'mdi-undo-variant', light: '#7c4dcc', dark: '#a37be6',
+        explain: 'Sent back to an earlier station during this period. Most returns first.',
+        empty: 'Nothing was returned in this period.',
+    },
 }
+
+// Office in charge and the people assigned there, as one line.
+export function inCharge(r) {
+    const office = r.office_in_charge?.code || r.office_in_charge?.name || ''
+    const people = (r.assigned || []).join(', ')
+    return [office, people].filter(Boolean).join(' · ')
+}
+
+// Lists that can be narrowed to one office of a dashboard chart.
+const BY_OFFICE = ['overdue', 'on_time', 'returns']
 
 export function summaryMeta(category) {
     return SUMMARY_META[category] || SUMMARY_META.in_process
@@ -83,9 +103,43 @@ export function rowView(category, r) {
         case 'overdue':
             return {
                 from: { label: 'Arrived at station', value: fmtDateTime(r.entered_at) },
-                to: station,
+                to: {
+                    ...station,
+                    sub: inCharge(r) ? `In charge: ${inCharge(r)}` : station.sub,
+                },
                 metric: { value: `${dur(r.overdue_minutes)} over`, label: `Limit ${dur(r.sla_minutes)}`, tone: 'warn', icon: 'mdi-alert' },
                 brief: `At ${r.current_step ? stationName(r.current_step) : 'no station'}`,
+            }
+        case 'on_time':
+            return {
+                from: created,
+                to: {
+                    label: r.archived ? 'Finalized · now archived' : 'Finalized',
+                    value: fmtDateTime(r.finalized_at),
+                    sub: inCharge(r) ? `In charge: ${inCharge(r)}` : byName(r.finalized_by),
+                },
+                metric: {
+                    value: `${dur(r.deadline_minutes - r.spent_minutes)} early`,
+                    label: `Took ${dur(r.spent_minutes)} of ${dur(r.deadline_minutes)}`,
+                    tone: 'good',
+                    icon: 'mdi-timer-check-outline',
+                },
+                brief: `Finalized ${fmtDateTime(r.finalized_at)}${r.finalized_by?.name ? ` by ${r.finalized_by.name}` : ''}`,
+            }
+        case 'returns':
+            return {
+                from: {
+                    label: 'Returned by',
+                    value: r.returned_from ? stationName(r.returned_from) : '—',
+                    sub: inCharge(r) ? `In charge: ${inCharge(r)}` : '',
+                },
+                to: {
+                    label: 'Sent back to',
+                    value: r.returned_to ? stationName(r.returned_to) : '—',
+                    sub: `Last on ${fmtDateTime(r.last_returned_at)}`,
+                },
+                metric: { value: String(r.returns), label: r.returns === 1 ? 'return' : 'returns', tone: 'warn', icon: 'mdi-undo-variant' },
+                brief: `Returned ${r.returns}×`,
             }
         case 'deleted':
             return {
@@ -137,8 +191,8 @@ const TTL_MS = 60_000
 export async function fetchSummaryRows(api, category, query, processId, { silentRefresh = true } = {}) {
     const params = { ...query }
     if (category === 'process') params.process_id = processId
-    // Overdue list for one office (where the transactions are now).
-    else if (category === 'overdue' && processId != null) params.at_office = processId
+    // One office's list, from a dashboard chart (overdue, on time, returns).
+    else if (BY_OFFICE.includes(category) && processId != null) params.at_office = processId
     const base = summaryApiBase()
     // Per user: an office admin's rows differ by office.
     const key = `${useAuth().user.value?.id ?? ''}|${category}|${JSON.stringify(params)}`

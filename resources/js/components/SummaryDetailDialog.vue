@@ -120,7 +120,7 @@ import { fetchSummaryRows, rowView, summaryMeta } from '@/composables/useSummary
 
 const open = defineModel('open', { default: false })
 const props = defineProps({
-    // completed | in_process | overdue | deleted | process
+    // completed | in_process | overdue | deleted | process | on_time | returns
     category: { type: String, default: null },
     processId: { type: Number, default: null },
     processName: { type: String, default: '' },
@@ -142,8 +142,12 @@ const meta = computed(() => summaryMeta(props.category))
 const accent = computed(() => (isDark.value ? meta.value.dark : meta.value.light))
 const title = computed(() => {
     if (props.category === 'process') return `${props.processName} transactions`
-    // Overdue list for one office (from the Most Overdue Offices pie).
-    if (props.category === 'overdue' && props.processName) return `Overdue at ${props.processName}`
+    // One office's list (from the dashboard's per-office charts).
+    if (props.processName) {
+        if (props.category === 'overdue') return `Overdue at ${props.processName}`
+        if (props.category === 'on_time') return `On time at ${props.processName}`
+        if (props.category === 'returns') return `Returns by ${props.processName}`
+    }
     return meta.value.title
 })
 const isDeleted = computed(() => props.category === 'deleted')
@@ -186,6 +190,8 @@ const filtered = computed(() => {
             r.reference_number, r.title, r.process?.name, r.office?.code, r.office?.name,
             r.current_step?.name, r.station_at_deletion?.name, ...(r.handled_by || []),
             r.created_by?.name, r.finalized_by?.name, r.deleted_by?.name,
+            r.office_in_charge?.code, r.office_in_charge?.name, ...(r.assigned || []),
+            r.returned_from?.name, r.returned_to?.name,
         ].filter(Boolean).join(' ').toLowerCase().includes(q),
     )
 })

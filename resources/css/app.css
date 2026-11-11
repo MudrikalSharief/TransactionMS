@@ -252,6 +252,29 @@ html.dark *::-webkit-scrollbar-thumb:hover {
         overflow: hidden;
     }
 }
+/* Superadmin dashboard has three rows of cards: on shorter screens the page
+   scrolls with fixed row heights instead of squeezing every card. */
+@media (min-width: 1100px) and (min-height: 560px) and (max-height: 899.98px) {
+    html:has(.dash-grid--three) {
+        overflow-y: auto;
+    }
+    .app-main--fit:has(.dash-grid--three) {
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+    .app-main--fit:has(.dash-grid--three) .app-page,
+    .app-main--fit:has(.dash-grid--three) .page-enter {
+        flex: none;
+    }
+    .app-main--fit:has(.dash-grid--three) .fit-page {
+        height: auto;
+    }
+    .app-main--fit .fit-page .dash-grid.dash-grid--three {
+        flex: none;
+        grid-template-rows: 330px 270px 270px;
+    }
+}
 
 /* ---- Dashboard panels: rounded white cards with a soft shadow and a
    light header (round tinted icon, bold title). Scoped to .dash-panel so

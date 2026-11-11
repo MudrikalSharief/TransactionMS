@@ -190,6 +190,7 @@
         <div
             v-else
             class="dash-grid"
+            :class="{ 'dash-grid--three': isSuperadmin }"
             @pointerdown="onHoldStart"
             @pointermove="onHoldMove"
             @pointerup="onHoldEnd"
@@ -597,6 +598,116 @@
                         </v-card-text>
                     </v-card>
                 </div>
+                <!-- Superadmin: top 5 offices finishing on time / holding
+                     overdue papers (bars), and making returns (pie). Hover a
+                     bar for its transactions and who is assigned; click for
+                     the office's full list. -->
+                <div v-else-if="id === 'ontime' || id === 'overdues'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon :color="officeCharts[id].color" size="20">{{ officeCharts[id].icon }}</v-icon>
+                            </v-avatar>
+                            <div class="dash-head-title">
+                                <div class="text-subtitle-1 font-weight-bold">{{ officeCharts[id].title }}</div>
+                                <div class="dash-panel-sub text-truncate">{{ officeCharts[id].sub }}, {{ summaryScopeText }}</div>
+                            </div>
+                            <v-spacer />
+                            <v-btn
+                                variant="text"
+                                size="small"
+                                color="primary"
+                                append-icon="mdi-arrow-right"
+                                @click="openDetail(officeCharts[id].category, $event.currentTarget)"
+                            >
+                                View all
+                            </v-btn>
+                        </v-card-title>
+                        <v-card-text class="pa-2 dash-body office-chart-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <div v-if="summary && !officeCharts[id].rows.length" class="chart-empty">
+                                <v-icon size="28" :color="officeCharts[id].color">{{ officeCharts[id].icon }}</v-icon>
+                                <span>{{ officeCharts[id].empty }}</span>
+                            </div>
+                            <OfficeBarChart
+                                v-else-if="officeCharts[id].rows.length"
+                                :rows="officeCharts[id].rows"
+                                :color="officeCharts[id].color"
+                                :label="officeCharts[id].title"
+                                @open="(row, el) => openOfficeList(officeCharts[id].category, row, el)"
+                            />
+                        </v-card-text>
+                    </v-card>
+                </div>
+                <div v-else-if="id === 'returns'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#7c4dcc" size="20">mdi-undo-variant</v-icon>
+                            </v-avatar>
+                            <div class="dash-head-title">
+                                <div class="text-subtitle-1 font-weight-bold">Returns by Office</div>
+                                <div class="dash-panel-sub text-truncate">Top 5 offices, {{ summaryScopeText }}</div>
+                            </div>
+                            <v-spacer />
+                            <v-btn
+                                variant="text"
+                                size="small"
+                                color="primary"
+                                append-icon="mdi-arrow-right"
+                                @click="openDetail('returns', $event.currentTarget)"
+                            >
+                                View all
+                            </v-btn>
+                        </v-card-title>
+                        <v-card-text v-fit-body="'returns'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <div v-if="summary && !returnSlices.length" class="chart-empty">
+                                <v-icon size="28" color="#7c4dcc">mdi-undo-variant</v-icon>
+                                <span>Nothing was returned in this period.</span>
+                            </div>
+                            <template v-else-if="returnSlices.length">
+                                <ProcessPie
+                                    v-model:hover="returnsHover"
+                                    :slices="returnSlices"
+                                    :size="returnsPieSize"
+                                    label="Returns by office"
+                                    @open="(row) => openOfficeList('returns', row, barEls[row.key])"
+                                />
+                                <!-- Legend: office, the people who made the returns, count and share. -->
+                                <div class="pp-legend" :class="{ 'pp-legend--tight': returnsLegendTight }">
+                                    <div
+                                        v-for="row in returnLegendRows"
+                                        :key="row.key"
+                                        :ref="(el) => (barEls[row.key] = el)"
+                                        class="process-bar-row"
+                                        :class="{ 'is-hot': returnsHover === row.key, 'is-cold': returnsHover && returnsHover !== row.key }"
+                                        role="button"
+                                        tabindex="0"
+                                        :aria-label="`${row.name}: ${row.count} returns, ${row.pct}%${row.people.length ? ', by ' + row.people.join(', ') : ''}. Press Enter for the list`"
+                                        @mouseenter="returnsHover = row.key"
+                                        @mouseleave="returnsHover = null"
+                                        @focus="returnsHover = row.key"
+                                        @blur="returnsHover = null"
+                                        @click="openOfficeList('returns', row, barEls[row.key])"
+                                        @keydown.enter.prevent="openOfficeList('returns', row, barEls[row.key])"
+                                    >
+                                        <i class="pp-swatch" :style="{ background: row.color }" aria-hidden="true" />
+                                        <span class="pp-name-block">
+                                            <span class="pp-name" :title="row.name">{{ row.name }}</span>
+                                            <span v-if="row.people.length && !returnsLegendTight" class="pp-people" :title="row.people.join(', ')">
+                                                {{ row.people.join(', ') }}
+                                            </span>
+                                        </span>
+                                        <span class="pp-num">
+                                            <span class="pp-count">{{ row.count }}</span>
+                                            <span class="pp-pct">{{ row.pct }}%</span>
+                                        </span>
+                                    </div>
+                                    <div v-if="returnLegendHidden" class="pp-more">and {{ returnLegendHidden }} more</div>
+                                </div>
+                            </template>
+                        </v-card-text>
+                    </v-card>
+                </div>
             </template>
         </div>
         <SummaryDetailDialog
@@ -631,6 +742,7 @@ import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
 import ProcessPie from '@/components/ProcessPie.vue'
+import OfficeBarChart from '@/components/OfficeBarChart.vue'
 import StatCard from '@/components/StatCard.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
@@ -730,13 +842,20 @@ const refreshedLabel = computed(() =>
 // Default order; the staff layout swaps the graph for the queue. The
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
+    // Superadmins get a middle row of per-office charts.
+    if (isSuperadmin.value) {
+        return ['graph', 'byprocess', 'ontime', 'overdues', 'returns', 'action', 'recent', 'start']
+    }
     if (canSeeSummary.value) {
         return ['graph', 'byprocess', 'action', 'recent', 'start']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
-// Width of each grid slot, out of 12 columns; two rows.
-const slotSpans = computed(() => (canSeeSummary.value ? [8, 4, 5, 4, 3] : [8, 4, 8, 4]))
+// Width of each grid slot, out of 12 columns; two rows (three for superadmins).
+const slotSpans = computed(() => {
+    if (isSuperadmin.value) return [8, 4, 4, 4, 4, 5, 4, 3]
+    return canSeeSummary.value ? [8, 4, 5, 4, 3] : [8, 4, 8, 4]
+})
 function slotStyle(id) {
     return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
 }
@@ -1255,6 +1374,53 @@ function openOfficeOverdue(row) {
     openDetail('overdue', barEls[row.key], row.id != null ? { id: row.id, name: row.name } : null)
 }
 
+// One office's list from a superadmin chart (overdue, on time, returns).
+function openOfficeList(category, row, el) {
+    openDetail(category, el, row.id != null ? { id: row.id, name: row.name } : null)
+}
+
+// ---- Superadmin per-office charts (top 5 offices each) ----
+const officeRows = (list, prefix) =>
+    (list || [])
+        .filter((r) => r.count > 0)
+        .slice(0, 5)
+        .map((r) => ({ ...r, key: `${prefix}${r.id ?? 'none'}`, people: r.people || [] }))
+
+const officeCharts = computed(() => ({
+    ontime: {
+        title: 'On Time',
+        sub: 'Finished before their deadline',
+        icon: 'mdi-timer-check-outline',
+        color: themeMode.value === 'dark' ? '#2fa84f' : '#1f9d55',
+        category: 'on_time',
+        rows: officeRows(summary.value?.on_time_by_office, 't'),
+        empty: 'No transactions were finished on time in this period.',
+    },
+    overdues: {
+        title: 'Overdue',
+        sub: 'Past their station’s time limit',
+        icon: 'mdi-alarm-light-outline',
+        color: themeMode.value === 'dark' ? '#f0646b' : '#e5484d',
+        category: 'overdue',
+        rows: officeRows(summary.value?.overdue_by_office, 'v'),
+        empty: 'No overdue transactions in this period.',
+    },
+}))
+
+// Returns pie: the five offices that sent the most transactions back.
+const returnsHover = ref(null)
+const returnSlices = computed(() => {
+    const rows = officeRows(summary.value?.returns_by_office, 'r')
+    const total = rows.reduce((sum, r) => sum + r.count, 0)
+    if (!total) return []
+    const palette = SERIES_PALETTE[themeMode.value]
+    return rows.map((r, i) => ({
+        ...r,
+        pct: Math.round((r.count / total) * 1000) / 10,
+        color: palette[i],
+    }))
+})
+
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
 // flags as waiting on them (same gate the write endpoints enforce), so
@@ -1363,6 +1529,20 @@ const legendRows = computed(() => {
     return all.length <= room ? all : all.slice(0, Math.max(1, room - 1))
 })
 const legendHidden = computed(() => overdueOfficeRows.value.length - legendRows.value.length)
+
+// Returns pie: same sizing rules as the overdue pie, in its own card.
+const returnsPieSize = computed(() => {
+    const s = sizes.returns
+    if (!fit.value || !s) return 168
+    return Math.round(Math.min(220, Math.max(84, Math.min(s.h, s.w * 0.42))))
+})
+const returnsLegendTight = computed(() => fit.value && (sizes.returns?.h ?? 999) < 150)
+const returnLegendRows = computed(() => {
+    const all = returnSlices.value
+    const room = rows('returns', returnsLegendTight.value ? LEGEND_TIGHT_ROW_PX : LEGEND_ROW_PX, all.length)
+    return all.length <= room ? all : all.slice(0, Math.max(1, room - 1))
+})
+const returnLegendHidden = computed(() => returnSlices.value.length - returnLegendRows.value.length)
 
 // Tinted chip/icon in the process's color (same color on every card).
 function tintStyle(name) {
@@ -1620,6 +1800,10 @@ onUnmounted(() => {
     .dash-grid {
         grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
     }
+    /* Superadmins: the per-office charts form a middle row. */
+    .dash-grid.dash-grid--three {
+        grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
     /* Reports view: one card takes the whole grid height. */
     .dash-grid--single {
         grid-template-rows: minmax(0, 1fr);
@@ -1631,8 +1815,20 @@ onUnmounted(() => {
     }
     /* The pie's tooltip may rise over the card head. */
     .dash-slot[data-card='byprocess'] > .v-card,
-    .dash-slot[data-card='byprocess'] .process-pie-body {
+    .dash-slot[data-card='byprocess'] .process-pie-body,
+    .dash-slot[data-card='returns'] > .v-card,
+    .dash-slot[data-card='returns'] .process-pie-body,
+    .dash-slot[data-card='ontime'] > .v-card,
+    .dash-slot[data-card='ontime'] .office-chart-body,
+    .dash-slot[data-card='overdues'] > .v-card,
+    .dash-slot[data-card='overdues'] .office-chart-body {
         overflow: visible !important;
+    }
+    /* A card showing a tooltip sits above its neighbours, so the tooltip is
+       never hidden under the next row. */
+    .dash-slot:hover,
+    .dash-slot:focus-within {
+        z-index: 2;
     }
 }
 .dash-loading {
@@ -2152,6 +2348,45 @@ onUnmounted(() => {
     font-size: 0.72rem;
     text-align: right;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+/* Returns legend: office name with the people in charge under it. */
+.pp-name-block {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.pp-name-block .pp-name {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+}
+.pp-people {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.7rem;
+    line-height: 1.25;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+/* Bar charts fill their card body. */
+.office-chart-body {
+    display: flex;
+    flex-direction: column;
+}
+/* Empty chart: soft icon and a line of text in the middle of the card. */
+.chart-empty {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 90px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.chart-empty .v-icon {
+    opacity: 0.45;
 }
 .start-row {
     cursor: pointer;
