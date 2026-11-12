@@ -365,8 +365,6 @@ function openApprovals() {
     border-radius: 0 28px 28px 28px;
     background: #fff;
     box-shadow: 0 30px 70px -20px rgba(8, 18, 52, 0.6);
-    max-height: min(82vh, 680px);
-    overflow-y: auto;
 }
 
 .tray-body {
@@ -725,13 +723,19 @@ function openApprovals() {
         grid-column: 1;
         grid-row: 2;
         justify-self: center;
-        margin-top: 10px;
-        width: 220px;
-        height: 220px;
+        margin-top: 4px;
+        width: 160px;
+        height: 160px;
+    }
+    .rcv::before {
+        left: 18px;
+        top: 18px;
+        width: 124px;
+        height: 124px;
     }
     .rcv-ink {
         transform-origin: top left;
-        scale: 0.815;
+        scale: 0.5926;
     }
     .tray-summary {
         font-size: 1.45rem;
@@ -758,6 +762,14 @@ function openApprovals() {
     .tray-btn {
         width: 100%;
         min-width: 0;
+    }
+}
+
+/* The notice never scrolls: on short phones the stamp steps aside so the
+   summary and both buttons stay on screen. */
+@media (max-width: 760px) and (max-height: 800px) {
+    .rcv {
+        display: none;
     }
 }
 

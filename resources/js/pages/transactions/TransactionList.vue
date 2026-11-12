@@ -1108,7 +1108,8 @@ onMounted(() => {
   // Fire together: each paints its cache synchronously on invocation and
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
-  fetchOffices().catch(() => {})
+  // The full office list is superadmin-only (office admins get a 403).
+  if (isSuperadmin.value) fetchOffices().catch(() => {})
   settle(fetchAll(requestParams(page.value)), { warm: !loading.value })
 })
 

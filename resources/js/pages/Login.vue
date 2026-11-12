@@ -926,16 +926,18 @@ async function guestLogin() {
     margin-bottom: 10px;
     font-size: 46px;
 }
-/* System emblem above the blue bar on the sign-in screen: a white medallion
-   with the Sign In button's blue gradient as its ring, lifted like the
-   white chips in the artwork. */
+/* System emblem in the card's upper-left corner on the sign-in screen: a
+   white medallion with the Sign In button's blue gradient as its ring,
+   lifted like the white chips in the artwork. */
 .card-logo {
+    position: absolute;
+    top: 30px;
+    left: 30px;
     display: block;
     box-sizing: content-box;
-    width: 104px;
-    height: 104px;
-    margin: 0 auto 22px;
-    padding: 6px;
+    width: 83px;
+    height: 83px;
+    padding: 5px;
     border: 3px solid transparent;
     border-radius: 50%;
     object-fit: contain;
@@ -943,8 +945,8 @@ async function guestLogin() {
         linear-gradient(#fff, #fff) padding-box,
         linear-gradient(135deg, var(--blue), var(--blue-deep)) border-box;
     box-shadow:
-        0 0 0 6px rgba(255, 255, 255, 0.7),
-        0 16px 30px -12px rgba(29, 86, 196, 0.45);
+        0 0 0 5px rgba(255, 255, 255, 0.7),
+        0 13px 24px -10px rgba(29, 86, 196, 0.45);
 }
 .sub {
     margin: 0 0 20px;
@@ -1410,18 +1412,16 @@ async function guestLogin() {
     font-size: 26px;
 }
 
-/* ---- Headline ---- */
+/* ---- Headline: upper right corner, below the Animations switch ---- */
 .hero-eyebrow {
-    left: 712px;
+    right: 52px;
     top: 66px;
-    width: 820px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 22px;
+    gap: 14px;
     margin: 0;
     font-family: var(--display);
-    font-size: 34px;
+    font-size: 22px;
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1429,30 +1429,32 @@ async function guestLogin() {
     color: #3b4565;
 }
 .hero-line {
-    flex: 0 0 110px;
+    flex: 0 0 70px;
     height: 2px;
     background: #3b4565;
 }
+.hero-line:last-child {
+    display: none;
+}
 .hero-title {
-    left: 712px;
-    top: 114px;
-    width: 820px;
+    right: 50px;
+    top: 96px;
     margin: 0;
     font-family: var(--display);
-    font-size: 90px;
+    font-size: 58px;
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.01em;
-    text-align: center;
+    text-align: right;
     text-transform: uppercase;
     color: #0e3a8c;
 }
 .hero-bar {
     z-index: 2;
-    left: 1020px;
-    top: 216px;
-    width: 198px;
-    height: 7px;
+    right: 54px;
+    top: 162px;
+    width: 126px;
+    height: 5px;
     border-radius: 999px;
     background: #1a5fd0;
 }
@@ -1521,20 +1523,34 @@ async function guestLogin() {
     width: 440px;
     height: 88px;
     padding: 0;
-    border: 0;
+    border: 2px solid rgba(29, 86, 196, 0.35);
     border-radius: 16px;
-    background: linear-gradient(180deg, #1559c8 0%, #0c3f99 100%);
-    color: #ffffff;
+    /* Light blue at 15% opacity; the text turns navy so it stays readable. */
+    background: rgba(77, 156, 255, 0.15);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    color: #0e3a8c;
     font: inherit;
     cursor: pointer;
     transform: skewX(-19deg);
-    box-shadow:
-        0 7px 0 #0a2e74,
-        0 22px 30px -12px rgba(11, 59, 143, 0.55);
-    transition: filter 0.2s ease;
+    box-shadow: 0 0 0 0 rgba(110, 180, 255, 0);
+    transition:
+        background 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
 }
+/* Hover: the border and background light up in a light-blue glow. */
 .track:hover:not(:disabled) {
-    filter: brightness(1.08);
+    border-color: #8cc4ff;
+    background: rgba(110, 180, 255, 0.26);
+    box-shadow:
+        0 0 0 2px rgba(140, 196, 255, 0.55),
+        0 0 26px 6px rgba(110, 180, 255, 0.55),
+        inset 0 0 18px rgba(140, 196, 255, 0.45);
+}
+.track .spin {
+    border-color: rgba(14, 58, 140, 0.25);
+    border-top-color: #0e3a8c;
 }
 .track:disabled {
     opacity: 0.8;
@@ -1563,7 +1579,7 @@ async function guestLogin() {
     width: 2.5px;
     height: 52px;
     margin: 0 26px 0 20px;
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(14, 58, 140, 0.45);
 }
 .track-text {
     flex: 1;
@@ -1579,8 +1595,8 @@ async function guestLogin() {
     width: 70px;
     height: 54px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.94);
-    color: var(--blue-deep);
+    background: var(--blue);
+    color: #ffffff;
     transform: skewX(-19deg);
 }
 .track-go .v-icon {
@@ -1702,11 +1718,22 @@ async function guestLogin() {
     .card-title.is-small {
         font-size: 30px;
     }
+    .card {
+        position: relative;
+        left: auto;
+        top: auto;
+    }
+    /* Room above the title for the corner emblem. */
+    .card:has(.card-logo) {
+        padding-top: 70px;
+    }
     .card-logo {
-        width: 72px;
-        height: 72px;
-        padding: 4px;
-        margin-bottom: 16px;
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        width: 58px;
+        height: 58px;
+        padding: 3px;
     }
     .sub,
     .field label:not(.sr-only),
