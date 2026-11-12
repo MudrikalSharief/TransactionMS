@@ -161,6 +161,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class]
 
         // Same Transaction Summary card, forced to the admin's office scope.
         Route::get('/dashboard/summary', DashboardSummaryController::class);
+        Route::get('/dashboard/overdue-overview', [DashboardSummaryController::class, 'overdueOverview']);
         Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
             ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process']);
     });
@@ -249,6 +250,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // Dashboard - Transaction Summary card (superadmin or office admin,
         // scoped to their office for the latter).
         Route::get('/dashboard/summary', DashboardSummaryController::class)
+            ->middleware(EnsureOfficeAdmin::class);
+        Route::get('/dashboard/overdue-overview', [DashboardSummaryController::class, 'overdueOverview'])
             ->middleware(EnsureOfficeAdmin::class);
         Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
             ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process'])

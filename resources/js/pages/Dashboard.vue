@@ -17,7 +17,8 @@
             </div>
             <div class="dash-hello-actions">
                 <!-- Overview cards, or the monitoring Reports (superadmins and
-                     office admins); both follow Period / Offices below. -->
+                     office admins). Transaction Status and Top Overdue Steps
+                     share their filters. -->
                 <v-btn-toggle
                     v-if="canSeeSummary"
                     v-model="view"
@@ -32,114 +33,6 @@
                     <v-btn value="overview" prepend-icon="mdi-view-dashboard-outline" class="text-none">Overview</v-btn>
                     <v-btn value="reports" prepend-icon="mdi-chart-box-outline" class="text-none">Reports</v-btn>
                 </v-btn-toggle>
-                <!-- Period drives every card and the graph (all accounts);
-                     Offices narrows them for superadmins. -->
-                <v-select
-                    v-model="summaryPeriod"
-                    :items="periodOptions"
-                    label="Period"
-                    prepend-inner-icon="mdi-calendar-range"
-                    variant="outlined"
-                    density="compact"
-                    rounded="lg"
-                    hide-details
-                    class="dash-filter"
-                />
-                <template v-if="isSuperadmin">
-                    <v-menu
-                        v-model="officeMenuOpen"
-                        :close-on-content-click="false"
-                        location="bottom end"
-                        offset="8"
-                    >
-                        <template #activator="{ props }">
-                            <button
-                                v-bind="props"
-                                type="button"
-                                class="office-trigger"
-                                :class="{ 'is-open': officeMenuOpen }"
-                                aria-haspopup="listbox"
-                                aria-controls="dash-office-panel"
-                            >
-                                <span class="office-seal" :class="{ 'is-empty': !officePickerSeal }" aria-hidden="true">
-                                    <img v-if="officePickerSeal?.icon" :src="officePickerSeal.icon" alt="" />
-                                    <span v-else-if="officePickerSeal">{{ officePickerSeal.initials }}</span>
-                                    <v-icon v-else size="16">mdi-office-building-outline</v-icon>
-                                </span>
-                                <span class="office-trigger-copy">
-                                    <span class="office-trigger-label">Offices</span>
-                                    <span class="office-trigger-value" :title="officeFilterSummary">{{ officeFilterSummary }}</span>
-                                </span>
-                                <v-icon class="office-trigger-chevron" size="18" aria-hidden="true">mdi-chevron-down</v-icon>
-                            </button>
-                        </template>
-                        <v-card
-                            id="dash-office-panel"
-                            class="office-panel"
-                            rounded="lg"
-                            elevation="8"
-                            role="dialog"
-                            aria-label="Choose offices"
-                        >
-                            <div class="office-panel-head">
-                                <input
-                                    ref="officeSearchEl"
-                                    v-model="officeSearch"
-                                    class="office-search"
-                                    type="search"
-                                    placeholder="Search by name or abbreviation"
-                                    aria-label="Search offices"
-                                />
-                                <button type="button" class="office-clear" @click="clearOfficeFilter">
-                                    Show all offices
-                                </button>
-                            </div>
-                            <div
-                                class="office-grid"
-                                role="listbox"
-                                aria-label="Offices"
-                                aria-multiselectable="true"
-                            >
-                                <button
-                                    v-for="o in filteredOfficeOptions"
-                                    :key="o.value"
-                                    type="button"
-                                    class="office-card"
-                                    :class="{ 'is-selected': officeIds.has(o.value) }"
-                                    role="option"
-                                    :aria-selected="officeIds.has(o.value) ? 'true' : 'false'"
-                                    :aria-label="o.office?.name || o.title"
-                                    v-tooltip="o.office?.name || o.title"
-                                    @click="toggleOffice(o.value)"
-                                    @mouseenter="officeHover = o"
-                                    @mouseleave="officeHover = null"
-                                    @focus="officeHover = o"
-                                    @blur="officeHover = null"
-                                >
-                                    <span class="office-seal" aria-hidden="true">
-                                        <img v-if="o.icon" :src="o.icon" alt="" />
-                                        <span v-else>{{ o.initials }}</span>
-                                    </span>
-                                    <span class="office-card-abbr">{{ o.code }}</span>
-                                </button>
-                                <div v-if="!filteredOfficeOptions.length" class="office-no-match">
-                                    No offices match “{{ officeSearch }}”. Try the abbreviation.
-                                </div>
-                            </div>
-                            <div class="office-panel-foot">
-                                <template v-if="officeHover">
-                                    <b>{{ officeHover.code }}</b> · {{ officeHover.office?.name || officeHover.title }}
-                                </template>
-                                <template v-else-if="selectedOffices.length">
-                                    Selected: <b>{{ selectedOfficeNames }}</b>
-                                </template>
-                                <template v-else>
-                                    Hover or focus an office to see its full name.
-                                </template>
-                            </div>
-                        </v-card>
-                    </v-menu>
-                </template>
                 <v-btn
                     v-if="layoutChanged && view === 'overview'"
                     variant="tonal"
@@ -191,7 +84,7 @@
         <!-- Reports view: one card filling the grid's space (no page scroll). -->
         <div v-if="view === 'reports'" class="dash-grid dash-grid--single">
             <div class="dash-slot" style="--span: 12">
-                <MonitoringReportPanel :period="summaryPeriod" :offices="officeFilter" :scope-label="reportScopeLabel" />
+                <MonitoringReportPanel />
             </div>
         </div>
         <div
@@ -211,13 +104,40 @@
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                                 <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold dash-head-title">{{ scopeOverviewTitle }}</span>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">Transaction Status</span>
+                            <v-spacer />
+                            <v-select
+                                v-model="chartEndMonth"
+                                :items="chartMonthOptions"
+                                label="Month"
+                                prepend-inner-icon="mdi-calendar-range"
+                                variant="outlined"
+                                density="compact"
+                                rounded="lg"
+                                hide-details
+                                class="chart-filter chart-filter--month"
+                            />
+                            <v-select
+                                v-if="isSuperadmin"
+                                v-model="chartOfficeId"
+                                :items="chartOfficeOptions"
+                                label="Office"
+                                prepend-inner-icon="mdi-office-building-outline"
+                                variant="outlined"
+                                density="compact"
+                                rounded="lg"
+                                hide-details
+                                class="chart-filter chart-filter--office"
+                            />
                         </v-card-title>
                                                 <v-card-text class="pa-2 d-flex flex-column dash-body">
+                            <v-alert v-if="chartError" type="error" variant="tonal" density="compact" class="mb-2">
+                                {{ chartError }}
+                            </v-alert>
                             <GroupedBarChart
                                 :series="graphSeries"
                                 :group-labels="graphGroups"
-                                :loading="summaryLoading && !summary"
+                                :loading="chartLoading && !chartData"
                                 :height="fit ? 80 : 190"
                                 :empty-text="graphEmptyText"
                                 :aria-label="graphAriaLabel"
@@ -279,26 +199,61 @@
                         </v-card-text>
                     </v-card>
                 </div>
-                <div v-else-if="id === 'stepsoffice'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
+                <div v-else-if="id === 'topsteps'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center lgu-head dash-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">mdi-chart-donut</v-icon>
+                                <v-icon color="#005EED" size="20">mdi-format-list-numbered</v-icon>
                             </v-avatar>
-                            <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">Overdue Steps by Office</div>
-                                <div class="dash-panel-sub">Which offices hold the most late steps</div>
-                            </div>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">Top Overdue Steps</span>
+                            <v-spacer />
+                            <v-chip
+                                size="small"
+                                variant="tonal"
+                                color="primary"
+                                prepend-icon="mdi-calendar-range"
+                                class="font-weight-bold"
+                            >
+                                {{ chartMonthLabel }}
+                            </v-chip>
                         </v-card-title>
-                        <v-card-text v-fit-body="'stepsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
-                            <OfficeDonut
-                                v-if="overdueStepOfficeRows.length"
-                                :slices="overdueStepOfficeRows"
-                                :size="stepsPieSize"
-                                aria-label="Overdue steps by office"
-                            />
-                            <div v-else-if="summary" class="text-caption text-medium-emphasis">
-                                No overdue steps.
+                        <v-card-text class="pa-3 d-flex flex-column dash-body">
+                            <div v-if="chartLoading && !chartData" class="d-flex align-center justify-center dash-loading">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="32" width="3" />
+                            </div>
+                            <ol v-else-if="topSteps.length" class="top-steps">
+                                <li
+                                    v-for="(s, i) in topSteps"
+                                    :key="`${s.step_id}|${s.office?.id ?? 0}`"
+                                    class="top-step-row"
+                                >
+                                    <span class="top-step-rank">{{ i + 1 }}</span>
+                                    <div class="top-step-main">
+                                        <div
+                                            class="top-step-type"
+                                            :title="s.transaction_type || 'No transaction type'"
+                                        >
+                                            {{ s.transaction_type || 'No type' }}
+                                        </div>
+                                        <div
+                                            class="top-step-step"
+                                            :title="`Step ${s.order_number}: ${s.step}`"
+                                        >
+                                            <span v-if="s.order_number" class="top-step-number">Step {{ s.order_number }}</span>
+                                            <span class="top-step-label">{{ s.step }}</span>
+                                        </div>
+                                    </div>
+                                    <span
+                                        class="top-step-office"
+                                        :title="s.office?.name || 'No office'"
+                                    >
+                                        {{ s.office?.code || s.office?.name || 'No office' }}
+                                    </span>
+                                    <span class="top-step-count">{{ s.count }}</span>
+                                </li>
+                            </ol>
+                            <div v-else-if="!chartError" class="text-caption text-medium-emphasis pa-3">
+                                No overdue steps in {{ chartMonthLabel }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -575,7 +530,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
@@ -593,12 +548,7 @@ import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
-import { officeIcon } from '@/utils/officeIcons'
-import {
-    periodOptions as dashPeriodOptions,
-    periodBuckets,
-    periodStart,
-} from '@/utils/dashPeriod'
+import { monthOptions, monthValue } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
 const router = useRouter()
@@ -646,13 +596,6 @@ watch(view, (v) => {
 watch(() => route.query.view, (v) => {
     view.value = canSeeSummary.value && v === 'reports' ? 'reports' : 'overview'
 })
-const reportScopeLabel = computed(() => {
-    if (!isSuperadmin.value) {
-        const office = auth.user.value?.office
-        return `${office?.code || office?.name || 'Your office'} (filed by or passing through it)`
-    }
-    return officeScopeChips.value.length ? officeScopeLabel.value : 'All offices'
-})
 
 // Superadmins approve accounts from any office; office admins approve
 // sign-ups that chose their office.
@@ -683,13 +626,13 @@ const refreshedLabel = computed(() =>
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['graph', 'byprocess', 'stepsoffice', 'action', 'recent']
+        return ['graph', 'topsteps', 'action', 'byprocess']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
 // Width of each grid slot, out of 12 columns; two rows.
 const slotSpans = computed(() => {
-    return canSeeSummary.value ? [6, 3, 3, 6, 6] : [8, 4, 8, 4]
+    return canSeeSummary.value ? [6, 6, 6, 6] : [8, 4, 8, 4]
 })
 function slotStyle(id) {
     return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
@@ -832,8 +775,7 @@ const OTHER_OFFICES = 'Other offices'
 const OTHER_COLOR = { light: '#8B95A5', dark: '#7E8899' }
 const MAX_OFFICE_SLICES = 3
 
-// Monthly status bars: calmer sage/ochre/rose so the chart reads comfortably
-// while Completed, In progress, and Overdue stay distinguishable.
+// Status bars use the muted sage/ochre/rose palette from the previous chart.
 const STATUS_COLORS = {
     light: { completed: '#4F8A6E', in_process: '#B08345', overdue: '#B0616B' },
     dark: { completed: '#86C2A4', in_process: '#D8B173', overdue: '#D99AA2' },
@@ -844,146 +786,71 @@ const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dar
 
 // Scope: the account's office when one is assigned, otherwise everything
 // visible to the user (superadmins are usually unassigned, so all offices).
-// Labels always state the scope, so the numbers are never ambiguous.
 const myOffice = computed(() => auth.user.value?.office ?? null)
-const scopeCode = computed(() => myOffice.value?.code?.toUpperCase() ?? null)
 
-const officeFilter = ref([])
-const officeById = computed(() => new Map((officeStore.items.value || []).map((o) => [o.id, o])))
-const officeIds = computed(() => new Set(officeFilter.value || []))
-
-function officeInitials(office) {
-    const code = String(office?.code || '').trim()
-    if (code) return code.slice(0, 2).toUpperCase()
-    return (
-        String(office?.name || '?')
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0] || '')
-            .join('')
-            .toUpperCase() || '?'
-    )
-}
-
-const officeOptions = computed(() =>
-    [...(officeStore.items.value || [])]
+// ---- Transaction Status + Top Overdue Steps: shared Month/Office filters ----
+const chartEndMonth = ref(monthValue(new Date()))
+const chartMonthOptions = computed(() => monthOptions())
+const chartOfficeId = ref(0)
+const chartOfficeOptions = computed(() => [
+    { title: 'All offices', value: 0 },
+    ...[...(officeStore.items.value || [])]
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => {
-            const title = o.code ? `${o.name} (${o.code})` : o.name
-            return {
-                title,
-                value: o.id,
-                code: o.code || o.name,
-                office: o,
-                icon: officeIcon(o),
-                initials: officeInitials(o),
-            }
-        })
-)
+        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id })),
+])
 
-const officeMenuOpen = ref(false)
-const officeSearch = ref('')
-const officeSearchEl = ref(null)
-const officeHover = ref(null)
+const chartData = ref(null)
+const chartLoading = ref(false)
+const chartError = ref('')
+let chartRequest = 0
 
-const selectedOffices = computed(() =>
-    officeOptions.value.filter((o) => officeIds.value.has(o.value))
-)
-const officePickerSeal = computed(() => selectedOffices.value[0] || null)
-const officeFilterSummary = computed(() => {
-    const count = officeFilter.value?.length || 0
-    if (!count) return 'All offices'
-    const codes = selectedOffices.value.map((o) => o.code)
-    if (!codes.length) return 'All offices'
-    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
-})
-const selectedOfficeNames = computed(() => {
-    const names = selectedOffices.value.map((o) => o.office?.name || o.code)
-    if (names.length <= 2) return names.join(', ')
-    return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`
-})
-const filteredOfficeOptions = computed(() => {
-    const q = officeSearch.value.trim().toLowerCase()
-    if (!q) return officeOptions.value
-    return officeOptions.value.filter((o) =>
-        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q)
-    )
-})
-
-function toggleOffice(id) {
-    const next = new Set(officeFilter.value || [])
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    officeFilter.value = [...next]
-}
-
-function clearOfficeFilter() {
-    officeFilter.value = []
-}
-
-watch(officeMenuOpen, async (open) => {
-    officeSearch.value = ''
-    officeHover.value = null
-    if (!open) return
-    await nextTick()
-    officeSearchEl.value?.focus()
-})
-watch(officeSearch, () => {
-    officeHover.value = null
-})
-const officeScopeChips = computed(() =>
-    officeFilter.value
-        .map((id) => officeById.value.get(id)?.code?.toUpperCase())
-        .filter(Boolean)
-)
-const officeScopeLabel = computed(() => {
-    if (!officeScopeChips.value.length) return scopeCode.value
-    return officeScopeChips.value.length <= 2
-        ? officeScopeChips.value.join('/')
-        : `${officeScopeChips.value.length} offices`
-})
-const scopeOverviewTitle = computed(() =>
-    officeScopeLabel.value ? `${officeScopeLabel.value} Transaction Status` : 'Transaction Status'
-)
-
-watch(officeOptions, (options) => {
-    const ids = new Set(options.map((o) => o.value))
-    if (officeFilter.value?.some((id) => !ids.has(id))) {
-        officeFilter.value = officeFilter.value.filter((id) => ids.has(id))
+async function loadChart({ silent = false } = {}) {
+    if (!canSeeSummary.value) return
+    const mine = ++chartRequest
+    if (!silent && !chartData.value) chartLoading.value = true
+    chartError.value = ''
+    try {
+        const res = await api.get(
+            isSuperadmin.value
+                ? '/api/admin/dashboard/overdue-overview'
+                : '/api/office/dashboard/overdue-overview',
+            {
+                params: {
+                    month: chartEndMonth.value,
+                    ...(isSuperadmin.value && chartOfficeId.value > 0
+                        ? { office_id: chartOfficeId.value }
+                        : {}),
+                },
+                timeout: 10000,
+            },
+        )
+        if (mine !== chartRequest) return
+        chartData.value = res.data
+    } catch (e) {
+        if (mine !== chartRequest) return
+        chartError.value = e?.code === 'ECONNABORTED'
+            ? 'The overdue overview took too long to load.'
+            : (e?.response?.data?.message || 'Failed to load the overdue overview.')
+    } finally {
+        if (mine === chartRequest) chartLoading.value = false
     }
+}
+
+watch([chartEndMonth, chartOfficeId], () => {
+    chartData.value = null
+    chartLoading.value = true
+    loadChart()
 })
 
-// ---- Period filter ----
-// All time by default so pending work never hides on a week/month
-// rollover; switchable to this week (current Mon–Sun week) or one of the
-// last 12 months (Manila calendar). It drives the tiles, the By Process pie
-// and Recent Activity. Completed counts by finalize date, the rest by
-// created date (server side). The status graph has its own fixed 3-month
-// window. Declared before the graph: its computeds can run during setup when
-// the transaction list is already cached (e.g. clicking Dashboard from
-// another page).
-const summaryPeriod = ref('all')
-const periodOptions = computed(() => dashPeriodOptions())
-
-// ---- Graph: transactions by status over the last two months + this month ----
-// Server-side counts: completed by finalize date, open rows by created date.
-const graphGroups = computed(() => (summary.value?.monthly || []).map((m) => m.label))
-
-const graphEmptyText = computed(() =>
-    officeScopeLabel.value
-        ? `No ${officeScopeLabel.value} transactions in the last 3 months`
-        : 'No transactions in the last 3 months'
+const chartMonthLabel = computed(
+    () => chartData.value?.label || chartMonthOptions.value.find((o) => o.value === chartEndMonth.value)?.title || chartEndMonth.value,
 )
-const graphAriaLabel = computed(() =>
-    officeScopeLabel.value
-        ? `${officeScopeLabel.value} transactions by status per month, last 3 months`
-        : 'Transactions by status per month, last 3 months'
-)
-
-// One bar per status in each month: green completed, amber in process, red overdue.
+const chartMonths = computed(() => chartData.value?.months || [])
+const graphGroups = computed(() => chartMonths.value.map((m) => m.label))
+const graphEmptyText = computed(() => `No transactions in the 3 months ending ${chartMonthLabel.value}`)
+const graphAriaLabel = computed(() => `Transactions by status for the 3 months ending ${chartMonthLabel.value}`)
 const graphSeries = computed(() => {
-    const rows = summary.value?.monthly || []
+    const rows = chartMonths.value
     const palette = STATUS_COLORS[themeMode.value]
     return [
         { label: 'Completed', color: palette.completed, values: rows.map((r) => r.completed || 0) },
@@ -991,24 +858,16 @@ const graphSeries = computed(() => {
         { label: 'Overdue', color: palette.overdue, values: rows.map((r) => r.overdue || 0) },
     ]
 })
+const topSteps = computed(() => chartData.value?.steps || [])
 
-// ---- Transaction Summary card (superadmin) ----
-// (The Period filter, summaryPeriod, is declared above the graph.)
-
+// ---- Transaction Summary cards (all-time) ----
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// Same scope and period as the tiles/pie. Also carries the fixed 3-month
-// monthly status series used by the graph.
-// No office assigned: the backend aggregates all offices.
-// Office admins send no office: the server forces their office's full scope
-// (filed by it or passing through it), which an office_code would narrow.
-const summaryQuery = computed(() => ({
-    month: summaryPeriod.value === 'this_week' ? undefined : summaryPeriod.value,
-    ...(isSuperadmin.value && scopeCode.value ? { office_code: scopeCode.value } : {}),
-    ...(officeFilter.value?.length ? { offices: [...officeFilter.value].sort((a, b) => a - b) } : {}),
-}))
+// Without the global Period/Offices filters, the summary cards and pies show
+// all-time data. Office admins are still scoped by the server.
+const summaryQuery = computed(() => ({ month: 'all' }))
 
 // One key for both the setup paint and refreshes. storedUserId() covers the
 // first render before auth.init() has restored the session.
@@ -1049,14 +908,13 @@ async function loadSummary() {
     } catch (e) {
         if (mine === summaryRequest && summary.value == null) {
             summaryError.value = e?.code === 'ECONNABORTED'
-                ? 'The transaction summary took too long to load. Change the period or refresh the page.'
+                ? 'The transaction summary took too long to load. Refresh the page.'
                 : (e?.response?.data?.message || 'Failed to load the summary.')
         }
     } finally {
         if (mine === summaryRequest) summaryLoading.value = false
     }
 }
-watch(summaryQuery, loadSummary, { deep: true })
 
 // Status tiles: each card takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
@@ -1089,10 +947,8 @@ function sortedOfficeRows(source) {
 
 const officeColorMap = computed(() => {
     const seen = new Map()
-    for (const source of [summary.value?.overdue_by_office, summary.value?.overdue_steps_by_office]) {
-        for (const row of sortedOfficeRows(source).slice(0, MAX_OFFICE_SLICES)) {
-            if (row.id != null) seen.set(row.id, row)
-        }
+    for (const row of sortedOfficeRows(summary.value?.overdue_by_office).slice(0, MAX_OFFICE_SLICES)) {
+        if (row.id != null) seen.set(row.id, row)
     }
     const sorted = [...seen.values()].sort((a, b) =>
         (a.code || a.name || '').localeCompare(b.code || b.name || ''),
@@ -1141,7 +997,6 @@ function officePieRows(source) {
 }
 
 const overdueOfficeRows = computed(() => officePieRows(summary.value?.overdue_by_office))
-const overdueStepOfficeRows = computed(() => officePieRows(summary.value?.overdue_steps_by_office))
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1173,29 +1028,16 @@ const inTransit = computed(() => {
 })
 const inTransitIds = computed(() => new Set(inTransit.value.map((tx) => tx.id)))
 
-// Created in the Period filter's range (all time: everything).
-const recentFrom = computed(() => periodStart(summaryPeriod.value)?.getTime() ?? null)
-const recentTo = computed(() => {
-    const buckets = summaryPeriod.value === 'all' ? null : periodBuckets(summaryPeriod.value)
-    return buckets?.length ? buckets[buckets.length - 1].end.getTime() : null
-})
+// Recent Activity: all-time feed (the global Period/Offices filters were
+// removed; separate filters can be added here later).
 const recent = computed(() => {
     const source = scopeSource.value || []
-    const from = recentFrom.value
-    const to = recentTo.value
-    const list = source.filter((tx) => {
-        if (officeIds.value.size && !officeIds.value.has(tx.office?.id)) return false
-        if (from == null) return true
-        const at = new Date(tx.created_at || 0).getTime()
-        return at >= from && (to == null || at < to)
-    })
     // Staff: the feed holds the rest — never duplicates the queue or the
     // in-transit card.
     const feed = isStaff.value
-        ? list.filter((tx) => !tx.needs_action && !inTransitIds.value.has(tx.id))
-        : list
-    feed.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-    return feed
+        ? source.filter((tx) => !tx.needs_action && !inTransitIds.value.has(tx.id))
+        : source
+    return [...feed].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
 })
 
 // Evenly-distributed shortcut rows that fill the staff Get Started card.
@@ -1224,7 +1066,6 @@ function donutSize(key) {
 }
 
 const transactionsPieSize = donutSize('transactionsPie')
-const stepsPieSize = donutSize('stepsPie')
 
 // Tinted chip/icon in the process's color (same color on every card).
 function tintStyle(name) {
@@ -1393,8 +1234,9 @@ onMounted(async () => {
     entering.value = false
 
     // The page is usable now. Fill the remaining cards in the background:
-    // summary first (most visible), then accounts, then filter lookups.
+    // summary first (most visible), then the chart and accounts.
     loadSummary().catch(() => {})
+    loadChart()
     if (canApproveAccounts.value) loadAccounts()
     if (isSuperadmin.value) {
         officeStore.fetchAll({ silent: true }).catch(() => {})
@@ -1411,6 +1253,7 @@ useSmartPoll(async () => {
         // was retired); the summary is for superadmins and office admins.
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
+        loadChart({ silent: true })
         loadAccounts({ silent: true })
         refreshedAt.value = new Date()
     } catch {
@@ -1485,9 +1328,7 @@ onUnmounted(() => {
     }
     /* The pie's tooltip may rise over the card head. */
     .dash-slot[data-card='byprocess'] > .v-card,
-    .dash-slot[data-card='byprocess'] .process-pie-body,
-    .dash-slot[data-card='stepsoffice'] > .v-card,
-    .dash-slot[data-card='stepsoffice'] .process-pie-body {
+    .dash-slot[data-card='byprocess'] .process-pie-body {
         overflow: visible !important;
     }
 }
@@ -1513,6 +1354,14 @@ onUnmounted(() => {
     .dash-slot[data-card='graph'] .dash-head {
         flex-wrap: wrap;
         row-gap: 10px;
+    }
+    .chart-filter {
+        flex: 1 1 130px;
+        width: auto;
+    }
+    .chart-filter--office {
+        flex-basis: 150px;
+        width: auto;
     }
 }
 /* ---- Row icons, step pills, waiting ---- */
@@ -1656,16 +1505,16 @@ onUnmounted(() => {
 }
 /* ---- Transaction Summary cards ---- */
 .summary-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     align-items: stretch;
-    flex-wrap: wrap;
     gap: 12px;
 }
 .summary-strip {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    flex: 1 1 320px;
-    max-width: 360px;
+    grid-column: span 6;
+    min-width: 0;
     border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
     border-radius: 14px;
     background: rgb(var(--v-theme-surface));
@@ -1723,14 +1572,12 @@ html.dark .summary-seg--danger {
     line-height: 1.2;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
-@media (max-width: 760px) {
+@media (max-width: 1099.98px) {
     .summary-row {
-        flex-direction: column;
+        grid-template-columns: minmax(0, 1fr);
     }
     .summary-strip {
-        flex: 0 0 auto;
-        width: 100%;
-        max-width: none;
+        grid-column: 1 / -1;
     }
     .summary-seg {
         padding: 14px 18px;
@@ -1753,215 +1600,108 @@ html.dark .summary-seg--danger {
     letter-spacing: 0;
     font-weight: 600;
 }
-/* Explicit width too: Firefox sizes the wrapping row from the select's
-   content, not its flex-basis, and stacked the two filters. */
-.dash-filter {
-    flex: 0 0 200px;
-    width: 200px;
-    min-width: 170px;
+/* Chart filters: compact selects in the graph card head. */
+.chart-filter {
+    flex: 0 1 150px;
+    width: 150px;
+    min-width: 112px;
 }
-/* ---- Office picker (dashboard header) ---- */
-.office-trigger {
+.chart-filter--office {
+    flex-basis: 190px;
+    width: 190px;
+    min-width: 132px;
+}
+/* Top Overdue Steps: three compact, evenly-spaced ranked rows. */
+.top-steps {
+    list-style: none;
+    margin: 0;
+    padding: 2px 0;
+    width: 100%;
+    flex: 1 1 auto;
     display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    gap: 8px;
+}
+.top-step-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
-    min-width: 230px;
-    max-width: 260px;
-    min-height: 44px;
-    padding: 6px 12px;
+    padding: 10px 12px;
     border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 10px;
     background: rgb(var(--v-theme-surface));
-    color: rgb(var(--v-theme-on-surface));
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
-.office-trigger:hover {
-    border-color: rgba(var(--v-theme-primary), 0.55);
-}
-.office-trigger.is-open {
-    border-color: rgb(var(--v-theme-primary));
-    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
-}
-.office-seal {
+.top-step-rank {
     display: grid;
     place-items: center;
     width: 26px;
     height: 26px;
-    flex: none;
-    overflow: hidden;
-    border: 2px solid rgb(var(--v-theme-surface));
     border-radius: 50%;
     background: rgba(var(--v-theme-primary), 0.12);
     color: rgb(var(--v-theme-primary));
-    box-shadow: 0 0 0 1px rgba(var(--v-border-color), 0.35);
-    font-size: 10px;
+    font-size: 0.8rem;
     font-weight: 800;
-    letter-spacing: 0.02em;
-    line-height: 1;
 }
-.office-seal.is-empty {
-    background: rgba(var(--v-theme-on-surface), 0.1);
-    color: rgba(var(--v-theme-on-surface), 0.6);
-}
-.office-seal img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-.office-trigger-copy {
+.top-step-main {
     display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
+    gap: 2px;
     min-width: 0;
 }
-.office-trigger-label {
-    color: rgba(var(--v-theme-on-surface), 0.6);
-    font-size: 11px;
-    line-height: 1;
+.top-step-type {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
-.office-trigger-value {
-    display: block;
+.top-step-step {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+}
+.top-step-number {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    white-space: nowrap;
+}
+.top-step-label {
+    min-width: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
     overflow: hidden;
-    font-weight: 600;
-    line-height: 1.3;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
-.office-trigger-chevron {
-    flex: none;
-    color: rgba(var(--v-theme-on-surface), 0.55);
-    transition: transform 0.15s ease;
-}
-.office-trigger.is-open .office-trigger-chevron {
-    transform: rotate(180deg);
-}
-.office-panel {
-    width: min(640px, calc(100vw - 32px));
-    padding: 16px;
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    background: rgb(var(--v-theme-surface));
-}
-.office-panel-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-}
-.office-search {
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 40px;
-    padding: 10px 12px;
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 8px;
-    background: rgba(var(--v-theme-on-surface), 0.035);
-    color: rgb(var(--v-theme-on-surface));
-    font: inherit;
-}
-.office-search:focus-visible {
-    outline: 3px solid rgb(var(--v-theme-primary));
-    outline-offset: 2px;
-}
-.office-clear {
-    padding: 8px;
-    border: 0;
-    background: none;
-    color: rgb(var(--v-theme-primary));
-    font: inherit;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: pointer;
-}
-.office-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    max-height: 340px;
-    padding: 4px 4px 8px;
-    overflow-y: auto;
-}
-.office-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 8px 12px;
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 12px;
-    background: rgb(var(--v-theme-surface));
-    color: rgb(var(--v-theme-on-surface));
-    font: inherit;
-    cursor: pointer;
-    transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
-}
-.office-card:hover {
-    border-color: rgb(var(--v-theme-primary));
+.top-step-office {
+    max-width: 140px;
+    padding: 2px 8px;
+    border-radius: 999px;
     background: rgba(var(--v-theme-primary), 0.08);
-    transform: translateY(-2px);
-}
-.office-card.is-selected {
-    border-color: rgb(var(--v-theme-primary));
-    background: rgba(var(--v-theme-primary), 0.12);
-    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.25);
-}
-.office-card.is-selected::after {
-    content: "✓";
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    display: grid;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: rgb(var(--v-theme-primary));
-    color: rgb(var(--v-theme-on-primary));
-    font-size: 12px;
+    color: rgb(var(--v-theme-primary));
+    font-size: 0.7rem;
     font-weight: 700;
-}
-.office-card .office-seal {
-    width: 48px;
-    height: 48px;
-    border-width: 3px;
-    font-size: 13px;
-}
-.office-card-abbr {
-    max-width: 100%;
-    overflow: hidden;
-    font-size: 14px;
-    font-weight: 700;
-    text-align: center;
-    text-overflow: ellipsis;
+    line-height: 1.4;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.office-no-match {
-    grid-column: 1 / -1;
-    padding: 24px;
-    color: rgba(var(--v-theme-on-surface), 0.55);
-    text-align: center;
+.top-step-count {
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--v-theme-error));
 }
-.office-panel-foot {
-    min-height: 34px;
-    margin-top: 10px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    color: rgba(var(--v-theme-on-surface), 0.55);
-    font-size: 13px;
-}
-.office-panel-foot b {
-    color: rgb(var(--v-theme-on-surface));
-}
-@media (max-width: 620px) {
-    .office-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .office-trigger {
-        min-width: 200px;
+@media (max-width: 1099.98px) {
+    .top-step-row {
+        padding: 8px 10px;
     }
 }
 .dash-panel-sub {

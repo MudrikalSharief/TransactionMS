@@ -341,6 +341,185 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonCount(0, 'overdue_steps_by_office');
     }
 
+    public function test_top_overdue_steps_rank_step_office_pairs_for_the_month(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-20 04:00:00', 'UTC')); // Aug 20, 12:00 Manila
+
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+        $oct = Office::create(['code' => 'OCT', 'name' => 'Office of the City Treasurer']);
+        $this->payrollStep->update(['office_id' => $this->chrmo->id, 'sla_minutes' => 60]);
+        $endStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->payrollStep->workflow_definition_id,
+            'order_number' => 2,
+            'code' => 'payroll_end',
+            'name' => 'Payroll end',
+            'office_id' => $gso->id,
+            'sla_minutes' => 60,
+        ]);
+        $thirdStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->payrollStep->workflow_definition_id,
+            'order_number' => 3,
+            'code' => 'payroll_third',
+            'name' => 'Payroll third',
+            'office_id' => $oct->id,
+            'sla_minutes' => 60,
+        ]);
+
+        $addRun = function (Transaction $tx, int $fromStep, int $toStep, int $minutesAgo, string $action = 'proceed') {
+            TransactionStepRun::create([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $fromStep,
+                'to_step_id' => $toStep,
+                'action_code' => $action,
+                'performed_by' => $this->admin->id,
+                'performed_at' => now()->subMinutes($minutesAgo),
+                'received_at' => now()->subMinutes($minutesAgo),
+                'sla_minutes_snapshot' => 60,
+            ]);
+        };
+
+        // Two transactions with both visits over SLA: CHRMO payroll step x2,
+        // GSO end step x2.
+        foreach (['a', 'b'] as $suffix) {
+            $tx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+            $addRun($tx, $this->payrollStep->id, $this->payrollStep->id, 240, 'create');
+            $addRun($tx, $this->payrollStep->id, $endStep->id, 120);
+            TransactionState::where('transaction_id', $tx->id)->update([
+                'current_step_id' => $endStep->id,
+                'entered_at' => now()->subMinutes(120),
+            ]);
+        }
+
+        // A third transaction adds one more CHRMO payroll visit and one at OCT.
+        $third = $this->tx($this->payroll, 1, ['office' => $gso->id]);
+        $addRun($third, $this->payrollStep->id, $this->payrollStep->id, 240, 'create');
+        $addRun($third, $this->payrollStep->id, $thirdStep->id, 120);
+        TransactionState::where('transaction_id', $third->id)->update([
+            'current_step_id' => $thirdStep->id,
+            'entered_at' => now()->subMinutes(120),
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08')
+            ->assertOk()
+            ->assertJsonPath('label', 'August 2026')
+            ->assertJsonCount(3, 'months')
+            ->assertJsonPath('months.0.month', '2026-06')
+            ->assertJsonPath('months.1.month', '2026-07')
+            ->assertJsonPath('months.2.month', '2026-08')
+            ->assertJsonPath('months.2.completed', 0)
+            ->assertJsonPath('months.2.in_process', 0)
+            ->assertJsonPath('months.2.overdue', 3)
+            ->assertJsonCount(3, 'steps')
+            ->assertJsonPath('steps.0.step', 'Payroll start')
+            ->assertJsonPath('steps.0.order_number', 1)
+            ->assertJsonPath('steps.0.transaction_type', 'Payroll')
+            ->assertJsonPath('steps.0.office.code', 'CHRMO')
+            ->assertJsonPath('steps.0.count', 3)
+            ->assertJsonPath('steps.1.step', 'Payroll end')
+            ->assertJsonPath('steps.1.office.code', 'GSO')
+            ->assertJsonPath('steps.1.count', 2)
+            ->assertJsonPath('steps.2.step', 'Payroll third')
+            ->assertJsonPath('steps.2.office.code', 'OCT')
+            ->assertJsonPath('steps.2.count', 1);
+
+        // The office filter is by the office handling the step. Only the two
+        // transactions with a GSO step count, and the same two rows rank.
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08&office_id='.$gso->id)
+            ->assertOk()
+            ->assertJsonPath('months.2.overdue', 2)
+            ->assertJsonCount(1, 'steps')
+            ->assertJsonPath('steps.0.office.code', 'GSO')
+            ->assertJsonPath('steps.0.count', 2);
+
+        // Ending the window at July still has no visits in this setup.
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-07')
+            ->assertOk()
+            ->assertJsonCount(3, 'months')
+            ->assertJsonPath('months.2.overdue', 0)
+            ->assertJsonCount(0, 'steps');
+    }
+
+    public function test_top_overdue_steps_office_admin_scope_cannot_be_overridden(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-20 04:00:00', 'UTC'));
+
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+        $this->payrollStep->update(['office_id' => $this->chrmo->id, 'sla_minutes' => 60]);
+
+        // CHRMO step visit.
+        $chrmoTx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+        TransactionStepRun::create([
+            'transaction_id' => $chrmoTx->id,
+            'from_step_id' => $this->payrollStep->id,
+            'to_step_id' => $this->payrollStep->id,
+            'action_code' => 'create',
+            'performed_by' => $this->admin->id,
+            'performed_at' => now()->subHours(4),
+            'received_at' => now()->subHours(4),
+            'sla_minutes_snapshot' => 60,
+        ]);
+        TransactionState::where('transaction_id', $chrmoTx->id)->update([
+            'current_step_id' => $this->payrollStep->id,
+            'entered_at' => now()->subHours(4),
+        ]);
+
+        // A separate GSO workflow, so the CHRMO office admin's scope does not
+        // include this transaction.
+        $gsoType = TransactionType::create(['code' => 'gso_process', 'name' => 'GSO Process']);
+        $gsoWf = WorkflowDefinition::create([
+            'transaction_type_id' => $gsoType->id,
+            'version' => 1,
+            'status' => 'published',
+        ]);
+        $gsoStep = WorkflowStep::create([
+            'workflow_definition_id' => $gsoWf->id,
+            'order_number' => 1,
+            'code' => 'gso_start',
+            'name' => 'GSO start',
+            'office_id' => $gso->id,
+            'is_start' => true,
+            'sla_minutes' => 60,
+        ]);
+        $gsoTx = Transaction::create([
+            'transaction_type_id' => $gsoType->id,
+            'workflow_definition_id' => $gsoWf->id,
+            'office_id' => $gso->id,
+            'reference_number' => 'TX-GSO-'.uniqid(),
+            'is_done' => false,
+            'created_by' => $this->admin->id,
+        ]);
+        TransactionState::create([
+            'transaction_id' => $gsoTx->id,
+            'current_step_id' => $gsoStep->id,
+            'entered_at' => now()->subHours(4),
+        ]);
+        TransactionStepRun::create([
+            'transaction_id' => $gsoTx->id,
+            'from_step_id' => $gsoStep->id,
+            'to_step_id' => $gsoStep->id,
+            'action_code' => 'create',
+            'performed_by' => $this->admin->id,
+            'performed_at' => now()->subHours(4),
+            'received_at' => now()->subHours(4),
+            'sla_minutes_snapshot' => 60,
+        ]);
+
+        $officeAdmin = User::factory()->create(['office_id' => $this->chrmo->id]);
+        $officeAdmin->roles()->attach(Role::create(['code' => 'admin', 'name' => 'Admin'])->id);
+        Sanctum::actingAs($officeAdmin);
+
+        // The request tries to select GSO, but the office admin stays scoped
+        // to CHRMO.
+        $this->getJson('/api/office/dashboard/overdue-overview?month=2026-08&office_id='.$gso->id)
+            ->assertOk()
+            ->assertJsonPath('months.2.overdue', 1)
+            ->assertJsonCount(1, 'steps')
+            ->assertJsonPath('steps.0.office.code', 'CHRMO')
+            ->assertJsonPath('steps.0.count', 1);
+    }
+
     public function test_invalid_month_is_rejected(): void
     {
         Sanctum::actingAs($this->admin);

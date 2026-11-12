@@ -90,6 +90,56 @@ class DashboardSummaryController extends Controller
     }
 
     /**
+     * One month of Transaction Status counts plus the top three overdue
+     * step + office pairs. Both share the card's Month and Office filters;
+     * the office filter narrows by the office handling the step.
+     */
+    public function overdueOverview(Request $request)
+    {
+        $data = $request->validate([
+            'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+        ]);
+
+        $user = $request->user();
+        $this->processes = [];
+        $this->offices = [];
+        // Do not filter transactions by originating office; the step's
+        // effective office is filtered while counting visits below.
+        $this->officeId = null;
+        $this->scopeOfficeId = $user->isSuperadmin() ? null : (int) $user->office_id;
+        $filterOfficeId = $user->isSuperadmin() && !empty($data['office_id'])
+            ? (int) $data['office_id']
+            : null;
+
+        $month = !empty($data['month'])
+            ? Carbon::createFromFormat('Y-m', $data['month'], self::TZ)
+            : now(self::TZ);
+        $monthStart = $month->copy()->startOfMonth();
+        $windowStart = $monthStart->copy()->subMonths(2);
+        $windowFrom = $windowStart->copy()->utc();
+        $windowTo = $monthStart->copy()->addMonthNoOverflow()->utc();
+
+        $key = 'dash:overdue-overview:'.md5(json_encode([
+            $data['month'] ?? null, $filterOfficeId, $this->scopeOfficeId,
+        ]));
+
+        $payload = \Illuminate\Support\Facades\Cache::remember(
+            $key,
+            60,
+            fn () => $this->overdueOverviewData(
+                $monthStart,
+                $windowStart,
+                $windowFrom,
+                $windowTo,
+                $filterOfficeId,
+            ),
+        );
+
+        return response()->json($payload);
+    }
+
+    /**
      * Detail list behind one tile (or one process bar, with process_id).
      */
     public function details(Request $request, string $category)
@@ -468,6 +518,147 @@ class DashboardSummaryController extends Controller
                 ->sortByDesc('count')
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * Three months of status counts plus the selected month's top overdue
+     * step + office pairs. The ending month is the card's Month filter; the
+     * office filter narrows by the office handling the step.
+     */
+    private function overdueOverviewData(
+        Carbon $selectedStart,
+        Carbon $windowStart,
+        Carbon $windowFrom,
+        Carbon $windowTo,
+        ?int $filterOfficeId,
+    ): array {
+        $buckets = [];
+        $bucketList = [];
+        for ($cursor = $windowStart->copy(), $i = 0; $i < 3; $i++, $cursor->addMonthNoOverflow()) {
+            $key = $cursor->format('Y-m');
+            $buckets[$key] = [
+                'month' => $key,
+                'label' => $cursor->format('M Y'),
+                'completed' => 0,
+                'in_process' => 0,
+                'overdue' => 0,
+            ];
+            $bucketList[] = [
+                'key' => $key,
+                'start' => $cursor->copy()->utc(),
+                'end' => $cursor->copy()->addMonthNoOverflow()->utc(),
+            ];
+        }
+        $selectedKey = $selectedStart->format('Y-m');
+
+        $txs = $this->filtered(Transaction::query())
+            ->where(fn ($w) => $w
+                ->where('is_done', false)
+                ->orWhereBetween('transactions.created_at', [$windowFrom, $windowTo])
+                ->orWhereHas('runs', fn ($r) => $r->whereBetween('performed_at', [$windowFrom, $windowTo])))
+            ->with([
+                'state.currentStep',
+                'office:id,code,name',
+                'type:id,name',
+                'runs' => fn ($r) => $r
+                    ->reorder()
+                    ->orderBy('performed_at')
+                    ->orderBy('id')
+                    ->select(['id', 'transaction_id', 'to_step_id', 'action_code', 'performed_at', 'sla_minutes_snapshot'])
+                    ->with([
+                        'toStep:id,name,code,order_number,sla_minutes,office_id,is_end_user',
+                        'toStep.office:id,code,name',
+                    ]),
+            ])
+            ->get();
+
+        $groups = [];
+
+        foreach ($txs as $tx) {
+            $runs = $tx->runs->values();
+            $officeVisitMonths = [];
+            $finalizedMonths = [];
+
+            foreach ($runs as $i => $run) {
+                if (!$run->performed_at) continue;
+
+                $runKey = $run->performed_at->copy()->setTimezone(self::TZ)->format('Y-m');
+
+                if ($run->action_code === 'finalize' && isset($buckets[$runKey])) {
+                    $finalizedMonths[$runKey] = true;
+                }
+
+                $next = $runs->get($i + 1);
+                if (!$next && $tx->is_done) continue;
+
+                $enteredAt = $run->performed_at;
+                $leftAt = $next?->performed_at ?? now();
+                $sla = (int) ($run->sla_minutes_snapshot ?: $run->toStep?->sla_minutes ?: 0);
+                if ($sla <= 0) continue;
+
+                $step = $run->toStep;
+                if (!$step) continue;
+
+                $office = $tx->effectiveStepOffice($step);
+                $officeMatches = $filterOfficeId === null
+                    || (int) ($office?->id ?? 0) === $filterOfficeId;
+
+                $wait = WorkingTime::minutesBetween($enteredAt, $leftAt);
+
+                foreach ($bucketList as $bucket) {
+                    if (!($enteredAt->lt($bucket['end']) && $leftAt->gt($bucket['start']))) continue;
+                    if (!$officeMatches) continue;
+
+                    $officeVisitMonths[$bucket['key']] = true;
+
+                    if ($bucket['key'] !== $selectedKey || $wait <= $sla) continue;
+
+                    $key = $step->id.'|'.($office?->id ?? 0).'|'.$bucket['key'];
+                    $groups[$key] ??= [
+                        'step_id' => $step->id,
+                        'step' => $step->name,
+                        'step_code' => $step->code,
+                        'order_number' => (int) $step->order_number,
+                        'transaction_type' => $tx->type?->name,
+                        'office' => $office
+                            ? ['id' => $office->id, 'code' => $office->code, 'name' => $office->name]
+                            : null,
+                        'count' => 0,
+                    ];
+                    $groups[$key]['count']++;
+                }
+            }
+
+            $officeMatches = fn (string $monthKey) => $filterOfficeId === null
+                || isset($officeVisitMonths[$monthKey]);
+
+            if ($tx->is_done) {
+                foreach (array_keys($finalizedMonths) as $monthKey) {
+                    if ($officeMatches($monthKey)) $buckets[$monthKey]['completed']++;
+                }
+                continue;
+            }
+
+            $createdKey = $tx->created_at?->copy()->setTimezone(self::TZ)->format('Y-m');
+            if ($createdKey && isset($buckets[$createdKey]) && $officeMatches($createdKey)) {
+                $buckets[$createdKey][$this->overdueMinutes($tx) > 0 ? 'overdue' : 'in_process']++;
+            }
+        }
+
+        $steps = collect($groups)
+            ->sort(fn ($a, $b) => $b['count'] <=> $a['count']
+                ?: strcmp($a['step'], $b['step'])
+                ?: strcmp($a['office']['code'] ?? '', $b['office']['code'] ?? ''))
+            ->take(3)
+            ->values()
+            ->all();
+
+        return [
+            'month' => $selectedKey,
+            'label' => $selectedStart->format('F Y'),
+            'months' => array_values($buckets),
+            'steps' => $steps,
         ];
     }
 
