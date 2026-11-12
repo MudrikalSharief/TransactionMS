@@ -22,7 +22,7 @@
                         v-model="search"
                         type="search"
                         class="ro-search-input"
-                        placeholder="Search code, name or description"
+                        placeholder="Search code or name"
                         aria-label="Search roles"
                         autocomplete="off"
                     />
@@ -958,7 +958,7 @@ html.dark .ro-page {
 .ro-search-input {
     width: 100%;
     height: 46px;
-    padding: 0 42px;
+    padding: 0 14px 0 42px;
     border: 1.5px solid var(--ro-line);
     border-radius: 0;
     background: var(--ro-field);
@@ -970,6 +970,11 @@ html.dark .ro-page {
         border-color 0.15s,
         box-shadow 0.15s,
         background 0.15s;
+}
+/* Room for the clear button only while there is text to clear, so the
+   placeholder isn't squeezed. */
+.ro-search-input:not(:placeholder-shown) {
+    padding-right: 40px;
 }
 .ro-search-input::placeholder {
     color: var(--ro-muted);

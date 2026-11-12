@@ -251,7 +251,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         Route::get('/dashboard/summary', DashboardSummaryController::class)
             ->middleware(EnsureOfficeAdmin::class);
         Route::get('/dashboard/summary/{category}', [DashboardSummaryController::class, 'details'])
-            ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process'])
+            ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process', 'on_time', 'returns'])
             ->middleware(EnsureOfficeAdmin::class);
 
         // Monitoring report (read-only; office admins get their office's scope).

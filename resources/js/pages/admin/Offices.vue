@@ -19,7 +19,7 @@
             v-model="search"
             type="search"
             class="ofp-search-input"
-            placeholder="Search code, name or description"
+            placeholder="Search code or name"
             aria-label="Search offices"
             autocomplete="off"
           />
@@ -1265,24 +1265,6 @@ function openCreate() {
   focusField('name')
 }
 
-function openEdit(item) {
-  if (inlineSavingId.value != null) return
-  error.value = ''
-  fieldErrors.value = {}
-  dialogError.value = ''
-  resetIconState()
-  form.value = {
-    id: item.id,
-    code: String(item.code ?? '').toUpperCase(),
-    name: item.name ?? '',
-    description: item.description ?? '',
-    icon_url: item.icon_url ?? '',
-    is_active: !!item.is_active,
-  }
-  dialog.value = true
-  focusField('name')
-}
-
 function closeDialog() {
   if (saving.value) return
   dialog.value = false
@@ -1531,7 +1513,7 @@ html.dark .ofp-page {
   box-sizing: border-box;
   width: 100%;
   height: 46px;
-  padding: 0 42px;
+  padding: 0 14px 0 42px;
   border: 1.5px solid var(--ofp-line);
   border-radius: 0;
   background: var(--ofp-field);
@@ -1543,6 +1525,11 @@ html.dark .ofp-page {
     border-color 0.15s,
     box-shadow 0.15s,
     background 0.15s;
+}
+/* Room for the clear button only while there is text to clear, so the
+   placeholder isn't squeezed. */
+.ofp-search-input:not(:placeholder-shown) {
+  padding-right: 40px;
 }
 .ofp-search-input::placeholder {
   color: var(--ofp-muted);

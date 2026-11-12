@@ -669,7 +669,7 @@ const props = defineProps({
 const router = useRouter()
 const isArchive = computed(() => props.archive)
 const txStore = useTransactions({ archived: isArchive.value })
-const { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy } = txStore
+const { items, loading, meta, fetchAll, create, archive: archiveTx, unarchive, setPrivacy } = txStore
 
 // Full-page loader on every visit: brief when cached rows are already
 // painted, otherwise until the first fetch finishes.
@@ -1061,7 +1061,7 @@ async function confirmAction() {
   actionSaving.value = true
   error.value = ''
   try {
-    if (isArchiving) await archive(actionTarget.value.id)
+    if (isArchiving) await archiveTx(actionTarget.value.id)
     else await unarchive(actionTarget.value.id)
     toast.success(isArchiving ? 'Transaction archived.' : 'Transaction unarchived.')
     actionOpen.value = false
@@ -1226,7 +1226,7 @@ html.dark .tl-page {
 .tl-search-input {
     width: 100%;
     height: 46px;
-    padding: 0 42px;
+    padding: 0 14px 0 42px;
     border: 1.5px solid var(--tl-line);
     border-radius: 0;
     background: var(--tl-field);
@@ -1238,6 +1238,11 @@ html.dark .tl-page {
         border-color 0.15s,
         box-shadow 0.15s,
         background 0.15s;
+}
+/* Room for the clear button only while there is text to clear, so the
+   placeholder isn't squeezed. */
+.tl-search-input:not(:placeholder-shown) {
+    padding-right: 40px;
 }
 .tl-search-input::placeholder {
     color: var(--tl-muted);

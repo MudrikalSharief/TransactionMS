@@ -527,11 +527,6 @@ function goToStep(next) {
     if (!hasRequirementPage.value) return
     step.value = next
 }
-// Header counter (visual only): ticked / total. Gating still uses parents' missingRequired*.
-const checkedRequirementsCount = computed(() => (props.requirements || []).filter((r) => !!r.checked).length)
-const requirementsComplete = computed(
-    () => (props.requirements || []).length > 0 && checkedRequirementsCount.value >= (props.requirements || []).length,
-)
 const hasProceedContent = computed(
     () => hasRequirements.value || hasStepData.value || (props.checklist || []).length > 0 || (props.fields || []).length > 0,
 )
@@ -709,10 +704,6 @@ function reqHintText(r) {
     if (hasReqFiles(r)) return ''
     if (!props.isReturnSelected) return 'Attach at least one file to unlock Proceed.'
     return ''
-}
-
-function reqHintType(r) {
-    return 'error'
 }
 
 // Mockup upload-card states: locked (tick first), blocked (required but

@@ -1,4 +1,5 @@
 <template>
+    <!-- eslint-disable vue/no-mutating-props -- form is the page's shared draft, changed in place on purpose -->
     <template v-if="(fields || []).length">
         <div v-if="modern" class="pm-field-grid pm-form">
             <div
@@ -42,6 +43,7 @@
             </v-col>
         </v-row>
     </template>
+    <!-- eslint-enable vue/no-mutating-props -->
 </template>
 
 <script setup>

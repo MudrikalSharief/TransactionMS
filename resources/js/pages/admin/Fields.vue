@@ -13,13 +13,13 @@
       <v-text-field
         v-model="search"
         prepend-inner-icon="mdi-magnify"
-        label="Search . . ."
+        placeholder="Search fields"
+        aria-label="Search fields by code, name or type"
         variant="outlined"
         density="compact"
         rounded="0"
         hide-details
         clearable
-        class="mr-2"
         style="max-width: 320px"
       />
       <v-btn v-if="canManage" variant="outlined" color="primary" rounded="0" prepend-icon="mdi-plus" height="40" @click="openCreate">

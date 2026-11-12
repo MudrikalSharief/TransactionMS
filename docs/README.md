@@ -13,5 +13,7 @@ Central docs for end-users, admins, and developers.
 7. [API Reference](07-api-reference.md) — endpoints by area
 8. [Database](08-database.md) — tables, relations, seed data
 9. [Setup & Seeding](09-setup.md) — local run, seed, verify
+10. [Finish Transaction Button](10-finish-transaction-button.md)
+11. [Code Map](11-code-map.md) — where to find each feature in the code
 
 > Source of truth verified against `app/`, `routes/api.php`, `resources/js/`, `database/migrations`, `database/seeders`, `app/Services/RoutingEngine.php`.

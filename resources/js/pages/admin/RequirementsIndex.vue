@@ -1,7 +1,7 @@
 <template>
     <div>
         <v-card rounded="0" elevation="1" class="lgu-card lgu-card-fill">
-            <v-card-title class="d-flex align-center pa-5">
+            <v-card-title class="d-flex align-center pa-5 page-head">
                 <v-avatar color="grey-darken-3" rounded="0" size="40" class="mr-3">
                     <v-icon color="white">mdi-clipboard-check-outline</v-icon>
                 </v-avatar>
@@ -50,7 +50,7 @@
 
             <v-divider />
 
-            <v-card-text class="pa-4">
+            <v-card-text class="pa-4 page-body">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
                     {{ error }}
                 </v-alert>

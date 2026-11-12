@@ -3,61 +3,62 @@
         class="login-shell"
         :class="{ 'hide-cursor': loading && pointer.seen }"
     >
-        <section class="side">
-            <!-- Lockup: the emblem, a gold rule like its inner ring, and the
-                 name in the emblem's own navy and gold, with its ribbon motto. -->
-            <header class="brand">
-                <span class="brand-mark">
-                    <img
-                        class="seal"
-                        :src="'/tms-logo-128.png'"
-                        alt="Transaction Management System emblem, Local Government of Zamboanga City"
-                        width="76"
-                        height="79"
-                    />
-                </span>
-                <span class="brand-rule" aria-hidden="true"></span>
-                <div class="brand-text">
-                    <p class="brand-city">City Government of Zamboanga</p>
-                    <h1 class="brand-name">Transaction<span>MS</span></h1>
-                    <p class="brand-motto">
-                        <span class="brand-link" aria-hidden="true"><i></i></span>
-                        E-Service &amp; Efficient
-                    </p>
-                </div>
-            </header>
+        <!-- Soft blue waves along the corners, as in the reference. -->
+        <svg class="waves" viewBox="0 0 1671 941" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+                <linearGradient id="wv-top" x1="0" y1="1" x2="1" y2="0">
+                    <stop offset="0" stop-color="#5b93e3" />
+                    <stop offset="1" stop-color="#a7c8f4" />
+                </linearGradient>
+                <linearGradient id="wv-corner" x1="1" y1="1" x2="0" y2="0">
+                    <stop offset="0" stop-color="#4c88de" />
+                    <stop offset="1" stop-color="#9fc2f2" />
+                </linearGradient>
+            </defs>
+            <path d="M0 0 H640 C540 40 410 62 306 102 C192 146 92 204 0 268 Z" fill="#d3e4fb" />
+            <path d="M0 0 H510 C436 28 344 48 254 82 C152 120 66 162 0 208 Z" fill="url(#wv-top)" opacity="0.85" />
+            <path d="M1671 170 C1566 300 1536 520 1671 700 Z" fill="#e4eefc" opacity="0.8" />
+            <path d="M0 941 V878 C300 838 600 900 900 905 C1200 910 1450 860 1671 790 V941 Z" fill="#d7e7fc" />
+            <path d="M0 941 V858 C120 848 262 880 382 941 Z" fill="#c4ddfb" />
+            <path d="M1671 941 H1250 C1420 920 1560 878 1671 818 Z" fill="url(#wv-corner)" opacity="0.9" />
+        </svg>
 
-            <div class="panel">
-                <!-- Sign in / Create account: a pill switch shaped like the
-                     module buttons in the artwork. -->
-                <div class="switch" role="tablist" aria-label="Account">
-                    <span class="switch-ink" :class="{ 'is-right': mode === 'register' }" aria-hidden="true"></span>
-                    <button
-                        id="tab-signin"
-                        type="button"
-                        role="tab"
-                        :aria-selected="mode === 'signin' ? 'true' : 'false'"
-                        aria-controls="panel-signin"
-                        @click="openSignIn"
-                    >
-                        Sign in
-                    </button>
-                    <button
-                        id="tab-register"
-                        type="button"
-                        role="tab"
-                        :aria-selected="mode === 'register' ? 'true' : 'false'"
-                        aria-controls="panel-register"
-                        @click="openRegister"
-                    >
-                        Create account
-                    </button>
-                </div>
+        <!-- Animations on/off for slow devices; the same setting as the
+             sidebar button (useMotion.js). -->
+        <button
+            type="button"
+            class="motion-switch"
+            role="switch"
+            :aria-checked="motionEnabled ? 'true' : 'false'"
+            :title="motionEnabled ? 'Turn animations off (faster on slow devices)' : 'Turn animations on'"
+            @click="toggleMotion"
+        >
+            <span class="motion-track" aria-hidden="true"><i /></span>
+            Animations {{ motionEnabled ? "on" : "off" }}
+        </button>
+
+        <!-- The page is laid out on the reference's own canvas (1671 x 941)
+             and scaled to fit the window, so it matches it exactly. -->
+        <div class="artboard" :style="{ '--s': scale }">
+            <section class="card">
+                <h1 class="sr-only">TransactionMS sign in</h1>
+                <!-- System emblem on the sign-in screen; the large file only on sharp screens. -->
+                <img
+                    v-if="mode === 'signin'"
+                    class="card-logo"
+                    :src="'/tms-logo-128.png'"
+                    :srcset="'/tms-logo-128.png 128w, /tms-logo.png 512w'"
+                    sizes="104px"
+                    alt="Transaction Management System emblem"
+                    width="104"
+                    height="104"
+                    decoding="async"
+                />
+                <span class="accent" aria-hidden="true"></span>
 
                 <Transition name="swap" mode="out-in">
-                    <main v-if="mode === 'signin'" id="panel-signin" key="signin" class="pane" role="tabpanel" aria-labelledby="tab-signin">
-                        <h2>{{ greeting }}</h2>
-                        <p class="sub">Sign in with your username and password.</p>
+                    <main v-if="mode === 'signin'" id="panel-signin" key="signin" class="pane">
+                        <h2 class="card-title">Sign In</h2>
 
                         <div v-if="notice" class="notice" role="status" aria-live="polite">
                             <v-icon aria-hidden="true">mdi-check-circle-outline</v-icon>
@@ -71,16 +72,16 @@
 
                         <form novalidate :aria-busy="loading ? 'true' : 'false'" @submit.prevent="submit">
                             <div class="field">
-                                <label for="login-id">Username</label>
+                                <label for="login-id" class="sr-only">Username</label>
                                 <div class="control">
-                                    <span class="chip" aria-hidden="true"><v-icon>mdi-account-circle-outline</v-icon></span>
+                                    <span class="chip" aria-hidden="true"><v-icon>mdi-account-outline</v-icon></span>
                                     <input
                                         id="login-id"
                                         v-model.trim="loginId"
                                         type="text"
                                         inputmode="text"
                                         name="username"
-                                        placeholder="e.g. juan.delacruz"
+                                        placeholder="Username"
                                         autocomplete="username"
                                         autocapitalize="none"
                                         spellcheck="false"
@@ -92,7 +93,7 @@
                             </div>
 
                             <div class="field">
-                                <label for="login-password">Password</label>
+                                <label for="login-password" class="sr-only">Password</label>
                                 <div class="control">
                                     <span class="chip" aria-hidden="true"><v-icon>mdi-lock-outline</v-icon></span>
                                     <input
@@ -100,7 +101,7 @@
                                         v-model="password"
                                         :type="showPassword ? 'text' : 'password'"
                                         name="current-password"
-                                        placeholder="Enter your password"
+                                        placeholder="Password"
                                         autocomplete="current-password"
                                         :disabled="loading"
                                         required
@@ -117,51 +118,21 @@
                                 </div>
                             </div>
 
-                            <label class="check">
-                                <input v-model="remember" type="checkbox" :disabled="loading" />
-                                <span>Keep me signed in</span>
-                            </label>
+                            <!-- Where the reference has "Forgot password?" -->
+                            <p class="aside-link">
+                                <button type="button" class="link" @click="openRegister">Create account</button>
+                            </p>
 
-                            <button class="btn" :class="{ loading }" type="submit" :disabled="!canSubmit">
+                            <button class="btn btn-main" :class="{ loading }" type="submit" :disabled="!canSubmit">
                                 <span v-if="loading" class="spin motion-keep" aria-hidden="true"></span>
                                 <span>{{ loading ? "Signing in…" : "Sign in" }}</span>
-                                <v-icon v-if="!loading" class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
                             </button>
                         </form>
-
-                        <!-- The six module colours from the artwork mark the
-                             switch to tracking. -->
-                        <div class="divider" aria-hidden="true">
-                            <span class="divider-line"></span>
-                            <span class="dots"><i v-for="c in moduleColors" :key="c" :style="{ background: c, color: c }"></i></span>
-                            <span class="divider-line"></span>
-                        </div>
-
-                        <button
-                            class="track"
-                            :class="{ loading: guestLoading }"
-                            type="button"
-                            :disabled="loading || guestLoading"
-                            @click="guestLogin"
-                        >
-                            <span class="track-chip" aria-hidden="true">
-                                <span v-if="guestLoading" class="spin spin-dark motion-keep"></span>
-                                <v-icon v-else>mdi-map-marker-path</v-icon>
-                            </span>
-                            <span class="track-text">
-                                <b>{{ guestLoading ? "Opening tracker…" : "Track your transaction" }}</b>
-                                <small>View-only. No account or sign-in needed.</small>
-                            </span>
-                            <v-icon class="track-go" aria-hidden="true">mdi-chevron-right</v-icon>
-                        </button>
                     </main>
 
-                    <!-- Create an account: the same details a superadmin enters
-                         for a new user, plus a contact number. It waits for
-                         approval. -->
-                    <main v-else id="panel-register" key="register" class="pane" role="tabpanel" aria-labelledby="tab-register">
-                        <h2>Create your account</h2>
-                        <p class="sub">Choose a username to sign in. No email account needed. An administrator will review your request.</p>
+                    <main v-else id="panel-register" key="register" class="pane">
+                        <h2 class="card-title is-small">Create Account</h2>
+                        <p class="sub">Choose a username to sign in. An administrator will review your request.</p>
 
                         <div v-if="regError" :key="errorKey" class="error" role="alert" aria-live="assertive">
                             <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
@@ -398,7 +369,6 @@
                                     @click="nextStep"
                                 >
                                     <span>Continue</span>
-                                    <v-icon class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
                                 </button>
 
                                 <button
@@ -410,52 +380,71 @@
                                 >
                                     <span v-if="registering" class="spin motion-keep" aria-hidden="true"></span>
                                     <span>{{ registering ? "Sending request…" : "Request account" }}</span>
-                                    <v-icon v-if="!registering" class="btn-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
                                 </button>
                             </div>
                         </form>
+                        <p class="aside-link is-center">
+                            Already have an account?
+                            <button type="button" class="link" @click="openSignIn">Sign in</button>
+                        </p>
                     </main>
                 </Transition>
-            </div>
+            </section>
 
-            <!-- Footer with a faint skyline and wave that continue the
-                 artwork's bottom edge across the form panel. -->
-            <footer>
-                <span>City Government of Zamboanga</span>
-                <!-- Animations on/off for slow devices; the same setting as
-                     the sidebar button (useMotion.js). -->
-                <button
-                    type="button"
-                    class="motion-switch"
-                    role="switch"
-                    :aria-checked="motionEnabled ? 'true' : 'false'"
-                    :title="motionEnabled ? 'Turn animations off (faster on slow devices)' : 'Turn animations on'"
-                    @click="toggleMotion"
-                >
-                    <span class="motion-track" aria-hidden="true"><i /></span>
-                    Animations {{ motionEnabled ? "on" : "off" }}
-                </button>
-                <svg class="skyline" viewBox="0 0 480 110" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-                    <path class="sky-wave" d="M0 92 C120 70 260 112 480 78 L480 110 L0 110 Z" />
-                    <g class="sky-city">
-                        <rect x="300" y="52" width="16" height="40" />
-                        <rect x="304" y="44" width="8" height="8" />
-                        <path d="M308 30 L314 44 L302 44 Z" />
-                        <rect x="322" y="66" width="46" height="26" />
-                        <path d="M318 66 L345 56 L372 66 Z" />
-                        <rect x="374" y="60" width="14" height="32" />
-                        <rect x="392" y="70" width="22" height="22" />
-                        <rect x="418" y="64" width="12" height="28" />
-                        <path d="M262 92 L262 64 M262 64 c-9 -3 -14 2 -18 6 M262 64 c9 -3 14 2 18 6 M262 64 c-4 -7 -10 -8 -14 -8 M262 64 c4 -7 10 -8 14 -8" class="sky-palm" />
-                        <path d="M446 92 L446 68 M446 68 c-8 -3 -12 2 -15 5 M446 68 c8 -3 12 2 15 5 M446 68 c-3 -6 -8 -7 -12 -7 M446 68 c3 -6 8 -7 12 -7" class="sky-palm" />
-                    </g>
-                </svg>
-            </footer>
-        </section>
+            <p class="hero-eyebrow">
+                <span class="hero-line" aria-hidden="true"></span>
+                Monitor City Government
+                <span class="hero-line" aria-hidden="true"></span>
+            </p>
+            <h2 class="hero-title">Transactions</h2>
+            <span class="hero-bar" aria-hidden="true"></span>
 
-        <aside class="hero" aria-label="Available modules">
-            <LoginHero />
-        </aside>
+            <img
+                class="scene"
+                :src="'/login-scene.jpg'"
+                alt="A clerk reviewing papers, with Payroll, Permits, Approvals, Records, Routing and Tracking around her"
+                width="1000"
+                height="650"
+            />
+
+            <!-- The arrows between the modules, redrawn over the picture so
+                 they can move: each one draws itself in turn, round the
+                 cycle (Payroll, Permits, Approvals, Records, Routing,
+                 Tracking). -->
+            <!-- Approvals, lifted out of the picture and set 30px higher so
+                 its sides meet the arrows on the circle. -->
+            <img class="chip-approvals" :src="'/login-approvals.png'" alt="" width="280" height="106" />
+
+            <svg class="flow" viewBox="0 0 1671 941" aria-hidden="true">
+                <g v-for="(a, i) in FLOW_ARROWS" :key="i" :style="{ '--d': `${i * 0.7}s` }">
+                    <path v-if="a.tail" class="arrow-tail" :d="a.tail" />
+                    <path class="arrow-line" :d="a.line" pathLength="1" />
+                </g>
+            </svg>
+
+            <!-- Guest tracking: the read-only viewer, no sign-in. -->
+            <button
+                class="track"
+                :class="{ loading: guestLoading }"
+                type="button"
+                :disabled="loading || guestLoading"
+                title="View-only. No account or sign-in needed."
+                @click="guestLogin"
+            >
+                <span class="track-face">
+                    <span class="track-icon" aria-hidden="true">
+                        <span v-if="guestLoading" class="spin motion-keep"></span>
+                        <v-icon v-else>mdi-magnify</v-icon>
+                    </span>
+                    <span class="track-divider" aria-hidden="true"></span>
+                    <span class="track-text">
+                        <template v-if="guestLoading">Opening tracker…</template>
+                        <template v-else>Track your<br />Transaction</template>
+                    </span>
+                    <span class="track-go" aria-hidden="true"><v-icon>mdi-arrow-right</v-icon></span>
+                </span>
+            </button>
+        </div>
 
         <div
             v-if="loading && pointer.seen"
@@ -471,7 +460,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
-import LoginHero from "@/components/login/LoginHero.vue";
 import { useMotion } from "@/composables/useMotion";
 import { officeIcon } from "@/utils/officeIcons";
 
@@ -482,16 +470,47 @@ const router = useRouter();
 const auth = useAuth();
 const { api, csrf } = useApi();
 
-// Module colours, in the artwork's order.
-const moduleColors = ["#3B6CF6", "#14B8A6", "#F59E0B", "#7C3AED", "#0EA5E9", "#EF4444"];
+// The page is drawn on the reference design's own canvas (1671 x 941) and
+// scaled to fit the window, so its proportions always match the design.
+const BOARD_W = 1671;
+const BOARD_H = 941;
+const scale = ref(1);
+function fitBoard() {
+    scale.value = Math.min(window.innerWidth / BOARD_W, window.innerHeight / BOARD_H);
+}
+onMounted(() => {
+    fitBoard();
+    window.addEventListener("resize", fitBoard, { passive: true });
+});
+onUnmounted(() => window.removeEventListener("resize", fitBoard));
 
-// Same greeting as the dashboard header, by the local hour.
-const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
-})();
+// The flow arrows all lie on one circle round the clerk (design pixels):
+// each is an arc of RING between two modules, running clockwise. Angles are
+// in degrees with y pointing down (180 = left, 270 = top, 0 = right); each
+// arrow lists its start angle, tip angle and the length of the faint dashed
+// tail before it (0 where a tail would run into a module).
+const RING = { cx: 1080, cy: 600, r: 370 };
+const FLOW_ARROWS = [
+    [175, 186.5, 20], // up into Payroll
+    [200.5, 209.5, 8], // Payroll to Permits
+    [230, 242, 20], // Permits to Approvals
+    [291, 310, 22], // Approvals to Records
+    [330, 338.5, 0], // Records to Routing
+    [351.5, 358.5, 0], // Routing to Tracking
+].map(([a0, a1, tailLen]) => {
+    const { cx, cy, r } = RING;
+    const rad = (d) => (d * Math.PI) / 180;
+    const at = (d) => [cx + r * Math.cos(rad(d)), cy + r * Math.sin(rad(d))];
+    const pt = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+    const arc = (from, to) => `M${pt(at(from))} A${r} ${r} 0 0 1 ${pt(at(to))}`;
+    const toDeg = (len) => (len / r) * (180 / Math.PI);
+
+    // Plain lines, no arrowheads.
+    return {
+        line: arc(a0, a1),
+        tail: tailLen ? arc(a0 - toDeg(tailLen), a0) : "",
+    };
+});
 
 // "signin" or "register" (Create an account), in the same panel.
 const mode = ref("signin");
@@ -501,7 +520,6 @@ const notice = ref("");
 const loginId = ref("");
 const password = ref("");
 const showPassword = ref(false);
-const remember = ref(false);
 
 const loading = ref(false);
 const guestLoading = ref(false);
@@ -543,7 +561,6 @@ async function submit() {
         await auth.login({
             login: loginId.value.trim(),
             password: password.value,
-            remember: remember.value,
         });
 
         await router.push({ name: "dashboard" });
@@ -785,36 +802,44 @@ async function guestLogin() {
 </script>
 
 <style scoped>
+/* Sizes below are in the reference image's pixels (1671 x 941); the
+   artboard is scaled to the window, so everything keeps its proportions. */
 .login-shell {
-    /* Palette: the emblem's navy and gold, the artwork's sky and module colours. */
-    --navy: #16307c;
-    --navy-deep: #0f2466;
-    --gold: #b8891b;
-    --ink: #14213d;
-    --muted: #5b6780;
-    --line: #d9e1ef;
-    --field: #f6f8fd;
-    --focus: #2f6feb;
-    --sky: #eaf2fd;
+    --blue: #1d56c4;
+    --blue-deep: #0b3b8f;
+    --blue-soft: #e8f0ff;
+    --navy: #0f2552;
+    --ink: #1f2a44;
+    --muted: #55627d;
+    --line: #c9d3e5;
     --danger: #b42318;
-    /* Horizontal gutter, shared by the panel and its footer band. */
-    --side-pad: 52px;
+    --display: 'Montserrat', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
     position: fixed;
     inset: 0;
-    display: grid;
-    grid-template-columns: minmax(380px, 500px) 1fr;
-    overflow: auto;
-    background: #ffffff;
+    overflow: hidden;
+    background: linear-gradient(180deg, #f2f7fe 0%, #e8f1fd 100%);
     color: var(--ink);
     font-family: 'Inter', 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
 }
-.login-shell::-webkit-scrollbar {
-    display: none;
-    width: 0;
+.waves {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* Spinning cursor while signing in: the native pointer is hidden and this
@@ -838,223 +863,105 @@ async function guestLogin() {
     content: "";
     position: absolute;
     inset: 0;
-    border: 3px solid rgba(22, 48, 124, 0.25);
-    border-top-color: var(--navy);
+    border: 3px solid rgba(29, 86, 196, 0.25);
+    border-top-color: var(--blue);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
 }
 
-/* ---- Left: form panel ---- */
-.side {
-    position: relative;
-    z-index: 1;
+/* ---- The artboard ---- */
+.artboard {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1671px;
+    height: 941px;
+    margin: -470.5px 0 0 -835.5px;
+    transform: scale(var(--s, 1));
+    transform-origin: center;
+}
+.artboard > * {
+    position: absolute;
+}
+
+/* ---- Sign-in card ---- */
+.card {
+    left: 34px;
+    top: 50px;
+    width: 586px;
+    min-height: 862px;
+    /* Contents sit in the middle of the card. */
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    min-height: 100vh;
-    padding: 40px var(--side-pad) 0;
-    background: #ffffff;
-    /* A soft edge against the artwork instead of a hard rule. */
-    box-shadow: 1px 0 0 rgba(213, 222, 238, 0.9), 18px 0 40px -30px rgba(22, 48, 124, 0.35);
+    justify-content: center;
+    padding: 56px 48px 56px 52px;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    border-radius: 38px;
+    background: rgba(255, 255, 255, 0.55);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow:
+        0 0 0 1px rgba(29, 86, 196, 0.05),
+        0 24px 60px -20px rgba(30, 80, 170, 0.22);
 }
-
-/* ---- Brand lockup (colours taken from the emblem) ---- */
-.brand {
-    --emblem-navy: #16307c;
-    --emblem-gold: #b8891b;
-    --emblem-gold-text: #8a6612; /* darker gold: readable at small sizes */
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-.brand-mark {
-    position: relative;
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 84px;
-    height: 84px;
-    animation: brand-settle 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-/* Faint dotted gold ring behind the emblem, like its engraved rim. */
-.brand-mark::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 1px dashed rgba(184, 137, 27, 0.45);
-}
-.seal {
-    position: relative;
-    width: 76px;
-    height: 79px;
-    object-fit: contain;
-    filter: drop-shadow(0 6px 10px rgba(22, 48, 124, 0.22));
-}
-/* Gold rule between emblem and name, drawn top to bottom. */
-.brand-rule {
-    flex: none;
-    width: 1.5px;
-    height: 62px;
-    background: linear-gradient(180deg, transparent, var(--emblem-gold) 18%, var(--emblem-gold) 82%, transparent);
-    transform-origin: top center;
-    animation: brand-rule 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
-}
-.brand-text {
-    min-width: 0;
-    animation: brand-text 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s both;
-}
-.brand-city {
-    margin: 0 0 3px;
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--emblem-gold-text);
-}
-.brand-name {
-    margin: 0;
-    font-size: 28px;
-    line-height: 1.05;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    color: var(--emblem-navy);
-}
-.brand-name span {
-    color: var(--emblem-gold);
-}
-/* The ribbon's motto, led by the same lozenge-and-line link as the
-   welcome screen. */
-.brand-motto {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 6px 0 0;
-    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 13.5px;
-    font-style: italic;
-    color: #4a5670;
-}
-.brand-link {
-    position: relative;
-    width: 26px;
+.accent {
+    display: block;
+    width: 106px;
     height: 7px;
-    flex: none;
-}
-.brand-link::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 3px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--emblem-gold) 40%);
-}
-.brand-link i {
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: 7px;
-    height: 7px;
-    background: var(--emblem-gold);
-    transform: rotate(45deg) scale(0.8);
-}
-@keyframes brand-settle {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: none; }
-}
-@keyframes brand-rule {
-    from { transform: scaleY(0); }
-    to { transform: none; }
-}
-@keyframes brand-text {
-    from { opacity: 0; transform: translateX(-8px); }
-    to { opacity: 1; transform: none; }
-}
-
-/* ---- Panel ---- */
-/* Top-anchored: the brand, the tabs and the heading stay put while the pane
-   below changes (sign in <-> create account, and between its steps). The
-   spare room falls below the form instead of shifting everything. */
-.panel {
-    margin: 0 0 auto;
-    padding: 36px 0 14px;
-    width: 100%;
-    animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
-}
-
-/* Sign in / Create account switch */
-.switch {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 4px;
-    margin-bottom: 30px;
+    margin: 0 auto;
     border-radius: 999px;
-    background: #eef3fb;
-    border: 1px solid #dfe7f4;
+    background: var(--blue);
 }
-.switch button {
-    position: relative;
-    z-index: 1;
-    height: 40px;
-    border: 0;
-    border-radius: 999px;
-    background: none;
-    font: inherit;
-    font-size: 14px;
+.card-title {
+    margin: 18px 0 44px;
+    text-align: center;
+    font-family: var(--display);
+    font-size: 56px;
     font-weight: 700;
-    letter-spacing: 0.01em;
-    color: var(--muted);
-    cursor: pointer;
-    transition: color 0.25s ease;
-}
-.switch button[aria-selected="true"] {
+    line-height: 1.15;
+    letter-spacing: -0.01em;
     color: var(--navy);
 }
-.switch button:focus-visible {
-    outline: 3px solid rgba(47, 111, 235, 0.35);
-    outline-offset: 1px;
+.card-title.is-small {
+    margin-bottom: 10px;
+    font-size: 46px;
 }
-/* The white "pill" slides under the chosen side. */
-.switch-ink {
-    position: absolute;
-    top: 4px;
-    bottom: 4px;
-    left: 4px;
-    width: calc(50% - 4px);
-    border-radius: 999px;
-    background: linear-gradient(180deg, #ffffff 0%, #f7f9fe 100%);
-    border: 1px solid #cfdcf3;
-    box-shadow: 0 1px 0 #ffffff inset, 0 4px 12px -4px rgba(22, 48, 124, 0.28), 0 0 0 3px rgba(47, 111, 235, 0.06);
-    transition: transform 0.38s cubic-bezier(0.3, 0.9, 0.3, 1);
-}
-.switch-ink.is-right {
-    transform: translateX(100%);
-}
-
-.pane h2 {
-    margin: 0 0 6px;
-    font-size: 27px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--ink);
+/* System emblem above the blue bar on the sign-in screen: a white medallion
+   with the Sign In button's blue gradient as its ring, lifted like the
+   white chips in the artwork. */
+.card-logo {
+    display: block;
+    box-sizing: content-box;
+    width: 104px;
+    height: 104px;
+    margin: 0 auto 22px;
+    padding: 6px;
+    border: 3px solid transparent;
+    border-radius: 50%;
+    object-fit: contain;
+    background:
+        linear-gradient(#fff, #fff) padding-box,
+        linear-gradient(135deg, var(--blue), var(--blue-deep)) border-box;
+    box-shadow:
+        0 0 0 6px rgba(255, 255, 255, 0.7),
+        0 16px 30px -12px rgba(29, 86, 196, 0.45);
 }
 .sub {
-    margin: 0 0 24px;
+    margin: 0 0 20px;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.45;
     color: var(--muted);
-    font-size: 14.5px;
-    line-height: 1.5;
 }
 
-/* Switching panes: a short cross-fade with a lift. */
+/* Switching between sign in and create account. */
 .swap-enter-active,
 .swap-leave-active {
-    transition: opacity 0.22s ease, transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .swap-enter-from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
 }
 .swap-leave-to {
     opacity: 0;
@@ -1066,225 +973,123 @@ async function guestLogin() {
 .notice {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
+    margin: -24px 0 22px;
+    padding: 14px 18px;
     border-radius: 12px;
-    padding: 12px 14px;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 500;
-    line-height: 1.45;
-    margin-bottom: 18px;
-    animation: rise 0.3s ease-out both;
+    line-height: 1.4;
 }
 .error {
     background: #fdf0ef;
     color: var(--danger);
-    box-shadow: inset 3px 0 0 var(--danger);
+    box-shadow: inset 4px 0 0 var(--danger);
 }
 .notice {
     background: #ebf7ef;
     color: #1d6b3c;
-    box-shadow: inset 3px 0 0 #2f9e5b;
+    box-shadow: inset 4px 0 0 #2f9e5b;
 }
 .error .v-icon,
 .notice .v-icon {
-    font-size: 20px;
     flex: none;
+    font-size: 26px;
+}
+#panel-register .error {
+    margin-top: 0;
 }
 
 /* ---- Fields ---- */
 .field {
-    margin-bottom: 18px;
     min-width: 0;
+    margin-bottom: 22px;
 }
-.field label {
+.field label:not(.sr-only) {
     display: block;
-    margin: 0 0 7px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #2a3757;
+    margin: 0 0 8px;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--ink);
 }
 .label-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 7px;
+    margin-bottom: 8px;
 }
 .label-row label {
-    margin-bottom: 0;
+    margin-bottom: 0 !important;
 }
 .field-counter {
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--muted);
+    font-size: 16px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    transition: color 0.18s ease;
+    color: var(--muted);
 }
 .field-counter.is-full {
     color: #1d6b3c;
 }
-
-/* ---- Create account: three short steps, paged with Back / Continue ---- */
-.reg-step-title {
-    margin: 0 0 20px;
-    font-size: 16px;
-    font-weight: 750;
-    color: var(--navy);
-}
-.steps {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin: 28px 0 20px;
-}
-.steps-text {
-    margin: 0;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    white-space: nowrap;
-}
-.steps-track {
-    display: flex;
-    flex: 1;
-    gap: 5px;
-}
-.steps-track i {
-    flex: 1;
-    height: 4px;
-    border-radius: 999px;
-    background: #e3eaf6;
-    transition: background 0.35s ease;
-}
-.steps-track i.is-on {
-    background: var(--focus);
-}
-.reg-nav {
-    display: flex;
-    gap: 12px;
-    /* +25% over the last field's 18px bottom margin (padding, so the two
-       margins don't collapse into each other). */
-    padding-top: 4.5px;
-}
-/* The two shorter steps get extra air before the buttons; step 1 is already
-   full height, so it stays tight (and above the fold on short laptops). */
-.reg-step.is-short + .reg-nav {
-    margin-top: 56px;
-}
-.reg-nav .btn {
-    flex: 1;
-}
-.btn-ghost {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    height: 52px;
-    padding: 0 22px;
-    border: 1.5px solid var(--line);
-    border-radius: 14px;
-    background: #ffffff;
-    color: var(--navy);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-.btn-ghost:hover:not(:disabled) {
-    border-color: #9fb5dc;
-    background: #f6f8fd;
-}
-.btn-ghost:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-}
-.btn-ghost:focus-visible {
-    outline: 3px solid rgba(47, 111, 235, 0.35);
-    outline-offset: 3px;
-}
-.btn-ghost .v-icon {
-    font-size: 19px;
-}
-.btn-arrow-back {
-    transition: transform 0.2s ease;
-}
-.btn-ghost:hover:not(:disabled) .btn-arrow-back {
-    transform: translateX(-3px);
-}
 .control {
     position: relative;
 }
-/* Icon chip: lights up in the system blue when its field has focus. */
 .chip {
     position: absolute;
-    left: 8px;
+    left: 30px;
     top: 50%;
     transform: translateY(-50%);
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: #e9eff9;
-    color: var(--navy);
+    color: var(--ink);
     pointer-events: none;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition: color 0.18s ease;
 }
 .chip .v-icon {
-    font-size: 19px;
+    font-size: 36px;
 }
 .control input,
 .control select,
 .control .office-select {
     width: 100%;
-    height: 50px;
-    border: 1.5px solid var(--line);
+    height: 70px;
+    padding: 0 22px 0 98px;
+    border: 2px solid var(--line);
     border-radius: 14px;
-    background-color: var(--field);
+    background-color: rgba(247, 249, 253, 0.85);
     color: var(--ink);
     font: inherit;
-    font-size: 15.5px;
-    padding: 0 14px 0 52px;
+    font-size: 22px;
     text-overflow: ellipsis;
     transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
-/* Room for the show/hide password button only where there is one. */
 .control:has(.toggle) input {
-    padding-right: 48px;
+    padding-right: 76px;
 }
 .control input::placeholder {
-    color: #8a94aa;
+    color: var(--ink);
+    opacity: 1;
 }
 .control input:hover:not(:disabled),
 .control select:hover:not(:disabled),
 .control .office-select:hover:not(:disabled) {
-    border-color: #b9c6de;
+    border-color: #a5b6d4;
 }
 .control input:focus,
 .control select:focus,
 .control .office-select:focus {
     outline: none;
-    border-color: var(--focus);
+    border-color: var(--blue);
     background-color: #ffffff;
-    box-shadow: 0 0 0 4px rgba(47, 111, 235, 0.14), 0 6px 16px -10px rgba(47, 111, 235, 0.6);
+    box-shadow: 0 0 0 5px rgba(29, 86, 196, 0.13);
 }
 .control:focus-within .chip {
-    background: var(--focus);
-    color: #ffffff;
-    box-shadow: 0 4px 10px -4px rgba(47, 111, 235, 0.7);
+    color: var(--blue);
 }
 .control input:disabled,
 .control select:disabled,
 .control .office-select:disabled {
-    opacity: 0.72;
+    opacity: 0.7;
     cursor: not-allowed;
 }
 .control input[aria-invalid="true"],
@@ -1293,48 +1098,96 @@ async function guestLogin() {
     border-color: var(--danger);
 }
 .control:has([aria-invalid="true"]) .chip {
-    background: #fbe4e2;
     color: var(--danger);
 }
-/* Selects match the inputs, with their own chevron. */
 .control select {
-    padding-right: 36px;
+    padding-right: 48px;
     appearance: none;
     cursor: pointer;
-    text-overflow: ellipsis;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235b6780' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231f2a44' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 14px center;
+    background-position: right 20px center;
+}
+.control input:-webkit-autofill,
+.control input:-webkit-autofill:hover,
+.control input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 100px #f7f9fd inset !important;
+    -webkit-text-fill-color: var(--ink) !important;
+    caret-color: var(--ink) !important;
+    transition: background-color 5000s ease-in-out 0s !important;
+}
+.toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.toggle:hover {
+    background: var(--blue-soft);
+    color: var(--blue);
+}
+.toggle:focus-visible {
+    outline: 3px solid rgba(29, 86, 196, 0.35);
+}
+.toggle .v-icon {
+    font-size: 36px;
+}
+.field-error,
+.field-note {
+    margin: 8px 2px 0;
+    font-size: 16px;
+    line-height: 1.4;
+}
+.field-error {
+    font-weight: 600;
+    color: var(--danger);
+}
+.field-note {
+    margin-bottom: 16px;
+    color: var(--muted);
+}
+.field-note.is-bad {
+    font-weight: 600;
+    color: var(--danger);
 }
 
 /* Office picker: custom list so each option can show its own icon. */
 .control .office-select {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding-right: 36px;
+    gap: 12px;
+    padding-right: 48px;
     text-align: left;
     cursor: pointer;
 }
 .office-selected {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 .office-avatar {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
     flex: none;
+    width: 30px;
+    height: 30px;
     overflow: hidden;
     border-radius: 50%;
-    background: #e9eff9;
-    color: var(--navy);
-    font-size: 10.5px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: 12px;
     font-weight: 800;
-    letter-spacing: 0.02em;
     line-height: 1;
 }
 .office-avatar img {
@@ -1346,21 +1199,22 @@ async function guestLogin() {
 .office-name,
 .office-option-name {
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .office-name {
     font-weight: 600;
 }
 .office-placeholder {
-    color: #8a94aa;
+    color: var(--ink);
 }
 .office-caret {
-    margin-left: auto;
     flex: none;
-    color: #5b6780;
+    margin-left: auto;
+    color: var(--ink);
     pointer-events: none;
 }
+/* The menu opens outside the scaled artboard, so normal sizes here. */
 .office-menu-card {
     width: min(420px, calc(100vw - 40px));
     max-height: 300px;
@@ -1385,12 +1239,16 @@ async function guestLogin() {
     text-align: left;
     cursor: pointer;
 }
+.office-option .office-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 10.5px;
+}
 .office-option:hover {
     background: #f1f5fd;
 }
 .office-option.is-selected {
-    background: #e8f0ff;
-    color: var(--navy);
+    background: var(--blue-soft);
 }
 .office-option-name {
     flex: 1;
@@ -1398,322 +1256,371 @@ async function guestLogin() {
 }
 .office-check {
     flex: none;
-    color: var(--focus);
+    color: var(--blue);
 }
 .office-empty {
     margin: 0;
     padding: 12px;
-    color: var(--muted);
     font-size: 13px;
-}
-
-/* Autofill: keep the field's own colours instead of Chrome's wash. */
-.control input:-webkit-autofill,
-.control input:-webkit-autofill:hover,
-.control input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 100px var(--field) inset !important;
-    -webkit-text-fill-color: var(--ink) !important;
-    caret-color: var(--ink) !important;
-    transition: background-color 5000s ease-in-out 0s !important;
-}
-.control input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 100px #ffffff inset, 0 0 0 4px rgba(47, 111, 235, 0.14) !important;
-    -webkit-text-fill-color: var(--ink) !important;
-}
-.control input:autofill {
-    box-shadow: 0 0 0 100px var(--field) inset !important;
-    -webkit-text-fill-color: var(--ink) !important;
-}
-
-.toggle {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 38px;
-    height: 38px;
-    border: 0;
-    border-radius: 10px;
-    background: none;
     color: var(--muted);
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-    transition: background 0.15s ease, color 0.15s ease;
 }
-.toggle:hover {
-    background: #e6ecf7;
+
+/* ---- Create account steps ---- */
+.steps {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 0 0 14px;
+}
+.steps-text {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--muted);
+}
+.steps-track {
+    display: flex;
+    flex: 1;
+    gap: 6px;
+}
+.steps-track i {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: #d6dfee;
+    transition: background 0.3s ease;
+}
+.steps-track i.is-on {
+    background: var(--blue);
+}
+.reg-step-title {
+    margin: 0 0 14px;
+    font-size: 21px;
+    font-weight: 700;
     color: var(--navy);
 }
-.toggle:focus-visible {
-    outline: 3px solid rgba(47, 111, 235, 0.35);
+.reg-nav {
+    display: flex;
+    gap: 12px;
 }
-.toggle .v-icon {
-    font-size: 20px;
+.reg-step.is-short + .reg-nav {
+    margin-top: 10px;
+}
+.reg-nav .btn {
+    flex: 1;
 }
 
-.field-error,
-.field-note {
-    margin: 6px 2px 0;
-    font-size: 12.5px;
-    line-height: 1.4;
-}
-.field-error {
-    color: var(--danger);
-    font-weight: 600;
-}
-.field-note {
+/* "Create account" sits where the reference has "Forgot password?". */
+.aside-link {
+    margin: 8px 6px 26px 0;
+    font-size: 22px;
     color: var(--muted);
-    margin-bottom: 18px;
+    text-align: right;
 }
-.field-note.is-bad {
-    color: var(--danger);
-    font-weight: 600;
+.aside-link.is-center {
+    margin: 20px 0 0;
+    font-size: 19px;
+    text-align: center;
+}
+.link {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: #1e4fb9;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+.link:hover {
+    color: var(--blue-deep);
+}
+.link:focus-visible {
+    outline: 3px solid rgba(29, 86, 196, 0.35);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
-.check {
-    display: inline-flex;
+/* ---- Buttons: deep blue pill ---- */
+.btn {
+    display: flex;
     align-items: center;
-    gap: 9px;
-    margin: 2px 0 26px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #2a3757;
+    justify-content: center;
+    gap: 26px;
+    width: 100%;
+    height: 70px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #1656c6 0%, var(--blue-deep) 100%);
+    color: #ffffff;
+    font-family: var(--display);
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     cursor: pointer;
-    user-select: none;
+    box-shadow: 0 16px 28px -14px rgba(11, 59, 143, 0.75);
+    transition: filter 0.2s ease, box-shadow 0.2s ease;
 }
-.check input {
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    accent-color: var(--navy);
-    cursor: inherit;
+.btn-main {
+    width: calc(100% + 5px);
 }
-.check input:disabled {
-    opacity: 0.6;
+.btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+/* Stays the full blue of the design while the fields are empty. */
+.btn:disabled {
     cursor: not-allowed;
 }
-
-/* ---- Primary button: emblem navy, a gold base line, a soft gloss ---- */
-.btn {
-    position: relative;
-    width: 100%;
-    height: 52px;
-    border: 0;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #1f3f9c 0%, var(--navy) 55%, var(--navy-deep) 100%);
-    color: #ffffff;
-    font: inherit;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+.btn.loading {
+    filter: none;
+    cursor: progress;
+}
+.btn:focus-visible {
+    outline: 4px solid rgba(29, 86, 196, 0.4);
+    outline-offset: 4px;
+}
+.btn-ghost {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    cursor: pointer;
-    overflow: hidden;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        inset 0 -2px 0 var(--gold),
-        0 10px 22px -12px rgba(22, 48, 124, 0.75);
-    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
-}
-.btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    filter: brightness(1.06);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.25),
-        inset 0 -2px 0 var(--gold),
-        0 14px 26px -12px rgba(22, 48, 124, 0.85),
-        0 0 0 4px rgba(47, 111, 235, 0.12);
-}
-.btn:active:not(:disabled) {
-    transform: translateY(0);
-}
-.btn:disabled {
-    cursor: not-allowed;
-    filter: saturate(0.55) brightness(1.15);
-    box-shadow: inset 0 -2px 0 rgba(184, 137, 27, 0.5);
-}
-.btn.loading {
-    cursor: progress;
-}
-.btn:focus-visible {
-    outline: 3px solid rgba(47, 111, 235, 0.4);
-    outline-offset: 3px;
-}
-.btn-arrow {
-    font-size: 20px;
-    transition: transform 0.2s ease;
-}
-.btn:hover:not(:disabled) .btn-arrow {
-    transform: translateX(3px);
-}
-
-/* ---- Divider with the six module dots ---- */
-.divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 26px 0 18px;
-}
-.divider-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--line) 30%, var(--line) 70%, transparent);
-}
-.dots {
-    display: flex;
-    gap: 6px;
-}
-.dots i {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px #ffffff, 0 0 8px currentColor;
-}
-
-/* ---- Track your transaction: a card-like secondary action ---- */
-.track {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 14px;
-    border: 1.5px solid #cfdcf3;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
+    height: 70px;
+    padding: 0 26px;
+    border: 2px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
     color: var(--navy);
-    font: inherit;
-    text-align: left;
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.btn-ghost:hover:not(:disabled) {
+    background: #ffffff;
+}
+.btn-ghost:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.btn-ghost .v-icon {
+    font-size: 26px;
+}
+
+/* ---- Headline ---- */
+.hero-eyebrow {
+    left: 712px;
+    top: 66px;
+    width: 820px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    margin: 0;
+    font-family: var(--display);
+    font-size: 34px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: #3b4565;
+}
+.hero-line {
+    flex: 0 0 110px;
+    height: 2px;
+    background: #3b4565;
+}
+.hero-title {
+    left: 712px;
+    top: 114px;
+    width: 820px;
+    margin: 0;
+    font-family: var(--display);
+    font-size: 90px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    text-align: center;
+    text-transform: uppercase;
+    color: #0e3a8c;
+}
+.hero-bar {
+    z-index: 2;
+    left: 1020px;
+    top: 216px;
+    width: 198px;
+    height: 7px;
+    border-radius: 999px;
+    background: #1a5fd0;
+}
+
+/* ---- Scene (cut from the reference), edges faded into the page ---- */
+.scene {
+    left: 600px;
+    top: 230px;
+    width: 1000px;
+    height: 650px;
+    -webkit-mask-image:
+        linear-gradient(90deg, transparent 0, #000 3%, #000 97%, transparent 100%),
+        linear-gradient(180deg, transparent 0, #000 3.5%, #000 97.5%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+        linear-gradient(90deg, transparent 0, #000 3%, #000 97%, transparent 100%),
+        linear-gradient(180deg, transparent 0, #000 3.5%, #000 97.5%, transparent 100%);
+    mask-composite: intersect;
+}
+
+/* Approvals chip: its original spot in the picture is 914, 250. */
+.chip-approvals {
+    z-index: 1;
+    left: 914px;
+    top: 220px;
+    width: 280px;
+    height: 106px;
+}
+
+/* ---- Flow arrows over the scene ---- */
+.flow {
+    left: 0;
+    top: 0;
+    width: 1671px;
+    height: 941px;
+    overflow: visible;
+    pointer-events: none;
+}
+.arrow-tail {
+    fill: none;
+    stroke: #8ec3f3;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-dasharray: 3 5;
+}
+/* Each line draws itself from its tail; the six take turns, 0.7s apart
+   (--d), and stay drawn between turns. */
+.arrow-line {
+    fill: none;
+    stroke: #0b4fc9;
+    stroke-width: 3.6;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    animation: arrow-draw 4.2s ease-in-out var(--d) infinite;
+}
+@keyframes arrow-draw {
+    0% { stroke-dashoffset: 1; }
+    14%, 100% { stroke-dashoffset: 0; }
+}
+
+/* ---- Track your Transaction: the slanted blue tab ---- */
+.track {
+    left: 1192px;
+    top: 712px;
+    width: 440px;
+    height: 88px;
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #1559c8 0%, #0c3f99 100%);
+    color: #ffffff;
+    font: inherit;
+    cursor: pointer;
+    transform: skewX(-19deg);
+    box-shadow:
+        0 7px 0 #0a2e74,
+        0 22px 30px -12px rgba(11, 59, 143, 0.55);
+    transition: filter 0.2s ease;
 }
 .track:hover:not(:disabled) {
-    border-color: #0ea5e9;
-    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12), 0 10px 22px -16px rgba(14, 165, 233, 0.9);
-    transform: translateY(-1px);
+    filter: brightness(1.08);
 }
 .track:disabled {
-    opacity: 0.7;
+    opacity: 0.8;
     cursor: not-allowed;
 }
 .track:focus-visible {
-    outline: 3px solid rgba(14, 165, 233, 0.4);
-    outline-offset: 2px;
+    outline: 4px solid rgba(29, 86, 196, 0.45);
+    outline-offset: 4px;
 }
-.track-chip {
-    flex: none;
+.track-face {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 18px 0 46px;
+    transform: skewX(19deg);
+}
+.track-icon {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: radial-gradient(circle at 35% 30%, #5cc8f5, #0ea5e9 70%);
-    color: #ffffff;
-    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 6px 12px -6px rgba(14, 165, 233, 0.9);
+    width: 56px;
 }
-.track-chip .v-icon {
-    font-size: 21px;
+.track-icon .v-icon {
+    font-size: 58px;
+}
+.track-divider {
+    width: 2.5px;
+    height: 52px;
+    margin: 0 26px 0 20px;
+    background: rgba(255, 255, 255, 0.85);
 }
 .track-text {
     flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.track-text b {
-    font-size: 14.5px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-}
-.track-text small {
-    font-size: 12.5px;
-    color: var(--muted);
+    font-family: var(--display);
+    font-size: 29px;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: left;
 }
 .track-go {
-    font-size: 22px;
-    color: #7d8bb0;
-    transition: transform 0.2s ease, color 0.2s ease;
+    display: grid;
+    place-items: center;
+    width: 70px;
+    height: 54px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.94);
+    color: var(--blue-deep);
+    transform: skewX(-19deg);
 }
-.track:hover:not(:disabled) .track-go {
-    transform: translateX(3px);
-    color: #0ea5e9;
+.track-go .v-icon {
+    font-size: 36px;
+    transform: skewX(19deg);
+    transition: transform 0.2s ease;
 }
-
-.spin {
-    width: 18px;
-    height: 18px;
-    border: 2.5px solid rgba(255, 255, 255, 0.4);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-}
-.spin-dark {
-    border-color: rgba(255, 255, 255, 0.45);
-    border-top-color: #ffffff;
-}
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.track:hover:not(:disabled) .track-go .v-icon {
+    transform: skewX(19deg) translateX(4px);
 }
 
-/* Footer band: always below the form, edge to edge, skyline behind text. */
-footer {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    height: 104px;
-    margin: 0 calc(var(--side-pad) * -1);
-    padding: 0 var(--side-pad) 16px;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--navy);
-}
-footer span {
-    position: relative;
-    z-index: 1;
-}
-
-/* Animations switch: a small pill like the sign-in tabs. */
+/* Animations switch, top-right corner. */
 .motion-switch {
-    position: relative;
-    z-index: 1;
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 3;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    margin-bottom: -4px;
-    padding: 4px 10px 4px 5px;
-    border: 1px solid #d6e0f0;
+    gap: 6px;
+    padding: 3px 9px 3px 4px;
+    border: 1px solid #c6d6f2;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.85);
     font: inherit;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--navy);
     cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.motion-switch:hover {
-    border-color: #9fb5dc;
 }
 .motion-switch:focus-visible {
-    outline: 3px solid rgba(47, 111, 235, 0.35);
+    outline: 3px solid rgba(29, 86, 196, 0.35);
     outline-offset: 2px;
 }
 .motion-track {
     position: relative;
-    width: 26px;
-    height: 15px;
+    width: 24px;
+    height: 14px;
     border-radius: 999px;
     background: #c9d3e4;
     transition: background 0.2s ease;
@@ -1722,194 +1629,176 @@ footer span {
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 11px;
-    height: 11px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(15, 36, 102, 0.35);
+    background: #ffffff;
     transition: transform 0.2s ease;
 }
 .motion-switch[aria-checked="true"] .motion-track {
-    background: var(--focus);
+    background: var(--blue);
 }
 .motion-switch[aria-checked="true"] .motion-track i {
-    transform: translateX(11px);
+    transform: translateX(10px);
 }
 
-/* Skyline + wave along the bottom, very faint. */
-.skyline {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+.spin {
+    width: 26px;
+    height: 26px;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
-.sky-wave {
-    fill: rgba(59, 130, 246, 0.08);
-}
-.sky-city {
-    fill: rgba(59, 130, 246, 0.1);
-}
-.sky-palm {
-    fill: none;
-    stroke: rgba(59, 130, 246, 0.14);
-    stroke-width: 2.2;
-    stroke-linecap: round;
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
-/* ---- Right: artwork with glow effects (LoginHero) ---- */
-/* Pinned: a long Create account form scrolls past it, the artwork stays. */
-.hero {
-    position: sticky;
-    top: 0;
-    align-self: start;
-    height: 100vh;
-    overflow: hidden;
-    background: var(--sky);
-}
-
-/* Shorter screens (e.g. 1366x768, 1280x720 laptops): tighter vertical
-   rhythm so Sign in fits without scrolling. */
-@media (max-height: 800px) and (min-width: 861px) {
-    .side {
-        padding-top: 24px;
-    }
-    .brand-mark {
-        width: 70px;
-        height: 70px;
-    }
-    .seal {
-        width: 62px;
-        height: 64px;
-    }
-    .brand-rule {
-        height: 52px;
-    }
-    .brand-name {
-        font-size: 25px;
-    }
-    .panel {
-        padding: 18px 0 6px;
-    }
-    .switch {
-        margin-bottom: 18px;
-    }
-    .pane h2 {
-        font-size: 24px;
-    }
-    .sub {
-        margin-bottom: 16px;
-    }
-    .field {
-        margin-bottom: 14px;
-    }
-    .field-note {
-        margin-bottom: 14px;
-    }
-    .control input,
-    .control select {
-        height: 46px;
-    }
-    .check {
-        margin-bottom: 18px;
-    }
-    .btn {
-        height: 48px;
-    }
-    .divider {
-        margin: 16px 0 12px;
-    }
-    footer {
-        height: 64px;
-        padding-bottom: 12px;
-    }
-}
-
-@keyframes rise {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: none; }
-}
-
-/* Create account on short screens: shave the vertical rhythm a touch further
-   so the stepped form and its footer stay above the fold. */
-@media (max-height: 800px) and (min-width: 861px) {
-    .steps {
-        margin: 18px 0 14px;
-    }
-    .login-shell footer {
-        height: 52px;
-        padding-bottom: 8px;
-    }
-}
-
-@media (max-width: 860px) {
+/* ---- Phones and narrow windows: the card, then the tracking tab ---- */
+@media (max-width: 900px) {
     .login-shell {
-        grid-template-columns: 1fr;
+        overflow: auto;
     }
-    .hero {
+    .artboard {
+        position: relative;
+        left: auto;
+        top: auto;
+        display: grid;
+        gap: 22px;
+        width: auto;
+        max-width: 480px;
+        height: auto;
+        min-height: 100%;
+        margin: 0 auto;
+        padding: 56px 16px 28px;
+        align-content: center;
+        transform: none;
+    }
+    .artboard > * {
+        position: static;
+    }
+    .hero-eyebrow,
+    .hero-title,
+    .hero-bar,
+    .scene,
+    .chip-approvals,
+    .flow {
         display: none;
     }
-    .side {
-        padding: 28px 22px 0;
-        box-shadow: none;
+    .card {
+        width: auto;
+        min-height: 0;
+        padding: 30px 22px 26px;
+        border-radius: 24px;
     }
-    footer {
-        margin: 0 -22px;
-        padding: 0 22px 14px;
+    .accent {
+        width: 72px;
+        height: 6px;
     }
-}
-
-/* Phones: a tighter lockup. */
-@media (max-width: 440px) {
-    .brand {
-        gap: 12px;
+    .card-title {
+        margin: 10px 0 24px;
+        font-size: 36px;
     }
-    .brand-mark {
-        width: 68px;
-        height: 68px;
+    .card-title.is-small {
+        font-size: 30px;
     }
-    .seal {
-        width: 60px;
-        height: 62px;
+    .card-logo {
+        width: 72px;
+        height: 72px;
+        padding: 4px;
+        margin-bottom: 16px;
     }
-    .brand-rule {
-        height: 52px;
+    .sub,
+    .field label:not(.sr-only),
+    .aside-link.is-center {
+        font-size: 14.5px;
     }
-    .brand-city {
-        font-size: 9.5px;
-        letter-spacing: 0.12em;
+    .control input,
+    .control select,
+    .control .office-select {
+        height: 54px;
+        padding-left: 52px;
+        font-size: 16px;
     }
-    .brand-name {
+    .chip {
+        left: 16px;
+    }
+    .chip .v-icon,
+    .toggle .v-icon {
         font-size: 24px;
     }
-    .brand-motto {
-        font-size: 12.5px;
+    .toggle {
+        width: 40px;
+        height: 40px;
+    }
+    .aside-link {
+        margin: 2px 2px 16px 0;
+        font-size: 15px;
+    }
+    .btn,
+    .btn-ghost {
+        height: 54px;
+        font-size: 17px;
+    }
+    .btn-main {
+        width: 100%;
+    }
+    .steps-text,
+    .field-counter,
+    .field-error,
+    .field-note {
+        font-size: 13px;
+    }
+    .reg-step-title {
+        font-size: 16px;
+    }
+    .error,
+    .notice {
+        margin-top: 0;
+        font-size: 14px;
+    }
+    .track {
+        width: calc(100% - 24px);
+        height: 72px;
+        margin: 0 auto;
+    }
+    .track-face {
+        justify-content: center;
+        padding: 0 14px 0 26px;
+    }
+    .track-icon .v-icon {
+        font-size: 36px;
+    }
+    .track-divider {
+        height: 38px;
+        margin: 0 16px 0 10px;
+    }
+    .track-text {
+        flex: none;
+        font-size: 19px;
+    }
+    .track-go {
+        width: 52px;
+        height: 42px;
+        margin-left: 16px;
+    }
+    .track-go .v-icon {
+        font-size: 26px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .control input,
-    .control select,
-    .chip,
-    .btn,
-    .btn-ghost,
-    .btn-arrow-back,
-    .steps-track i,
-    .track,
-    .switch-ink {
-        transition: none !important;
-    }
-    .brand-mark,
-    .brand-rule,
-    .brand-text,
-    .panel,
-    .error,
-    .notice {
+    .arrow-line {
         animation: none;
     }
+    .control input,
+    .control select,
+    .btn,
+    .track,
+    .steps-track i,
     .swap-enter-active,
     .swap-leave-active {
-        transition: none;
+        transition: none !important;
     }
 }
 </style>

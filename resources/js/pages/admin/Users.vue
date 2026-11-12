@@ -25,8 +25,8 @@
             v-model="search"
             type="search"
             class="us-search-input"
-            placeholder="Search name, username, role or office"
-            aria-label="Search users"
+            placeholder="Search users"
+            aria-label="Search users by name, username, role or office"
             autocomplete="off"
           />
           <button
@@ -1748,32 +1748,6 @@ function openCreate() {
   dialog.value = true
 }
 
-function openEdit(item) {
-  if (rowBusyId.value != null) return
-  error.value = ''
-  formError.value = ''
-  errors.value = blankErrors()
-  passwordVisible.value = false
-  form.value = {
-    id: item.id,
-    name: item.name || '',
-    username: item.username || '',
-    email: item.email || '',
-    contact_number: item.contact_number || '',
-    password: '',
-    is_active: !!item.is_active,
-    pending_approval: !!item.pending_approval,
-    role_ids: (item.roles || []).map((r) => Number(r.id)),
-    office_id:
-      item.office_id != null
-        ? Number(item.office_id)
-        : item.office?.id != null
-          ? Number(item.office.id)
-          : null,
-  }
-  dialog.value = true
-}
-
 function closeDialog() {
   if (saving.value) return
   dialog.value = false
@@ -2104,7 +2078,7 @@ html.dark .us-page {
 .us-search-input {
     width: 100%;
     height: 46px;
-    padding: 0 42px;
+    padding: 0 14px 0 42px;
     border: 1.5px solid var(--us-line);
     border-radius: 0;
     background: var(--us-field);
@@ -2116,6 +2090,11 @@ html.dark .us-page {
         border-color 0.15s,
         box-shadow 0.15s,
         background 0.15s;
+}
+/* Room for the clear button only while there is text to clear, so the
+   placeholder isn't squeezed. */
+.us-search-input:not(:placeholder-shown) {
+    padding-right: 40px;
 }
 .us-search-input::placeholder {
     color: var(--us-muted);

@@ -3054,19 +3054,19 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `username`, `email`, `office_id`, `Contact_number`, `email_verified_at`, `password`, `is_active`, `approved_at`, `approved_by`, `remember_token`, `created_at`, `updated_at`) VALUES
-(1, 'Vince', NULL, 'vinzmuloc@gmail.com', NULL, NULL, NULL, '$2y$12$Z8DfjTFac4kAdIaSmyypKOhu.hdshO59RaFCg9Y55l.pMfNa0ulAu', 1, '2026-03-09 21:24:36', NULL, '5mTRgooLU8Qelc34l9a075V4KGMaLN3zvqQ5mNzVReuzviQTZdPwp4Zc8sqG', '2026-03-09 21:24:36', '2026-09-09 18:26:20'),
-(2, 'End User', NULL, 'enduser@lgu.test', NULL, NULL, NULL, '$2y$12$Hn3rfdfNGa5OUVsghdyOr.DVZR.G4DMNc43uJSfKpbg9tRFQN9jXa', 1, '2026-03-09 21:24:37', NULL, NULL, '2026-03-09 21:24:37', '2026-10-22 22:46:33'),
-(10, 'Sharief Kundo Mudrikal', NULL, 'admin@gmail.com', 24, NULL, NULL, '$2y$12$Z8DfjTFac4kAdIaSmyypKOhu.hdshO59RaFCg9Y55l.pMfNa0ulAu', 1, '2026-09-10 13:08:36', NULL, NULL, '2026-09-10 13:08:36', '2026-10-21 15:16:39'),
-(33, 'Guest Viewer', NULL, 'viewer@lgu.test', NULL, NULL, NULL, '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-19 08:48:36', NULL, NULL, '2026-10-19 08:48:36', '2026-10-19 08:48:36'),
-(36, 'Maria Theresa Climaco', NULL, 'mtclimaco.ocm@gmail.com', 1, '09171234501', '2026-10-20 13:57:40', '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-20 13:57:40', 1, NULL, '2026-10-20 13:57:40', '2026-10-20 13:57:40'),
-(39, 'Ramon Enriquez', NULL, 'ramon.enriquez.zc@gmail.com', 4, '09351234504', '2026-10-20 13:57:41', '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-20 13:57:41', 1, NULL, '2026-10-20 13:57:41', '2026-10-20 13:57:41'),
-(40, 'Angelica Mae Navarro', NULL, 'angelicamae.navarro@gmail.com', 21, '09451234505', '2026-10-20 13:57:42', '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-20 13:57:42', 1, NULL, '2026-10-20 13:57:42', '2026-11-03 19:00:08'),
-(42, 'Rhea Lyn Francisco', NULL, 'rhealyn.francisco.gso@gmail.com', 8, '09661234507', '2026-10-20 13:57:42', '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-20 13:57:42', 1, NULL, '2026-10-20 13:57:42', '2026-10-20 13:57:42'),
-(43, 'Carlo Miguel Saavedra', NULL, 'cmsaavedra.budget@gmail.com', 9, '09771234508', '2026-10-20 13:57:43', '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-20 13:57:43', 1, NULL, '2026-10-20 13:57:43', '2026-10-20 13:57:43'),
-(58, 'Arnel Go', NULL, 'arnel.go.paad@gmail.com', 26, '09451234523', '2026-10-20 13:57:48', '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-20 13:57:48', 1, NULL, '2026-10-20 13:57:48', '2026-10-20 13:57:48'),
-(59, 'John Rey Wee', NULL, 'johnrey.wee.csd@gmail.com', 24, '09271234521', '2026-10-21 13:47:00', '$2y$12$KyaAqn28ZsE013oqEQdmKOlu.4euAniO9TcN.fOj3NKMCzp5SRTJK', 1, '2026-10-21 13:47:00', 1, NULL, '2026-10-21 13:47:00', '2026-10-22 14:45:36'),
-(63, 'juan', 'wadwad', 'AWDJAWJKDN@GMAIL.OCCM', 9, '090933921111', NULL, '$2y$12$YzbvL4xiRkyfmxsGOsoS5uUGd4JOg5eFyTNYxou1KA.1n.GLxjv.O', 0, NULL, NULL, NULL, '2026-11-04 23:56:24', '2026-11-04 23:56:24'),
-(64, 'Juan dila', 'dela', 'juandela@gmail.com', 24, '09093392171', NULL, '$2y$12$dIEInxy9bGrZI8Gnz2X3F.YCVp6wvzmpeEGCznpKYOhzMmeu1imMe', 1, '2026-11-05 16:46:24', 1, NULL, '2026-11-05 16:33:43', '2026-11-05 16:46:24');
+(1, 'Vince', 'superadmin', 'vinzmuloc@gmail.com', NULL, NULL, NULL, '$2y$12$0qYrVEsSWeB1IRG9q7pAYefTu456iEGLGc26EfllLoZprYDLUTLX2', 1, '2026-03-09 21:24:36', NULL, '5mTRgooLU8Qelc34l9a075V4KGMaLN3zvqQ5mNzVReuzviQTZdPwp4Zc8sqG', '2026-03-09 21:24:36', '2026-09-09 18:26:20'),
+(2, 'End User', 'enduser', 'enduser@lgu.test', NULL, NULL, NULL, '$2y$12$Hn3rfdfNGa5OUVsghdyOr.DVZR.G4DMNc43uJSfKpbg9tRFQN9jXa', 1, '2026-03-09 21:24:37', NULL, NULL, '2026-03-09 21:24:37', '2026-10-22 22:46:33'),
+(10, 'Sharief Kundo Mudrikal', 'csdadmin', 'admin@gmail.com', 24, NULL, NULL, '$2y$12$cG0x/1gA9iHyFISjEkjLN.SLWgAWti150Y2TejkH0eMUzbJqmD8rm', 1, '2026-09-10 13:08:36', NULL, NULL, '2026-09-10 13:08:36', '2026-10-21 15:16:39'),
+(33, 'Guest Viewer', 'viewer', 'viewer@lgu.test', NULL, NULL, NULL, '$2y$12$uwcCeYFp3vLZKw2HOHrfpeH283z0B8sUPG.o6TbPWNyQJRsVdO/hO', 1, '2026-10-19 08:48:36', NULL, NULL, '2026-10-19 08:48:36', '2026-10-19 08:48:36'),
+(36, 'Maria Theresa Climaco', 'ocmclerk', 'mtclimaco.ocm@gmail.com', 1, '09171234501', '2026-10-20 13:57:40', '$2y$12$eiIQwCQ0v9QDTl/j8aWkReeI.5SZhsGdU7X9QWNXiBFgT4GGum1XC', 1, '2026-10-20 13:57:40', 1, NULL, '2026-10-20 13:57:40', '2026-10-20 13:57:40'),
+(39, 'Ramon Enriquez', 'ocasclerk', 'ramon.enriquez.zc@gmail.com', 4, '09351234504', '2026-10-20 13:57:41', '$2y$12$qwDo6j4t.yHLMY6gKmyAMugcV3wekJbqnY9c.4ooba80.dvZsMe9m', 1, '2026-10-20 13:57:41', 1, NULL, '2026-10-20 13:57:41', '2026-10-20 13:57:41'),
+(40, 'Angelica Mae Navarro', 'chrmoclerk', 'angelicamae.navarro@gmail.com', 21, '09451234505', '2026-10-20 13:57:42', '$2y$12$S6dhHWTVM0zofwuKCnrMBOaCHNN9fHpsDcjOQ2zUwRsxiUCp8YY1.', 1, '2026-10-20 13:57:42', 1, NULL, '2026-10-20 13:57:42', '2026-11-03 19:00:08'),
+(42, 'Rhea Lyn Francisco', 'gsoclerk', 'rhealyn.francisco.gso@gmail.com', 8, '09661234507', '2026-10-20 13:57:42', '$2y$12$Swxu2OV95ZF7FzHD2eewN.yd93azIIqFnALMV7GTM29can.gQZvym', 1, '2026-10-20 13:57:42', 1, NULL, '2026-10-20 13:57:42', '2026-10-20 13:57:42'),
+(43, 'Carlo Miguel Saavedra', 'ocbclerk', 'cmsaavedra.budget@gmail.com', 9, '09771234508', '2026-10-20 13:57:43', '$2y$12$YbnYXLHnTsXwmwSzT8IlxuwgAFVn3DJTgUSALsZAgmXnQ3jY7MEZ6', 1, '2026-10-20 13:57:43', 1, NULL, '2026-10-20 13:57:43', '2026-10-20 13:57:43'),
+(58, 'Arnel Go', 'paadclerk', 'arnel.go.paad@gmail.com', 26, '09451234523', '2026-10-20 13:57:48', '$2y$12$PJFZeMX8vurdu6fssH.tLOVVq6boi0ea1zrk1opJt7iuK/VGqT1AO', 1, '2026-10-20 13:57:48', 1, NULL, '2026-10-20 13:57:48', '2026-10-20 13:57:48'),
+(59, 'John Rey Wee', 'csdclerk', 'johnrey.wee.csd@gmail.com', 24, '09271234521', '2026-10-21 13:47:00', '$2y$12$ltoKX1HY3cj9SpdCRVgFS.LgjKGN7WsEqvFHIoNu5HFmCiaJMd7YK', 1, '2026-10-21 13:47:00', 1, NULL, '2026-10-21 13:47:00', '2026-10-22 14:45:36'),
+(63, 'juan', 'ocbclerk2', 'AWDJAWJKDN@GMAIL.OCCM', 9, '090933921111', NULL, '$2y$12$.JBec/bE4QJ5urxGJG.QmejCIT//.vytnTXdmm0X0WhlFgUtFYxZ2', 0, NULL, NULL, NULL, '2026-11-04 23:56:24', '2026-11-04 23:56:24'),
+(64, 'Juan dila', 'csdclerk2', 'juandela@gmail.com', 24, '09093392171', NULL, '$2y$12$uJIBsLdc9y54a/hqygzlbummboEQVVh2quG4v/8sYPeui05WBPA9u', 1, '2026-11-05 16:46:24', 1, NULL, '2026-11-05 16:33:43', '2026-11-05 16:46:24');
 
 -- --------------------------------------------------------
 

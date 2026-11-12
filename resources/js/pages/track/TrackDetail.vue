@@ -87,7 +87,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import StepProgress from "@/components/StepProgress.vue";
@@ -95,7 +95,6 @@ import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
 import TableLoader from "@/components/TableLoader.vue";
 
 const route = useRoute();
-const router = useRouter();
 const { api } = useApi();
 
 const tx = ref(null);

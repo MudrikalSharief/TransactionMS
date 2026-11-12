@@ -740,7 +740,6 @@ import StepInfoFields from '@/components/StepInfoFields.vue';
 import ProceedWizard from '@/components/ProceedWizard.vue';
 import ProceedModalHeader from '@/components/ProceedModalHeader.vue';
 import ProceedModalFooter from '@/components/ProceedModalFooter.vue';
-import ReturnBanner from '@/components/ReturnBanner.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';

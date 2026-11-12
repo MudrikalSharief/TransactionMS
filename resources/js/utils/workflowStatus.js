@@ -27,8 +27,3 @@ export function wfStatusIcon(status) {
 export function wfStatusLabel(status) {
     return status || 'draft'
 }
-
-// Published and archived versions are both immutable.
-export function isReadonlyStatus(status) {
-    return status === 'published' || status === 'archived'
-}

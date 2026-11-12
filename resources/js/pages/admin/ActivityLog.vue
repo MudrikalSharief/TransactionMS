@@ -2,7 +2,7 @@
     <div>
         <LoadingVeil :show="entering" label="activity log" icon="mdi-history" />
         <v-card rounded="0" elevation="1" class="lgu-card">
-            <v-card-title class="d-flex align-center flex-wrap ga-2 pa-5 lgu-head">
+            <v-card-title class="d-flex align-center flex-wrap ga-2 pa-5 lgu-head page-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
                     <v-icon color="#005EED">mdi-history</v-icon>
                 </v-avatar>
@@ -48,7 +48,7 @@
             </v-card-title>
             <v-divider />
 
-            <v-card-text class="pa-4">
+            <v-card-text class="pa-4 page-body">
                 <v-alert type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
                     Who did what, and when: every transaction step (created, forwarded, received, returned, finalized)
                     and every transaction data change (archive, fields, attachments, checks)
@@ -59,7 +59,8 @@
                     <v-text-field
                         v-model="search"
                         prepend-inner-icon="mdi-magnify"
-                        label="Search name, reference, action . . ."
+                        placeholder="Search name, reference or action"
+                        aria-label="Search activity by name, reference or action"
                         variant="outlined"
                         density="compact"
                         rounded="0"

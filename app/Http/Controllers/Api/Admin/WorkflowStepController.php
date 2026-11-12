@@ -29,10 +29,6 @@ class WorkflowStepController extends Controller
         return WorkflowStepResource::collection($steps);
     }
 
-    /**
-     * Optional: fetch a single step (handy for StepFields pages / sanity checks).
-     * Not required by your current routes, but safe to include.
-     */
     public function store(
         UpsertWorkflowStepRequest $request,
         WorkflowDefinition $workflowDefinition,
