@@ -2,7 +2,7 @@
     <!-- After a clerk signs in: how many tasks wait at their office. A navy
          folder tab (seal, office code, count) on a rounded card; the summary
          and its tally on the left, the office's RECEIVED stamp on the right
-         (pressed on as it opens, the dater rolling to now), actions below. -->
+         (pressed on as it opens), actions below. -->
     <v-dialog
         v-model="open"
         max-width="780"
@@ -71,58 +71,32 @@
                         </ul>
                     </div>
 
-                    <!-- Round official receiving seal: city and office around the
-                         rings, the flag's three stars, a RECEIVED band across,
-                         then the dater (date, time, clerk's initials) between
-                         two laurel sprigs. -->
+                    <!-- Round RECEIVED rubber stamp: a double outer ring, the word
+                         curving round the top and again round the bottom, an
+                         inner ring, and a double-outlined band across the middle
+                         with the word in tall condensed capitals. -->
                     <div class="rcv" aria-hidden="true">
                         <div class="rcv-ink">
                             <svg class="rcv-svg" viewBox="0 0 240 240" width="240" height="240">
                                 <defs>
-                                    <path id="rcv-arc-top" d="M 34 120 A 86 86 0 0 1 206 120" />
-                                    <path id="rcv-arc-bottom" d="M 23 120 A 97 97 0 0 0 217 120" />
+                                    <path id="rcv-arc-top" d="M 42 120 A 78 78 0 0 1 198 120" />
+                                    <path id="rcv-arc-bottom" d="M 22 120 A 98 98 0 0 0 218 120" />
                                 </defs>
-                                <circle cx="120" cy="120" r="112" class="rcv-stroke" stroke-width="5" />
-                                <circle cx="120" cy="120" r="105" class="rcv-stroke" stroke-width="1.5" />
-                                <circle cx="120" cy="120" r="80" class="rcv-stroke" stroke-width="2" />
-                                <text class="rcv-arc" :style="{ fontSize: `${arcSize(TOP_TEXT)}px` }">
-                                    <textPath href="#rcv-arc-top" startOffset="50%" text-anchor="middle">{{ TOP_TEXT }}</textPath>
+                                <circle cx="120" cy="120" r="113" class="rcv-stroke" stroke-width="4.5" />
+                                <circle cx="120" cy="120" r="106" class="rcv-stroke" stroke-width="1.5" />
+                                <circle cx="120" cy="120" r="74" class="rcv-stroke" stroke-width="2.5" />
+                                <text class="rcv-arc">
+                                    <textPath href="#rcv-arc-top" startOffset="50%" text-anchor="middle">{{ STAMP_WORD }}</textPath>
                                 </text>
-                                <text class="rcv-arc" :style="{ fontSize: `${arcSize(officeName)}px` }">
-                                    <textPath href="#rcv-arc-bottom" startOffset="50%" text-anchor="middle">{{ officeName.toUpperCase() }}</textPath>
+                                <text class="rcv-arc">
+                                    <textPath href="#rcv-arc-bottom" startOffset="50%" text-anchor="middle">{{ STAMP_WORD }}</textPath>
                                 </text>
-                                <!-- Three stars inside the inner ring -->
-                                <g class="rcv-fill" transform="translate(120 66)">
-                                    <path v-for="x in [-20, 0, 20]" :key="x" :transform="`translate(${x} ${x === 0 ? -4 : 0}) scale(${x === 0 ? 1.3 : 1.05})`" :d="STAR" />
-                                </g>
-                                <!-- Laurel sprigs either side of the dater -->
-                                <g v-for="side in [1, -1]" :key="side" :transform="side < 0 ? 'translate(240 0) scale(-1 1)' : undefined">
-                                    <path :d="LAUREL_STEM" class="rcv-stroke" stroke-width="1.6" stroke-linecap="round" />
-                                    <path v-for="(l, i) in LAUREL" :key="i" :d="l" class="rcv-fill" />
-                                </g>
-                                <!-- RECEIVED band over the rings -->
-                                <rect x="6" y="92" width="228" height="46" rx="8" fill="#fff" />
-                                <rect x="6" y="92" width="228" height="46" rx="8" class="rcv-stroke" stroke-width="4" />
-                                <rect x="12" y="98" width="216" height="34" rx="5" class="rcv-stroke" stroke-width="1.5" />
-                                <text x="120" y="125" text-anchor="middle" class="rcv-word">RECEIVED</text>
+                                <!-- The band covers the inner ring across the middle -->
+                                <rect x="4" y="90" width="232" height="60" rx="12" fill="#fff" />
+                                <rect x="4" y="90" width="232" height="60" rx="12" class="rcv-stroke" stroke-width="4.5" />
+                                <rect x="11" y="97" width="218" height="46" rx="8" class="rcv-stroke" stroke-width="1.5" />
+                                <text x="120" y="135" text-anchor="middle" class="rcv-word">{{ STAMP_WORD }}</text>
                             </svg>
-                            <div class="rcv-dater">
-                                <span class="dater rcv-date">
-                                    <template v-for="(c, i) in dateChars" :key="`d${i}`">
-                                        <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
-                                        <span v-else class="dg-fixed">{{ c.value }}</span>
-                                    </template>
-                                </span>
-                                <span class="rcv-time">
-                                    <span class="dater">
-                                        <template v-for="(c, i) in timeChars" :key="`t${i}`">
-                                            <span v-if="c.digit" class="dg" :style="{ '--d': c.value, '--i': i + 8 }"><span><i v-for="n in 20" :key="n">{{ (n - 1) % 10 }}</i></span></span>
-                                            <span v-else class="dg-fixed">{{ c.value }}</span>
-                                        </template>
-                                    </span>
-                                    <span class="rcv-by">{{ initials }}</span>
-                                </span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -211,39 +185,8 @@ const tally = computed(() => {
 const officeCode = computed(() => user.value?.office?.code || "In-tray");
 const officeName = computed(() => user.value?.office?.name || "Receiving");
 
-// Seal text: the city on the top arc, the office on the bottom arc. Long
-// names get a smaller size so they stay inside the ring.
-const TOP_TEXT = "CITY GOVERNMENT OF ZAMBOANGA";
-// ~0.93em per bold uppercase glyph incl. tracking; kept to ~236 of the
-// ~270-unit arcs so the ends never get cut.
-const arcSize = (text) => Math.max(7, Math.min(12, 236 / (String(text).length * 0.93)));
-// Laurel sprig left of the dater (mirrored for the right): a stem and
-// five almond leaves, each given as centre x, y and angle.
-const LAUREL_STEM = "M66 176 Q56 160 60 139";
-const leaf = (cx, cy, deg) => {
-    const a = (deg * Math.PI) / 180;
-    const [ux, uy] = [Math.cos(a) * 7, Math.sin(a) * 7];
-    const [nx, ny] = [-Math.sin(a) * 4, Math.cos(a) * 4];
-    const p = (x, y) => `${x.toFixed(1)} ${y.toFixed(1)}`;
-    return `M${p(cx + ux, cy + uy)} Q${p(cx + nx, cy + ny)} ${p(cx - ux, cy - uy)} Q${p(cx - nx, cy - ny)} ${p(cx + ux, cy + uy)} Z`;
-};
-const LAUREL = [
-    leaf(60, 142, -95),
-    leaf(65, 150, -60),
-    leaf(57, 156, -115),
-    leaf(64, 163, -55),
-    leaf(61, 170, -125),
-];
-const STAR = "M0,-7 L2.06,-2.84 L6.66,-2.16 L3.33,1.08 L4.11,5.66 L0,3.5 L-4.11,5.66 L-3.33,1.08 L-6.66,-2.16 L-2.06,-2.84 Z";
-// Clerk's initials on the dater line (e.g. Rhea Lyn Francisco -> RLF).
-const initials = computed(() =>
-    String(user.value?.name || "")
-        .split(/\s+/)
-        .filter(Boolean)
-        .map((w) => w[0].toUpperCase())
-        .join("")
-        .slice(0, 4),
-);
+// The stamp's word: round the top, round the bottom and across the band.
+const STAMP_WORD = "RECEIVED";
 
 const manila = (opts) => new Date(now.value).toLocaleString("en-US", { timeZone: "Asia/Manila", ...opts });
 const greeting = computed(() => {
@@ -252,13 +195,6 @@ const greeting = computed(() => {
     if (h < 18) return "Good afternoon";
     return "Good evening";
 });
-
-// Dater band characters: digits roll, the rest stay put.
-const chars = (s) => [...s].map((ch) => (/\d/.test(ch) ? { digit: true, value: Number(ch) } : { digit: false, value: ch }));
-const dateChars = computed(() =>
-    chars(manila({ month: "short", day: "2-digit", year: "numeric" }).replace(",", "").toUpperCase()),
-);
-const timeChars = computed(() => chars(manila({ hour: "2-digit", minute: "2-digit", hour12: true })));
 
 async function loadAll() {
     const all = [];
@@ -613,77 +549,20 @@ function openApprovals() {
 .rcv-fill {
     fill: currentColor;
 }
+/* Tall condensed capitals, like a rubber stamp's letters. */
 .rcv-arc {
     fill: currentColor;
-    font-family: "Montserrat", "Public Sans", system-ui, sans-serif;
-    font-weight: 800;
-    letter-spacing: 0.06em;
+    font-family: "Oswald", "Arial Narrow", "Montserrat", sans-serif;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
 }
 .rcv-word {
     fill: currentColor;
-    font-family: "Montserrat", "Public Sans", system-ui, sans-serif;
-    font-size: 27px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-}
-/* Dater under the band, inside the inner ring (240-unit stamp scaled to
-   270px: positions below are in px). */
-.rcv-dater {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 158px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: "Montserrat", "Inter", sans-serif;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-}
-.rcv-date {
-    font-size: 15px;
+    font-family: "Oswald", "Arial Narrow", "Montserrat", sans-serif;
+    font-size: 41px;
+    font-weight: 700;
     letter-spacing: 0.03em;
-}
-.rcv-time {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: 6px;
-    margin-top: 3px;
-    font-size: 11.5px;
-    letter-spacing: 0.04em;
-}
-.rcv-by {
-    padding-left: 6px;
-    border-left: 1.5px solid currentColor;
-    line-height: 1.25em;
-}
-
-/* Dater: each digit is a band of 0-9 0-9 that rolls to the right number. */
-.dater {
-    display: inline-flex;
-    align-items: flex-end;
-}
-.dg {
-    display: inline-block;
-    height: 1.25em;
-    overflow: hidden;
-    line-height: 1.25em;
-    width: 0.68em;
-    text-align: center;
-}
-.dg > span {
-    display: block;
-    transform: translateY(calc(var(--d) * -1.25em));
-    animation: dater-roll 0.55s cubic-bezier(0.25, 0.9, 0.3, 1.05) calc(1.02s + var(--i) * 0.035s) both;
-}
-.dg > span > i {
-    display: block;
-    height: 1.25em;
-    font-style: normal;
-}
-.dg-fixed {
-    white-space: pre;
 }
 
 /* ---- Actions: light panel with the city hall faintly at the left ---- */
@@ -820,14 +699,6 @@ function openApprovals() {
         transform: translateY(2px);
     }
 }
-@keyframes dater-roll {
-    from {
-        transform: translateY(calc((var(--d) + 10) * -1.25em));
-    }
-    to {
-        transform: translateY(calc(var(--d) * -1.25em));
-    }
-}
 
 /* ---- Narrow screens: the stamp sits under the summary ---- */
 @media (max-width: 760px) {
@@ -894,8 +765,7 @@ function openApprovals() {
     .tray-pull-enter-active,
     .tray-pull-enter-active .tray-card,
     .rcv::before,
-    .rcv-ink,
-    .dg > span {
+    .rcv-ink {
         animation: none !important;
     }
     .rcv-ink {
