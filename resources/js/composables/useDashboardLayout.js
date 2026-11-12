@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 // Reads/writes are guarded so private-mode or quota errors never break the
 // page: the order then just lasts until the next reload.
 
-const PREFIX = 'lgu-tx:dashboard-order:v4:'
+const PREFIX = 'lgu-tx:dashboard-order:v5:'
 
 function readOrder(key) {
     try {

@@ -22,6 +22,9 @@ use Illuminate\Support\Collection;
  * Period: this week (default: the current Mon–Sun calendar week), a
  * calendar month, or all time, all in Manila time.
  * Completed counts by finalize date; everything else by created date.
+ * The monthly status series always covers the last two months plus the
+ * current one, independent of the Period filter. overdue_steps follows the
+ * selected Period; overdue_transactions is always all-current.
  * Process/office filters narrow every count, except by_process, which
  * ignores the process filter so the card can fade unpicked processes.
  * office_code limits everything to one office by its code (the dashboard
@@ -56,6 +59,7 @@ class DashboardSummaryController extends Controller
 
         $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
             $inProcess = $this->inProcess();
+            $sla = $this->slaCounts();
 
             $byProcess = $this->createdInPeriod($this->filtered(Transaction::query(), withProcess: false))
                 ->join('transaction_types', 'transaction_types.id', '=', 'transactions.transaction_type_id')
@@ -72,8 +76,13 @@ class DashboardSummaryController extends Controller
                 'completed' => $this->completedQuery()->count(),
                 'in_process' => $inProcess->count(),
                 'overdue' => $inProcess->filter(fn ($tx) => $this->overdueMinutes($tx) > 0)->count(),
+                'overdue_steps' => $sla['overdue_steps'],
+                'overdue_transactions' => $sla['overdue_transactions'],
+                'overdue_by_office' => $sla['overdue_by_office'],
+                'overdue_steps_by_office' => $sla['overdue_steps_by_office'],
                 'deleted' => $this->deletedQuery()->count(),
                 'by_process' => $byProcess,
+                'monthly' => $this->monthlyStatuses(),
             ];
         });
 
@@ -289,6 +298,177 @@ class DashboardSummaryController extends Controller
             })
             ->sortByDesc('created_at')
             ->values();
+    }
+
+    /**
+     * Last two months plus the current month (Manila), split by status.
+     * Completed rows count by their finalize run's date; open rows count by
+     * their creation date. This fixed window is independent of the Period
+     * filter, so the overview graph always shows three monthly groups.
+     */
+    private function monthlyStatuses(): array
+    {
+        $end = now(self::TZ)->startOfMonth()->addMonth();
+        $start = $end->copy()->subMonths(3);
+        $fromUtc = $start->copy()->utc();
+        $toUtc = $end->copy()->utc();
+
+        $buckets = [];
+        for ($cursor = $start->copy(); $cursor < $end; $cursor->addMonthNoOverflow()) {
+            $key = $cursor->format('Y-m');
+            $buckets[$key] = [
+                'month' => $key,
+                'label' => $cursor->format('M Y'),
+                'completed' => 0,
+                'in_process' => 0,
+                'overdue' => 0,
+            ];
+        }
+
+        // Open rows: created in the window and still open now.
+        $open = $this->filtered(Transaction::query())
+            ->where('is_done', false)
+            ->where('transactions.created_at', '>=', $fromUtc)
+            ->where('transactions.created_at', '<', $toUtc)
+            ->with('state.currentStep')
+            ->get();
+
+        foreach ($open as $tx) {
+            $key = $tx->created_at?->copy()->setTimezone(self::TZ)->format('Y-m');
+            if (!$key || !isset($buckets[$key])) continue;
+            $buckets[$key][$this->overdueMinutes($tx) > 0 ? 'overdue' : 'in_process']++;
+        }
+
+        // Completed rows: finalized in the window, even when created earlier.
+        $completed = $this->filtered(Transaction::query())
+            ->where('is_done', true)
+            ->whereHas('runs', fn ($r) => $r
+                ->where('action_code', 'finalize')
+                ->where('performed_at', '>=', $fromUtc)
+                ->where('performed_at', '<', $toUtc))
+            ->with(['runs' => fn ($r) => $r
+                ->where('action_code', 'finalize')
+                ->where('performed_at', '>=', $fromUtc)
+                ->where('performed_at', '<', $toUtc)])
+            ->get();
+
+        foreach ($completed as $tx) {
+            $run = $tx->runs->sortBy('performed_at')->first();
+            $key = $run?->performed_at?->copy()->setTimezone(self::TZ)->format('Y-m');
+            if ($key && isset($buckets[$key])) $buckets[$key]['completed']++;
+        }
+
+        return array_values($buckets);
+    }
+
+    /**
+     * Two SLA views used by the dashboard status cards.
+     *
+     * overdue_steps: every step visit (finished or current) whose working
+     * time at that step exceeded its SLA. A step visit counts for the
+     * selected Period when it overlaps that period, grouped by the office
+     * responsible for that step.
+     *
+     * overdue_transactions: open transactions only, always all-current.
+     * A transaction counts when the total working time spent at its visited
+     * steps exceeds the sum of those steps' SLA limits. Revisits count each
+     * time; steps with no SLA are ignored. The same transactions are grouped
+     * by originating office for the dashboard pie.
+     */
+    private function slaCounts(): array
+    {
+        $now = now();
+
+        // Open papers are always needed for the all-current transaction
+        // view; finished papers are needed when one of their runs (a step
+        // visit ending) falls in the selected Period.
+        $txs = $this->filtered(Transaction::query())
+            ->when($this->from, fn ($q) => $q->where(fn ($w) => $w
+                ->where('is_done', false)
+                ->orWhereBetween('transactions.created_at', [$this->from, $this->to])
+                ->orWhereHas('runs', fn ($r) => $r->whereBetween('performed_at', [$this->from, $this->to]))))
+            ->with(['runs' => fn ($r) => $r
+                ->reorder()
+                ->orderBy('performed_at')
+                ->orderBy('id')
+                ->select(['id', 'transaction_id', 'to_step_id', 'performed_at', 'sla_minutes_snapshot'])
+                ->with([
+                    'toStep:id,sla_minutes,office_id,is_end_user',
+                    'toStep.office:id,code,name',
+                ])])
+            ->with('office:id,code,name')
+            ->get();
+
+        $overdueSteps = 0;
+        $overdueTransactions = 0;
+        $byOffice = [];
+        $byStepOffice = [];
+
+        foreach ($txs as $tx) {
+            $runs = $tx->runs->values();
+            $actual = 0;
+            $allowed = 0;
+
+            foreach ($runs as $i => $run) {
+                if (!$run->performed_at) continue;
+
+                $next = $runs->get($i + 1);
+                // A finished transaction's finalize run has no visit to
+                // measure; the previous run's step ends at the finalize.
+                if (!$next && $tx->is_done) continue;
+
+                $enteredAt = $run->performed_at;
+                $leftAt = $next?->performed_at ?? $now;
+                $sla = (int) ($run->sla_minutes_snapshot ?: $run->toStep?->sla_minutes ?: 0);
+                if ($sla <= 0) continue;
+
+                $wait = WorkingTime::minutesBetween($enteredAt, $leftAt);
+
+                if ($wait > $sla && $enteredAt->lt($this->to) && $leftAt->gt($this->from)) {
+                    $overdueSteps++;
+                    $stepOffice = $run->toStep ? $tx->effectiveStepOffice($run->toStep) : null;
+                    $officeId = $stepOffice?->id ?? 0;
+                    $byStepOffice[$officeId] ??= [
+                        'id' => $stepOffice?->id,
+                        'code' => $stepOffice?->code,
+                        'name' => $stepOffice?->name ?? 'No office',
+                        'count' => 0,
+                    ];
+                    $byStepOffice[$officeId]['count']++;
+                }
+
+                if (!$tx->is_done) {
+                    $actual += $wait;
+                    $allowed += $sla;
+                }
+            }
+
+            if (!$tx->is_done && $allowed > 0 && $actual > $allowed) {
+                $overdueTransactions++;
+                $office = $tx->office;
+                $officeId = $office?->id ?? 0;
+                $byOffice[$officeId] ??= [
+                    'id' => $office?->id,
+                    'code' => $office?->code,
+                    'name' => $office?->name ?? 'No office',
+                    'count' => 0,
+                ];
+                $byOffice[$officeId]['count']++;
+            }
+        }
+
+        return [
+            'overdue_steps' => $overdueSteps,
+            'overdue_transactions' => $overdueTransactions,
+            'overdue_by_office' => collect($byOffice)
+                ->sortByDesc('count')
+                ->values()
+                ->all(),
+            'overdue_steps_by_office' => collect($byStepOffice)
+                ->sortByDesc('count')
+                ->values()
+                ->all(),
+        ];
     }
 
     /** @return array{0: Carbon, 1: Carbon, 2: array} [from, to (exclusive), meta] in UTC */

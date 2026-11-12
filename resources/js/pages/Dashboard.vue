@@ -1,10 +1,6 @@
 <template>
     <div class="fit-page">
-        <!-- Deferred + guarded: right after login the app bar mounts in the
-             same render as this page, so the target doesn't exist yet. An
-             eager teleport to a missing target broke every later update
-             (page stuck behind the loader until a refresh). -->
-        <Teleport v-if="timeMetaReady" defer to="#app-bar-time-meta">
+        <Teleport v-if="timeMetaReady && !isSuperadmin" defer to="#app-bar-time-meta">
             <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
                 <span>{{ todayLabel }}</span>
                 <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
@@ -162,28 +158,31 @@
             <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
                 {{ summaryError }}
             </v-alert>
-            <div class="summary-tiles" :class="{ 'summary-stale': summaryLoading && summary }">
-                <StatCard
+            <div class="summary-row">
+                <div
                     v-for="tile in summaryTiles"
                     :key="tile.key"
-                    :ref="(el) => (tileEls[tile.key] = el?.$el ?? null)"
-                    :label="tile.label"
-                    :value="tile.value"
-                    :hint="tile.hint"
-                    :variant="tile.variant"
-                    :icon="tile.icon"
-                    :loading="summaryLoading && !summary"
-                    cta="Show list"
-                    @activate="openDetail(tile.key, tileEls[tile.key])"
+                    class="summary-strip"
+                    :class="{ 'summary-stale': summaryLoading && summary }"
                 >
-                    <SummaryPopover
-                        :category="tile.key"
-                        :query="summaryQuery"
-                        :period-label="summaryScopeText"
-                        :disabled="!summary"
-                        @expand="openDetail(tile.key, tileEls[tile.key])"
-                    />
-                </StatCard>
+                    <div class="summary-seg" :class="`summary-seg--${tile.variant}`">
+                        <span class="summary-seg-num">
+                            <v-progress-circular
+                                v-if="summaryLoading && !summary"
+                                indeterminate
+                                tag="span"
+                                size="22"
+                                width="3"
+                                color="grey-darken-1"
+                            />
+                            <template v-else>{{ tile.value }}</template>
+                        </span>
+                        <span class="summary-seg-copy">
+                            <span class="summary-seg-label">{{ tile.label }}</span>
+                            <span class="summary-seg-hint">{{ tile.hint }}</span>
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- Cards render in the user's saved order, each in the next slot of
@@ -212,36 +211,13 @@
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                                 <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
                             </v-avatar>
-                            <span class="text-subtitle-1 font-weight-bold dash-head-title">{{ scopeProcessTitle }}</span>
-                            <v-spacer />
-                            <!-- The period comes from the Period filter at the top. -->
-                            <v-select
-                                v-model="processFilter"
-                                :items="processOptions"
-                                label="Process"
-                                placeholder="All processes"
-                                persistent-placeholder
-                                prepend-inner-icon="mdi-swap-horizontal"
-                                variant="outlined"
-                                density="compact"
-                                rounded="lg"
-                                hide-details
-                                multiple
-                                clearable
-                                class="process-filter"
-                            >
-                                <template v-slot:selection="{ item, index }">
-                                    <span v-if="index === 0" class="text-truncate">
-                                        {{ processFilter.length === 1 ? item.raw.value : `${processFilter.length} processes` }}
-                                    </span>
-                                </template>
-                            </v-select>
+                            <span class="text-subtitle-1 font-weight-bold dash-head-title">{{ scopeOverviewTitle }}</span>
                         </v-card-title>
                                                 <v-card-text class="pa-2 d-flex flex-column dash-body">
                             <GroupedBarChart
                                 :series="graphSeries"
                                 :group-labels="graphGroups"
-                                :loading="loading"
+                                :loading="summaryLoading && !summary"
                                 :height="fit ? 80 : 190"
                                 :empty-text="graphEmptyText"
                                 :aria-label="graphAriaLabel"
@@ -283,66 +259,47 @@
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center lgu-head dash-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">mdi-chart-pie</v-icon>
+                                <v-icon color="#005EED" size="20">mdi-chart-donut</v-icon>
                             </v-avatar>
                             <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">Most Used Transaction Type</div>
-                                <div class="dash-panel-sub text-truncate">{{ summaryScopeText }}</div>
+                                <div class="text-subtitle-1 font-weight-bold">Overdue Transactions by Office</div>
+                                <div class="dash-panel-sub">Which offices hold the most late items</div>
                             </div>
-                            <v-spacer />
-                            <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="goToQueue">
-                                View all
-                            </v-btn>
                         </v-card-title>
-                        <v-card-text v-fit-body="'pie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
-                            <div v-if="summary && !byProcessRows.length" class="text-caption text-medium-emphasis">
-                                No transactions created in this period.
+                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <OfficeDonut
+                                v-if="overdueOfficeRows.length"
+                                :slices="overdueOfficeRows"
+                                :size="transactionsPieSize"
+                                aria-label="Overdue transactions by office"
+                            />
+                            <div v-else-if="summary" class="text-caption text-medium-emphasis">
+                                No overdue transactions.
                             </div>
-                            <template v-else-if="byProcessRows.length">
-                                <ProcessPie
-                                    v-model:hover="byProcessHover"
-                                    :slices="byProcessRows"
-                                    :size="pieSize"
-                                    @open="(s) => openDetail('process', barEls[s.id], s)"
-                                />
-                                <!-- Legend: name, count and share for every slice;
-                                     hover links to its slice, Enter or the pop-up
-                                     opens the full list. -->
-                                <div class="pp-legend" :class="{ 'pp-legend--tight': legendTight }">
-                                    <div
-                                        v-for="row in legendRows"
-                                        :key="row.key"
-                                        :ref="(el) => row.id != null && (barEls[row.id] = el)"
-                                        class="process-bar-row"
-                                        :class="{ 'is-hot': byProcessHover === row.key, 'is-cold': byProcessHover && byProcessHover !== row.key }"
-                                        :role="row.id != null ? 'button' : undefined"
-                                        :tabindex="row.id != null ? 0 : undefined"
-                                        :aria-label="`${row.name}: ${row.count} transactions, ${row.pct}%${row.id != null ? '. Press Enter for the full list' : ''}`"
-                                        @mouseenter="byProcessHover = row.key"
-                                        @mouseleave="byProcessHover = null"
-                                        @focus="byProcessHover = row.key"
-                                        @blur="byProcessHover = null"
-                                        @keydown.enter.prevent="row.id != null && openDetail('process', barEls[row.id], row)"
-                                    >
-                                        <SummaryPopover
-                                            v-if="row.id != null"
-                                            category="process"
-                                            :process-id="row.id"
-                                            :process-name="`${row.name} transactions`"
-                                            :query="summaryQuery"
-                                            :period-label="summaryScopeText"
-                                            @expand="openDetail('process', barEls[row.id], row)"
-                                        />
-                                        <i class="pp-swatch" :style="{ background: row.color }" aria-hidden="true" />
-                                        <span class="pp-name" :title="row.name">{{ row.name }}</span>
-                                        <span class="pp-num">
-                                            <span class="pp-count">{{ row.count }}</span>
-                                            <span class="pp-pct">{{ row.pct }}%</span>
-                                        </span>
-                                    </div>
-                                    <div v-if="legendHidden" class="pp-more">and {{ legendHidden }} more</div>
-                                </div>
-                            </template>
+                        </v-card-text>
+                    </v-card>
+                </div>
+                <div v-else-if="id === 'stepsoffice'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
+                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                                <v-icon color="#005EED" size="20">mdi-chart-donut</v-icon>
+                            </v-avatar>
+                            <div style="min-width: 0">
+                                <div class="text-subtitle-1 font-weight-bold">Overdue Steps by Office</div>
+                                <div class="dash-panel-sub">Which offices hold the most late steps</div>
+                            </div>
+                        </v-card-title>
+                        <v-card-text v-fit-body="'stepsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                            <OfficeDonut
+                                v-if="overdueStepOfficeRows.length"
+                                :slices="overdueStepOfficeRows"
+                                :size="stepsPieSize"
+                                aria-label="Overdue steps by office"
+                            />
+                            <div v-else-if="summary" class="text-caption text-medium-emphasis">
+                                No overdue steps.
+                            </div>
                         </v-card-text>
                     </v-card>
                 </div>
@@ -614,29 +571,17 @@
                 </div>
             </template>
         </div>
-        <SummaryDetailDialog
-            v-if="canSeeSummary"
-            v-model:open="detail.open"
-            :category="detail.category"
-            :process-id="detail.processId"
-            :process-name="detail.processName"
-            :origin-el="detail.originEl"
-            :query="summaryQuery"
-            :period-label="summary?.period?.label || 'All time'"
-            :scope-chips="officeScopeChips"
-        />
     </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
 import { summaryApiBase } from '@/composables/useSummaryRows'
 import { useApi } from '@/composables/useApi'
 import { useTransactions } from '@/composables/useTransactions'
-import { useTransactionTypes } from '@/composables/useTransactionTypes'
 import { useOffices } from '@/composables/useOffices'
 import { useDashboardLayout } from '@/composables/useDashboardLayout'
 import { useAdminUsers } from '@/composables/useAdminUsers'
@@ -644,10 +589,7 @@ import { useFitScreen } from '@/composables/useFitScreen'
 import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
-import SummaryDetailDialog from '@/components/SummaryDetailDialog.vue'
-import SummaryPopover from '@/components/SummaryPopover.vue'
-import ProcessPie from '@/components/ProcessPie.vue'
-import StatCard from '@/components/StatCard.vue'
+import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import { useEntryVeil } from '@/composables/useEntryVeil'
@@ -657,8 +599,6 @@ import {
     periodOptions as dashPeriodOptions,
     periodBuckets,
     periodStart,
-    bucketIndexOf,
-    bucketUnit,
 } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
@@ -668,7 +608,6 @@ const auth = useAuth()
 const { api } = useApi()
 
 const txStore = useTransactions()
-const typeStore = useTransactionTypes()
 const officeStore = useOffices()
 
 const loading = ref(false)
@@ -683,8 +622,6 @@ const { fit, sizes, vFitBody, rows } = useFitScreen()
 const LIST_ROW_PX = 46
 const TABLE_ROW_PX = 42
 const TABLE_HEAD_PX = 28
-const LEGEND_ROW_PX = 38
-const LEGEND_TIGHT_ROW_PX = 24
 const actionRowsFit = computed(() => rows('action', TABLE_ROW_PX, 5, TABLE_HEAD_PX))
 
 const isSuperadmin = computed(() => {
@@ -747,12 +684,14 @@ const refreshedLabel = computed(() =>
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['graph', 'byprocess', 'action', 'recent', 'start']
+        return ['graph', 'byprocess', 'stepsoffice', 'action', 'recent']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
 // Width of each grid slot, out of 12 columns; two rows.
-const slotSpans = computed(() => (canSeeSummary.value ? [8, 4, 5, 4, 3] : [8, 4, 8, 4]))
+const slotSpans = computed(() => {
+    return canSeeSummary.value ? [6, 3, 3, 6, 6] : [8, 4, 8, 4]
+})
 function slotStyle(id) {
     return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
 }
@@ -884,17 +823,22 @@ onUnmounted(() => {
 // see everything while regular users see their office/role queue.
 const scopeSource = computed(() => txStore.items.value || [])
 
-// Series colors for the bar chart and the By Process pie, light and dark
-// steps; adjacent pairs pass the colour-blind separation checks in both
-// modes. Slot 3 is violet (no black in the charts). Gray is reserved for
-// the folded "Other processes" bar/slice.
+// Muted series colors for the overdue-by-office pie. They sit close to the
+// app's blue/teal/slate design; gray is reserved for "Other offices".
 const SERIES_PALETTE = {
-    light: ['#005EED', '#F26B21', '#6250D6', '#FFA94D', '#4D94FF', '#B84A0F', '#8FBBFF'],
-    dark: ['#4D94FF', '#FF8A4C', '#9085E9', '#FFB27A', '#1F6FFF', '#D9622B', '#8FBBFF'],
+    light: ['#4F7FBF', '#5F9A93', '#7E80B8', '#B08345', '#8C7B9E', '#6F8FA8'],
+    dark: ['#7FA6DD', '#8AC2BA', '#A9A9DC', '#D8B173', '#B7A5C9', '#94B2C9'],
 }
-const OTHER_PROCESSES = 'Other processes'
-const OTHER_COLOR = { light: '#898781', dark: '#898781' }
-const MAX_PROCESS_BARS = SERIES_PALETTE.light.length
+const OTHER_OFFICES = 'Other offices'
+const OTHER_COLOR = { light: '#8B95A5', dark: '#7E8899' }
+const MAX_OFFICE_SLICES = 3
+
+// Monthly status bars: calmer sage/ochre/rose so the chart reads comfortably
+// while Completed, In progress, and Overdue stay distinguishable.
+const STATUS_COLORS = {
+    light: { completed: '#4F8A6E', in_process: '#B08345', overdue: '#B0616B' },
+    dark: { completed: '#86C2A4', in_process: '#D8B173', overdue: '#D99AA2' },
+}
 
 const theme = useTheme()
 const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dark' : 'light'))
@@ -1000,14 +944,9 @@ const officeScopeLabel = computed(() => {
         ? officeScopeChips.value.join('/')
         : `${officeScopeChips.value.length} offices`
 })
-const scopeProcessTitle = computed(() =>
-    officeScopeLabel.value ? `${officeScopeLabel.value} Transactions Overview` : 'All Transactions Overview'
+const scopeOverviewTitle = computed(() =>
+    officeScopeLabel.value ? `${officeScopeLabel.value} Transaction Status` : 'Transaction Status'
 )
-
-function inOfficeScope(tx) {
-    if (officeIds.value.size) return officeIds.value.has(tx.office?.id)
-    return !scopeCode.value || tx.office?.code?.toUpperCase() === scopeCode.value
-}
 
 watch(officeOptions, (options) => {
     const ids = new Set(options.map((o) => o.value))
@@ -1019,132 +958,39 @@ watch(officeOptions, (options) => {
 // ---- Period filter ----
 // All time by default so pending work never hides on a week/month
 // rollover; switchable to this week (current Mon–Sun week) or one of the
-// last 12 months (Manila calendar). It drives the tiles, the By Process pie,
-// the graph and Recent Activity. Completed counts by finalize date, the rest
-// by created date (server side). Declared before the graph: its computeds
-// can run during setup when the transaction list is already cached (e.g.
-// clicking Dashboard from another page).
+// last 12 months (Manila calendar). It drives the tiles, the By Process pie
+// and Recent Activity. Completed counts by finalize date, the rest by
+// created date (server side). The status graph has its own fixed 3-month
+// window. Declared before the graph: its computeds can run during setup when
+// the transaction list is already cached (e.g. clicking Dashboard from
+// another page).
 const summaryPeriod = ref('all')
 const periodOptions = computed(() => dashPeriodOptions())
 
-// ---- Graph: the office's transactions per process over the Period filter ----
-// One group of bars per day (this week), week (a month) or month (all time),
-// never past today; see utils/dashPeriod.js.
-const oldestInScope = computed(() => {
-    let oldest = null
-    for (const tx of scopeSource.value) {
-        if (tx.created_at && inOfficeScope(tx) && (!oldest || tx.created_at < oldest)) oldest = tx.created_at
-    }
-    return oldest
-})
-const graphBuckets = computed(() => periodBuckets(summaryPeriod.value, { oldest: oldestInScope.value }))
-const graphGroups = computed(() => graphBuckets.value.map((b) => b.label))
-const graphUnit = computed(() => bucketUnit(summaryPeriod.value, graphBuckets.value))
+// ---- Graph: transactions by status over the last two months + this month ----
+// Server-side counts: completed by finalize date, open rows by created date.
+const graphGroups = computed(() => (summary.value?.monthly || []).map((m) => m.label))
 
 const graphEmptyText = computed(() =>
     officeScopeLabel.value
-        ? `No ${officeScopeLabel.value} transactions in ${summaryScopeText.value}`
-        : `No transactions in ${summaryScopeText.value}`
+        ? `No ${officeScopeLabel.value} transactions in the last 3 months`
+        : 'No transactions in the last 3 months'
 )
 const graphAriaLabel = computed(() =>
     officeScopeLabel.value
-        ? `${officeScopeLabel.value} transactions per process per ${graphUnit.value}, ${summaryScopeText.value}`
-        : `Transactions per process per ${graphUnit.value}, ${summaryScopeText.value}`
+        ? `${officeScopeLabel.value} transactions by status per month, last 3 months`
+        : 'Transactions by status per month, last 3 months'
 )
 
-const groupIndexOf = (tx) => bucketIndexOf(graphBuckets.value, tx.created_at)
-
-function txTypeLabel(tx) {
-    return tx.transaction_type?.name || tx.transaction_type_name
-}
-
-// Visible transactions created in the period (own office, if assigned,
-// or the offices picked by a superadmin).
-const graphTx = computed(() =>
-    scopeSource.value.filter((tx) => inOfficeScope(tx) && groupIndexOf(tx) >= 0)
-)
-
-// Per-process counts per bar group, busiest process first.
-const processRanking = computed(() => {
-    const byName = new Map()
-    for (const tx of graphTx.value) {
-        const name = txTypeLabel(tx)
-        if (!name) continue
-        if (!byName.has(name)) byName.set(name, graphBuckets.value.map(() => 0))
-        byName.get(name)[groupIndexOf(tx)]++
-    }
-    return [...byName.entries()]
-        .map(([label, values]) => ({ label, values, total: values.reduce((s, v) => s + v, 0) }))
-        .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
-})
-
-// Process filter: empty = a bar for every process. Picking processes keeps
-// only their bars.
-const processFilter = ref([])
-
-// Every active process in the system. The lookup is an admin endpoint, so
-// other users only get the processes found in their own transactions.
-const systemProcessNames = computed(() =>
-    isSuperadmin.value
-        ? (typeStore.items.value || []).filter((t) => t.is_active !== false && t.name).map((t) => t.name)
-        : []
-)
-
-// Options: every process, with its count for the period (0 when it has none),
-// busiest first.
-const processOptions = computed(() => {
-    const totals = new Map(processRanking.value.map((p) => [p.label, p.total]))
-    for (const name of systemProcessNames.value) if (!totals.has(name)) totals.set(name, 0)
-    return [...totals.entries()]
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([label, total]) => ({ title: `${label} (${total})`, value: label }))
-})
-
-// Drop picks that are no longer offered.
-watch(processOptions, (options) => {
-    const names = new Set(options.map((o) => o.value))
-    if (processFilter.value.some((name) => !names.has(name))) {
-        processFilter.value = processFilter.value.filter((name) => names.has(name))
-    }
-})
-
-// Stable color slot per process: alphabetical position among ALL processes
-// in the period, so the Process filter never repaints a bar. Past 7 processes
-// this can't be global, so the slot falls back to the position among the
-// bars currently drawn.
-// One colour per process, shared by the bar chart and the By Process pie:
-// every process either shows, alphabetical, takes the next palette slot.
-const processColorSlot = computed(() => {
-    const names = [
-        ...new Set([...processRanking.value.map((p) => p.label), ...(summary.value?.by_process || []).map((r) => r.name)]),
-    ].sort()
-    return names.length <= MAX_PROCESS_BARS ? new Map(names.map((n, i) => [n, i])) : null
-})
-
-// Bars: up to 7 named processes (the busiest), the rest folded into one
-// gray "Other processes" bar.
+// One bar per status in each month: green completed, amber in process, red overdue.
 const graphSeries = computed(() => {
-    const picked = processFilter.value
-    const shown = picked.length
-        ? processRanking.value.filter((p) => picked.includes(p.label))
-        : processRanking.value
-    const named = shown.slice(0, MAX_PROCESS_BARS)
-    const rest = shown.slice(MAX_PROCESS_BARS)
-
-    const palette = SERIES_PALETTE[themeMode.value]
-    const slots = processColorSlot.value
-    const series = [...named]
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map((p, i) => ({ label: p.label, color: palette[slots ? slots.get(p.label) : i], values: p.values }))
-
-    if (rest.length) {
-        series.push({
-            label: OTHER_PROCESSES,
-            color: OTHER_COLOR[themeMode.value],
-            values: graphBuckets.value.map((_, wi) => rest.reduce((s, p) => s + p.values[wi], 0)),
-        })
-    }
-    return series
+    const rows = summary.value?.monthly || []
+    const palette = STATUS_COLORS[themeMode.value]
+    return [
+        { label: 'Completed', color: palette.completed, values: rows.map((r) => r.completed || 0) },
+        { label: 'In progress', color: palette.in_process, values: rows.map((r) => r.in_process || 0) },
+        { label: 'Overdue', color: palette.overdue, values: rows.map((r) => r.overdue || 0) },
+    ]
 })
 
 // ---- Transaction Summary card (superadmin) ----
@@ -1154,8 +1000,9 @@ const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// Same scope and period as the graph, but independent of its Process
-// filter. No office assigned: the backend aggregates all offices.
+// Same scope and period as the tiles/pie. Also carries the fixed 3-month
+// monthly status series used by the graph.
+// No office assigned: the backend aggregates all offices.
 // Office admins send no office: the server forces their office's full scope
 // (filed by it or passing through it), which an office_code would narrow.
 const summaryQuery = computed(() => ({
@@ -1212,60 +1059,90 @@ async function loadSummary() {
 }
 watch(summaryQuery, loadSummary, { deep: true })
 
-const summaryScopeText = computed(
-    () => summary.value?.period?.label || periodOptions.value.find((o) => o.value === summaryPeriod.value)?.title || 'All time',
-)
-
 // Status tiles: each card takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
     const s = summary.value || {}
     return [
-        { key: 'completed', label: 'Completed', icon: 'mdi-check-bold', variant: 'success', value: s.completed ?? '—', hint: 'Finalized in this period' },
-        { key: 'in_process', label: 'In-process', icon: 'mdi-timer-sand', variant: 'warning', value: s.in_process ?? '—', hint: 'Created in this period, still open' },
-        { key: 'overdue', label: 'Overdue', icon: 'mdi-alert', variant: 'danger', value: s.overdue ?? '—', hint: 'Open and past their station’s time limit' },
+        {
+            key: 'overdue_steps',
+            label: 'Overdue Steps',
+            variant: 'danger',
+            value: s.overdue_steps ?? '—',
+            hint: 'Individual steps over SLA',
+        },
+        {
+            key: 'overdue_transactions',
+            label: 'Overdue Transactions',
+            variant: 'danger',
+            value: s.overdue_transactions ?? '—',
+            hint: 'Total SLA exceeded',
+        },
     ]
 })
 
-// ---- Detail pop-up: grows out of the tile / process bar that was clicked ----
-const tileEls = {}
-const barEls = {}
-const detail = reactive({ open: false, category: null, processId: null, processName: '', originEl: null })
-
-function openDetail(category, el, processRow = null) {
-    if (!summary.value) return
-    detail.category = category
-    detail.processId = processRow?.id ?? null
-    detail.processName = processRow?.name ?? ''
-    detail.originEl = el
-    detail.open = true
+// Stable office colours across both pies: build one sorted map from the named
+// offices shown in either pie (top 3 each, so at most six).
+function sortedOfficeRows(source) {
+    return [...(source || [])]
+        .filter((r) => r.count > 0)
+        .sort((a, b) => b.count - a.count || (a.code || a.name || '').localeCompare(b.code || b.name || ''))
 }
 
-// By Process pie: share of the period's transactions per process, in the
-// same colours as the bar chart. Up to 7 named slices (the busiest); the
-// rest fold into one gray "Other processes" slice. Slices and legend run in
-// palette order, so neighbouring slices are validated palette neighbours.
-const byProcessHover = ref(null)
-const byProcessRows = computed(() => {
-    const rows = [...(summary.value?.by_process || [])].filter((r) => r.count > 0)
+const officeColorMap = computed(() => {
+    const seen = new Map()
+    for (const source of [summary.value?.overdue_by_office, summary.value?.overdue_steps_by_office]) {
+        for (const row of sortedOfficeRows(source).slice(0, MAX_OFFICE_SLICES)) {
+            if (row.id != null) seen.set(row.id, row)
+        }
+    }
+    const sorted = [...seen.values()].sort((a, b) =>
+        (a.code || a.name || '').localeCompare(b.code || b.name || ''),
+    )
+    return new Map(sorted.map((row, i) => [row.id, i]))
+})
+
+// Office pies: top 3 offices plus a folded "Other offices" slice. Slices are
+// display-only, so they carry no id.
+function officePieRows(source) {
+    const rows = sortedOfficeRows(source)
     const total = rows.reduce((s, r) => s + r.count, 0)
     if (!total) return []
     const pct = (n) => Math.round((n / total) * 1000) / 10
     const palette = SERIES_PALETTE[themeMode.value]
-    const busiest = rows.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    const named = busiest.slice(0, MAX_PROCESS_BARS)
-    const rest = busiest.slice(MAX_PROCESS_BARS)
-    const slots = processColorSlot.value
-    const fallback = new Map([...named].map((r) => r.name).sort().map((n, i) => [n, i]))
-    const slotOf = (name) => (slots?.has(name) ? slots.get(name) : fallback.get(name))
-    const out = named
-        .map((r) => ({ ...r, key: `p${r.id}`, pct: pct(r.count), color: palette[slotOf(r.name)], slot: slotOf(r.name) }))
-        .sort((a, b) => a.slot - b.slot)
+    const slots = officeColorMap.value
+    const named = rows.slice(0, MAX_OFFICE_SLICES)
+    const rest = rows.slice(MAX_OFFICE_SLICES)
+
+    const out = named.map((r, i) => ({
+        ...r,
+        key: `o${r.id ?? r.code ?? i}`,
+        id: null,
+        label: r.code || r.name || 'No office',
+        fullName: r.name || r.code || 'No office',
+        pct: pct(r.count),
+        color: palette[(slots.get(r.id) ?? i) % palette.length],
+    }))
+
     if (rest.length) {
         const count = rest.reduce((s, r) => s + r.count, 0)
-        out.push({ key: 'other', id: null, name: OTHER_PROCESSES, count, pct: pct(count), color: OTHER_COLOR[themeMode.value] })
+        out.push({
+            key: 'other',
+            id: null,
+            code: null,
+            name: OTHER_OFFICES,
+            label: OTHER_OFFICES,
+            fullName: OTHER_OFFICES,
+            count,
+            pct: pct(count),
+            color: OTHER_COLOR[themeMode.value],
+        })
     }
+
     return out
-})
+}
+
+const overdueOfficeRows = computed(() => officePieRows(summary.value?.overdue_by_office))
+const overdueStepOfficeRows = computed(() => officePieRows(summary.value?.overdue_steps_by_office))
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1322,7 +1199,7 @@ const recent = computed(() => {
     return feed
 })
 
-// Evenly-distributed shortcut rows that always fill the Get Started card.
+// Evenly-distributed shortcut rows that fill the staff Get Started card.
 const startLinks = computed(() => {
     // Staff with papers already have a queue shortcut in Needs My Action;
     // Get Started shrinks to Help. The full card is the empty state.
@@ -1331,50 +1208,24 @@ const startLinks = computed(() => {
             { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', tile: '#0B2B66', go: goToHelp },
         ]
     }
-    const links = [
+    return [
         { title: 'Help guide', subtitle: 'Step-by-step instructions', icon: 'mdi-book-open-outline', color: '#005EED', tile: '#0B2B66', go: goToHelp },
-        isSuperadmin.value
-            ? { title: 'Transactions', subtitle: 'All requests in the system', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
-            : isOfficeAdmin.value
-              ? { title: 'Office transactions', subtitle: 'Filed by or passing through your office', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue }
-              : { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue },
+        { title: 'My queue', subtitle: 'Continue where you left off', icon: 'mdi-tray-full', color: '#005EED', tile: '#0EA5A4', go: goToQueue },
     ]
-    if (isOfficeAdmin.value) {
-        links.push({
-            title: 'Office users',
-            subtitle: 'People and roles in your office',
-            icon: 'mdi-account-group',
-            color: '#005EED',
-            tile: '#8B5CF6',
-            go: () => router.push('/office/users'),
-        })
-    }
-    if (isSuperadmin.value) {
-        links.push({
-            title: 'Manage offices',
-            subtitle: 'Offices, steps, and assignments',
-            icon: 'mdi-office-building-outline',
-            color: '#005EED',
-            tile: '#8B5CF6',
-            go: () => router.push('/admin/offices'),
-        })
-    }
-    return links
 })
 
-// By Process: the pie takes the card's height; the legend lists what fits.
-const pieSize = computed(() => {
-    const s = sizes.pie
-    if (!fit.value || !s) return 168
-    return Math.round(Math.min(220, Math.max(84, Math.min(s.h, s.w * 0.45))))
-})
-const legendTight = computed(() => fit.value && (sizes.pie?.h ?? 999) < 150)
-const legendRows = computed(() => {
-    const all = byProcessRows.value
-    const room = rows('pie', legendTight.value ? LEGEND_TIGHT_ROW_PX : LEGEND_ROW_PX, all.length)
-    return all.length <= room ? all : all.slice(0, Math.max(1, room - 1))
-})
-const legendHidden = computed(() => byProcessRows.value.length - legendRows.value.length)
+// Each donut uses its own measured body key so the two cards don't overwrite
+// each other's size calculations.
+function donutSize(key) {
+    return computed(() => {
+        const s = sizes[key]
+        if (!fit.value || !s) return 140
+        return Math.round(Math.min(156, Math.max(104, Math.min(s.h * 0.82, s.w * 0.48))))
+    })
+}
+
+const transactionsPieSize = donutSize('transactionsPie')
+const stepsPieSize = donutSize('stepsPie')
 
 // Tinted chip/icon in the process's color (same color on every card).
 function tintStyle(name) {
@@ -1562,7 +1413,6 @@ onMounted(async () => {
     loadSummary().catch(() => {})
     if (canApproveAccounts.value) loadAccounts()
     if (isSuperadmin.value) {
-        typeStore.fetchAll({ silent: true }).catch(() => {})
         officeStore.fetchAll({ silent: true }).catch(() => {})
     }
 })
@@ -1651,7 +1501,9 @@ onUnmounted(() => {
     }
     /* The pie's tooltip may rise over the card head. */
     .dash-slot[data-card='byprocess'] > .v-card,
-    .dash-slot[data-card='byprocess'] .process-pie-body {
+    .dash-slot[data-card='byprocess'] .process-pie-body,
+    .dash-slot[data-card='stepsoffice'] > .v-card,
+    .dash-slot[data-card='stepsoffice'] .process-pie-body {
         overflow: visible !important;
     }
 }
@@ -1672,14 +1524,11 @@ onUnmounted(() => {
         display: block;
     }
 }
-/* Small screens: the head's filters wrap below the title. */
+/* Small screens: the graph head wraps below the title. */
 @media (max-width: 1099.98px) {
     .dash-slot[data-card='graph'] .dash-head {
         flex-wrap: wrap;
         row-gap: 10px;
-    }
-    .dash-slot[data-card='graph'] .process-filter {
-        flex: 1 1 140px;
     }
 }
 /* ---- Row icons, step pills, waiting ---- */
@@ -1821,24 +1670,90 @@ onUnmounted(() => {
 .action-table :deep(td:last-child) {
     white-space: nowrap;
 }
-/* The filters give up width before the title does. */
-.process-filter {
-    flex: 0 20 224px;
-    min-width: 120px;
-}
-.process-filter :deep(.v-field__input) {
-    font-size: 0.875rem;
-}
-@container (max-width: 720px) {
-    .process-filter :deep(.v-field__prepend-inner) {
-        display: none;
-    }
-}
-/* ---- Transaction Summary card ---- */
-.summary-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+/* ---- Transaction Summary cards ---- */
+.summary-row {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
     gap: 12px;
+}
+.summary-strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    flex: 1 1 320px;
+    max-width: 360px;
+    border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    border-radius: 14px;
+    background: rgb(var(--v-theme-surface));
+    overflow: hidden;
+}
+.summary-seg {
+    --strip-accent: #c62f3b;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    padding: 18px 24px;
+    border: 0;
+    border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+    background: color-mix(in srgb, var(--strip-accent) 7%, rgb(var(--v-theme-surface)));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    text-align: left;
+}
+.summary-seg:last-child {
+    border-right: 0;
+}
+.summary-seg--danger {
+    --strip-accent: #c62f3b;
+}
+html.dark .summary-seg--danger {
+    --strip-accent: #ff7a85;
+}
+.summary-seg-num {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--v-theme-on-surface));
+}
+.summary-seg-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.summary-seg-label {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--strip-accent);
+}
+.summary-seg-hint {
+    font-size: 12px;
+    line-height: 1.2;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+@media (max-width: 760px) {
+    .summary-row {
+        flex-direction: column;
+    }
+    .summary-strip {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+    }
+    .summary-seg {
+        padding: 14px 18px;
+    }
+    .summary-seg-num {
+        font-size: 44px;
+    }
 }
 .dash-hello-actions {
     display: flex;
@@ -2070,108 +1985,16 @@ onUnmounted(() => {
     font-weight: 400;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
-/* By Process card: pie beside its legend; stacks only on small screens. */
+/* Office donut card body: the donut component fills the available space. */
 .process-pie-body {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: 12px 16px;
     flex: 1 1 auto;
-}
-@media (min-width: 1100px) {
-    .process-pie-body {
-        flex-wrap: nowrap;
-    }
-}
-.pp-legend {
-    flex: 1 1 180px;
-    min-width: 0;
-    max-width: 320px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.pp-legend--tight {
-    gap: 0;
-}
-.pp-legend--tight .pp-name {
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-}
-.pp-legend--tight .pp-num {
-    flex-direction: row;
-    align-items: baseline;
-    gap: 6px;
-}
-.pp-more {
-    padding: 2px 8px;
-    font-size: 0.75rem;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    min-height: 0;
 }
 .summary-stale {
     opacity: 0.6;
     transition: opacity 0.15s;
-}
-.process-bar-row {
-    display: grid;
-    grid-template-columns: 12px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 8px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.15s, opacity 0.15s;
-}
-.process-bar-row:not([role="button"]) {
-    cursor: default;
-}
-.process-bar-row:hover,
-.process-bar-row:focus-visible,
-.process-bar-row.is-hot {
-    background: rgba(var(--v-theme-on-surface), 0.06);
-    outline: none;
-}
-.process-bar-row.is-cold {
-    opacity: 0.55;
-}
-.pp-swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-}
-.pp-name {
-    font-size: 0.8rem;
-    font-weight: 600;
-    min-width: 0;
-    /* Long process names wrap to two lines instead of being cut. */
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-    /* Wrap between words; only an over-long single word breaks. */
-    overflow-wrap: break-word;
-    line-height: 1.25;
-    color: rgb(var(--v-theme-on-surface));
-}
-/* Count over its share, right-aligned, so names keep the width. */
-.pp-num {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    line-height: 1.2;
-}
-.pp-count {
-    font-size: 0.85rem;
-    font-weight: 800;
-    text-align: right;
-    color: rgb(var(--v-theme-on-surface));
-}
-.pp-pct {
-    font-size: 0.72rem;
-    text-align: right;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .start-row {
     cursor: pointer;
