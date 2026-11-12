@@ -207,15 +207,33 @@
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold dash-head-title">Top Overdue Steps</span>
                             <v-spacer />
-                            <v-chip
-                                size="small"
-                                variant="tonal"
-                                color="primary"
-                                prepend-icon="mdi-calendar-range"
-                                class="font-weight-bold"
-                            >
-                                {{ chartMonthLabel }}
-                            </v-chip>
+                            <v-menu location="bottom end" offset="6" :close-on-content-click="true">
+                                <template #activator="{ props }">
+                                    <button
+                                        v-bind="props"
+                                        type="button"
+                                        class="topsteps-month"
+                                        aria-label="Filter Top Overdue Steps by month"
+                                    >
+                                        <v-icon size="16">mdi-calendar-range</v-icon>
+                                        <span>{{ chartMonthLabel }}</span>
+                                        <v-icon size="16">mdi-chevron-down</v-icon>
+                                    </button>
+                                </template>
+                                <v-list density="compact" class="topsteps-month-list">
+                                    <v-list-item
+                                        v-for="m in chartMonthOptions"
+                                        :key="m.value"
+                                        :active="chartEndMonth === m.value"
+                                        @click="chartEndMonth = m.value"
+                                    >
+                                        <v-list-item-title>{{ m.title }}</v-list-item-title>
+                                        <template #append>
+                                            <v-icon v-if="chartEndMonth === m.value" size="18">mdi-check</v-icon>
+                                        </template>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
                         </v-card-title>
                         <v-card-text class="pa-3 d-flex flex-column dash-body">
                             <div v-if="chartLoading && !chartData" class="d-flex align-center justify-center dash-loading">
@@ -1610,6 +1628,37 @@ html.dark .summary-seg--danger {
     flex-basis: 190px;
     width: 190px;
     min-width: 132px;
+}
+/* Top Overdue Steps month picker chip. */
+.topsteps-month {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(var(--v-theme-primary), 0.1);
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.topsteps-month:hover {
+    background: rgba(var(--v-theme-primary), 0.16);
+}
+.topsteps-month:focus-visible {
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
+.topsteps-month :deep(.v-icon) {
+    color: inherit;
+}
+.topsteps-month-list {
+    max-height: 320px;
+    overflow-y: auto;
 }
 /* Top Overdue Steps: three compact, evenly-spaced ranked rows. */
 .top-steps {

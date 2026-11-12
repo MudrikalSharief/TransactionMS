@@ -63,7 +63,7 @@ const edgeGradients = [
     position: relative;
     /* Width of the City Hall artwork (1000 x 310); everything below scales
        from it so the swooshes always meet the ground. */
-    --hw: clamp(328px, 50.2vw, 852px);
+    --hw: clamp(231px, calc(50.2vw - 97px), 755px);
     height: calc(var(--hw) * 0.31);
 }
 .tf-hall {
@@ -104,7 +104,7 @@ const edgeGradients = [
         linear-gradient(180deg, var(--tf-navy) 0%, var(--tf-deep) 100%);
     /* The bottom room keeps the credit row above the curved swoosh
        (::after), which otherwise draws a line straight through it. */
-    padding: 6px 18px 16px;
+    padding: 6px 18px 14px;
     text-align: center;
 }
 /* Lighter blue swoosh along the bottom edge. */
@@ -154,17 +154,17 @@ const edgeGradients = [
         margin-top: 0;
     }
     .tf--fit .tf-skyline {
-        --hw: clamp(260px, 35vh, 568px);
+        --hw: clamp(170px, calc(35vh - 97px), 471px);
     }
     .tf--fit .tf-band {
-        padding: clamp(2px, 0.3vh, 5px) 18px clamp(8px, 1vh, 12px);
+        padding: clamp(2px, 0.3vh, 5px) 18px clamp(6px, 0.8vh, 10px);
     }
     /* Keep the bottom swoosh below the credit row at the smaller padding. */
     .tf--fit .tf-band::after {
         bottom: -58px;
     }
     .tf--fit .tf-credit {
-        margin-top: clamp(1px, 0.3vh, 4px);
+        margin-top: clamp(0px, 0.2vh, 2px);
         font-size: clamp(0.58rem, 1.05vh, 0.66rem);
     }
 }
@@ -172,7 +172,7 @@ const edgeGradients = [
 /* Phones: the artwork fills the width; the credit may wrap. */
 @media (max-width: 700px) {
     .tf-skyline {
-        --hw: min(100vw, 568px);
+        --hw: max(231px, calc(min(100vw, 568px) - 97px));
     }
     .tf-credit {
         flex-wrap: wrap;

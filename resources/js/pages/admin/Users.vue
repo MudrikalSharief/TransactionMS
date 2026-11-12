@@ -286,7 +286,43 @@
         </template>
 
         <template v-slot:[`item.position`]="{ item }">
-          <span class="us-position" :title="item.position || ''">{{ item.position || '—' }}</span>
+          <div v-if="editingPositionId === item.id" class="us-name-edit">
+            <input
+              :ref="setPositionInput"
+              v-model="positionDraft"
+              type="text"
+              class="us-name-input"
+              maxlength="120"
+              aria-label="Edit user position"
+              autocomplete="organization-title"
+              :disabled="rowBusyId === item.id"
+              @keyup.enter="savePosition(item)"
+              @keyup.esc="cancelPositionEdit"
+              @blur="savePosition(item)"
+            />
+            <span
+              v-if="positionSavingId === item.id"
+              class="us-inline-spin"
+              aria-hidden="true"
+            />
+          </div>
+          <button
+            v-else
+            type="button"
+            class="us-cell-edit us-position-btn"
+            :class="{ 'is-editable': canInlineEdit(item) }"
+            :disabled="!canInlineEdit(item) || rowBusyId === item.id"
+            :title="canInlineEdit(item) ? 'Click to edit position' : cellLockReason(item)"
+            @click="startPositionEdit(item)"
+          >
+            <span class="us-position" :title="item.position || ''">{{ item.position || '—' }}</span>
+            <v-icon
+              v-if="canInlineEdit(item)"
+              class="us-edit-hint"
+              size="14"
+              aria-hidden="true"
+            >mdi-pencil</v-icon>
+          </button>
         </template>
 
         <template v-slot:[`item.email`]="{ item }">
@@ -1352,6 +1388,11 @@ const nameDraft = ref('')
 const nameSavingId = ref(null)
 let nameInputEl = null
 
+const editingPositionId = ref(null)
+const positionDraft = ref('')
+const positionSavingId = ref(null)
+let positionInputEl = null
+
 const roleMenuId = ref(null)
 const roleDraft = ref([])
 const roleDraftSearch = ref('')
@@ -1367,6 +1408,7 @@ const statusSavingId = ref(null)
 const inlineBusyId = computed(
   () =>
     nameSavingId.value ??
+    positionSavingId.value ??
     roleSavingId.value ??
     officeSavingId.value ??
     statusSavingId.value ??
@@ -1377,6 +1419,10 @@ const rowBusyId = computed(() => inlineBusyId.value ?? busyId.value ?? null)
 
 function setNameInput(el) {
   nameInputEl = el
+}
+
+function setPositionInput(el) {
+  positionInputEl = el
 }
 
 function canInlineEdit(item) {
@@ -1401,6 +1447,7 @@ function itemOfficeId(item) {
 function buildUserPayload(item, overrides = {}) {
   return {
     name: item.name,
+    position: item.position || null,
     username: item.username || '',
     email: item.email,
     contact_number: item.contact_number || null,
@@ -1435,6 +1482,50 @@ async function startNameEdit(item) {
   await nextTick()
   nameInputEl?.focus()
   nameInputEl?.select?.()
+}
+
+async function startPositionEdit(item) {
+  if (!canInlineEdit(item) || rowBusyId.value != null) return
+  editingPositionId.value = item.id
+  positionDraft.value = item.position || ''
+  await nextTick()
+  positionInputEl?.focus()
+  positionInputEl?.select?.()
+}
+
+function cancelPositionEdit() {
+  if (positionSavingId.value != null) return
+  editingPositionId.value = null
+  positionDraft.value = ''
+}
+
+async function savePosition(item) {
+  if (editingPositionId.value !== item.id) return
+  if (rowBusyId.value != null) return
+  const next = positionDraft.value.trim()
+  if (next === String(item.position || '').trim()) {
+    editingPositionId.value = null
+    positionDraft.value = ''
+    return
+  }
+  positionSavingId.value = item.id
+  try {
+    const updated = await updateUser(
+      item.id,
+      buildUserPayload(item, { position: next || null }),
+    )
+    replaceUser(updated)
+    editingPositionId.value = null
+    positionDraft.value = ''
+    toastSuccess('Position updated.')
+  } catch (e) {
+    toastError(apiErrorMessage(e, 'Could not update the position.'))
+    positionSavingId.value = null
+    await nextTick()
+    positionInputEl?.focus()
+  } finally {
+    positionSavingId.value = null
+  }
 }
 
 function cancelNameEdit() {
@@ -1996,6 +2087,8 @@ watch([search, filterRole, filterOffice, page], () => {
   officeMenuId.value = null
   editingNameId.value = null
   nameDraft.value = ''
+  editingPositionId.value = null
+  positionDraft.value = ''
 })
 watch(roleMenuOpen, (open) => {
   if (open) roleFilterSearch.value = ''
@@ -2453,6 +2546,17 @@ html.dark .us-page {
     align-items: flex-start;
     gap: 0;
     padding-right: 20px;
+}
+.us-position-btn {
+    position: relative;
+    padding-right: 20px;
+}
+.us-position-btn .us-edit-hint {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    margin-left: 0;
+    transform: translateY(-50%);
 }
 .us-name-btn .us-edit-hint {
     position: absolute;

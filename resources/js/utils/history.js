@@ -134,7 +134,6 @@ export function detailStepText(step) {
     return step?.code || step?.name || '—';
 }
 
-export function userRoleText(user) {
-    const roles = (user?.roles || []).map((r) => r?.name || r?.code).filter(Boolean);
-    return roles.length ? roles.join(' · ') : null;
+export function userPositionText(user) {
+    return String(user?.position || '').trim() || null;
 }
