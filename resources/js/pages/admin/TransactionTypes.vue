@@ -1100,7 +1100,8 @@ async function confirmMakeLive() {
     }
 }
 
-const stepsLoading = computed(() => defsLoading.value);
+// Office admins never load workflow versions, so they never wait on them.
+const stepsLoading = computed(() => isSuperadmin.value && defsLoading.value);
 
 function goSteps(item) {
     if (!isSuperadmin.value) return;
@@ -1636,8 +1637,12 @@ onMounted(() => {
     // Independent lookups: run in parallel so one slow endpoint never blocks
     // the others. Each paints cache first, then revalidates silently.
     settle(fetchAll(), { warm: !loading.value });
-    fetchDefinitions().catch(() => {});
-    fetchOffices().catch(() => {});
+    // Workflow versions and the full office list are superadmin-only
+    // (office admins get a 403), so only the superadmin asks for them.
+    if (isSuperadmin.value) {
+        fetchDefinitions().catch(() => {});
+        fetchOffices().catch(() => {});
+    }
 });
 </script>
 
