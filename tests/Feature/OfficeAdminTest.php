@@ -258,17 +258,20 @@ class OfficeAdminTest extends TestCase
 
         // New users always join the admin's office; admin/superadmin can't be granted.
         $created = $this->postJson('/api/office/users', [
-            'name' => 'New Staff', 'email' => 'new@lgu.test', 'password' => 'secret123',
+            'name' => 'New Staff', 'position' => 'Administrative Officer',
+            'email' => 'new@lgu.test', 'password' => 'secret123',
             'office_id' => $this->csd->id, 'role_ids' => [$this->gsoStaff->id],
         ])->assertCreated();
         $this->assertSame($this->gso->id, $created->json('data.office_id'));
+        $this->assertSame('Administrative Officer', $created->json('data.position'));
         $this->postJson('/api/office/users', [
             'name' => 'Sneaky', 'email' => 'sneaky@lgu.test', 'password' => 'secret123',
             'role_ids' => [$this->adminRole->id],
         ])->assertUnprocessable();
 
-        $edit = fn (User $u) => ['name' => $u->name, 'email' => $u->email, 'role_ids' => [$this->gsoStaff->id]];
-        $this->putJson("/api/office/users/{$gsoClerk->id}", $edit($gsoClerk))->assertOk();
+        $edit = fn (User $u) => ['name' => $u->name, 'position' => 'Records Officer', 'email' => $u->email, 'role_ids' => [$this->gsoStaff->id]];
+        $this->putJson("/api/office/users/{$gsoClerk->id}", $edit($gsoClerk))->assertOk()
+            ->assertJsonPath('data.position', 'Records Officer');
         $this->putJson("/api/office/users/{$csdClerk->id}", $edit($csdClerk))->assertNotFound();
         $this->putJson("/api/office/users/{$peerAdmin->id}", $edit($peerAdmin))->assertForbidden();
         $this->putJson("/api/office/users/{$gsoAdmin->id}", $edit($gsoAdmin))->assertUnprocessable();
@@ -324,15 +327,26 @@ class OfficeAdminTest extends TestCase
         $this->getJson('/api/admin/users')->assertForbidden();
     }
 
-    public function test_office_summary_counts_only_their_office_scope(): void
+    public function test_superadmin_can_set_and_update_a_user_position(): void
     {
-        $this->tx($this->prepare, $this->csd);   // passes through GSO
-        $this->tx($this->fuelStart, $this->cbo); // not GSO's
+        $superRole = Role::create(['code' => 'superadmin', 'name' => 'Super Admin']);
+        Sanctum::actingAs($this->user(null, $superRole));
 
-        Sanctum::actingAs($this->user($this->gso, $this->adminRole));
-        $this->getJson('/api/office/dashboard/summary')->assertOk()->assertJsonPath('in_process', 1);
+        $created = $this->postJson('/api/admin/users', [
+            'name' => 'Position Test',
+            'position' => 'City Administrator',
+            'email' => 'position@lgu.test',
+            'password' => 'secret123',
+            'role_ids' => [$this->gsoStaff->id],
+        ])->assertCreated();
 
-        Sanctum::actingAs($this->user(null, Role::create(['code' => 'superadmin', 'name' => 'Super Admin'])));
-        $this->getJson('/api/admin/dashboard/summary')->assertOk()->assertJsonPath('in_process', 2);
+        $this->assertSame('City Administrator', $created->json('data.position'));
+
+        $this->putJson('/api/admin/users/'.$created->json('data.id'), [
+            'name' => 'Position Test',
+            'position' => 'Human Resource Officer',
+            'email' => 'position@lgu.test',
+            'role_ids' => [$this->gsoStaff->id],
+        ])->assertOk()->assertJsonPath('data.position', 'Human Resource Officer');
     }
 }

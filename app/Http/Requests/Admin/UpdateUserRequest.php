@@ -31,6 +31,7 @@ class UpdateUserRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:120'],
+            'position' => ['nullable', 'string', 'max:120'],
             'username' => User::usernameRules(false, $userId),
             'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $userId],
             'password' => ['nullable', 'string', 'min:8'],

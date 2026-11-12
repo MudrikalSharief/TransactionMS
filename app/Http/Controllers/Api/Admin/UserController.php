@@ -33,6 +33,7 @@ class UserController extends Controller
             // Created by a superadmin, so approved from the start.
             $user = User::create([
                 'name' => $data['name'],
+                'position' => $data['position'] ?? null,
                 'username' => $data['username'] ?? null,
                 'email' => $data['email'],
                 'office_id' => $data['office_id'] ?? null,
@@ -52,6 +53,7 @@ class UserController extends Controller
             $audit->log($request, 'users.create', $user, [
                 'payload' => [
                     'name' => $data['name'],
+                    'position' => $user->position,
                     'username' => $user->username,
                     'email' => $data['email'],
                     'office_id' => $data['office_id'] ?? null,
@@ -72,6 +74,7 @@ class UserController extends Controller
         return DB::transaction(function () use ($request, $user, $data, $audit) {
             $before = [
                 'name' => $user->name,
+                'position' => $user->position,
                 'username' => $user->username,
                 'email' => $user->email,
                 'office_id' => $user->office_id,
@@ -82,6 +85,9 @@ class UserController extends Controller
             ];
 
             $user->name = $data['name'];
+            if (array_key_exists('position', $data)) {
+                $user->position = $data['position'];
+            }
             if (array_key_exists('username', $data)) {
                 $user->username = $data['username'];
             }
@@ -110,6 +116,7 @@ class UserController extends Controller
 
             $after = [
                 'name' => $user->name,
+                'position' => $user->position,
                 'username' => $user->username,
                 'email' => $user->email,
                 'office_id' => $user->office_id,

@@ -42,6 +42,7 @@ class OfficeAdminController extends Controller
         $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'position' => ['nullable', 'string', 'max:120'],
             'username' => User::usernameRules(false),
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
@@ -56,6 +57,7 @@ class OfficeAdminController extends Controller
             // Created by the office admin, so approved from the start.
             $user = User::create([
                 'name' => $data['name'],
+                'position' => $data['position'] ?? null,
                 'username' => $data['username'] ?? null,
                 'email' => $data['email'],
                 'office_id' => $officeId,
@@ -71,6 +73,7 @@ class OfficeAdminController extends Controller
             $audit->log($request, 'office.users.create', $user, [
                 'payload' => [
                     'name' => $data['name'],
+                    'position' => $user->position,
                     'username' => $user->username,
                     'email' => $data['email'],
                     'office_id' => $officeId,
@@ -93,6 +96,7 @@ class OfficeAdminController extends Controller
         }
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'position' => ['nullable', 'string', 'max:120'],
             'username' => User::usernameRules(false, $user->id),
             'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:8'],
@@ -105,6 +109,7 @@ class OfficeAdminController extends Controller
         return DB::transaction(function () use ($request, $user, $data, $audit) {
             $before = [
                 'name' => $user->name,
+                'position' => $user->position,
                 'username' => $user->username,
                 'email' => $user->email,
                 'contact_number' => $user->Contact_number,
@@ -114,6 +119,9 @@ class OfficeAdminController extends Controller
             ];
 
             $user->name = $data['name'];
+            if (array_key_exists('position', $data)) {
+                $user->position = $data['position'];
+            }
             if (array_key_exists('username', $data)) {
                 $user->username = $data['username'];
             }
@@ -136,6 +144,7 @@ class OfficeAdminController extends Controller
                 'before' => $before,
                 'after' => [
                     'name' => $user->name,
+                    'position' => $user->position,
                     'username' => $user->username,
                     'email' => $user->email,
                     'contact_number' => $user->Contact_number,

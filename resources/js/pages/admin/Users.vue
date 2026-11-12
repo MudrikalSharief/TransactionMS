@@ -285,6 +285,10 @@
           </button>
         </template>
 
+        <template v-slot:[`item.position`]="{ item }">
+          <span class="us-position" :title="item.position || ''">{{ item.position || '—' }}</span>
+        </template>
+
         <template v-slot:[`item.email`]="{ item }">
           <span class="us-email">{{ item.email }}</span>
         </template>
@@ -744,6 +748,29 @@
             </div>
           </div>
 
+          <div class="nu-field" :class="{ 'is-bad': errors.position }">
+            <label class="nu-label" for="nu-position">
+              Position <span class="nu-opt">(optional)</span>
+            </label>
+            <input
+              id="nu-position"
+              v-model="form.position"
+              class="nu-input"
+              type="text"
+              maxlength="120"
+              placeholder="e.g. Administrative Officer"
+              autocomplete="organization-title"
+              autocapitalize="words"
+              :aria-invalid="!!errors.position"
+              :aria-describedby="errors.position ? 'nu-position-err' : undefined"
+              :disabled="saving"
+              @input="clearError('position')"
+            />
+            <div v-if="errors.position" id="nu-position-err" class="nu-err">
+              {{ errors.position }}
+            </div>
+          </div>
+
           <div class="nu-field" :class="{ 'is-bad': errors.username }">
             <label class="nu-label" for="nu-username">
               Username <span class="nu-opt">(optional)</span>
@@ -1105,18 +1132,20 @@ const ACTIONS_W = 132
 // inside their columns, and Status and the actions always stay in view.
 const headers = officeMode
   ? [
-      { title: 'Name', key: 'name', width: '30%' },
-      { title: 'Email', key: 'email', width: '25%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '18%' },
-      { title: 'Status', key: 'is_active', width: '13%' },
+      { title: 'Name', key: 'name', width: '27%' },
+      { title: 'Position', key: 'position', width: '15%' },
+      { title: 'Email', key: 'email', width: '23%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
+      { title: 'Status', key: 'is_active', width: '10%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
   : [
-      { title: 'Name', key: 'name', width: '24%' },
-      { title: 'Email', key: 'email', width: '22%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '15%' },
-      { title: 'Office', key: 'office', sortable: false, width: '16%' },
-      { title: 'Status', key: 'is_active', width: '13%' },
+      { title: 'Name', key: 'name', width: '22%' },
+      { title: 'Position', key: 'position', width: '14%' },
+      { title: 'Email', key: 'email', width: '19%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '13%' },
+      { title: 'Office', key: 'office', sortable: false, width: '14%' },
+      { title: 'Status', key: 'is_active', width: '10%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
 
@@ -1304,6 +1333,7 @@ const filtered = computed(() => {
         u.username,
         u.email,
         u.contact_number,
+        u.position,
         (u.roles || []).map((r) => r.name).join(' '),
         u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
         u.pending_approval ? 'waiting for approval pending' : u.is_active ? 'active' : 'inactive',
@@ -1661,6 +1691,7 @@ function blankForm() {
   return {
     id: null,
     name: '',
+    position: '',
     username: '',
     email: '',
     contact_number: '',
@@ -1675,6 +1706,7 @@ function blankForm() {
 function blankErrors() {
   return {
     name: '',
+    position: '',
     username: '',
     email: '',
     contact_number: '',
@@ -1750,6 +1782,7 @@ function openEdit(item) {
   form.value = {
     id: item.id,
     name: item.name || '',
+    position: item.position || '',
     username: item.username || '',
     email: item.email || '',
     contact_number: item.contact_number || '',
@@ -1808,8 +1841,10 @@ function validate() {
   const email = form.value.email.trim()
   const contact = String(form.value.contact_number || '').trim()
   const password = form.value.password || ''
+  const position = String(form.value.position || '').trim()
 
   if (!name) next.name = 'Enter the user’s name.'
+  if (position.length > 120) next.position = 'Use at most 120 characters for the position.'
 
   const username = form.value.username.trim()
   if (username && (username.length < 3 || !USERNAME_RE.test(username))) {
@@ -1910,6 +1945,7 @@ async function save() {
   try {
     const payload = {
       name: form.value.name.trim(),
+      position: String(form.value.position || '').trim() || null,
       // Blank clears it (the account then signs in by email only).
       username: form.value.username.trim().toLowerCase() || null,
       email: form.value.email.trim(),
@@ -2348,6 +2384,14 @@ html.dark .us-page {
 .us-email {
     display: block;
     color: var(--us-muted);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+.us-position {
+    display: block;
+    color: var(--us-ink);
+    font-weight: 500;
     line-height: 1.4;
     overflow-wrap: anywhere;
     white-space: normal;
