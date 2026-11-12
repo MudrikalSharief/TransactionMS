@@ -408,17 +408,17 @@
             />
 
             <!-- The arrows between the modules, redrawn over the picture so
-                 they can move: each one draws itself in turn, round the
-                 cycle (Payroll, Permits, Approvals, Records, Routing,
-                 Tracking). -->
+                 they can move: they flow round the cycle (Payroll, Permits,
+                 Approvals, Records, Routing, Tracking) at one steady speed
+                 (startFlow in the script). -->
             <!-- Approvals, lifted out of the picture and set 30px higher so
                  its sides meet the arrows on the circle. -->
             <img class="chip-approvals" :src="'/login-approvals.png'" alt="" width="280" height="106" />
 
             <svg class="flow" viewBox="0 0 1671 941" aria-hidden="true">
-                <g v-for="(a, i) in FLOW_ARROWS" :key="i" :style="{ '--d': `${i * 0.7}s` }">
+                <g v-for="(a, i) in FLOW_ARROWS" :key="i">
                     <path v-if="a.tail" class="arrow-tail" :d="a.tail" />
-                    <path class="arrow-line" :d="a.line" pathLength="1" />
+                    <path :ref="(el) => (flowLines[i] = el)" class="arrow-line" :d="a.line" pathLength="1" />
                 </g>
             </svg>
 
@@ -509,8 +509,56 @@ const FLOW_ARROWS = [
     return {
         line: arc(a0, a1),
         tail: tailLen ? arc(a0 - toDeg(tailLen), a0) : "",
+        span: a1 - a0,
     };
 });
+
+// The flow: one steady clock for all six lines, so nothing waits or jumps.
+// The lines draw one straight after another (each takes time in proportion
+// to its length, so the speed never changes), stay drawn, then clear from
+// their tails in the same order, and the cycle repeats. Animations off:
+// the lines simply stay drawn.
+const FLOW = { draw: 1800, hold: 1400, clear: 1800, rest: 300 }; // ms
+const FLOW_MS = FLOW.draw + FLOW.hold + FLOW.clear + FLOW.rest;
+const HIDDEN = 1.02; // just past the line's end, so no round-cap dot shows
+const FLOW_FRAMES = (() => {
+    const total = FLOW_ARROWS.reduce((sum, a) => sum + a.span, 0);
+    const clearAt = FLOW.draw + FLOW.hold;
+    const t = (ms) => ms / FLOW_MS;
+    let before = 0;
+    return FLOW_ARROWS.map(({ span }) => {
+        const from = before / total;
+        const to = (before += span) / total;
+        return [
+            { offset: 0, strokeDashoffset: HIDDEN },
+            { offset: t(FLOW.draw * from), strokeDashoffset: HIDDEN },
+            { offset: t(FLOW.draw * to), strokeDashoffset: 0 },
+            { offset: t(clearAt + FLOW.clear * from), strokeDashoffset: 0 },
+            { offset: t(clearAt + FLOW.clear * to), strokeDashoffset: -HIDDEN },
+            { offset: 1, strokeDashoffset: -HIDDEN },
+        ];
+    });
+})();
+
+const flowLines = [];
+let flowAnims = [];
+function stopFlow() {
+    flowAnims.forEach((a) => a.cancel());
+    flowAnims = [];
+}
+function startFlow() {
+    stopFlow();
+    if (!motionEnabled.value) return;
+    flowAnims = FLOW_FRAMES.map((frames, i) => {
+        const anim = flowLines[i]?.animate?.(frames, { duration: FLOW_MS, iterations: Infinity });
+        // Open on the finished drawing, as in the design, then flow on.
+        if (anim) anim.currentTime = FLOW.draw;
+        return anim;
+    }).filter(Boolean);
+}
+onMounted(startFlow);
+onUnmounted(stopFlow);
+watch(motionEnabled, startFlow);
 
 // "signin" or "register" (Create an account), in the same panel.
 const mode = ref("signin");
@@ -1500,20 +1548,15 @@ async function guestLogin() {
     stroke-linecap: round;
     stroke-dasharray: 3 5;
 }
-/* Each line draws itself from its tail; the six take turns, 0.7s apart
-   (--d), and stay drawn between turns. */
+/* One dash the length of the line, then a gap longer than the line, so
+   moving the offset draws the line from its tail (startFlow) or clears it. */
 .arrow-line {
     fill: none;
     stroke: #0b4fc9;
     stroke-width: 3.6;
     stroke-linecap: round;
-    stroke-dasharray: 1;
+    stroke-dasharray: 1 1.1;
     stroke-dashoffset: 0;
-    animation: arrow-draw 4.2s ease-in-out var(--d) infinite;
-}
-@keyframes arrow-draw {
-    0% { stroke-dashoffset: 1; }
-    14%, 100% { stroke-dashoffset: 0; }
 }
 
 /* ---- Track your Transaction: the slanted blue tab ---- */
@@ -1815,9 +1858,6 @@ async function guestLogin() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .arrow-line {
-        animation: none;
-    }
     .control input,
     .control select,
     .btn,
