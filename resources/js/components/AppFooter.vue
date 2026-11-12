@@ -4,31 +4,31 @@
          curve and band with the CSD credit. The swooshes are drawn here. -->
     <!-- Pages that fit the screen (dashboards on desktop) get the same
          footer, sized to the window height so the page never scrolls. -->
-    <footer class="tf" :class="{ 'tf--fit': fit }">
+    <!-- hallLeft: City Hall in the bottom-left corner, the curve and the
+         swooshes sloping down toward it (every page but the tracking page,
+         which keeps it centred). -->
+    <footer class="tf" :class="{ 'tf--fit': fit, 'tf--left': hallLeft }">
         <!-- The blue: the curve and the band are drawn solid and overlap, and
              the whole layer is made see-through at once, so there is no
              seam where they meet. -->
         <div class="tf-glass" aria-hidden="true">
             <svg class="tf-glass-curve" viewBox="0 0 1600 90" preserveAspectRatio="none">
-                <path d="M0 0 C520 68 1080 68 1600 0 L1600 90 L0 90 Z" />
+                <path :d="shape.glass" />
             </svg>
             <div class="tf-glass-band"></div>
         </div>
 
         <div class="tf-skyline" aria-hidden="true">
             <svg class="tf-curve" viewBox="0 0 1600 120" preserveAspectRatio="none">
-                <!-- Gold and blue swooshes, strong at the edges, fading
-                     out behind the building. -->
+                <!-- Gold and blue swooshes, strong away from the building
+                     and fading out behind it. -->
                 <defs>
                     <linearGradient v-for="g in edgeGradients" :id="g.id" :key="g.id" x1="0" x2="1" y1="0" y2="0">
-                        <stop offset="0" :stop-color="g.color" stop-opacity="1" />
-                        <stop offset="0.32" :stop-color="g.color" stop-opacity="0" />
-                        <stop offset="0.68" :stop-color="g.color" stop-opacity="0" />
-                        <stop offset="1" :stop-color="g.color" stop-opacity="1" />
+                        <stop v-for="(st, i) in shape.stops" :key="i" :offset="st[0]" :stop-color="g.color" :stop-opacity="st[1]" />
                     </linearGradient>
                 </defs>
-                <path class="tf-gold" d="M0 10 C520 78 1080 78 1600 10" fill="none" stroke="url(#tf-edge-gold)" vector-effect="non-scaling-stroke" />
-                <path class="tf-blue" d="M0 20 C520 88 1080 88 1600 20" fill="none" stroke="url(#tf-edge-blue)" vector-effect="non-scaling-stroke" />
+                <path class="tf-gold" :d="shape.gold" fill="none" stroke="url(#tf-edge-gold)" vector-effect="non-scaling-stroke" />
+                <path class="tf-blue" :d="shape.blue" fill="none" stroke="url(#tf-edge-blue)" vector-effect="non-scaling-stroke" />
             </svg>
 
             <img class="tf-hall" :src="'/footer-hall.webp'" alt="" width="1000" height="310" decoding="async" />
@@ -45,9 +45,33 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
     fit: { type: Boolean, default: false },
+    // City Hall in the bottom-left corner instead of the middle.
+    hallLeft: { type: Boolean, default: false },
 });
+
+// Swooshes (0-1600 x 0-120) and the blue curve's top edge (its own 0-90
+// box, starting where the swooshes' lowest line sits). Centred: a valley in
+// the middle under the building. Left: one slope, high on the right and low
+// in the left corner where the building stands.
+const SHAPES = {
+    centre: {
+        gold: "M0 10 C520 78 1080 78 1600 10",
+        blue: "M0 20 C520 88 1080 88 1600 20",
+        glass: "M0 0 C520 68 1080 68 1600 0 L1600 90 L0 90 Z",
+        stops: [[0, 1], [0.32, 0], [0.68, 0], [1, 1]],
+    },
+    left: {
+        gold: "M0 78 C420 80 1020 64 1600 10",
+        blue: "M0 88 C420 90 1020 74 1600 20",
+        glass: "M0 68 C420 70 1020 54 1600 0 L1600 90 L0 90 Z",
+        stops: [[0, 0], [0.24, 0], [0.62, 1], [1, 1]],
+    },
+};
+const shape = computed(() => (props.hallLeft ? SHAPES.left : SHAPES.centre));
 
 const edgeGradients = [
     { id: "tf-edge-gold", color: "#F2B33D" },
@@ -122,6 +146,11 @@ const edgeGradients = [
         linear-gradient(to right, transparent 0, #000 14%, #000 86%, transparent 100%),
         linear-gradient(to bottom, #000 0, #000 84%, transparent 96%);
     mask-composite: intersect;
+}
+/* Left layout: the building stands in the bottom-left corner. */
+.tf--left .tf-hall {
+    left: clamp(10px, 2.2vw, 36px);
+    transform: none;
 }
 .tf-curve {
     position: absolute;

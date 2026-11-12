@@ -362,7 +362,7 @@
                  (route meta noFooter); the cards get that height instead. -->
             <template v-if="showAuthUi && !route.meta?.noFooter">
                 <div class="app-foot-spacer" aria-hidden="true"></div>
-                <AppFooter :fit="!!route.meta?.fit" />
+                <AppFooter :fit="!!route.meta?.fit" :hall-left="route.meta?.kind !== 'viewer'" />
             </template>
         </v-main>
 

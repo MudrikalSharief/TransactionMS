@@ -9,11 +9,10 @@ use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 /**
- * "My Profile" for every signed-in account: edit your own name, email,
- * contact number and password. Office and roles are not edited here (they
+ * "My Profile" for every signed-in account: edit your own name, username
+ * (the sign-in name), contact number and password. Office and roles are not edited here (they
  * are set on the Users page). The shared guest viewer account ("Track your
  * Document Process") cannot be edited, since every guest uses it.
  */
@@ -32,22 +31,29 @@ class ProfileController extends Controller
     {
         $user = $this->profileUser($request);
 
+        // Usernames are stored lowercase and trimmed (same as sign-up).
+        $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['nullable', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            'username' => User::usernameRules(true, $user->id),
             'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'],
-        ], [
-            'email.unique' => 'Another account already uses this email.',
+        ], User::USERNAME_MESSAGES + [
             'contact_number.regex' => 'Enter a valid contact number, for example 09171234567.',
         ]);
 
+        $oldUsername = $user->username;
+
         $user->forceFill([
             'name' => $data['name'],
-            'email' => array_key_exists('email', $data) ? $data['email'] : $user->email,
+            'username' => $data['username'],
             'Contact_number' => $data['contact_number'] ?? null,
         ])->save();
 
-        $audit->log($request, 'profile.update', $user);
+        // A new username is the sign-in name from now on; keep a record.
+        $audit->log($request, 'profile.update', $user, $oldUsername !== $user->username
+            ? ['before' => ['username' => $oldUsername], 'after' => ['username' => $user->username]]
+            : []);
 
         return response()->json(['message' => 'Profile saved.', 'profile' => $this->payload($user)]);
     }

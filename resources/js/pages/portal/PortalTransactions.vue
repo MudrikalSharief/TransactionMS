@@ -5,7 +5,7 @@
             <!-- Same header as the admin pages (outlined navy badge, outlined
                  buttons). On phones the buttons drop their labels so the
                  one-line card header still fits. -->
-            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
+            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head page-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
                     <v-icon color="#005EED">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
                 </v-avatar>
@@ -48,34 +48,37 @@
                     </template>
                 </v-btn>
                 <v-spacer />
-                <v-btn
-                    variant="outlined"
-                    color="grey-darken-3"
-                    rounded="0"
-                    height="40"
-                    :loading="loading"
-                    :icon="xs"
-                    :prepend-icon="xs ? undefined : 'mdi-refresh'"
-                    aria-label="Refresh"
-                    @click="load"
-                >
-                    <v-icon v-if="xs">mdi-refresh</v-icon>
-                    <template v-else>Refresh</template>
-                </v-btn>
-                <v-btn
-                    v-if="canCreate && !isHistory"
-                    variant="outlined"
-                    color="primary"
-                    rounded="0"
-                    height="40"
-                    :icon="xs"
-                    :prepend-icon="xs ? undefined : 'mdi-plus'"
-                    aria-label="New Transaction"
-                    @click="openCreate"
-                >
-                    <v-icon v-if="xs">mdi-plus</v-icon>
-                    <template v-else>New Transaction</template>
-                </v-btn>
+                <!-- Kept together on the right, also when they wrap. -->
+                <div class="head-actions">
+                    <v-btn
+                        variant="outlined"
+                        color="grey-darken-3"
+                        rounded="0"
+                        height="40"
+                        :loading="loading"
+                        :icon="xs"
+                        :prepend-icon="xs ? undefined : 'mdi-refresh'"
+                        aria-label="Refresh"
+                        @click="load"
+                    >
+                        <v-icon v-if="xs">mdi-refresh</v-icon>
+                        <template v-else>Refresh</template>
+                    </v-btn>
+                    <v-btn
+                        v-if="canCreate && !isHistory"
+                        variant="outlined"
+                        color="primary"
+                        rounded="0"
+                        height="40"
+                        :icon="xs"
+                        :prepend-icon="xs ? undefined : 'mdi-plus'"
+                        aria-label="New Transaction"
+                        @click="openCreate"
+                    >
+                        <v-icon v-if="xs">mdi-plus</v-icon>
+                        <template v-else>New Transaction</template>
+                    </v-btn>
+                </div>
             </v-card-title>
 
             <v-divider />
@@ -94,7 +97,7 @@
             </v-tabs>
             <v-divider v-if="!isHistory" />
 
-            <v-card-text class="pa-4">
+            <v-card-text class="pa-4 page-body">
                 <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
 
                 <v-alert v-if="isHistory" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
@@ -111,7 +114,8 @@
                 <v-text-field
                     v-model="search"
                     prepend-inner-icon="mdi-magnify"
-                    label="Search . . ."
+                    placeholder="Search transactions"
+                    aria-label="Search transactions by reference, title, type or office"
                     variant="outlined"
                     density="compact"
                     rounded="0"

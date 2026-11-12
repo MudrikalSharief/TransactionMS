@@ -26,7 +26,7 @@
                         v-model="search"
                         type="search"
                         class="tt-search-input"
-                        placeholder="Search code, name or description"
+                        placeholder="Search code or name"
                         aria-label="Search transaction types"
                         autocomplete="off"
                     />
@@ -1748,7 +1748,7 @@ html.dark .tt-page {
 .tt-search-input {
     width: 100%;
     height: 46px;
-    padding: 0 42px;
+    padding: 0 14px 0 42px;
     border: 1.5px solid var(--tt-line);
     border-radius: 0;
     background: var(--tt-field);
@@ -1760,6 +1760,11 @@ html.dark .tt-page {
         border-color 0.15s,
         box-shadow 0.15s,
         background 0.15s;
+}
+/* Room for the clear button only while there is text to clear, so the
+   placeholder isn't squeezed. */
+.tt-search-input:not(:placeholder-shown) {
+    padding-right: 40px;
 }
 .tt-search-input::placeholder {
     color: var(--tt-muted);

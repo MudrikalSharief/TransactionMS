@@ -4,7 +4,7 @@
         <v-card rounded="0" elevation="1" class="lgu-card">
             <!-- Same header as Portal Transactions; on phones the buttons keep
                  only their icons so the one-line header still fits. -->
-            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head">
+            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head page-head">
                 <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
                     <v-icon color="#005EED">mdi-clipboard-check-multiple-outline</v-icon>
                 </v-avatar>
@@ -55,7 +55,7 @@
 
             <v-divider />
 
-            <v-card-text class="pa-4">
+            <v-card-text class="pa-4 page-body">
                 <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>
 
                 <v-alert type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
@@ -68,7 +68,8 @@
                 <v-text-field
                     v-model="search"
                     prepend-inner-icon="mdi-magnify"
-                    label="Search . . ."
+                    placeholder="Search tasks"
+                    aria-label="Search tasks by reference, title, type or step"
                     variant="outlined"
                     density="compact"
                     rounded="0"
