@@ -23,20 +23,6 @@
             <path d="M1671 941 H1250 C1420 920 1560 878 1671 818 Z" fill="url(#wv-corner)" opacity="0.9" />
         </svg>
 
-        <!-- Animations on/off for slow devices; the same setting as the
-             sidebar button (useMotion.js). -->
-        <button
-            type="button"
-            class="motion-switch"
-            role="switch"
-            :aria-checked="motionEnabled ? 'true' : 'false'"
-            :title="motionEnabled ? 'Turn animations off (faster on slow devices)' : 'Turn animations on'"
-            @click="toggleMotion"
-        >
-            <span class="motion-track" aria-hidden="true"><i /></span>
-            Animations {{ motionEnabled ? "on" : "off" }}
-        </button>
-
         <!-- The page is laid out on the reference's own canvas (1671 x 941)
              and scaled to fit the window, so it matches it exactly. -->
         <div class="artboard" :style="{ '--s': scale }">
@@ -391,36 +377,40 @@
                 </Transition>
             </section>
 
-            <p class="hero-eyebrow">
-                <span class="hero-line" aria-hidden="true"></span>
-                Monitor City Government
-                <span class="hero-line" aria-hidden="true"></span>
-            </p>
-            <h2 class="hero-title">Transactions</h2>
-            <span class="hero-bar" aria-hidden="true"></span>
+            <div class="hero-heading">
+                <p class="hero-eyebrow">
+                    <span class="hero-line" aria-hidden="true"></span>
+                    Monitor City Government
+                    <span class="hero-line" aria-hidden="true"></span>
+                </p>
+                <h2 class="hero-title">Transactions</h2>
+                <span class="hero-bar" aria-hidden="true"></span>
+            </div>
 
-            <img
-                class="scene"
-                :src="'/login-scene.jpg'"
-                alt="A clerk reviewing papers, with Payroll, Permits, Approvals, Records, Routing and Tracking around her"
-                width="1000"
-                height="650"
-            />
+            <div class="illustration">
+                <img
+                    class="scene"
+                    :src="'/login-scene.jpg'"
+                    alt="A clerk reviewing papers, with Payroll, Permits, Approvals, Records, Routing and Tracking around her"
+                    width="1000"
+                    height="650"
+                />
 
-            <!-- The arrows between the modules, redrawn over the picture so
-                 they can move: they flow round the cycle (Payroll, Permits,
-                 Approvals, Records, Routing, Tracking) at one steady speed
-                 (startFlow in the script). -->
-            <!-- Approvals, lifted out of the picture and set 30px higher so
-                 its sides meet the arrows on the circle. -->
-            <img class="chip-approvals" :src="'/login-approvals.png'" alt="" width="280" height="106" />
+                <!-- The arrows between the modules, redrawn over the picture so
+                     they can move: they flow round the cycle (Payroll, Permits,
+                     Approvals, Records, Routing, Tracking) at one steady speed
+                     (startFlow in the script). -->
+                <!-- Approvals, lifted out of the picture and set 30px higher so
+                     its sides meet the arrows on the circle. -->
+                <img class="chip-approvals" :src="'/login-approvals.png'" alt="" width="280" height="106" />
 
-            <svg class="flow" viewBox="0 0 1671 941" aria-hidden="true">
-                <g v-for="(a, i) in FLOW_ARROWS" :key="i">
-                    <path v-if="a.tail" class="arrow-tail" :d="a.tail" />
-                    <path :ref="(el) => (flowLines[i] = el)" class="arrow-line" :d="a.line" pathLength="1" />
-                </g>
-            </svg>
+                <svg class="flow" viewBox="0 0 1671 941" aria-hidden="true">
+                    <g v-for="(a, i) in FLOW_ARROWS" :key="i">
+                        <path v-if="a.tail" class="arrow-tail" :d="a.tail" />
+                        <path :ref="(el) => (flowLines[i] = el)" class="arrow-line" :d="a.line" pathLength="1" />
+                    </g>
+                </svg>
+            </div>
 
             <!-- Guest tracking: the read-only viewer, no sign-in. -->
             <button
@@ -463,8 +453,8 @@ import { useApi } from "@/composables/useApi";
 import { useMotion } from "@/composables/useMotion";
 import { officeIcon } from "@/utils/officeIcons";
 
-// Animations on/off (footer switch; shared with the sidebar button).
-const { motionEnabled, toggleMotion } = useMotion();
+// Respect the shared motion preference without showing a login toggle.
+const { motionEnabled } = useMotion();
 
 const router = useRouter();
 const auth = useAuth();
@@ -1460,16 +1450,24 @@ async function guestLogin() {
     font-size: 26px;
 }
 
-/* ---- Headline: upper right corner, below the Animations switch ---- */
-.hero-eyebrow {
-    right: 52px;
+/* One shared right edge avoids shrink-to-fit flex differences between browsers. */
+.hero-heading {
+    right: 50px;
     top: 66px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    width: max-content;
+    gap: 3px;
+}
+.hero-eyebrow {
+    width: max-content;
     display: flex;
     align-items: center;
     gap: 14px;
     margin: 0;
     font-family: var(--display);
-    font-size: 22px;
+    font-size: 25.3px;
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1485,11 +1483,10 @@ async function guestLogin() {
     display: none;
 }
 .hero-title {
-    right: 50px;
-    top: 96px;
+    transform: translateX(20px);
     margin: 0;
     font-family: var(--display);
-    font-size: 58px;
+    font-size: 66.7px;
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.01em;
@@ -1498,13 +1495,22 @@ async function guestLogin() {
     color: #0e3a8c;
 }
 .hero-bar {
-    z-index: 2;
-    right: 54px;
-    top: 162px;
+    margin-top: 5px;
     width: 126px;
     height: 5px;
     border-radius: 999px;
     background: #1a5fd0;
+}
+
+/* Scale the artwork and arrow overlays together, excluding the tracking button. */
+.illustration {
+    inset: 0;
+    transform: scale(0.77);
+    transform-origin: 1100px 550px;
+    pointer-events: none;
+}
+.illustration > * {
+    position: absolute;
 }
 
 /* ---- Scene (cut from the reference), edges faded into the page ---- */
@@ -1561,8 +1567,8 @@ async function guestLogin() {
 
 /* ---- Track your Transaction: the slanted blue tab ---- */
 .track {
-    left: 1192px;
-    top: 712px;
+    left: 1214px;
+    top: 663.4px;
     width: 440px;
     height: 88px;
     padding: 0;
@@ -1651,63 +1657,9 @@ async function guestLogin() {
     transform: skewX(19deg) translateX(4px);
 }
 
-/* Animations switch, top-right corner. */
-.motion-switch {
-    position: fixed;
-    top: 12px;
-    right: 14px;
-    z-index: 3;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 9px 3px 4px;
-    border: 1px solid #c6d6f2;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.85);
-    font: inherit;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--navy);
-    cursor: pointer;
-}
-.motion-switch:focus-visible {
-    outline: 3px solid rgba(29, 86, 196, 0.35);
-    outline-offset: 2px;
-}
-.motion-track {
-    position: relative;
-    width: 24px;
-    height: 14px;
-    border-radius: 999px;
-    background: #c9d3e4;
-    transition: background 0.2s ease;
-}
-.motion-track i {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #ffffff;
-    transition: transform 0.2s ease;
-}
-.motion-switch[aria-checked="true"] .motion-track {
-    background: var(--blue);
-}
-.motion-switch[aria-checked="true"] .motion-track i {
-    transform: translateX(10px);
-}
-
 .spin {
-    width: 26px;
-    height: 26px;
-    border: 3px solid rgba(255, 255, 255, 0.4);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    border-color: rgba(14, 58, 140, 0.25);
+    border-top-color: #0e3a8c;
 }
 @keyframes spin {
     to { transform: rotate(360deg); }
@@ -1736,12 +1688,8 @@ async function guestLogin() {
     .artboard > * {
         position: static;
     }
-    .hero-eyebrow,
-    .hero-title,
-    .hero-bar,
-    .scene,
-    .chip-approvals,
-    .flow {
+    .hero-heading,
+    .illustration {
         display: none;
     }
     .card {
