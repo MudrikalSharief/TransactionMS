@@ -51,8 +51,8 @@ class TransactionStepRunResource extends JsonResource
     }
 
     /**
-     * User payload for history From/To User cells: identity + roles.
-     * Roles render as colored chips in the same column on the frontend.
+     * User payload for history From/To User cells: identity + position.
+     * Position is shown beside the name; roles remain for API compatibility.
      */
     private function userPayload($user): ?array
     {
@@ -64,7 +64,7 @@ class TransactionStepRunResource extends JsonResource
         }
 
         return array_merge(
-            $user->only(['id', 'name', 'email']),
+            $user->only(['id', 'name', 'email', 'position']),
             ['roles' => $roles],
         );
     }

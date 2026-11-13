@@ -284,6 +284,46 @@
           </button>
         </template>
 
+        <template v-slot:[`item.position`]="{ item }">
+          <div v-if="editingPositionId === item.id" class="us-name-edit">
+            <input
+              :ref="setPositionInput"
+              v-model="positionDraft"
+              type="text"
+              class="us-name-input"
+              maxlength="120"
+              aria-label="Edit user position"
+              autocomplete="organization-title"
+              :disabled="rowBusyId === item.id"
+              @keyup.enter="savePosition(item)"
+              @keyup.esc="cancelPositionEdit"
+              @blur="savePosition(item)"
+            />
+            <span
+              v-if="positionSavingId === item.id"
+              class="us-inline-spin"
+              aria-hidden="true"
+            />
+          </div>
+          <button
+            v-else
+            type="button"
+            class="us-cell-edit us-position-btn"
+            :class="{ 'is-editable': canInlineEdit(item) }"
+            :disabled="!canInlineEdit(item) || rowBusyId === item.id"
+            :title="canInlineEdit(item) ? 'Click to edit position' : cellLockReason(item)"
+            @click="startPositionEdit(item)"
+          >
+            <span class="us-position" :title="item.position || ''">{{ item.position || '—' }}</span>
+            <v-icon
+              v-if="canInlineEdit(item)"
+              class="us-edit-hint"
+              size="14"
+              aria-hidden="true"
+            >mdi-pencil</v-icon>
+          </button>
+        </template>
+
         <template v-slot:[`item.username`]="{ item }">
           <span v-if="item.username" class="us-email">{{ item.username }}</span>
           <span v-else class="us-dash">—</span>
@@ -749,6 +789,29 @@
             </div>
           </div>
 
+          <div class="nu-field" :class="{ 'is-bad': errors.position }">
+            <label class="nu-label" for="nu-position">
+              Position <span class="nu-opt">(optional)</span>
+            </label>
+            <input
+              id="nu-position"
+              v-model="form.position"
+              class="nu-input"
+              type="text"
+              maxlength="120"
+              placeholder="e.g. Administrative Officer"
+              autocomplete="organization-title"
+              autocapitalize="words"
+              :aria-invalid="!!errors.position"
+              :aria-describedby="errors.position ? 'nu-position-err' : undefined"
+              :disabled="saving"
+              @input="clearError('position')"
+            />
+            <div v-if="errors.position" id="nu-position-err" class="nu-err">
+              {{ errors.position }}
+            </div>
+          </div>
+
           <div class="nu-field" :class="{ 'is-bad': errors.username }">
             <label class="nu-label" for="nu-username">
               Username <span class="nu-opt">(optional)</span>
@@ -1110,20 +1173,22 @@ const ACTIONS_W = 132
 // inside their columns, and Status and the actions always stay in view.
 const headers = officeMode
   ? [
-      { title: 'Name', key: 'name', width: '24%' },
-      { title: 'Username', key: 'username', width: '17%' },
-      { title: 'Contact number', key: 'contact_number', sortable: false, width: '16%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '16%' },
-      { title: 'Status', key: 'is_active', width: '13%' },
+      { title: 'Name', key: 'name', width: '22%' },
+      { title: 'Position', key: 'position', width: '13%' },
+      { title: 'Username', key: 'username', width: '13%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '14%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '14%' },
+      { title: 'Status', key: 'is_active', width: '11%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
   : [
-      { title: 'Name', key: 'name', width: '19%' },
-      { title: 'Username', key: 'username', width: '14%' },
-      { title: 'Contact number', key: 'contact_number', sortable: false, width: '14%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '13%' },
-      { title: 'Office', key: 'office', sortable: false, width: '16%' },
-      { title: 'Status', key: 'is_active', width: '13%' },
+      { title: 'Name', key: 'name', width: '17%' },
+      { title: 'Position', key: 'position', width: '12%' },
+      { title: 'Username', key: 'username', width: '12%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '13%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '12%' },
+      { title: 'Office', key: 'office', sortable: false, width: '14%' },
+      { title: 'Status', key: 'is_active', width: '10%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
 
@@ -1311,6 +1376,7 @@ const filtered = computed(() => {
         u.username,
         u.email,
         u.contact_number,
+        u.position,
         (u.roles || []).map((r) => r.name).join(' '),
         u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
         u.pending_approval ? 'waiting for approval pending' : u.is_active ? 'active' : 'inactive',
@@ -1329,6 +1395,11 @@ const nameDraft = ref('')
 const nameSavingId = ref(null)
 let nameInputEl = null
 
+const editingPositionId = ref(null)
+const positionDraft = ref('')
+const positionSavingId = ref(null)
+let positionInputEl = null
+
 const roleMenuId = ref(null)
 const roleDraft = ref([])
 const roleDraftSearch = ref('')
@@ -1344,6 +1415,7 @@ const statusSavingId = ref(null)
 const inlineBusyId = computed(
   () =>
     nameSavingId.value ??
+    positionSavingId.value ??
     roleSavingId.value ??
     officeSavingId.value ??
     statusSavingId.value ??
@@ -1354,6 +1426,10 @@ const rowBusyId = computed(() => inlineBusyId.value ?? busyId.value ?? null)
 
 function setNameInput(el) {
   nameInputEl = el
+}
+
+function setPositionInput(el) {
+  positionInputEl = el
 }
 
 function canInlineEdit(item) {
@@ -1373,11 +1449,11 @@ function itemOfficeId(item) {
   return null
 }
 
-// Inline updates send the full current row, including optional contact email,
-// the full current row plus the one field that changed.
+// Inline updates send the full current row plus the one field that changed.
 function buildUserPayload(item, overrides = {}) {
   return {
     name: item.name,
+    position: item.position || null,
     username: item.username || '',
     email: item.email,
     contact_number: item.contact_number || null,
@@ -1412,6 +1488,50 @@ async function startNameEdit(item) {
   await nextTick()
   nameInputEl?.focus()
   nameInputEl?.select?.()
+}
+
+async function startPositionEdit(item) {
+  if (!canInlineEdit(item) || rowBusyId.value != null) return
+  editingPositionId.value = item.id
+  positionDraft.value = item.position || ''
+  await nextTick()
+  positionInputEl?.focus()
+  positionInputEl?.select?.()
+}
+
+function cancelPositionEdit() {
+  if (positionSavingId.value != null) return
+  editingPositionId.value = null
+  positionDraft.value = ''
+}
+
+async function savePosition(item) {
+  if (editingPositionId.value !== item.id) return
+  if (rowBusyId.value != null) return
+  const next = positionDraft.value.trim()
+  if (next === String(item.position || '').trim()) {
+    editingPositionId.value = null
+    positionDraft.value = ''
+    return
+  }
+  positionSavingId.value = item.id
+  try {
+    const updated = await updateUser(
+      item.id,
+      buildUserPayload(item, { position: next || null }),
+    )
+    replaceUser(updated)
+    editingPositionId.value = null
+    positionDraft.value = ''
+    toastSuccess('Position updated.')
+  } catch (e) {
+    toastError(apiErrorMessage(e, 'Could not update the position.'))
+    positionSavingId.value = null
+    await nextTick()
+    positionInputEl?.focus()
+  } finally {
+    positionSavingId.value = null
+  }
 }
 
 function cancelNameEdit() {
@@ -1668,6 +1788,7 @@ function blankForm() {
   return {
     id: null,
     name: '',
+    position: '',
     username: '',
     email: '',
     contact_number: '',
@@ -1682,6 +1803,7 @@ function blankForm() {
 function blankErrors() {
   return {
     name: '',
+    position: '',
     username: '',
     email: '',
     contact_number: '',
@@ -1789,8 +1911,10 @@ function validate() {
   const email = form.value.email.trim()
   const contact = String(form.value.contact_number || '').trim()
   const password = form.value.password || ''
+  const position = String(form.value.position || '').trim()
 
   if (!name) next.name = 'Enter the user’s name.'
+  if (position.length > 120) next.position = 'Use at most 120 characters for the position.'
 
   const username = form.value.username.trim()
   if (username && (username.length < 3 || !USERNAME_RE.test(username))) {
@@ -1891,6 +2015,7 @@ async function save() {
     const payload = {
       name: form.value.name.trim(),
       // Blank generates a unique username from the account name.
+      position: String(form.value.position || '').trim() || null,
       username: form.value.username.trim().toLowerCase() || null,
       email: form.value.email.trim(),
       contact_number: String(form.value.contact_number || '').trim() || null,
@@ -1940,6 +2065,8 @@ watch([search, filterRole, filterOffice, page], () => {
   officeMenuId.value = null
   editingNameId.value = null
   nameDraft.value = ''
+  editingPositionId.value = null
+  positionDraft.value = ''
 })
 watch(roleMenuOpen, (open) => {
   if (open) roleFilterSearch.value = ''
@@ -2335,6 +2462,14 @@ html.dark .us-page {
     overflow-wrap: anywhere;
     white-space: normal;
 }
+.us-position {
+    display: block;
+    color: var(--us-ink);
+    font-weight: 500;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
 .us-dash {
     color: var(--us-muted);
 }
@@ -2383,6 +2518,17 @@ html.dark .us-page {
     align-items: flex-start;
     gap: 0;
     padding-right: 20px;
+}
+.us-position-btn {
+    position: relative;
+    padding-right: 20px;
+}
+.us-position-btn .us-edit-hint {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    margin-left: 0;
+    transform: translateY(-50%);
 }
 .us-name-btn .us-edit-hint {
     position: absolute;

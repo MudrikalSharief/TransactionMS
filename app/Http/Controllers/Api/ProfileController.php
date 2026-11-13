@@ -32,8 +32,11 @@ class ProfileController extends Controller
     {
         $user = $this->profileUser($request);
 
-        // Usernames are stored lowercase and trimmed (same as sign-up).
-        $request->merge(['username' => User::normalizeUsername($request->input('username'))]);
+        // Usernames are stored lowercase and trimmed (same as sign-up). An
+        // update that does not send one keeps the account's current username.
+        $request->merge([
+            'username' => User::normalizeUsername($request->input('username') ?? $user->username),
+        ]);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],

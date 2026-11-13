@@ -94,7 +94,7 @@
                                         </v-avatar>
                                         <div>
                                             <div class="text-body-2 font-weight-medium lh-1">{{ run.performed_by?.name || '—' }}</div>
-                                            <div v-if="userRoleText(run.performed_by)" class="text-caption text-medium-emphasis">{{ userRoleText(run.performed_by) }}</div>
+                                            <div v-if="userPositionText(run.performed_by)" class="text-caption text-medium-emphasis">{{ userPositionText(run.performed_by) }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -128,7 +128,7 @@
                                     <v-row v-if="isCreateRun(run)" dense>
                                             <v-col cols="12" sm="4">
                                                 <div class="history-label">Created By</div>
-                                                <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                                <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userPositionText(run.performed_by)" class="text-medium-emphasis"> · {{ userPositionText(run.performed_by) }}</span></div>
                                             </v-col>
                                             <v-col cols="12" sm="4">
                                                 <div class="history-label">Current Location</div>
@@ -150,11 +150,11 @@
                                             </v-col>
                                             <v-col cols="12" sm="6">
                                                 <div class="history-label">From User</div>
-                                                <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                                <div class="history-value">{{ run.performed_by?.name || '—' }}<span v-if="userPositionText(run.performed_by)" class="text-medium-emphasis"> · {{ userPositionText(run.performed_by) }}</span></div>
                                             </v-col>
                                             <v-col cols="12" sm="6">
                                                 <div class="history-label">To User</div>
-                                                <div class="history-value">{{ run.received_by?.name || '—' }}<span v-if="userRoleText(run.received_by)" class="text-medium-emphasis"> · {{ userRoleText(run.received_by) }}</span></div>
+                                                <div class="history-value">{{ run.received_by?.name || '—' }}<span v-if="userPositionText(run.received_by)" class="text-medium-emphasis"> · {{ userPositionText(run.received_by) }}</span></div>
                                             </v-col>
                                             <v-col cols="12" sm="6">
                                                 <div class="history-label">Released</div>
@@ -236,7 +236,7 @@
                             </v-avatar>
                             <div>
                                 <div class="text-body-2 font-weight-medium lh-1">{{ run.performed_by?.name || '—' }}</div>
-                                <div v-if="userRoleText(run.performed_by)" class="text-caption text-medium-emphasis">{{ userRoleText(run.performed_by) }}</div>
+                                <div v-if="userPositionText(run.performed_by)" class="text-caption text-medium-emphasis">{{ userPositionText(run.performed_by) }}</div>
                             </div>
                         </div>
                         <div class="text-caption text-medium-emphasis mt-2">{{ formatHistoryDate(mainTimestamp(run)) }}</div>
@@ -248,7 +248,7 @@
                             <div v-if="isOpen(run.id)" class="mt-3 pt-3 history-mobile-details" @click.stop>
                                 <template v-if="isCreateRun(run)">
                                     <div class="history-label">Created By</div>
-                                    <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                    <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userPositionText(run.performed_by)" class="text-medium-emphasis"> · {{ userPositionText(run.performed_by) }}</span></div>
                                     <div class="history-label">Current Location</div>
                                     <div class="history-value mb-2">{{ detailStepText(run.to_step) }}</div>
                                     <div class="history-label">Bound To</div>
@@ -260,9 +260,9 @@
                                     <div class="history-label">To Step</div>
                                     <div class="history-value mb-2">{{ detailStepText(run.to_step) }}</div>
                                     <div class="history-label">From User</div>
-                                    <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userRoleText(run.performed_by)" class="text-medium-emphasis"> · {{ userRoleText(run.performed_by) }}</span></div>
+                                    <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userPositionText(run.performed_by)" class="text-medium-emphasis"> · {{ userPositionText(run.performed_by) }}</span></div>
                                     <div class="history-label">To User</div>
-                                    <div class="history-value mb-2">{{ run.received_by?.name || '—' }}<span v-if="userRoleText(run.received_by)" class="text-medium-emphasis"> · {{ userRoleText(run.received_by) }}</span></div>
+                                    <div class="history-value mb-2">{{ run.received_by?.name || '—' }}<span v-if="userPositionText(run.received_by)" class="text-medium-emphasis"> · {{ userPositionText(run.received_by) }}</span></div>
                                     <div class="history-label">Released</div>
                                     <div class="history-value mb-2">{{ formatHistoryDate(run.released_at || run.performed_at) }}</div>
                                     <div class="history-label">Received</div>
@@ -304,7 +304,7 @@ import {
     movementOf,
     stepLabelOf,
     detailStepText,
-    userRoleText,
+    userPositionText,
 } from '@/utils/history';
 
 const props = defineProps({
@@ -391,7 +391,9 @@ const filtered = computed(() => {
                 getActionConfig(r?.action_code).label,
                 r?.remarks,
                 r?.performed_by?.name,
+                r?.performed_by?.position,
                 r?.received_by?.name,
+                r?.received_by?.position,
                 movementOf(r).from,
                 movementOf(r).to,
                 detailStepText(r?.from_step),

@@ -26,6 +26,36 @@
             </v-btn>
         </v-card-title>
 
+        <div class="report-filters">
+            <v-select
+                v-model="period"
+                :items="periodOptions"
+                label="Period"
+                prepend-inner-icon="mdi-calendar-range"
+                variant="outlined"
+                density="compact"
+                rounded="lg"
+                hide-details
+                class="report-filter"
+            />
+            <v-select
+                v-if="isSuperadmin"
+                v-model="offices"
+                :items="officeOptions"
+                label="Offices"
+                prepend-inner-icon="mdi-office-building-outline"
+                variant="outlined"
+                density="compact"
+                rounded="lg"
+                hide-details
+                multiple
+                chips
+                closable-chips
+                clearable
+                class="report-filter report-filter--offices"
+            />
+        </div>
+
         <v-alert v-if="error" type="error" variant="tonal" density="compact" rounded="0" class="ma-2">{{ error }}</v-alert>
 
         <div class="report-note text-caption text-medium-emphasis">
@@ -60,25 +90,33 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useApi } from "@/composables/useApi";
-import { useAuth } from "@/composables/useAuth";
+import { isSuperadminUser, useAuth } from "@/composables/useAuth";
+import { useOffices } from "@/composables/useOffices";
 import { useFitScreen } from "@/composables/useFitScreen";
 import { toast } from "@/composables/useToast";
+import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
 import { downloadXlsx, downloadPdf, fmtMinutes } from "@/utils/reportExport";
-
-const props = defineProps({
-    // Dashboard Period filter value ('all' | 'this_week' | 'YYYY-MM').
-    period: { type: String, default: "all" },
-    // Superadmin office filter (office admins are scoped by the server).
-    offices: { type: Array, default: () => [] },
-    // Label of the office scope shown under the title ("All offices", "CSD"…).
-    scopeLabel: { type: String, default: "" },
-});
 
 const { api } = useApi();
 const { user } = useAuth();
+const officeStore = useOffices();
 const { vFitBody, rows } = useFitScreen();
+
+const isSuperadmin = computed(() => isSuperadminUser(user.value));
+const period = ref("all");
+const offices = ref([]);
+const periodOptions = computed(() => dashPeriodOptions());
+const officeOptions = computed(() =>
+    [...(officeStore.items.value || [])]
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map((o) => ({
+            title: o.code ? `${o.code} — ${o.name}` : o.name,
+            code: o.code || o.name,
+            value: o.id,
+        })),
+);
 
 // Table rows that fit the card body: header 32px + 34px per row.
 const ROW_PX = 34;
@@ -96,7 +134,7 @@ async function load() {
     loading.value = true;
     try {
         const res = await api.get("/api/admin/reports/monitoring", {
-            params: { period: props.period, ...(props.offices.length ? { offices: props.offices } : {}) },
+            params: { period: period.value, ...(offices.value.length ? { offices: offices.value } : {}) },
         });
         if (mine !== request) return;
         report.value = res.data;
@@ -107,9 +145,25 @@ async function load() {
         if (mine === request) loading.value = false;
     }
 }
-watch(() => [props.period, props.offices], load, { deep: true, immediate: true });
+watch([period, offices], load, { deep: true, immediate: true });
 
-const scopeText = computed(() => [report.value?.period?.label || "All time", props.scopeLabel].filter(Boolean).join(" · "));
+onMounted(() => {
+    if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {});
+});
+
+const officeFilterLabel = computed(() => {
+    if (!isSuperadmin.value) {
+        return user.value?.office?.code || user.value?.office?.name || "Your office";
+    }
+    if (!offices.value.length) return "All offices";
+    const selected = officeOptions.value.filter((o) => offices.value.includes(o.value));
+    if (selected.length <= 2) return selected.map((o) => o.code).join(", ");
+    return `${selected.length} offices`;
+});
+
+const scopeText = computed(() =>
+    [report.value?.period?.label || "All time", officeFilterLabel.value].filter(Boolean).join(" · "),
+);
 
 const officeLabel = (o) => (o ? (o.code ? `${o.code} — ${o.name}` : o.name) : "—");
 const countColumns = [
@@ -227,6 +281,30 @@ defineExpose({ reload: load });
 <style scoped>
 .report-head {
     row-gap: 6px;
+}
+.report-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 16px 10px;
+}
+.report-filter {
+    flex: 0 0 180px;
+    width: 180px;
+}
+.report-filter--offices {
+    flex: 1 1 260px;
+    width: 260px;
+    max-width: 440px;
+}
+@media (max-width: 700px) {
+    .report-filter,
+    .report-filter--offices {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: none;
+    }
 }
 /* Same small subtitle as the other dashboard cards. */
 .dash-panel-sub {
