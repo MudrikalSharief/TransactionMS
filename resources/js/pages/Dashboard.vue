@@ -214,7 +214,7 @@
                                 </v-list>
                             </v-menu>
                         </v-card-title>
-                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': (summaryLoading && summary) || (overduePieLoading && overduePieData) }">
+                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': overduePieLoading && overduePieData }">
                             <v-alert v-if="overduePieError" type="error" variant="tonal" density="compact" class="ma-2">
                                 {{ overduePieError }}
                             </v-alert>
@@ -227,8 +227,8 @@
                             <div v-else-if="overduePieLoading" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="40" width="3" />
                             </div>
-                            <div v-else-if="summary || overduePieData" class="text-caption text-medium-emphasis">
-                                No overdue transactions{{ overduePieMonth === 'all' ? '' : ` in ${overduePieMonthLabel}` }}.
+                            <div v-else-if="overduePieData" class="text-caption text-medium-emphasis">
+                                No overdue transactions in {{ overduePieMonthLabel }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -856,16 +856,13 @@ const chartLoading = ref(false)
 const chartError = ref('')
 let chartRequest = 0
 
-// The overdue-by-office pie has its own month filter: All time keeps the
-// all-current summary view, while a month uses the same overdue overview as
-// the chart but only changes this card.
-const overduePieMonth = ref('all')
-const overduePieMonthOptions = computed(() => [
-    { title: 'All time', value: 'all' },
-    ...monthOptions(),
-])
+// The overdue-by-office pie always uses monthly data; it no longer falls back
+// to the all-time summary. It has its own month filter, independent of the
+// chart's Month/Office filters.
+const overduePieMonth = ref(monthValue(new Date()))
+const overduePieMonthOptions = computed(() => monthOptions())
 const overduePieMonthLabel = computed(
-    () => overduePieMonthOptions.value.find((o) => o.value === overduePieMonth.value)?.title || 'All time',
+    () => overduePieMonthOptions.value.find((o) => o.value === overduePieMonth.value)?.title || overduePieMonth.value,
 )
 const overduePieData = ref(null)
 const overduePieLoading = ref(false)
@@ -912,13 +909,6 @@ watch([chartEndMonth, chartOfficeId], () => {
 
 async function loadOverduePie({ silent = false } = {}) {
     if (!canSeeSummary.value) return
-    if (overduePieMonth.value === 'all') {
-        overduePieRequest++
-        overduePieData.value = null
-        overduePieLoading.value = false
-        overduePieError.value = ''
-        return
-    }
 
     const mine = ++overduePieRequest
     overduePieError.value = ''
@@ -976,15 +966,11 @@ const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// The pie's active source: all-current summary data, or the fetched month.
-const overdueOfficeSource = computed(() =>
-    overduePieMonth.value === 'all'
-        ? summary.value?.overdue_by_office
-        : overduePieData.value?.overdue_by_office,
-)
+// The pie's active source: the fetched month's office breakdown.
+const overdueOfficeSource = computed(() => overduePieData.value?.overdue_by_office)
 
-// Without the global Period/Offices filters, the summary cards and pies show
-// all-time data. Office admins are still scoped by the server.
+// Without the global Period/Offices filters, the summary tiles show all-time
+// data. Office admins are still scoped by the server.
 const summaryQuery = computed(() => ({ month: 'all' }))
 
 // One key for both the setup paint and refreshes. storedUserId() covers the
@@ -1355,7 +1341,7 @@ onMounted(async () => {
     // summary first (most visible), then the chart and accounts.
     loadSummary().catch(() => {})
     loadChart()
-    if (overduePieMonth.value !== 'all') loadOverduePie()
+    loadOverduePie()
     if (canApproveAccounts.value) loadAccounts()
     if (isSuperadmin.value) {
         officeStore.fetchAll({ silent: true }).catch(() => {})
@@ -1373,7 +1359,7 @@ useSmartPoll(async () => {
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
         loadChart({ silent: true })
-        if (overduePieMonth.value !== 'all') loadOverduePie({ silent: true })
+        loadOverduePie({ silent: true })
         loadAccounts({ silent: true })
         refreshedAt.value = new Date()
     } catch {

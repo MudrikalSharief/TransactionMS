@@ -30,8 +30,6 @@ use Illuminate\Support\Collection;
  * ignores the process filter so the card can fade unpicked processes.
  * office_code limits everything to one office by its code (the dashboard
  * sends the office its graph covers).
- * overdue_by_office: offices with open transactions whose combined working
- * time exceeds the sum of their stations' SLA limits, busiest first.
  * Superadmins also get, five offices each:
  *   on_time_by_office  completed in the period (archived included) before the
  *                      transaction's deadline (sum of its stations' time
@@ -95,10 +93,6 @@ class DashboardSummaryController extends Controller
                 'completed' => $this->completedQuery()->count(),
                 'in_process' => $inProcess->count(),
                 'overdue' => $overdue->count(),
-                // The dashboard's Overdue Transactions pie: open papers whose
-                // total working time is over their combined SLA (all current,
-                // independent of the Period filter), by originating office.
-                'overdue_by_office' => $sla['overdue_by_office'],
                 // Overdue step counts (all periods' open work, per step and
                 // per office) for anything reading the SLA figures.
                 'overdue_steps' => $sla['overdue_steps'],
@@ -712,12 +706,10 @@ class DashboardSummaryController extends Controller
                     'toStep:id,sla_minutes,office_id,is_end_user',
                     'toStep.office:id,code,name',
                 ])])
-            ->with('office:id,code,name')
             ->get();
 
         $overdueSteps = 0;
         $overdueTransactions = 0;
-        $byOffice = [];
         $byStepOffice = [];
 
         foreach ($txs as $tx) {
@@ -761,25 +753,12 @@ class DashboardSummaryController extends Controller
 
             if (!$tx->is_done && $allowed > 0 && $actual > $allowed) {
                 $overdueTransactions++;
-                $office = $tx->office;
-                $officeId = $office?->id ?? 0;
-                $byOffice[$officeId] ??= [
-                    'id' => $office?->id,
-                    'code' => $office?->code,
-                    'name' => $office?->name ?? 'No office',
-                    'count' => 0,
-                ];
-                $byOffice[$officeId]['count']++;
             }
         }
 
         return [
             'overdue_steps' => $overdueSteps,
             'overdue_transactions' => $overdueTransactions,
-            'overdue_by_office' => collect($byOffice)
-                ->sortByDesc('count')
-                ->values()
-                ->all(),
             'overdue_steps_by_office' => collect($byStepOffice)
                 ->sortByDesc('count')
                 ->values()

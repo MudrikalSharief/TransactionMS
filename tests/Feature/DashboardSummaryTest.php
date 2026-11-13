@@ -318,9 +318,6 @@ class DashboardSummaryTest extends TestCase
         $this->summary()
             ->assertJsonPath('overdue_steps', 3)
             ->assertJsonPath('overdue_transactions', 1)
-            ->assertJsonCount(1, 'overdue_by_office')
-            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
-            ->assertJsonPath('overdue_by_office.0.count', 1)
             ->assertJsonCount(2, 'overdue_steps_by_office')
             ->assertJsonPath('overdue_steps_by_office.0.code', 'CHRMO')
             ->assertJsonPath('overdue_steps_by_office.0.count', 2)
@@ -337,7 +334,6 @@ class DashboardSummaryTest extends TestCase
         $this->summary(['month' => '2026-08'])
             ->assertJsonPath('overdue_steps', 0)
             ->assertJsonPath('overdue_transactions', 1)
-            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
             ->assertJsonCount(0, 'overdue_steps_by_office');
     }
 
