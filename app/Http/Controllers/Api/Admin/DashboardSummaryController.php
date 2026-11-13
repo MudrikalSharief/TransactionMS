@@ -121,9 +121,10 @@ class DashboardSummaryController extends Controller
     }
 
     /**
-     * One month of Transaction Status counts plus the top three overdue
-     * step + office pairs. Both share the card's Month and Office filters;
-     * the office filter narrows by the office handling the step.
+     * One month of Transaction Status counts, the top three overdue step +
+     * office pairs, and the open papers with a late step that month grouped
+     * by filing office. The month and office filters narrow the step data;
+     * the pie uses only the month and keeps the office grouping by filer.
      */
     public function overdueOverview(Request $request)
     {
@@ -787,9 +788,11 @@ class DashboardSummaryController extends Controller
     }
 
     /**
-     * Three months of status counts plus the selected month's top overdue
-     * step + office pairs. The ending month is the card's Month filter; the
-     * office filter narrows by the office handling the step.
+     * Three months of status counts, the selected month's top overdue step +
+     * office pairs, and the open papers with a late step that month grouped
+     * by filing office (the month view of the dashboard pie). The ending month
+     * is the card's Month filter; the office filter narrows by the office
+     * handling the step.
      */
     private function overdueOverviewData(
         Carbon $selectedStart,
@@ -839,11 +842,13 @@ class DashboardSummaryController extends Controller
             ->get();
 
         $groups = [];
+        $byOffice = [];
 
         foreach ($txs as $tx) {
             $runs = $tx->runs->values();
             $officeVisitMonths = [];
             $finalizedMonths = [];
+            $lateInSelectedMonth = false;
 
             foreach ($runs as $i => $run) {
                 if (!$run->performed_at) continue;
@@ -879,6 +884,8 @@ class DashboardSummaryController extends Controller
 
                     if ($bucket['key'] !== $selectedKey || $wait <= $sla) continue;
 
+                    $lateInSelectedMonth = true;
+
                     $key = $step->id.'|'.($office?->id ?? 0).'|'.$bucket['key'];
                     $groups[$key] ??= [
                         'step_id' => $step->id,
@@ -905,6 +912,21 @@ class DashboardSummaryController extends Controller
                 continue;
             }
 
+            // The month view of the pie: open papers that had a late step in
+            // the selected month, counted once per paper and grouped by the
+            // office that filed it (the same grouping as the all-current pie).
+            if ($lateInSelectedMonth) {
+                $office = $tx->office;
+                $officeId = $office?->id ?? 0;
+                $byOffice[$officeId] ??= [
+                    'id' => $office?->id,
+                    'code' => $office?->code,
+                    'name' => $office?->name ?? 'No office',
+                    'count' => 0,
+                ];
+                $byOffice[$officeId]['count']++;
+            }
+
             $createdKey = $tx->created_at?->copy()->setTimezone(self::TZ)->format('Y-m');
             if ($createdKey && isset($buckets[$createdKey]) && $officeMatches($createdKey)) {
                 $buckets[$createdKey][$this->overdueMinutes($tx) > 0 ? 'overdue' : 'in_process']++;
@@ -924,6 +946,10 @@ class DashboardSummaryController extends Controller
             'label' => $selectedStart->format('F Y'),
             'months' => array_values($buckets),
             'steps' => $steps,
+            'overdue_by_office' => collect($byOffice)
+                ->sortByDesc('count')
+                ->values()
+                ->all(),
         ];
     }
 

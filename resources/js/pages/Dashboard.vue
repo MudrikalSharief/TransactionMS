@@ -185,16 +185,50 @@
                                 <div class="text-subtitle-1 font-weight-bold">Overdue Transactions by Office</div>
                                 <div class="dash-panel-sub">Which offices hold the most late items</div>
                             </div>
+                            <v-spacer />
+                            <v-menu location="bottom end" offset="6" :close-on-content-click="true">
+                                <template #activator="{ props }">
+                                    <button
+                                        v-bind="props"
+                                        type="button"
+                                        class="topsteps-month"
+                                        aria-label="Filter overdue transactions by month"
+                                    >
+                                        <v-icon size="16">mdi-calendar-range</v-icon>
+                                        <span>{{ overduePieMonthLabel }}</span>
+                                        <v-icon size="16">mdi-chevron-down</v-icon>
+                                    </button>
+                                </template>
+                                <v-list density="compact" class="topsteps-month-list">
+                                    <v-list-item
+                                        v-for="m in overduePieMonthOptions"
+                                        :key="m.value"
+                                        :active="overduePieMonth === m.value"
+                                        @click="overduePieMonth = m.value"
+                                    >
+                                        <v-list-item-title>{{ m.title }}</v-list-item-title>
+                                        <template #append>
+                                            <v-icon v-if="overduePieMonth === m.value" size="18">mdi-check</v-icon>
+                                        </template>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
                         </v-card-title>
-                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': (summaryLoading && summary) || (overduePieLoading && overduePieData) }">
+                            <v-alert v-if="overduePieError" type="error" variant="tonal" density="compact" class="ma-2">
+                                {{ overduePieError }}
+                            </v-alert>
                             <OfficeDonut
-                                v-if="overdueOfficeRows.length"
+                                v-else-if="overdueOfficeRows.length"
                                 :slices="overdueOfficeRows"
                                 :size="transactionsPieSize"
                                 aria-label="Overdue transactions by office"
                             />
-                            <div v-else-if="summary" class="text-caption text-medium-emphasis">
-                                No overdue transactions.
+                            <div v-else-if="overduePieLoading" class="d-flex align-center justify-center dash-loading">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="40" width="3" />
+                            </div>
+                            <div v-else-if="summary || overduePieData" class="text-caption text-medium-emphasis">
+                                No overdue transactions{{ overduePieMonth === 'all' ? '' : ` in ${overduePieMonthLabel}` }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -822,6 +856,22 @@ const chartLoading = ref(false)
 const chartError = ref('')
 let chartRequest = 0
 
+// The overdue-by-office pie has its own month filter: All time keeps the
+// all-current summary view, while a month uses the same overdue overview as
+// the chart but only changes this card.
+const overduePieMonth = ref('all')
+const overduePieMonthOptions = computed(() => [
+    { title: 'All time', value: 'all' },
+    ...monthOptions(),
+])
+const overduePieMonthLabel = computed(
+    () => overduePieMonthOptions.value.find((o) => o.value === overduePieMonth.value)?.title || 'All time',
+)
+const overduePieData = ref(null)
+const overduePieLoading = ref(false)
+const overduePieError = ref('')
+let overduePieRequest = 0
+
 async function loadChart({ silent = false } = {}) {
     if (!canSeeSummary.value) return
     const mine = ++chartRequest
@@ -860,6 +910,49 @@ watch([chartEndMonth, chartOfficeId], () => {
     loadChart()
 })
 
+async function loadOverduePie({ silent = false } = {}) {
+    if (!canSeeSummary.value) return
+    if (overduePieMonth.value === 'all') {
+        overduePieRequest++
+        overduePieData.value = null
+        overduePieLoading.value = false
+        overduePieError.value = ''
+        return
+    }
+
+    const mine = ++overduePieRequest
+    overduePieError.value = ''
+    if (!silent || overduePieData.value == null) {
+        overduePieData.value = null
+        overduePieLoading.value = true
+    }
+    try {
+        const res = await api.get(
+            isSuperadmin.value
+                ? '/api/admin/dashboard/overdue-overview'
+                : '/api/office/dashboard/overdue-overview',
+            {
+                params: { month: overduePieMonth.value },
+                timeout: 10000,
+            },
+        )
+        if (mine !== overduePieRequest) return
+        overduePieData.value = res.data
+    } catch (e) {
+        if (mine !== overduePieRequest) return
+        overduePieData.value = null
+        overduePieError.value = e?.code === 'ECONNABORTED'
+            ? 'The monthly office breakdown took too long to load.'
+            : (e?.response?.data?.message || 'Failed to load the monthly office breakdown.')
+    } finally {
+        if (mine === overduePieRequest) overduePieLoading.value = false
+    }
+}
+
+watch(overduePieMonth, () => {
+    loadOverduePie()
+})
+
 const chartMonthLabel = computed(
     () => chartData.value?.label || chartMonthOptions.value.find((o) => o.value === chartEndMonth.value)?.title || chartEndMonth.value,
 )
@@ -882,6 +975,13 @@ const topSteps = computed(() => chartData.value?.steps || [])
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
+
+// The pie's active source: all-current summary data, or the fetched month.
+const overdueOfficeSource = computed(() =>
+    overduePieMonth.value === 'all'
+        ? summary.value?.overdue_by_office
+        : overduePieData.value?.overdue_by_office,
+)
 
 // Without the global Period/Offices filters, the summary cards and pies show
 // all-time data. Office admins are still scoped by the server.
@@ -965,7 +1065,7 @@ function sortedOfficeRows(source) {
 
 const officeColorMap = computed(() => {
     const seen = new Map()
-    for (const row of sortedOfficeRows(summary.value?.overdue_by_office).slice(0, MAX_OFFICE_SLICES)) {
+    for (const row of sortedOfficeRows(overdueOfficeSource.value).slice(0, MAX_OFFICE_SLICES)) {
         if (row.id != null) seen.set(row.id, row)
     }
     const sorted = [...seen.values()].sort((a, b) =>
@@ -1014,7 +1114,7 @@ function officePieRows(source) {
     return out
 }
 
-const overdueOfficeRows = computed(() => officePieRows(summary.value?.overdue_by_office))
+const overdueOfficeRows = computed(() => officePieRows(overdueOfficeSource.value))
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1255,6 +1355,7 @@ onMounted(async () => {
     // summary first (most visible), then the chart and accounts.
     loadSummary().catch(() => {})
     loadChart()
+    if (overduePieMonth.value !== 'all') loadOverduePie()
     if (canApproveAccounts.value) loadAccounts()
     if (isSuperadmin.value) {
         officeStore.fetchAll({ silent: true }).catch(() => {})
@@ -1272,6 +1373,7 @@ useSmartPoll(async () => {
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
         loadChart({ silent: true })
+        if (overduePieMonth.value !== 'all') loadOverduePie({ silent: true })
         loadAccounts({ silent: true })
         refreshedAt.value = new Date()
     } catch {
@@ -1629,9 +1731,10 @@ html.dark .summary-seg--danger {
     width: 190px;
     min-width: 132px;
 }
-/* Top Overdue Steps month picker chip. */
+/* Dashboard month filter chip (Top Overdue Steps and the overdue pie). */
 .topsteps-month {
     display: inline-flex;
+    flex: none;
     align-items: center;
     gap: 6px;
     padding: 4px 10px;

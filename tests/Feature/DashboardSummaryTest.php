@@ -422,7 +422,11 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('steps.1.count', 2)
             ->assertJsonPath('steps.2.step', 'Payroll third')
             ->assertJsonPath('steps.2.office.code', 'OCT')
-            ->assertJsonPath('steps.2.count', 1);
+            ->assertJsonPath('steps.2.count', 1)
+            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
+            ->assertJsonPath('overdue_by_office.0.count', 2)
+            ->assertJsonPath('overdue_by_office.1.code', 'GSO')
+            ->assertJsonPath('overdue_by_office.1.count', 1);
 
         // The office filter is by the office handling the step. Only the two
         // transactions with a GSO step count, and the same two rows rank.
@@ -438,7 +442,49 @@ class DashboardSummaryTest extends TestCase
             ->assertOk()
             ->assertJsonCount(3, 'months')
             ->assertJsonPath('months.2.overdue', 0)
-            ->assertJsonCount(0, 'steps');
+            ->assertJsonCount(0, 'steps')
+            ->assertJsonCount(0, 'overdue_by_office');
+
+        // The same papers were not late in September.
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-09')
+            ->assertOk()
+            ->assertJsonCount(0, 'overdue_by_office');
+    }
+
+    public function test_overdue_by_office_month_view_excludes_finished_papers(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-20 04:00:00', 'UTC'));
+
+        $this->payrollStep->update(['office_id' => $this->chrmo->id, 'sla_minutes' => 60]);
+
+        $addRun = function (Transaction $tx, int $minutesAgo, string $action = 'create') {
+            TransactionStepRun::create([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $this->payrollStep->id,
+                'to_step_id' => $this->payrollStep->id,
+                'action_code' => $action,
+                'performed_by' => $this->admin->id,
+                'performed_at' => now()->subMinutes($minutesAgo),
+                'received_at' => now()->subMinutes($minutesAgo),
+                'sla_minutes_snapshot' => 60,
+            ]);
+        };
+
+        // Open paper: its current visit is four hours over the one-hour SLA.
+        $open = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+        $addRun($open, 240);
+
+        // Finished paper: its step visit was late before it was finalized.
+        $done = $this->tx($this->payroll, 3, ['office' => $this->chrmo->id, 'finalizedDaysAgo' => 1]);
+        $addRun($done, 2 * 24 * 60);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08')
+            ->assertOk()
+            ->assertJsonCount(1, 'overdue_by_office')
+            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
+            ->assertJsonPath('overdue_by_office.0.count', 1);
     }
 
     public function test_top_overdue_steps_office_admin_scope_cannot_be_overridden(): void
@@ -517,7 +563,10 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('months.2.overdue', 1)
             ->assertJsonCount(1, 'steps')
             ->assertJsonPath('steps.0.office.code', 'CHRMO')
-            ->assertJsonPath('steps.0.count', 1);
+            ->assertJsonPath('steps.0.count', 1)
+            ->assertJsonCount(1, 'overdue_by_office')
+            ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
+            ->assertJsonPath('overdue_by_office.0.count', 1);
     }
 
     public function test_invalid_month_is_rejected(): void
