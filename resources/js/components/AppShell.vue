@@ -1,7 +1,7 @@
 <template>
     <v-app>
         <v-app-bar
-            v-if="showAuthUi"
+            v-if="showAuthUi && !isTrackerView"
             elevation="0"
             class="app-bar"
         >
@@ -114,23 +114,6 @@
                     <span class="d-none d-sm-inline">Back</span>
                 </button>
 
-                <!-- Tracker pages: the shared guest session gets a visible
-                     way back to sign-in instead of the account menu. -->
-                <v-btn
-                    v-if="isTrackerView"
-                    class="nav-login"
-                    color="primary"
-                    variant="flat"
-                    rounded="0"
-                    size="small"
-                    prepend-icon="mdi-login-variant"
-                    :loading="loggingOut"
-                    :disabled="loggingOut"
-                    @click="onLogout"
-                >
-                    Login
-                </v-btn>
-
                 <!-- Account: pressing the avatar opens a Facebook-style menu
                      with the profile header, settings and log out. Hidden for
                      the shared viewer account. -->
@@ -205,8 +188,25 @@
             </div>
         </v-app-bar>
 
+        <!-- Tracker pages: the shared guest session gets a visible
+             way back to sign-in instead of the account menu. -->
+        <v-btn
+            v-if="isTrackerView"
+            class="nav-login"
+            color="primary"
+            variant="flat"
+            rounded="0"
+            size="small"
+            prepend-icon="mdi-login-variant"
+            :loading="loggingOut"
+            :disabled="loggingOut"
+            @click="onLogout"
+        >
+            Login
+        </v-btn>
+
         <v-navigation-drawer
-            v-if="showAuthUi"
+            v-if="showAuthUi && !isTrackerView"
             v-model="drawer"
             :rail="rail"
             :rail-width="76"
@@ -547,8 +547,7 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
-// Guest viewers on the tracker pages get a Login button where the account
-// menu sits on every other page.
+// Guest tracker pages show only a standalone Login action.
 const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind === "viewer");
 // Viewers have a single page (Track), so the sidebar starts hidden; every
 // other account gets it back. The shell outlives sign-ins, so a viewer
@@ -1207,10 +1206,13 @@ onUnmounted(() => {
     height: 16px;
     background: rgba(var(--v-theme-on-surface), 0.16);
 }
-/* Tracker pages: solid sign-in action beside the weather. */
+/* Keep sign-in available without a header or navigation on tracker pages. */
 .nav-login {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 1000;
     height: 40px !important;
-    margin-left: 4px;
     padding-inline: 16px !important;
     font-weight: 700;
     letter-spacing: 0.01em;
