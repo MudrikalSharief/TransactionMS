@@ -188,23 +188,6 @@
             </div>
         </v-app-bar>
 
-        <!-- Tracker pages: the shared guest session gets a visible
-             way back to sign-in instead of the account menu. -->
-        <v-btn
-            v-if="isTrackerView"
-            class="nav-login"
-            color="primary"
-            variant="flat"
-            rounded="0"
-            size="small"
-            prepend-icon="mdi-login-variant"
-            :loading="loggingOut"
-            :disabled="loggingOut"
-            @click="onLogout"
-        >
-            Login
-        </v-btn>
-
         <v-navigation-drawer
             v-if="showAuthUi && !isTrackerView"
             v-model="drawer"
@@ -349,6 +332,21 @@
                 fluid
                 class="pa-6 app-page"
             >
+                <div v-if="isTrackerView" class="tracker-actions">
+                    <v-btn
+                        class="nav-login"
+                        color="primary"
+                        variant="text"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-login-variant"
+                        :loading="loggingOut"
+                        :disabled="loggingOut"
+                        @click="onLogout"
+                    >
+                        Login
+                    </v-btn>
+                </div>
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
                 <div :key="route.matched[0]?.path || route.path" class="page-enter">
@@ -1213,12 +1211,15 @@ onUnmounted(() => {
     height: 16px;
     background: rgba(var(--v-theme-on-surface), 0.16);
 }
-/* Keep sign-in available without a header or navigation on tracker pages. */
+/* Reserve space for sign-in so active searches never slide underneath it. */
+.tracker-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
 .nav-login {
-    position: fixed;
-    top: 12px;
-    right: 16px;
-    z-index: 1000;
     height: 40px !important;
     padding-inline: 16px !important;
     font-weight: 700;
