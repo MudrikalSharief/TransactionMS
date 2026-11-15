@@ -433,6 +433,16 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('steps.0.office.code', 'GSO')
             ->assertJsonPath('steps.0.count', 2);
 
+        // Several offices include every visit handled by any of them.
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08&office_ids[]='.$this->chrmo->id.'&office_ids[]='.$gso->id)
+            ->assertOk()
+            ->assertJsonPath('months.2.overdue', 3)
+            ->assertJsonCount(2, 'steps')
+            ->assertJsonPath('steps.0.office.code', 'CHRMO')
+            ->assertJsonPath('steps.0.count', 3)
+            ->assertJsonPath('steps.1.office.code', 'GSO')
+            ->assertJsonPath('steps.1.count', 2);
+
         // Ending the window at July still has no visits in this setup.
         $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-07')
             ->assertOk()

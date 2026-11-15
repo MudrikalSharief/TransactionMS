@@ -125,6 +125,8 @@ class DashboardSummaryController extends Controller
         $data = $request->validate([
             'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
         ]);
 
         $user = $request->user();
@@ -134,9 +136,15 @@ class DashboardSummaryController extends Controller
         // effective office is filtered while counting visits below.
         $this->officeId = null;
         $this->scopeOfficeId = $user->isSuperadmin() ? null : (int) $user->office_id;
-        $filterOfficeId = $user->isSuperadmin() && !empty($data['office_id'])
-            ? (int) $data['office_id']
-            : null;
+        $filterOfficeIds = [];
+        if ($user->isSuperadmin()) {
+            $filterOfficeIds = array_map('intval', $data['office_ids'] ?? []);
+            if (!$filterOfficeIds && !empty($data['office_id'])) {
+                $filterOfficeIds = [(int) $data['office_id']];
+            }
+            $filterOfficeIds = array_values(array_unique($filterOfficeIds));
+            sort($filterOfficeIds);
+        }
 
         $month = !empty($data['month'])
             ? Carbon::createFromFormat('Y-m', $data['month'], self::TZ)
@@ -147,7 +155,7 @@ class DashboardSummaryController extends Controller
         $windowTo = $monthStart->copy()->addMonthNoOverflow()->utc();
 
         $key = 'dash:overdue-overview:'.md5(json_encode([
-            $data['month'] ?? null, $filterOfficeId, $this->scopeOfficeId,
+            $data['month'] ?? null, $filterOfficeIds, $this->scopeOfficeId,
         ]));
 
         $payload = \Illuminate\Support\Facades\Cache::remember(
@@ -158,7 +166,7 @@ class DashboardSummaryController extends Controller
                 $windowStart,
                 $windowFrom,
                 $windowTo,
-                $filterOfficeId,
+                $filterOfficeIds,
             ),
         );
 
@@ -770,7 +778,7 @@ class DashboardSummaryController extends Controller
      * Three months of status counts, the selected month's top overdue step +
      * office pairs, and the open papers with a late step that month grouped
      * by filing office (the month view of the dashboard pie). The ending month
-     * is the card's Month filter; the office filter narrows by the office
+     * is the card's Month filter; the office filters narrow by the office
      * handling the step.
      */
     private function overdueOverviewData(
@@ -778,7 +786,7 @@ class DashboardSummaryController extends Controller
         Carbon $windowStart,
         Carbon $windowFrom,
         Carbon $windowTo,
-        ?int $filterOfficeId,
+        array $filterOfficeIds,
     ): array {
         $buckets = [];
         $bucketList = [];
@@ -850,8 +858,8 @@ class DashboardSummaryController extends Controller
                 if (!$step) continue;
 
                 $office = $tx->effectiveStepOffice($step);
-                $officeMatches = $filterOfficeId === null
-                    || (int) ($office?->id ?? 0) === $filterOfficeId;
+                $officeMatches = !$filterOfficeIds
+                    || in_array((int) ($office?->id ?? 0), $filterOfficeIds, true);
 
                 $wait = WorkingTime::minutesBetween($enteredAt, $leftAt);
 
@@ -881,7 +889,7 @@ class DashboardSummaryController extends Controller
                 }
             }
 
-            $officeMatches = fn (string $monthKey) => $filterOfficeId === null
+            $officeMatches = fn (string $monthKey) => !$filterOfficeIds
                 || isset($officeVisitMonths[$monthKey]);
 
             if ($tx->is_done) {
