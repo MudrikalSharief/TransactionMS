@@ -276,16 +276,28 @@ html.dark *::-webkit-scrollbar-thumb:hover {
     }
 }
 
-/* Dashboard with the bottom Pending & Working Time strip: keep the overview
-   fit-to-screen so the strip is visible at the bottom of the first screen. */
+/* Dashboard with the bottom Pending & Working Time card: the overview is
+   taller than the window, so let the page scroll instead of clipping the
+   new card. */
 @media (min-width: 1100px) and (min-height: 560px) {
-    .app-main--fit .fit-page .dash-grid.dash-grid--breakdown {
-        flex: 1 1 0;
-        min-height: 0;
-        grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr) 84px;
+    html:has(.dash-grid--breakdown) {
+        overflow-y: auto;
     }
-    .app-main--fit .fit-page .dash-grid.dash-grid--breakdown .dash-time-slot {
-        min-height: 0;
+    .app-main--fit:has(.dash-grid--breakdown) {
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+    .app-main--fit:has(.dash-grid--breakdown) .app-page,
+    .app-main--fit:has(.dash-grid--breakdown) .page-enter {
+        flex: none;
+    }
+    .app-main--fit:has(.dash-grid--breakdown) .fit-page {
+        height: auto;
+    }
+    .app-main--fit .fit-page .dash-grid.dash-grid--breakdown {
+        flex: none;
+        grid-template-rows: 330px 270px 220px;
     }
 }
 

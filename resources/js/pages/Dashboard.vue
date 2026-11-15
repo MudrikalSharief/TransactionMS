@@ -675,36 +675,38 @@
                 </div>
             </template>
             <div v-if="canSeeSummary" class="dash-slot dash-time-slot" style="--span: 12">
-                <v-card rounded="0" elevation="1" class="lgu-card dash-panel dash-time-card" style="height: 100%; width: 100%">
-                    <div class="time-strip">
-                        <div class="time-strip-head">
+                <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                    <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                             <v-icon color="#005EED" size="20">mdi-timer-sand</v-icon>
-                            <div class="time-strip-copy">
-                                <div class="time-strip-title">Pending &amp; Working Time</div>
-                                <div class="time-strip-note">Pending has no SLA; working time is against the step SLA.</div>
+                        </v-avatar>
+                        <div style="min-width: 0">
+                            <div class="text-subtitle-1 font-weight-bold">Pending &amp; Working Time</div>
+                            <div class="dash-panel-sub">Pending has no SLA; working time is measured against the step SLA.</div>
+                        </div>
+                    </v-card-title>
+                    <v-card-text class="pa-3 dash-body">
+                        <div class="time-breakdown-grid">
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Pending receipts</div>
+                                <div class="time-breakdown-value">{{ summary?.pending_transactions ?? 0 }}</div>
+                                <div class="time-breakdown-sub">Oldest {{ formatWorkingMinutes(summary?.oldest_pending_minutes) }}</div>
+                            </div>
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Working now</div>
+                                <div class="time-breakdown-value">{{ summary?.working_transactions ?? 0 }}</div>
+                                <div class="time-breakdown-sub">Oldest {{ formatWorkingMinutes(summary?.oldest_working_minutes) }}</div>
+                            </div>
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Total pending time</div>
+                                <div class="time-breakdown-value time-breakdown-value--small">{{ formatWorkingMinutes(summary?.pending_minutes) }}</div>
+                            </div>
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Total working time</div>
+                                <div class="time-breakdown-value time-breakdown-value--small">{{ formatWorkingMinutes(summary?.working_minutes) }}</div>
                             </div>
                         </div>
-                        <div class="time-strip-stats">
-                            <div class="time-strip-stat">
-                                <span class="time-strip-label">Pending receipts</span>
-                                <span class="time-strip-value">{{ summary?.pending_transactions ?? 0 }}</span>
-                                <span class="time-strip-sub">oldest {{ formatWorkingMinutes(summary?.oldest_pending_minutes) }}</span>
-                            </div>
-                            <div class="time-strip-stat">
-                                <span class="time-strip-label">Working now</span>
-                                <span class="time-strip-value">{{ summary?.working_transactions ?? 0 }}</span>
-                                <span class="time-strip-sub">oldest {{ formatWorkingMinutes(summary?.oldest_working_minutes) }}</span>
-                            </div>
-                            <div class="time-strip-stat">
-                                <span class="time-strip-label">Total pending time</span>
-                                <span class="time-strip-value time-strip-value--small">{{ formatWorkingMinutes(summary?.pending_minutes) }}</span>
-                            </div>
-                            <div class="time-strip-stat">
-                                <span class="time-strip-label">Total working time</span>
-                                <span class="time-strip-value time-strip-value--small">{{ formatWorkingMinutes(summary?.working_minutes) }}</span>
-                            </div>
-                        </div>
-                    </div>
+                    </v-card-text>
                 </v-card>
             </div>
         </div>
@@ -2287,117 +2289,55 @@ html.dark .summary-seg--danger {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 /* ---- Bottom time breakdown card ---- */
-/* Compact bottom strip: title on the left, four counters on the right. */
-.time-strip {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    height: 100%;
-    min-height: 0;
-    padding: 8px 16px;
-    overflow: hidden;
-}
-.time-strip-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 0 1 300px;
-    min-width: 0;
-}
-.time-strip-copy {
-    min-width: 0;
-}
-.time-strip-title {
-    overflow: hidden;
-    color: rgb(var(--v-theme-on-surface));
-    font-size: 0.95rem;
-    font-weight: 800;
-    line-height: 1.15;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.time-strip-note {
-    overflow: hidden;
-    margin-top: 1px;
-    color: rgba(var(--v-theme-on-surface), 0.56);
-    font-size: 0.66rem;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.time-strip-stats {
+.time-breakdown-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    flex: 1 1 auto;
-    gap: 4px;
-    min-width: 0;
+    gap: 12px;
     height: 100%;
 }
-.time-strip-stat {
+.time-breakdown-item {
     display: flex;
     flex-direction: column;
     justify-content: center;
     min-width: 0;
-    padding: 2px 12px;
-    border-left: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(var(--v-theme-primary), 0.055);
 }
-.time-strip-stat:first-child {
-    border-left: 0;
-}
-.time-strip-label {
-    overflow: hidden;
-    color: rgba(var(--v-theme-on-surface), 0.58);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    line-height: 1.15;
-    text-overflow: ellipsis;
+.time-breakdown-label {
+    color: rgba(var(--v-theme-on-surface), 0.62);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
-    white-space: nowrap;
 }
-.time-strip-value {
-    margin-top: 1px;
+.time-breakdown-value {
+    margin-top: 2px;
     color: rgb(var(--v-theme-on-surface));
-    font-size: 1.25rem;
+    font-size: 1.7rem;
     font-weight: 800;
-    line-height: 1.05;
+    line-height: 1.1;
     font-variant-numeric: tabular-nums;
 }
-.time-strip-value--small {
-    font-size: 1.02rem;
+.time-breakdown-value--small {
+    font-size: 1.15rem;
     font-weight: 700;
 }
-.time-strip-sub {
+.time-breakdown-sub {
+    margin-top: 2px;
     overflow: hidden;
-    margin-top: 1px;
-    color: rgba(var(--v-theme-on-surface), 0.54);
-    font-size: 0.64rem;
-    line-height: 1.15;
+    color: rgba(var(--v-theme-on-surface), 0.58);
+    font-size: 0.72rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-@media (max-width: 1099px) {
-    .time-strip {
-        flex-wrap: wrap;
-        gap: 10px;
-        padding: 12px 14px;
-    }
-    .time-strip-head {
-        flex: 1 1 100%;
-    }
-    .time-strip-stats {
+@media (max-width: 900px) {
+    .time-breakdown-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-    .time-strip-stat {
-        padding: 4px 10px;
-        border-left: 0;
-        background: rgba(var(--v-theme-primary), 0.05);
-        border-radius: 8px;
     }
 }
 @media (max-width: 560px) {
-    .time-strip-stats {
+    .time-breakdown-grid {
         grid-template-columns: minmax(0, 1fr);
     }
 }
