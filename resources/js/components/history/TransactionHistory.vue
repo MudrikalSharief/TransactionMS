@@ -57,7 +57,7 @@
                             <th class="text-left">Action</th>
                             <th class="text-left">Performed By</th>
                             <th class="text-left">Date &amp; Time</th>
-                            <th class="text-left">SLA</th>
+                            <th class="text-left">Working / Pending</th>
                             <th class="text-left">Status</th>
                             <th class="text-right" style="width: 48px"><span class="sr-only">Details</span></th>
                         </tr>
@@ -241,8 +241,9 @@
                         </div>
                         <div class="text-caption text-medium-emphasis mt-2">{{ formatHistoryDate(mainTimestamp(run)) }}</div>
                         <div class="mt-1">
-                            <span class="text-caption text-medium-emphasis">SLA </span>
+                            <span class="text-caption text-medium-emphasis">Working / Pending </span>
                             <span class="font-weight-medium text-body-2">{{ slaMain(run) }}</span>
+                            <div class="text-caption text-medium-emphasis">{{ slaCaption(run) }}</div>
                         </div>
                         <v-expand-transition>
                             <div v-if="isOpen(run.id)" class="mt-3 pt-3 history-mobile-details" @click.stop>
@@ -406,14 +407,17 @@ const filtered = computed(() => {
 });
 
 function slaMain(run) {
-    const actual = run?.sla_actual_minutes;
+    if (run?.action_code === 'finalize') return '— / —';
+    const working = run?.working_minutes;
     const est = run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot;
-    const a = actual == null ? '—' : formatMinutes(actual);
+    const a = working == null ? '—' : formatMinutes(working);
     return `${a} / ${formatMinutes(est)}`;
 }
 function slaCaption(run) {
-    if (run?.received_at == null) return 'Awaiting receipt';
-    return 'Actual / Allowed';
+    if (run?.action_code === 'finalize') return 'Finalized';
+    const pending = run?.pending_minutes;
+    const label = pending == null ? 'Pending —' : `Pending ${formatMinutes(pending)}`;
+    return run?.received_at == null ? `${label} · awaiting receipt` : label;
 }
 </script>
 

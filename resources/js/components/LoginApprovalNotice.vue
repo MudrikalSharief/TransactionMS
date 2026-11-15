@@ -145,12 +145,14 @@ const timed = computed(() =>
     rows.value
         .map((tx) => {
             const sla = Number(tx.current_step?.sla_minutes || 0);
-            const entered = Date.parse(tx.entered_at || "");
-            if (!sla || !Number.isFinite(entered)) return null;
-            return { tx, sla, left: sla * 60000 - workingMs(entered, now.value) };
+            const started = Date.parse(tx.work_started_at || "");
+            if (!sla || !Number.isFinite(started)) return null;
+            return { tx, sla, left: sla * 60000 - workingMs(started, now.value) };
         })
         .filter(Boolean),
 );
+// A paper still waiting to be received has no SLA clock yet.
+const pending = computed(() => rows.value.filter((tx) => tx.pending_receipt || !tx.work_started_at));
 // Past due: the time limit has passed. Due: still within it; "almost due"
 // when a quarter or less of the time is left.
 const pastDue = computed(() => timed.value.filter((d) => d.left < 0));
@@ -169,6 +171,7 @@ const total = computed(() => rows.value.length);
 const tally = computed(() => {
     const almost = almostDue.value.length;
     return [
+        { key: "pending", mark: "Pending", icon: "mdi-tray-arrow-down", n: pending.value.length, label: "waiting to be received" },
         { key: "past", mark: "Past due", icon: "mdi-alert", n: pastDue.value.length, label: "past the time limit", always: true },
         {
             key: "due",

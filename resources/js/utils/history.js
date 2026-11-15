@@ -21,8 +21,7 @@ export function formatHistoryDate(v) {
     return historyDateFmt.format(d).replace(/, (\d{1,2}:)/, ' · $1');
 }
 
-// Same buckets as the inline fmtMinutes in the detail pages (kept in sync
-// so SLA values stay exactly consistent with the previous implementation).
+// Working-minute formatter: hours, then 8-hour working days after 48 hours.
 export function formatMinutes(v) {
     const n = Number(v);
     if (!Number.isFinite(n)) return '—';
@@ -30,9 +29,13 @@ export function formatMinutes(v) {
     const h = Math.floor(n / 60);
     const m = n % 60;
     if (h < 48) return m ? `${h}h ${m}m` : `${h}h`;
-    const d = Math.floor(h / 24);
-    const rh = h % 24;
-    return rh ? `${d}d ${rh}h` : `${d}d`;
+    // A "day" in these durations is an 8-hour working day.
+    const d = Math.floor(n / 480);
+    const rh = Math.floor((n % 480) / 60);
+    const rm = n % 60;
+    return [d ? `${d}d` : '', rh ? `${rh}h` : '', rm ? `${rm}m` : '']
+        .filter(Boolean)
+        .join(' ');
 }
 
 const ACTION_CONFIGS = {

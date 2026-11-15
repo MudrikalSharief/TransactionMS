@@ -147,12 +147,12 @@ export function fmtMinutes(min) {
     if (min == null) return '—'
     const m = Math.round(Number(min))
     if (m < 60) return `${m}m`
-    if (m < 1440) {
-        const h = Math.floor(m / 60)
-        const r = m % 60
-        return r ? `${h}h ${r}m` : `${h}h`
-    }
-    const d = Math.floor(m / 1440)
-    const h = Math.round((m % 1440) / 60)
-    return h ? `${d}d ${h}h` : `${d}d`
+    // Working minutes: a day is an 8-hour office day.
+    const d = Math.floor(m / 480)
+    const h = Math.floor((m % 480) / 60)
+    const r = m % 60
+    if (!d) return r ? `${h}h ${r}m` : `${h}h`
+    return [d ? `${d}d` : '', h ? `${h}h` : '', r ? `${r}m` : '']
+        .filter(Boolean)
+        .join(' ')
 }

@@ -20,6 +20,7 @@ class TransactionListResource extends JsonResource
     {
         $state = $this->whenLoaded('state');
         $currentStep = $state?->currentStep;
+        $currentVisit = $state?->currentVisit();
 
         return [
             'id' => $this->id,
@@ -44,6 +45,10 @@ class TransactionListResource extends JsonResource
                 $this->stepOfficePayload($currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
+            // When the current worker clicked Receive. Null = pending receipt,
+            // and the SLA clock has not started yet.
+            'work_started_at' => $currentVisit?->received_at?->toISOString(),
+            'pending_receipt' => $currentVisit ? $currentVisit->received_at === null : null,
 
             // True when the paper is currently waiting on the requesting
             // user (same gate the write endpoints enforce). Lets the

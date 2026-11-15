@@ -90,6 +90,7 @@
         <div
             v-else
             class="dash-grid"
+            :class="{ 'dash-grid--breakdown': canSeeSummary }"
             @pointerdown="onHoldStart"
             @pointermove="onHoldMove"
             @pointerup="onHoldEnd"
@@ -673,6 +674,41 @@
                     </v-card>
                 </div>
             </template>
+            <div v-if="canSeeSummary" class="dash-slot dash-time-slot" style="--span: 12">
+                <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+                    <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                            <v-icon color="#005EED" size="20">mdi-timer-sand</v-icon>
+                        </v-avatar>
+                        <div style="min-width: 0">
+                            <div class="text-subtitle-1 font-weight-bold">Pending &amp; Working Time</div>
+                            <div class="dash-panel-sub">Pending has no SLA; working time is measured against the step SLA.</div>
+                        </div>
+                    </v-card-title>
+                    <v-card-text class="pa-3 dash-body">
+                        <div class="time-breakdown-grid">
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Pending receipts</div>
+                                <div class="time-breakdown-value">{{ summary?.pending_transactions ?? 0 }}</div>
+                                <div class="time-breakdown-sub">Oldest {{ formatWorkingMinutes(summary?.oldest_pending_minutes) }}</div>
+                            </div>
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Working now</div>
+                                <div class="time-breakdown-value">{{ summary?.working_transactions ?? 0 }}</div>
+                                <div class="time-breakdown-sub">Oldest {{ formatWorkingMinutes(summary?.oldest_working_minutes) }}</div>
+                            </div>
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Total pending time</div>
+                                <div class="time-breakdown-value time-breakdown-value--small">{{ formatWorkingMinutes(summary?.pending_minutes) }}</div>
+                            </div>
+                            <div class="time-breakdown-item">
+                                <div class="time-breakdown-label">Total working time</div>
+                                <div class="time-breakdown-value time-breakdown-value--small">{{ formatWorkingMinutes(summary?.working_minutes) }}</div>
+                            </div>
+                        </div>
+                    </v-card-text>
+                </v-card>
+            </div>
         </div>
     </div>
 </template>
@@ -697,6 +733,7 @@ import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import { officeIcon } from '@/utils/officeIcons'
+import { WORKDAY_MINUTES } from '@/utils/workingTime'
 import { monthOptions, monthValue } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
@@ -1404,6 +1441,18 @@ function timeAgo(iso) {
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`
     if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`
     return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// Working minutes -> "2d 3h 15m", where a day is an 8-hour working day.
+function formatWorkingMinutes(minutes) {
+    const total = Math.max(0, Math.round(Number(minutes) || 0))
+    if (!total) return '0m'
+    const days = Math.floor(total / WORKDAY_MINUTES)
+    const hours = Math.floor((total % WORKDAY_MINUTES) / 60)
+    const mins = total % 60
+    return [days ? `${days}d` : '', hours ? `${hours}h` : '', mins ? `${mins}m` : '']
+        .filter(Boolean)
+        .join(' ')
 }
 
 function openTx(tx) {
@@ -2238,5 +2287,58 @@ html.dark .summary-seg--danger {
     font-size: 0.72rem;
     line-height: 1.25;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+/* ---- Bottom time breakdown card ---- */
+.time-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    height: 100%;
+}
+.time-breakdown-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(var(--v-theme-primary), 0.055);
+}
+.time-breakdown-label {
+    color: rgba(var(--v-theme-on-surface), 0.62);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+.time-breakdown-value {
+    margin-top: 2px;
+    color: rgb(var(--v-theme-on-surface));
+    font-size: 1.7rem;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.time-breakdown-value--small {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+.time-breakdown-sub {
+    margin-top: 2px;
+    overflow: hidden;
+    color: rgba(var(--v-theme-on-surface), 0.58);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width: 900px) {
+    .time-breakdown-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 560px) {
+    .time-breakdown-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 </style>

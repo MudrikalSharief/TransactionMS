@@ -196,6 +196,8 @@ class TransactionFinalizeController extends Controller
                 'sla_minutes_snapshot' => (int) ($current->sla_minutes ?? 0),
             ]);
 
+            $transaction->state()->update(['current_run_id' => $run->id]);
+
             if ($fieldChanges['old'] || $fieldChanges['new']) {
                 $audit->log($request, 'transactions.fields_update', $transaction, [
                     'before' => $fieldChanges['old'],

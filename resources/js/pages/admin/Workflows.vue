@@ -1992,6 +1992,7 @@ import DepthNav from "@/components/DepthNav.vue";
 import { buildWorkflowDepthLevels } from "@/utils/workflowDepth";
 import AppToast from "@/components/AppToast.vue";
 import SlaDurationInput from "@/components/SlaDurationInput.vue";
+import { WORKDAY_MINUTES } from "@/utils/workingTime";
 
 const { defs, loading, fetchDefinitions, createDraft, publish, makeLive } =
     useWorkflows();
@@ -3173,7 +3174,7 @@ function toggleEndUser(item, value) {
 // The shared input handles the mockup's presets and custom day/hour/minute
 // fields; this page keeps the strict 30-day total cap.
 const SLA_MAX_DAYS = 30;
-const SLA_MAX_TOTAL = SLA_MAX_DAYS * 24 * 60; // 43200
+const SLA_MAX_TOTAL = SLA_MAX_DAYS * WORKDAY_MINUTES; // 14,400 working minutes
 const slaMinutes = ref(60);
 // Bumping the key remounts the input so preset/custom state is rebuilt from
 // the step being opened instead of leaking from the previous edit.
@@ -3185,8 +3186,8 @@ const slaOverLimit = computed(
 
 function minutesToSla(total) {
     const t = Math.max(0, Number(total || 0));
-    const days = Math.floor(t / 1440);
-    const rest = t - days * 1440;
+    const days = Math.floor(t / WORKDAY_MINUTES);
+    const rest = t - days * WORKDAY_MINUTES;
     const h = String(Math.floor(rest / 60)).padStart(2, "0");
     const min = String(rest % 60).padStart(2, "0");
     return { days, time: `${h}:${min}` };

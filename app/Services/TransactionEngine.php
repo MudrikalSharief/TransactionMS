@@ -58,13 +58,7 @@ class TransactionEngine
                 'created_by' => $userId,
             ]);
 
-            TransactionState::create([
-                'transaction_id' => $tx->id,
-                'current_step_id' => $startStep->id,
-                'entered_at' => now(),
-            ]);
-
-            TransactionStepRun::create([
+            $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $startStep->id,
                 'to_step_id' => $startStep->id,
@@ -77,6 +71,13 @@ class TransactionEngine
                 'received_by' => $userId,
                 'received_office_id' => $tx->effectiveStepOfficeId($startStep),
                 'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
+            ]);
+
+            TransactionState::create([
+                'transaction_id' => $tx->id,
+                'current_step_id' => $startStep->id,
+                'current_run_id' => $run->id,
+                'entered_at' => now(),
             ]);
 
             return $tx->load([
@@ -259,6 +260,7 @@ class TransactionEngine
 
             $tx->state->update([
                 'current_step_id' => $toStepId,
+                'current_run_id' => $run->id,
                 'entered_at' => now(),
             ]);
 
@@ -375,6 +377,7 @@ class TransactionEngine
 
             $tx->state->update([
                 'current_step_id' => $toStepId,
+                'current_run_id' => $run->id,
                 'entered_at' => now(),
             ]);
 

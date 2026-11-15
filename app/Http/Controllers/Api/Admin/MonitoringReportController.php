@@ -50,6 +50,7 @@ class MonitoringReportController extends Controller
                 'type:id,name',
                 'office:id,code,name',
                 'state.currentStep',
+                'state.currentRun',
                 'workflow.steps.office:id,code,name',
                 'workflow.stepRoles.role',
                 // Oldest first (the relation itself sorts newest first).
@@ -82,10 +83,11 @@ class MonitoringReportController extends Controller
     private function overdue(Transaction $tx, $now): bool
     {
         if ($tx->is_done) return false;
-        $sla = (int) ($tx->state?->currentStep?->sla_minutes ?? 0);
-        $enteredAt = $tx->state?->entered_at;
+        $run = $tx->state?->currentVisit();
+        $sla = (int) ($run?->sla_minutes_snapshot ?: $tx->state?->currentStep?->sla_minutes ?? 0);
+        $startedAt = $run?->received_at;
 
-        return $sla > 0 && $enteredAt && WorkingTime::minutesBetween($enteredAt, $now) > $sla;
+        return $sla > 0 && $startedAt && WorkingTime::minutesBetween($startedAt, $now) > $sla;
     }
 
     /** Filed and in process by created date, completed by finalize date (same as the dashboards). */
@@ -102,6 +104,11 @@ class MonitoringReportController extends Controller
             'filed' => $filed->count(),
             'completed' => $completed->count(),
             'in_process' => $open->count(),
+            'pending' => $open->filter(function ($tx) {
+                $run = $tx->state?->currentVisit();
+                return $run && $run->received_at === null;
+            })->count(),
+            'working' => $open->filter(fn ($tx) => $tx->state?->currentVisit()?->received_at !== null)->count(),
             'overdue' => $open->filter(fn ($tx) => $this->overdue($tx, $now))->count(),
             'avg_completion_minutes' => $durations->count() ? (int) round($durations->avg()) : null,
         ];
@@ -152,23 +159,37 @@ class MonitoringReportController extends Controller
                     'max_wait_minutes' => 0,
                     'over_limit' => 0,
                     'waiting_now' => 0,
+                    'pending_now' => 0,
                     'receipt_total' => 0,
                     'receipt_count' => 0,
+                    'working_total' => 0,
+                    'working_count' => 0,
                 ];
                 $r = &$rows[$key];
                 $sla = (int) ($run->sla_minutes_snapshot ?: $step->sla_minutes ?: 0);
                 $wait = WorkingTime::minutesBetween($run->performed_at, $leftAt ?? $now);
+                $pending = $run->received_at
+                    ? WorkingTime::minutesBetween($run->performed_at, $run->received_at)
+                    : WorkingTime::minutesBetween($run->performed_at, $now);
+                $working = $run->received_at
+                    ? WorkingTime::minutesBetween($run->received_at, $leftAt ?? $now)
+                    : null;
 
                 if ($next) {
                     $r['handled']++;
                     $r['wait_total'] += $wait;
                     $r['max_wait_minutes'] = max($r['max_wait_minutes'], $wait);
+                    if ($working !== null) {
+                        $r['working_total'] += $working;
+                        $r['working_count']++;
+                    }
                 } else {
                     $r['waiting_now']++;
+                    if (!$run->received_at) $r['pending_now']++;
                 }
-                if ($sla > 0 && $wait > $sla) $r['over_limit']++;
+                if ($working !== null && $sla > 0 && $working > $sla) $r['over_limit']++;
                 if ($run->action_code !== 'create' && $run->received_at) {
-                    $r['receipt_total'] += WorkingTime::minutesBetween($run->performed_at, $run->received_at);
+                    $r['receipt_total'] += $pending;
                     $r['receipt_count']++;
                 }
                 unset($r);
@@ -177,7 +198,9 @@ class MonitoringReportController extends Controller
 
         return collect($rows)
             ->map(function ($r) {
-                $visits = $r['handled'] + $r['waiting_now'];
+                // Pending visits have no working clock, so they are excluded
+                // from the working-time over-limit percentage.
+                $workingVisits = $r['handled'] + $r['waiting_now'] - $r['pending_now'];
 
                 return [
                     'process' => $r['process'],
@@ -186,16 +209,19 @@ class MonitoringReportController extends Controller
                     'sla_minutes' => $r['sla_minutes'],
                     'handled' => $r['handled'],
                     'waiting_now' => $r['waiting_now'],
+                    'pending_now' => $r['pending_now'],
                     'avg_wait_minutes' => $r['handled'] ? (int) round($r['wait_total'] / $r['handled']) : null,
                     'max_wait_minutes' => $r['handled'] ? $r['max_wait_minutes'] : null,
+                    'avg_pending_minutes' => $r['receipt_count'] ? (int) round($r['receipt_total'] / $r['receipt_count']) : null,
                     'avg_receipt_minutes' => $r['receipt_count'] ? (int) round($r['receipt_total'] / $r['receipt_count']) : null,
+                    'avg_working_minutes' => $r['working_count'] ? (int) round($r['working_total'] / $r['working_count']) : null,
                     'over_limit' => $r['over_limit'],
-                    'over_limit_pct' => $visits ? (int) round(100 * $r['over_limit'] / $visits) : 0,
+                    'over_limit_pct' => $workingVisits > 0 ? (int) round(100 * $r['over_limit'] / $workingVisits) : 0,
                 ];
             })
             // Worst first: most visits over the limit, then most papers
-            // waiting there now, then the longest average stay.
-            ->sortByDesc(fn ($r) => [$r['over_limit'], $r['waiting_now'], $r['avg_wait_minutes'] ?? -1])
+            // waiting there now, then the longest average working time.
+            ->sortByDesc(fn ($r) => [$r['over_limit'], $r['waiting_now'], $r['avg_working_minutes'] ?? -1])
             ->values()
             ->all();
     }
