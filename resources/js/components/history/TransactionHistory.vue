@@ -57,7 +57,8 @@
                             <th class="text-left">Action</th>
                             <th class="text-left">Performed By</th>
                             <th class="text-left">Date &amp; Time</th>
-                            <th class="text-left">Working / Pending</th>
+                            <th class="text-left">Working</th>
+                            <th class="text-left">Pending</th>
                             <th class="text-left">Status</th>
                             <th class="text-right" style="width: 48px"><span class="sr-only">Details</span></th>
                         </tr>
@@ -102,8 +103,12 @@
                                     <div class="text-body-2 text-no-wrap">{{ formatHistoryDate(mainTimestamp(run)) }}</div>
                                 </td>
                                 <td>
-                                    <div class="font-weight-medium text-no-wrap">{{ slaMain(run) }}</div>
-                                    <div class="text-caption text-medium-emphasis">{{ slaCaption(run) }}</div>
+                                    <div class="font-weight-medium text-no-wrap">{{ workingMain(run) }}</div>
+                                    <div class="text-caption text-medium-emphasis">{{ workingCaption(run) }}</div>
+                                </td>
+                                <td>
+                                    <div class="font-weight-medium text-no-wrap">{{ pendingMain(run) }}</div>
+                                    <div class="text-caption text-medium-emphasis">{{ pendingCaption(run) }}</div>
                                 </td>
                                 <td>
                                     <v-chip size="small" variant="tonal" :color="getStatusConfig(run).color" class="font-weight-medium">
@@ -124,7 +129,7 @@
                                 </td>
                             </tr>
                             <tr v-if="isOpen(run.id)" :key="`d-${run.id}`" class="history-details-row">
-                                <td colspan="8" class="history-details-cell">
+                                <td colspan="9" class="history-details-cell">
                                     <v-row v-if="isCreateRun(run)" dense>
                                             <v-col cols="12" sm="4">
                                                 <div class="history-label">Created By</div>
@@ -241,9 +246,14 @@
                         </div>
                         <div class="text-caption text-medium-emphasis mt-2">{{ formatHistoryDate(mainTimestamp(run)) }}</div>
                         <div class="mt-1">
-                            <span class="text-caption text-medium-emphasis">Working / Pending </span>
-                            <span class="font-weight-medium text-body-2">{{ slaMain(run) }}</span>
-                            <div class="text-caption text-medium-emphasis">{{ slaCaption(run) }}</div>
+                            <span class="text-caption text-medium-emphasis">Working </span>
+                            <span class="font-weight-medium text-body-2">{{ workingMain(run) }}</span>
+                            <div class="text-caption text-medium-emphasis">{{ workingCaption(run) }}</div>
+                        </div>
+                        <div class="mt-1">
+                            <span class="text-caption text-medium-emphasis">Pending </span>
+                            <span class="font-weight-medium text-body-2">{{ pendingMain(run) }}</span>
+                            <div class="text-caption text-medium-emphasis">{{ pendingCaption(run) }}</div>
                         </div>
                         <v-expand-transition>
                             <div v-if="isOpen(run.id)" class="mt-3 pt-3 history-mobile-details" @click.stop>
@@ -406,18 +416,30 @@ const filtered = computed(() => {
     return rows;
 });
 
-function slaMain(run) {
-    if (run?.action_code === 'finalize') return '— / —';
+function workingMain(run) {
+    if (run?.action_code === 'finalize') return '—';
     const working = run?.working_minutes;
     const est = run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot;
     const a = working == null ? '—' : formatMinutes(working);
     return `${a} / ${formatMinutes(est)}`;
 }
-function slaCaption(run) {
+function workingCaption(run) {
     if (run?.action_code === 'finalize') return 'Finalized';
+    if (run?.received_at == null) return 'Not started';
+    const working = run?.working_minutes;
+    const est = Number(run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot ?? 0);
+    if (working == null) return '—';
+    if (!est) return 'No limit';
+    return working > est ? 'Over limit' : 'Within limit';
+}
+function pendingMain(run) {
+    if (run?.action_code === 'finalize') return '—';
     const pending = run?.pending_minutes;
-    const label = pending == null ? 'Pending —' : `Pending ${formatMinutes(pending)}`;
-    return run?.received_at == null ? `${label} · awaiting receipt` : label;
+    return pending == null ? '—' : formatMinutes(pending);
+}
+function pendingCaption(run) {
+    if (run?.action_code === 'finalize') return 'Finalized';
+    return run?.received_at == null ? 'Awaiting receipt' : 'No SLA';
 }
 </script>
 

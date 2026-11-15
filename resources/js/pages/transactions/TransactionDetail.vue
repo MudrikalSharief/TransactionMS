@@ -766,6 +766,7 @@ const archiveSaving = ref(false);
 // Header reference-code copy feedback.
 const copied = ref(false);
 let copiedTimer = null;
+let historyRefreshTimer = null;
 
 function goBack() {
     const from = String(route.query.from || "");
@@ -2371,8 +2372,22 @@ function removeAttachment(id) {
     }
 }
 
-onMounted(load);
-onUnmounted(() => clearTimeout(copiedTimer));
+onMounted(() => {
+    load();
+    // Pending/working minutes are calculated server-side. Refresh quietly
+    // every five minutes so an open transaction does not stay at 0m.
+    historyRefreshTimer = window.setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        if (!tx.value || tx.value.is_done) return;
+        if (loading.value || saving.value || savingChecklist.value) return;
+        if (savingRequirementId.value != null || remarksDialog.value) return;
+        refreshTxPreservingForm().catch(() => {});
+    }, 5 * 60 * 1000);
+});
+onUnmounted(() => {
+    clearTimeout(copiedTimer);
+    clearInterval(historyRefreshTimer);
+});
 </script>
 
 <style scoped>
