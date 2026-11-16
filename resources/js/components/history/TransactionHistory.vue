@@ -65,7 +65,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template v-for="(run, idx) in filtered" :key="run.id">
+                        <template v-for="(run, idx) in displayRows" :key="run.id">
                             <tr class="history-row" @click="toggle(run.id)">
                                 <td>
                                     <v-avatar
@@ -73,7 +73,7 @@
                                         color="white"
                                         :class="idx === 0 ? 'history-step-latest font-weight-bold' : 'history-step-ring font-weight-bold'"
                                     >
-                                        {{ stepLabelOf(run, filtered.length - idx) }}
+                                        {{ stepLabelOf(run, displayRows.length - idx) }}
                                     </v-avatar>
                                 </td>
                                 <td>
@@ -195,9 +195,9 @@
             </div>
 
             <!-- Mobile cards -->
-            <div v-if="!loading && filtered.length" class="d-block d-md-none pa-3">
+            <div v-if="!loading && displayRows.length" class="d-block d-md-none pa-3">
                 <v-card
-                    v-for="(run, idx) in filtered"
+                    v-for="(run, idx) in displayRows"
                     :key="`m-${run.id}`"
                     variant="outlined"
                     rounded="0"
@@ -211,7 +211,7 @@
                                     color="white"
                                     :class="idx === 0 ? 'history-step-latest font-weight-bold text-caption' : 'history-step-ring font-weight-bold text-caption'"
                                 >
-                                    {{ stepLabelOf(run, filtered.length - idx) }}
+                                    {{ stepLabelOf(run, displayRows.length - idx) }}
                                 </v-avatar>
                                 <v-chip size="small" variant="tonal" :color="getStatusConfig(run).color" class="font-weight-medium">
                                     <span :class="['status-dot mr-1', getStatusConfig(run).dot]" />
@@ -302,10 +302,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import mascotEmptyUrl from '@/assets/mascots/mascot-empty.jpg';
+import { workingMs } from '@/utils/workingTime';
 import {
+    formatCalendarMinutes,
     formatHistoryDate,
     formatMinutes,
     getActionConfig,
@@ -322,6 +324,7 @@ import {
 const props = defineProps({
     runs: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
+    isDone: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
     // Bare mode: melt into a parent tab pane (no outer chrome/title),
@@ -417,6 +420,67 @@ const filtered = computed(() => {
     return rows;
 });
 
+// Recompute the current open visit every five minutes so the Pending and
+// Working columns move without a page refresh. Completed visits keep their
+// final values.
+const now = ref(Date.now());
+let clockTimer = null;
+onMounted(() => {
+    clockTimer = window.setInterval(() => {
+        now.value = Date.now();
+    }, 5 * 60 * 1000);
+});
+onUnmounted(() => clearInterval(clockTimer));
+
+const orderedRuns = computed(() =>
+    [...(props.runs || [])].sort((a, b) => {
+        const at = Date.parse(a?.performed_at || '') || 0;
+        const bt = Date.parse(b?.performed_at || '') || 0;
+        return at - bt || Number(a?.id || 0) - Number(b?.id || 0);
+    }),
+);
+const nextRunById = computed(() => {
+    const map = new Map();
+    const runs = orderedRuns.value;
+    for (let i = 0; i < runs.length; i++) {
+        map.set(String(runs[i].id), runs[i + 1] || null);
+    }
+    return map;
+});
+
+const displayRows = computed(() =>
+    filtered.value.map((run) => {
+        const isFinalize = run?.action_code === 'finalize';
+        const next = nextRunById.value.get(String(run?.id)) || null;
+        let pending = run?.pending_minutes;
+        let working = run?.working_minutes;
+
+        // Pending is real elapsed time.
+        if (!props.isDone && !isFinalize && !run?.received_at && run?.performed_at) {
+            const started = Date.parse(run.performed_at);
+            if (Number.isFinite(started)) {
+                pending = Math.max(0, Math.floor((now.value - started) / 60000));
+            }
+        }
+
+        // Working is office-hours time and only moves while the paper is at
+        // the current (latest) station.
+        if (!props.isDone && !isFinalize && run?.received_at && !next) {
+            working = Math.floor(workingMs(run.received_at, now.value) / 60000);
+        }
+
+        const est = Number(run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot ?? 0);
+        const breached = est > 0 && working != null && working > est;
+
+        return {
+            ...run,
+            pending_minutes: pending,
+            working_minutes: working,
+            is_working_breached: breached,
+        };
+    }),
+);
+
 function workingMain(run) {
     if (run?.action_code === 'finalize') return '—';
     const working = run?.working_minutes;
@@ -436,7 +500,7 @@ function workingCaption(run) {
 function pendingMain(run) {
     if (run?.action_code === 'finalize') return '—';
     const pending = run?.pending_minutes;
-    return pending == null ? '—' : formatMinutes(pending);
+    return pending == null ? '—' : formatCalendarMinutes(pending);
 }
 function pendingCaption(run) {
     if (run?.action_code === 'finalize') return 'Finalized';

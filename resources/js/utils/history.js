@@ -38,6 +38,21 @@ export function formatMinutes(v) {
         .join(' ');
 }
 
+// Calendar-minute formatter for pending time: real elapsed time, 24-hour days.
+export function formatCalendarMinutes(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    if (n < 60) return `${n}m`;
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    if (h < 24) return m ? `${h}h ${m}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    return [d ? `${d}d` : '', rh ? `${rh}h` : '', m ? `${m}m` : '']
+        .filter(Boolean)
+        .join(' ');
+}
+
 const ACTION_CONFIGS = {
     create: { label: 'Created', icon: 'mdi-file-plus-outline', color: 'grey-darken-1' },
     submit: { label: 'Submitted', icon: 'mdi-send-outline', color: 'blue-darken-2' },

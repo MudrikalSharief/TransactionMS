@@ -97,7 +97,7 @@ import { useOffices } from "@/composables/useOffices";
 import { useFitScreen } from "@/composables/useFitScreen";
 import { toast } from "@/composables/useToast";
 import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
-import { downloadXlsx, downloadPdf, fmtMinutes } from "@/utils/reportExport";
+import { downloadXlsx, downloadPdf, fmtCalendarMinutes, fmtMinutes } from "@/utils/reportExport";
 
 const { api } = useApi();
 const { user } = useAuth();
@@ -215,7 +215,7 @@ const sections = computed(() => {
                 { label: "Pending now", num: true, value: (r) => r.pending_now },
                 { label: "Avg. stay", num: true, value: (r) => fmtMinutes(r.avg_wait_minutes) },
                 { label: "Longest stay", num: true, value: (r) => fmtMinutes(r.max_wait_minutes) },
-                { label: "Avg. pending", num: true, value: (r) => fmtMinutes(r.avg_pending_minutes) },
+                { label: "Avg. pending", num: true, value: (r) => fmtCalendarMinutes(r.avg_pending_minutes) },
                 { label: "Avg. working", num: true, value: (r) => fmtMinutes(r.avg_working_minutes) },
                 { label: "Over limit", num: true, value: (r) => `${r.over_limit} (${r.over_limit_pct}%)` },
             ],

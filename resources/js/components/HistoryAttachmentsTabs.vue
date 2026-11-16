@@ -21,6 +21,7 @@
                     bare
                     :runs="runs"
                     :loading="loading"
+                    :is-done="isDone"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :workflow-steps="workflowSteps"
@@ -61,6 +62,7 @@ import AttachmentList from '@/components/AttachmentList.vue'
 const props = defineProps({
     runs: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
+    isDone: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
     attachments: { type: Array, default: () => [] },

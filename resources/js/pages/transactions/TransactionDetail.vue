@@ -498,6 +498,7 @@
             v-if="tx || loading"
             :runs="tx?.runs || []"
             :loading="loading"
+            :is-done="!!tx?.is_done"
             :tx-id="route.params.id"
             is-admin
             :attachments="tx?.attachments || []"
