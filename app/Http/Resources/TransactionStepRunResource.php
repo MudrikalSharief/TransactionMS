@@ -35,8 +35,10 @@ class TransactionStepRunResource extends JsonResource
         $next = $index !== false ? $runs->get($index + 1) : null;
         $isFinalize = $this->action_code === 'finalize';
 
+        // Pending is real elapsed time (no SLA): send until receive, or now.
+        // Working time below still uses office hours.
         $pending = (!$isFinalize && $this->performed_at)
-            ? WorkingTime::minutesBetween($this->performed_at, $this->received_at ?? now())
+            ? max(0, (int) $this->performed_at->diffInMinutes($this->received_at ?? now(), true))
             : null;
         $working = (!$isFinalize && $this->received_at)
             ? WorkingTime::minutesBetween($this->received_at, $next?->performed_at ?? now())
@@ -66,8 +68,8 @@ class TransactionStepRunResource extends JsonResource
             'pending_minutes' => $pending,
             'working_minutes' => $working,
             'is_pending' => $this->received_at === null,
-            'is_breached' => $actual !== null && $actual > $estimated,
-            'is_working_breached' => $working !== null && $working > $estimated,
+            'is_breached' => $estimated > 0 && $actual !== null && $actual > $estimated,
+            'is_working_breached' => $estimated > 0 && $working !== null && $working > $estimated,
             'attachments' => TransactionAttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }

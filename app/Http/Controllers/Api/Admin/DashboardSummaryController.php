@@ -315,13 +315,16 @@ class DashboardSummaryController extends Controller
         return WorkingTime::minutesBetween($run->received_at, now());
     }
 
-    /** Minutes since the previous step sent the paper, before anyone received it. */
+    /**
+     * Real elapsed minutes since the previous step sent the paper, before
+     * anyone received it. Pending has no SLA, so this is calendar time.
+     */
     private function pendingMinutes(Transaction $tx): int
     {
         $run = $tx->state?->currentVisit();
-        if ($tx->is_done || !$run || $run->received_at !== null) return 0;
+        if ($tx->is_done || !$run?->performed_at || $run->received_at !== null) return 0;
 
-        return WorkingTime::minutesBetween($run->performed_at, now());
+        return max(0, (int) $run->performed_at->diffInMinutes(now(), true));
     }
 
     // ---- per-office charts (on time, overdue, returns) ------------------------
@@ -813,7 +816,7 @@ class DashboardSummaryController extends Controller
                 $current = $tx->state?->currentVisit();
                 if ($current && $current->received_at === null) {
                     $pending = $current->performed_at
-                        ? WorkingTime::minutesBetween($current->performed_at, $now)
+                        ? max(0, (int) $current->performed_at->diffInMinutes($now, true))
                         : 0;
                     $pendingTransactions++;
                     $pendingMinutes += $pending;

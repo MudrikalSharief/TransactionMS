@@ -69,8 +69,14 @@ export function getActionConfig(actionCode) {
 
 export function getStatusConfig(run) {
     if (!run?.received_at) return { label: 'Pending', color: 'warning', dot: 'bg-warning' };
-    if (run?.is_breached) return { label: 'Overdue', color: 'error', dot: 'bg-error' };
-    return { label: 'On time', color: 'success', dot: 'bg-success' };
+
+    const est = Number(run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot ?? 0);
+    const working = Number(run?.working_minutes ?? 0);
+    const breached = run?.is_working_breached === true || (est > 0 && working > est);
+
+    return breached
+        ? { label: 'Overdue', color: 'error', dot: 'bg-error' }
+        : { label: 'On time', color: 'success', dot: 'bg-success' };
 }
 
 export function getUserInitials(name) {

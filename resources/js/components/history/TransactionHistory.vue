@@ -11,6 +11,7 @@
             </div>
             <v-spacer />
             </template>
+            <span class="text-caption text-medium-emphasis">Updates every 5 min</span>
             <v-select
                 v-model="actionFilter"
                 :items="actionOptions"

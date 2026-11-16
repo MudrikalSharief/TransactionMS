@@ -168,9 +168,10 @@ class MonitoringReportController extends Controller
                 $r = &$rows[$key];
                 $sla = (int) ($run->sla_minutes_snapshot ?: $step->sla_minutes ?: 0);
                 $wait = WorkingTime::minutesBetween($run->performed_at, $leftAt ?? $now);
-                $pending = $run->received_at
-                    ? WorkingTime::minutesBetween($run->performed_at, $run->received_at)
-                    : WorkingTime::minutesBetween($run->performed_at, $now);
+                // Pending is real elapsed time; working time keeps office hours.
+                $pending = $run->performed_at
+                    ? max(0, (int) $run->performed_at->diffInMinutes($run->received_at ?? $now, true))
+                    : 0;
                 $working = $run->received_at
                     ? WorkingTime::minutesBetween($run->received_at, $leftAt ?? $now)
                     : null;
