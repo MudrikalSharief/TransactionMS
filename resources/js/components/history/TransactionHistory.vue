@@ -504,7 +504,7 @@ function pendingMain(run) {
 }
 function pendingCaption(run) {
     if (run?.action_code === 'finalize') return 'Finalized';
-    return run?.received_at == null ? 'Awaiting receipt' : 'No SLA';
+    return run?.received_at == null ? 'Awaiting receive' : 'No SLA';
 }
 </script>
 
