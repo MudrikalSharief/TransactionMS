@@ -275,6 +275,12 @@ export function createRouter() {
                 meta: { requiresAuth: true, title: "Transaction", kind: "admin" },
             },
             {
+                path: "/transactions/:id/steps/:stepId/officers",
+                name: "transaction.officers",
+                component: () => import("@/pages/transactions/ReceivingOfficers.vue"),
+                meta: { requiresAuth: true, title: "Receiving Officer" },
+            },
+            {
                 path: "/admin/requirements",
                 name: "admin.requirements",
                 component: AdminRequirementsIndex,

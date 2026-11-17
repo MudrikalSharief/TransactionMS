@@ -15,6 +15,8 @@
         <template #activator="{ props }">
             <div
                 v-bind="props"
+                :tabindex="hasExtra ? 0 : undefined"
+                :aria-label="`Step ${stepNumber}: ${titleText}`"
                 class="d-flex flex-column align-center flex-shrink-0 station-node"
                 style="width: 110px"
                 :data-node="dataNode"
@@ -69,6 +71,12 @@
                 <div class="hover-assigned">
                     {{ viewer ? 'Office' : 'Assigned office' }}: <b>{{ assignedOfficeLabel }}</b>
                 </div>
+                <template v-if="!viewer && receipt">
+                    <div class="hover-assigned">
+                        Assign Officer: <b>{{ receipt.received_by?.name || 'Officer no longer available' }}</b>
+                    </div>
+                    <div class="hover-assigned">Receive at: <b>{{ formatDate(receipt.received_at) }}</b></div>
+                </template>
                 <div v-if="showCallout" class="hover-callout">
                     <v-icon size="small" color="#7ab7ff" aria-hidden="true">mdi-information-outline</v-icon>
                     <span>{{ hintText }}</span>
@@ -182,6 +190,7 @@ const props = defineProps({
     move: { type: Object, default: null },
     dataNode: { type: [Number, String, null], default: null },
     viewer: { type: Boolean, default: false },
+    receipt: { type: Object, default: null },
 })
 
 // purple = current, green = visited behind, pale blue = already passed ahead.

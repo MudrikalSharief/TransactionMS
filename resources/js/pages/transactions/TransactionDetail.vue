@@ -707,17 +707,6 @@
             </v-card>
         </v-dialog>
 
-        <!-- End-of-transaction footer: same deep-blue bar as the dashboard foot. -->
-        <v-sheet v-if="tx" color="#1A1F2B" rounded="0" class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center">
-            <v-avatar color="white" rounded="0" size="52" class="lgu-head-avatar">
-                <v-icon color="#005EED" size="32">mdi-flag-checkered</v-icon>
-            </v-avatar>
-            <v-divider vertical :thickness="2" color="white" opacity="0.6" style="height: 48px" />
-            <div class="text-left">
-                <div class="text-h6 font-weight-bold text-white lh-1">END OF TRANSACTION</div>
-                <div class="text-caption" style="color: rgba(255, 255, 255, 0.75)">TRANSACTION: {{ tx.reference_number }}</div>
-            </div>
-        </v-sheet>
     </div>
 </template>
 

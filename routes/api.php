@@ -126,6 +126,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     // Office admins start transactions for their own office (checked in the controller).
     Route::post('/transactions', [UserTransactionController::class, 'store']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
+    Route::get('/transactions/{transaction}/steps/{step}/receivers', [\App\Http\Controllers\Api\TransactionReceivingOfficerController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
     Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
     Route::post('/transactions/{transaction}/goto', [TransactionGotoController::class, 'goto']);
@@ -276,6 +277,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         Route::get('/transactions/archive', [TransactionArchiveController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
+            ->middleware(EnsureTransactionOffice::class);
+        Route::get('/transactions/{transaction}/steps/{step}/receivers', [\App\Http\Controllers\Api\TransactionReceivingOfficerController::class, 'showAdmin'])
             ->middleware(EnsureTransactionOffice::class);
         Route::post('/transactions/{transaction}/archive', [TransactionArchiveController::class, 'store'])
             ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);

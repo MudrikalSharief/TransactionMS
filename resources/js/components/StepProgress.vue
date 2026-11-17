@@ -30,6 +30,7 @@
                         :detail="detailFor(s)"
                         :move="moveFor(s)"
                         :viewer="viewer"
+                        :receipt="receiptFor(s)"
                         :data-node="i"
                     />
                     <div
@@ -53,6 +54,7 @@
                                 :detail="detailFor(s)"
                                 :move="moveFor(s)"
                                 :viewer="viewer"
+                                :receipt="receiptFor(s)"
                                 :data-node="i"
                             />
                             <div
@@ -82,6 +84,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import StationNode from '@/components/StationNode.vue'
+import { latestReceivedRunsByStep } from '@/utils/receivingOfficers'
 
 const props = defineProps({
     // [{ id, order_number, code, name, is_start, is_end }]
@@ -106,6 +109,11 @@ const props = defineProps({
 })
 
 const visitedSet = computed(() => new Set((props.visitedStepIds || []).map((v) => String(v))))
+const receivedRuns = computed(() => latestReceivedRunsByStep(props.runs || []))
+
+function receiptFor(step) {
+    return props.viewer ? null : receivedRuns.value.get(String(step.id)) || null
+}
 
 const ordered = computed(() => {
     const list = [...(props.steps || [])]
