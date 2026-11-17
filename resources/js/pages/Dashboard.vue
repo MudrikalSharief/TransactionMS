@@ -1,16 +1,19 @@
 <template>
-    <div class="fit-page">
-        <Teleport v-if="!isSuperadmin" defer to="#app-bar-time-meta">
-            <div class="dash-time-meta" :title="`${todayLabel}${scopeLabel ? ' · ' + scopeLabel : ''}`">
-                <span>{{ todayLabel }}</span>
-                <span v-if="scopeLabel" class="dash-time-dot" aria-hidden="true">·</span>
-                <span v-if="scopeLabel">{{ scopeLabel }}</span>
+    <div class="fit-page workspace-dashboard">
+        <Teleport v-if="headerReady" defer to="#workspace-header-leading">
+            <div class="workspace-header-greeting">
+                <div class="workspace-greeting-line">{{ greeting }}</div>
+                <div class="workspace-greeting-name" :title="auth.user.value?.name">{{ firstName }}</div>
+                <div class="workspace-greeting-meta">
+                    <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
+                    <span v-if="scopeLabel" class="workspace-greeting-scope">{{ scopeLabel }}</span>
+                </div>
             </div>
         </Teleport>
-        <LoadingVeil :show="entering" label="dashboard" icon="mdi-view-dashboard-outline" />
         <div class="dash-hello">
-            <div class="dash-hello-text">
-                <div class="dash-hello-title">{{ greeting }}, {{ firstName }}</div>
+            <div v-if="!headerReady" class="dash-hello-text">
+                <div class="workspace-greeting-line">{{ greeting }}</div>
+                <div class="workspace-greeting-name">{{ firstName }}</div>
                 <div class="dash-hello-sub">
                     <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
                 </div>
@@ -59,6 +62,9 @@
                     :class="{ 'summary-stale': summaryLoading && summary }"
                 >
                     <div class="summary-seg" :class="`summary-seg--${tile.variant}`">
+                        <span class="summary-seg-icon" aria-hidden="true">
+                            <v-icon size="28">{{ tile.key === 'overdue_steps' ? 'mdi-timer-alert-outline' : 'mdi-file-clock-outline' }}</v-icon>
+                        </span>
                         <span class="summary-seg-num">
                             <v-progress-circular
                                 v-if="summaryLoading && !summary"
@@ -564,7 +570,6 @@ import { useSmartPoll } from '@/composables/useSmartPoll'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
-import LoadingVeil from '@/components/LoadingVeil.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import { monthOptions, monthValue } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
@@ -578,9 +583,6 @@ const txStore = useTransactions()
 const officeStore = useOffices()
 
 const loading = ref(false)
-// Full-page loader shown each time the Dashboard is opened, until the
-// first fetch of the cards and lists finishes.
-const entering = ref(true)
 const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
@@ -623,19 +625,19 @@ const myOfficeId = computed(
 )
 
 // ---- Greeting strip ----
+const headerReady = ref(false)
 const greeting = computed(() => {
-    const h = new Date().getHours()
+    const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23' }).format(refreshedAt.value || new Date()))
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 })
 const firstName = computed(() => (auth.user.value?.name || '').trim().split(/\s+/)[0] || 'there')
-const todayLabel = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 const scopeLabel = computed(() => {
     const u = auth.user.value
     if (isSuperadmin.value) return 'All offices'
     return u?.office?.name || u?.office?.code || ''
 })
 const refreshedLabel = computed(() =>
-    refreshedAt.value ? refreshedAt.value.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }) : '',
+    refreshedAt.value ? refreshedAt.value.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PHT' : '',
 )
 
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
@@ -772,6 +774,7 @@ function onEscapeWhileArmed(e) {
 }
 
 onMounted(() => {
+    headerReady.value = !!document.querySelector('#workspace-header-leading')
     window.addEventListener('keydown', onEscapeWhileArmed)
 })
 
@@ -783,20 +786,19 @@ onUnmounted(() => {
 // see everything while regular users see their office/role queue.
 const scopeSource = computed(() => txStore.items.value || [])
 
-// Muted series colors for the overdue-by-office pie. They sit close to the
-// app's blue/teal/slate design; gray is reserved for "Other offices".
+// Blue/cyan office series; gray is reserved for "Other offices".
 const SERIES_PALETTE = {
-    light: ['#4F7FBF', '#5F9A93', '#7E80B8', '#B08345', '#8C7B9E', '#6F8FA8'],
-    dark: ['#7FA6DD', '#8AC2BA', '#A9A9DC', '#D8B173', '#B7A5C9', '#94B2C9'],
+    light: ['#1E63ED', '#38AFE3', '#83B8FF', '#66CEDA', '#727DE5', '#4C8BEE'],
+    dark: ['#6399FF', '#58C2EE', '#A8CEFF', '#8ADFE6', '#A4ABF4', '#8AB6FA'],
 }
 const OTHER_OFFICES = 'Other offices'
 const OTHER_COLOR = { light: '#8B95A5', dark: '#7E8899' }
 const MAX_OFFICE_SLICES = 3
 
-// Status bars use the muted sage/ochre/rose palette from the previous chart.
+// Keep completed, in-progress and overdue bars semantically distinct.
 const STATUS_COLORS = {
-    light: { completed: '#4F8A6E', in_process: '#B08345', overdue: '#B0616B' },
-    dark: { completed: '#86C2A4', in_process: '#D8B173', overdue: '#D99AA2' },
+    light: { completed: '#35BD83', in_process: '#FFBD32', overdue: '#FF5262' },
+    dark: { completed: '#72D7AB', in_process: '#FFD074', overdue: '#FF8B96' },
 }
 
 const theme = useTheme()
@@ -1224,9 +1226,6 @@ function goToHelp() {
 }
 
 onMounted(async () => {
-    // Dashboard only: hide the page scrollbar (restored on leave).
-    document.documentElement.classList.add('hide-page-scroll')
-
     // Instant paint from cache when available; the fetches below
     // then refresh everything silently in the background. List caches
     // are per-user; check the current user's slot.
@@ -1237,28 +1236,23 @@ onMounted(async () => {
     loading.value = !warm
     const opts = { silent: warm }
 
-    // Critical path first. The full-page veil waits only for this fetch, so
-    // it must not queue behind summary/filter/account requests — on the
-    // single-threaded dev server every request is processed in order.
+    // The visible dashboard cards come first. A slow transaction list must
+    // not delay their requests or cover the page with a full-screen loader.
+    const primaryCards = canSeeSummary.value ? [loadSummary(), loadChart()] : []
+    if (canApproveAccounts.value) loadAccounts()
+    if (primaryCards.length) {
+        await Promise.allSettled(primaryCards)
+        refreshedAt.value = new Date()
+    }
+    if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {})
+
+    // Populate secondary queues after the headline metrics and chart.
     try {
-        // Cap the first list fetch so a stalled request can never keep the
-        // full-page veil up forever. The list still updates if it finishes
-        // after the timeout; the page just stops blocking on it.
         await txStore.fetchAll({ ...opts, timeout: 8000 })
     } catch { /* keep defaults */ }
 
     refreshedAt.value = new Date()
     loading.value = false
-    entering.value = false
-
-    // The page is usable now. Fill the remaining cards in the background:
-    // summary first (most visible), then the chart and accounts.
-    loadSummary().catch(() => {})
-    loadChart()
-    if (canApproveAccounts.value) loadAccounts()
-    if (isSuperadmin.value) {
-        officeStore.fetchAll({ silent: true }).catch(() => {})
-    }
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
@@ -1279,523 +1273,6 @@ useSmartPoll(async () => {
     }
 })
 
-onUnmounted(() => {
-    document.documentElement.classList.remove('hide-page-scroll')
-})
 </script>
 
-<style scoped>
-/* ---- Greeting strip ---- */
-.dash-hello {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-.dash-hello-title {
-    font-size: 1.25rem;
-    font-weight: 800;
-    line-height: 1.2;
-    color: rgb(var(--v-theme-on-surface));
-}
-/* Date + office scope, teleported into the app bar above the clock. */
-.dash-time-meta {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    font-weight: 600;
-    line-height: 1.1;
-    color: rgba(var(--v-theme-on-surface), 0.55);
-    white-space: nowrap;
-}
-.dash-time-dot {
-    opacity: 0.55;
-}
-.dash-hello-sub {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    font-size: 0.8rem;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.dash-hello-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.6;
-    margin: 0 4px;
-}
-
-/* ---- Card grid (shared rules: "Dashboards" in app.css) ---- */
-@media (min-width: 1100px) and (min-height: 560px) {
-    .dash-grid {
-        grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
-    }
-    /* Reports view: one card takes the whole grid height. */
-    .dash-grid--single {
-        grid-template-rows: minmax(0, 1fr);
-    }
-    .dash-body .start-row {
-        flex: 1 1 0;
-        max-height: 72px;
-        min-height: 0;
-    }
-    /* The pie's tooltip may rise over the card head. */
-    .dash-slot[data-card='byprocess'] > .v-card,
-    .dash-slot[data-card='byprocess'] .process-pie-body {
-        overflow: visible !important;
-    }
-}
-.dash-loading {
-    height: 100%;
-    min-height: 120px;
-}
-/* Narrow card: the side column's text moves under the row title. */
-.only-narrow {
-    display: none;
-}
-@container (max-width: 460px) {
-    .col-side,
-    .only-wide {
-        display: none;
-    }
-    .only-narrow {
-        display: block;
-    }
-}
-/* Small screens: the graph head wraps below the title. */
-@media (max-width: 1099.98px) {
-    .dash-slot[data-card='graph'] .dash-head {
-        flex-wrap: wrap;
-        row-gap: 10px;
-    }
-    .chart-filter {
-        flex: 1 1 130px;
-        width: auto;
-    }
-    .chart-filter--office {
-        flex-basis: 150px;
-        width: auto;
-    }
-}
-/* ---- Row icons, step pills, waiting ---- */
-.row-icon {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-}
-.row-icon .v-icon {
-    color: inherit;
-}
-.account-icon {
-    color: #005EED;
-    background: color-mix(in srgb, #005EED 14%, transparent);
-}
-.row-time {
-    font-size: 0.72rem;
-    white-space: nowrap;
-    margin-right: 6px;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.step-pill {
-    display: inline-block;
-    max-width: 100%;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: middle;
-}
-.waiting-late {
-    color: #e5383b;
-}
-/* Armed card: lifted, grabbing cursor, frozen scroll/selection while moving. */
-.dash-dragging {
-    cursor: grabbing;
-}
-.dash-dragging > .v-card {
-    box-shadow: 0 16px 36px rgba(0, 94, 237, 0.35);
-    outline: 2px solid rgb(var(--v-theme-primary));
-    outline-offset: 2px;
-}
-.dash-dragging,
-.dash-dragging * {
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: none;
-}
-.dash-drop-target > .v-card {
-    outline: 2px dashed rgb(var(--v-theme-primary));
-    outline-offset: 2px;
-}
-.recent-row {
-    cursor: pointer;
-    min-height: 46px !important;
-    padding-block: 2px !important;
-    padding-inline: 8px !important;
-}
-.recent-row:hover {
-    background: rgba(var(--v-theme-on-surface), 0.05);
-}
-/* One line each, so every row is the same height. */
-.recent-row :deep(.v-list-item-title) {
-    font-size: 0.85rem;
-    line-height: 1.25;
-}
-.recent-row :deep(.v-list-item-subtitle) {
-    display: block;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    -webkit-line-clamp: unset;
-    line-clamp: unset;
-    font-size: 0.72rem;
-    line-height: 1.3;
-}
-.recent-row :deep(.v-list-item__prepend) {
-    width: 42px;
-}
-.recent-row :deep(.v-list-item__spacer) {
-    display: none;
-}
-.action-table {
-    --v-table-header-height: 28px;
-    --v-table-row-height: 42px;
-    background: transparent;
-}
-.action-table :deep(table) {
-    table-layout: fixed;
-}
-.action-row {
-    cursor: pointer;
-}
-.action-row:hover {
-    background: rgba(var(--v-theme-on-surface), 0.05);
-}
-.action-title {
-    font-size: 0.85rem;
-    line-height: 1.3;
-}
-.action-table :deep(th) {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.action-table :deep(th),
-.action-table :deep(td) {
-    padding-inline: 12px !important;
-}
-.action-table :deep(td) {
-    height: 42px !important;
-    vertical-align: middle;
-}
-.action-table .col-side {
-    width: 26%;
-}
-.action-table .col-when {
-    width: 112px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-}
-.action-table .col-acts {
-    width: 112px;
-}
-.action-table :deep(.v-btn--icon) {
-    width: 32px;
-    height: 32px;
-}
-.action-table :deep(tbody tr:not(:last-child) td) {
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-.action-table :deep(td:last-child) {
-    white-space: nowrap;
-}
-/* ---- Transaction Summary cards ---- */
-.summary-row {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    align-items: stretch;
-    gap: 12px;
-}
-.summary-strip {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-column: span 6;
-    min-width: 0;
-    border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-    border-radius: 14px;
-    background: rgb(var(--v-theme-surface));
-    overflow: hidden;
-}
-.summary-seg {
-    --strip-accent: #c62f3b;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    min-width: 0;
-    padding: 18px 24px;
-    border: 0;
-    border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-    background: color-mix(in srgb, var(--strip-accent) 7%, rgb(var(--v-theme-surface)));
-    color: rgb(var(--v-theme-on-surface));
-    font: inherit;
-    text-align: left;
-}
-.summary-seg:last-child {
-    border-right: 0;
-}
-.summary-seg--danger {
-    --strip-accent: #c62f3b;
-}
-html.dark .summary-seg--danger {
-    --strip-accent: #ff7a85;
-}
-.summary-seg-num {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    font-size: 56px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    color: rgb(var(--v-theme-on-surface));
-}
-.summary-seg-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-.summary-seg-label {
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1.2;
-    color: var(--strip-accent);
-}
-.summary-seg-hint {
-    font-size: 12px;
-    line-height: 1.2;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-@media (max-width: 1099.98px) {
-    .summary-row {
-        grid-template-columns: minmax(0, 1fr);
-    }
-    .summary-strip {
-        grid-column: 1 / -1;
-    }
-    .summary-seg {
-        padding: 14px 18px;
-    }
-    .summary-seg-num {
-        font-size: 44px;
-    }
-}
-.dash-hello-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-.dash-view {
-    height: 40px !important;
-}
-.dash-view :deep(.v-btn) {
-    height: 40px !important;
-    letter-spacing: 0;
-    font-weight: 600;
-}
-/* Chart filters: compact selects in the graph card head. */
-.chart-filter {
-    flex: 0 1 150px;
-    width: 150px;
-    min-width: 112px;
-}
-.chart-filter--office {
-    flex-basis: 190px;
-    width: 190px;
-    min-width: 132px;
-}
-/* Top Overdue Steps month picker chip. */
-.topsteps-month {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(var(--v-theme-primary), 0.1);
-    color: rgb(var(--v-theme-primary));
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 700;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-.topsteps-month:hover {
-    background: rgba(var(--v-theme-primary), 0.16);
-}
-.topsteps-month:focus-visible {
-    outline: 2px solid rgb(var(--v-theme-primary));
-    outline-offset: 2px;
-}
-.topsteps-month :deep(.v-icon) {
-    color: inherit;
-}
-.topsteps-month-list {
-    max-height: 320px;
-    overflow-y: auto;
-}
-/* Top Overdue Steps: three compact, evenly-spaced ranked rows. */
-.top-steps {
-    list-style: none;
-    margin: 0;
-    padding: 2px 0;
-    width: 100%;
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
-    gap: 8px;
-}
-.top-step-row {
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 10px;
-    background: rgb(var(--v-theme-surface));
-}
-.top-step-rank {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: rgba(var(--v-theme-primary), 0.12);
-    color: rgb(var(--v-theme-primary));
-    font-size: 0.8rem;
-    font-weight: 800;
-}
-.top-step-main {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-.top-step-type {
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    line-height: 1.2;
-    text-transform: uppercase;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-.top-step-step {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    min-width: 0;
-}
-.top-step-number {
-    flex: 0 0 auto;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-    white-space: nowrap;
-}
-.top-step-label {
-    min-width: 0;
-    font-size: 0.9rem;
-    font-weight: 700;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.top-step-office {
-    max-width: 140px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: rgba(var(--v-theme-primary), 0.08);
-    color: rgb(var(--v-theme-primary));
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1.4;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.top-step-count {
-    font-size: 1.15rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    color: rgb(var(--v-theme-error));
-}
-@media (max-width: 1099.98px) {
-    .top-step-row {
-        padding: 8px 10px;
-    }
-}
-.dash-panel-sub {
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-/* Office donut card body: the donut component fills the available space. */
-.process-pie-body {
-    display: flex;
-    align-items: center;
-    flex: 1 1 auto;
-    min-height: 0;
-}
-.summary-stale {
-    opacity: 0.6;
-    transition: opacity 0.15s;
-}
-.start-row {
-    cursor: pointer;
-    min-height: 56px;
-}
-.start-row + .start-row {
-    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-.start-row:hover,
-.start-row:focus-visible {
-    background: rgba(var(--v-theme-on-surface), 0.05);
-    outline: none;
-}
-.start-icon {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-}
-.start-title {
-    font-size: 0.85rem;
-    line-height: 1.25;
-}
-.start-sub {
-    font-size: 0.72rem;
-    line-height: 1.25;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
-</style>
+<style src="../../css/workspace-dashboard.css"></style>

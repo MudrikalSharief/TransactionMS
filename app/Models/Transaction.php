@@ -12,6 +12,16 @@ class Transaction extends Model
 {
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        // Assignment restrictions apply to every query, including lists,
+        // dashboards and implicit binding. Existing office/role gates remain.
+        static::addGlobalScope('officer_assignment', function (Builder $query) {
+            $user = request()?->user();
+            if ($user) app(\App\Services\OfficerAssignmentAccess::class)->applyVisibility($query, $user);
+        });
+    }
+
     protected $fillable = [
         'transaction_type_id',
         'workflow_definition_id',

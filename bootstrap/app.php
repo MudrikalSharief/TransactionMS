@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EnforceOfficerAssignment::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

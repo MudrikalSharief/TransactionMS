@@ -17,6 +17,7 @@ class TransactionStepRun extends Model
         'performed_at',
         'received_at',
         'received_by',
+        'assigned_to',
         'received_office_id',
         'sla_minutes_snapshot',
     ];
@@ -51,6 +52,16 @@ class TransactionStepRun extends Model
     public function receiver()
     {
         return $this->belongsTo(User::class, 'received_by')->with('roles');
+    }
+
+    public function assignedOfficer()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function officerAssignments()
+    {
+        return $this->hasMany(TransactionOfficerAssignment::class, 'transaction_step_run_id')->orderBy('id');
     }
 
     public function receivedOffice()

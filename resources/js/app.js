@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createRouter } from '@/router'
 import { createVuetifyInstance } from '@/plugins/vuetify'
 import AppShell from '@/components/AppShell.vue'
+import '../css/workspace.css'
 
 const app = createApp(AppShell)
 

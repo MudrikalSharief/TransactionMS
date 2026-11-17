@@ -5,7 +5,7 @@
                 <v-tab :value="0">
                     <v-icon start>mdi-history</v-icon>
                     Route History
-                    <v-chip size="x-small" variant="tonal" class="ml-2">{{ (runs || []).length }}</v-chip>
+                    <v-chip size="x-small" variant="tonal" class="ml-2">{{ (runs || []).length + (assignmentHistory || []).length }}</v-chip>
                 </v-tab>
                 <v-tab :value="1">
                     <v-icon start>mdi-paperclip</v-icon>
@@ -20,6 +20,7 @@
                 <TransactionHistory
                     bare
                     :runs="runs"
+                    :assignment-history="assignmentHistory"
                     :loading="loading"
                     :tx-id="txId"
                     :is-admin="isAdmin"
@@ -60,6 +61,7 @@ import AttachmentList from '@/components/AttachmentList.vue'
 // One container for history + files with tab switching (History first).
 const props = defineProps({
     runs: { type: Array, default: () => [] },
+    assignmentHistory: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },

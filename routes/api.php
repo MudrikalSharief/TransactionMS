@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\UserTransactionController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\PortalController;
 use App\Http\Controllers\Api\ViewerTrackingController;
+use App\Http\Controllers\Api\OfficerReassignmentController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -170,6 +171,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class]
 Route::middleware(['auth:sanctum', BlockViewer::class])
     ->prefix('admin')
     ->group(function () {
+        Route::get('transactions/{transaction}/officer-assignment', [OfficerReassignmentController::class, 'show']);
+        Route::post('transactions/{transaction}/officer-assignment', [OfficerReassignmentController::class, 'store']);
         // Master data: superadmin only.
         Route::middleware(EnsureRole::class.':superadmin')->group(function () {
             Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);

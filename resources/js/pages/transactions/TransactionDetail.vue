@@ -37,6 +37,10 @@
                     </div>
                 </div>
                 <div class="tx-actions">
+                    <button v-if="tx?.officer_assignment?.can_reassign" type="button" class="tx-back" aria-label="Reassign officer" @click="reassignmentOpen = true">
+                        <v-icon size="18" aria-hidden="true">mdi-account-switch-outline</v-icon>
+                        <span>Reassign officer</span>
+                    </button>
                     <button
                         v-if="tx && canManageArchive"
                         type="button"
@@ -497,6 +501,7 @@
         <HistoryAttachmentsTabs
             v-if="tx || loading"
             :runs="tx?.runs || []"
+            :assignment-history="tx?.assignment_history || []"
             :loading="loading"
             :tx-id="route.params.id"
             is-admin
@@ -506,6 +511,8 @@
             :current-step-id="tx?.current_step?.id"
             @deleted="removeAttachment"
         />
+
+        <OfficerReassignmentDialog v-model="reassignmentOpen" :tx-id="route.params.id" @saved="onOfficerReassigned" @unavailable="load" />
 
         <v-dialog v-model="remarksDialog" max-width="560">
             <v-card class="pm-dialog" flat>
@@ -732,6 +739,7 @@ import ProceedModalFooter from '@/components/ProceedModalFooter.vue';
 import AttachmentUploader from '@/components/AttachmentUploader.vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import HistoryAttachmentsTabs from '@/components/HistoryAttachmentsTabs.vue';
+import OfficerReassignmentDialog from '@/components/OfficerReassignmentDialog.vue';
 import { fmtDateTime } from '@/utils/dates';
 import TrackingSlipDialog from '@/components/TrackingSlipDialog.vue';
 import { toast } from '@/composables/useToast';
@@ -742,6 +750,7 @@ const { api } = useApi();
 const { getOne, execute, receive, gotoStation: gotoStationApi, finalize: finalizeApi, archive, unarchive } = useTransactions();
 
 const tx = ref(null);
+const reassignmentOpen = ref(false);
 // Tracking slip preview (QR to the tracking page), printed from the dialog.
 const slipOpen = ref(false);
 const availableActions = ref([]);
@@ -1325,6 +1334,7 @@ async function receiveStep() {
             : null;
         if ((availableActions.value || []).length) openProceed();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         executeError.value = formatApiError(e, "Receive failed.");
     } finally {
         receiving.value = false;
@@ -1510,20 +1520,33 @@ async function load() {
         );
         if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
     } catch (e) {
-        // Plain-language messages instead of the server's raw text
-        // ("Forbidden.", "No query results for model ...").
-        const status = e?.response?.status;
-        if (status === 404) {
-            error.value = "This transaction was not found. It may have been deleted.";
-        } else if (status === 403) {
-            error.value =
-                "You don't have access to this transaction. It isn't at a step for your role and office.";
-        } else {
-            error.value = e?.response?.data?.message || "Failed to load transaction.";
-        }
+        if (clearUnavailableTransaction(e)) return;
+        error.value = e?.response?.data?.message || "Failed to load transaction.";
     } finally {
         loading.value = false;
     }
+}
+
+function clearUnavailableTransaction(e) {
+    if (![403, 404].includes(e?.response?.status)) return false;
+    tx.value = null;
+    availableActions.value = [];
+    visitedStepIds.value = [];
+    form.value = {};
+    stepDataForm.value = {};
+    proceedAttachments.value = [];
+    checkAttachments.value = [];
+    checkTarget.value = null;
+    uncheckTarget.value = null;
+    for (const dialog of [reassignmentOpen, remarksDialog, archiveDialogOpen, slipOpen, finalizeDialog, jumpDialog, checkDialog, uncheckDialog]) dialog.value = false;
+    toast.error('This transaction is no longer available to you.');
+    goBack();
+    return true;
+}
+
+async function onOfficerReassigned() {
+    await load();
+    if (tx.value) toast.success('Officer reassigned.');
 }
 
 function openProceed() {
@@ -1593,6 +1616,7 @@ async function refreshTxPreservingForm() {
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
         pruneSelectedRoute();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value = e?.response?.data?.message || "Failed to refresh transaction.";
     }
 }
@@ -1631,6 +1655,7 @@ async function checkChecklistItem(itemId) {
         visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
         pruneSelectedRoute();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value = e?.response?.data?.message || "Checklist check failed.";
     } finally {
         savingChecklist.value = false;
@@ -1651,6 +1676,7 @@ async function uncheckChecklistItem(itemId) {
         visitedStepIds.value = res.data.meta?.visited_step_ids ?? [];
         pruneSelectedRoute();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value = e?.response?.data?.message || "Checklist uncheck failed.";
     } finally {
         savingChecklist.value = false;
@@ -1711,6 +1737,7 @@ async function executeSelected() {
         hydrateForm();
         hydrateStepDataForm();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         const msg = formatApiError(e, "Execute failed.");
         error.value = msg;
         executeError.value = msg;
@@ -1734,6 +1761,7 @@ async function confirmArchiveAction() {
         archiveDialogOpen.value = false;
         await load();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value =
             e?.response?.data?.message ||
             (wasArchived ? "Unarchive failed." : "Archive failed.");
@@ -1782,6 +1810,7 @@ async function finalizeTx() {
         isCompleting.value = false;
         wizardStep.value = 1;
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         const msg = formatApiError(e, "Finalize failed.");
         error.value = msg;
         executeError.value = msg;
@@ -1838,6 +1867,7 @@ async function gotoStation(payload) {
         hydrateForm();
         hydrateStepDataForm();
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value = formatApiError(e, "Jump failed.");
     } finally {
         saving.value = false;
@@ -1862,6 +1892,7 @@ async function returnForMissing({ toStepId, remarks }) {
         hydrateForm();
         remarksDialog.value = false;
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         executeError.value = formatApiError(e, "Return failed.");
     } finally {
         saving.value = false;
@@ -1886,6 +1917,7 @@ async function checkRequirement(requirementId) {
         // NOT rebuild the form from server values here — that would wipe
         // what was just typed in the Check modal.
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value = e?.response?.data?.message || "Checklist check failed.";
     } finally {
         savingChecklist.value = false;
@@ -1909,6 +1941,7 @@ async function uncheckRequirement(requirementId) {
         pruneSelectedRoute();
         // Same as check: preserve staged info, server has no newer values.
     } catch (e) {
+        if (clearUnavailableTransaction(e)) return;
         error.value = e?.response?.data?.message || "Checklist uncheck failed.";
     } finally {
         savingChecklist.value = false;
@@ -2360,8 +2393,22 @@ function removeAttachment(id) {
     }
 }
 
-onMounted(load);
-onUnmounted(() => clearTimeout(copiedTimer));
+let detailPollTimer = null;
+let detailStopped = false;
+async function pollDetail() {
+    if (detailStopped) return;
+    if (!document.hidden && navigator.onLine && tx.value && !loading.value && !saving.value && !savingChecklist.value) await refreshTxPreservingForm();
+    if (!detailStopped) detailPollTimer = setTimeout(pollDetail, 20000);
+}
+onMounted(() => {
+    load();
+    detailPollTimer = setTimeout(pollDetail, 20000);
+});
+onUnmounted(() => {
+    detailStopped = true;
+    clearTimeout(detailPollTimer);
+    clearTimeout(copiedTimer);
+});
 </script>
 
 <style scoped>

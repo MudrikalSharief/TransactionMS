@@ -1,5 +1,19 @@
 <template>
-    <div class="fit-page">
+    <div class="fit-page workspace-dashboard workspace-dashboard--staff">
+        <Teleport v-if="headerReady" defer to="#workspace-header-leading">
+            <div class="workspace-header-greeting">
+                <div class="workspace-greeting-line">{{ greeting }}</div>
+                <div class="workspace-greeting-name" :title="user?.name">{{ firstName }}</div>
+                <div class="workspace-greeting-meta">
+                    <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
+                </div>
+            </div>
+        </Teleport>
+        <div v-else class="workspace-header-greeting">
+            <div class="workspace-greeting-line">{{ greeting }}</div>
+            <div class="workspace-greeting-name">{{ firstName }}</div>
+            <div v-if="refreshedLabel" class="workspace-greeting-meta">Updated {{ refreshedLabel }}</div>
+        </div>
         <!-- Full-page loader on every visit; later polls refresh quietly. -->
         <LoadingVeil :show="loading" label="home" icon="mdi-home-city-outline" />
         <!-- Welcome: who you are, which office, which roles -->
@@ -15,14 +29,14 @@
                         <div class="head-text">
                             <!-- Role chips sit right after the name. -->
                             <div class="head-name">
-                                <span class="text-subtitle-1 font-weight-bold head-name-text">Welcome, {{ user?.name }}</span>
+                                <span class="text-subtitle-1 font-weight-bold head-name-text">Your workspace</span>
                                 <v-chip
                                     v-for="r in user?.roles || []"
                                     :key="r.code"
                                     size="small"
                                     variant="tonal"
                                     color="primary"
-                                    rounded="0"
+                                    rounded="pill"
                                     class="font-weight-bold d-none d-sm-inline-flex head-role"
                                 >
                                     {{ r.name || r.code }}
@@ -48,7 +62,7 @@
                         <v-btn
                             v-if="canCreate"
                             color="primary"
-                            rounded="0"
+                            rounded="pill"
                             :icon="xs"
                             :prepend-icon="xs ? undefined : 'mdi-plus'"
                             aria-label="New Transaction"
@@ -168,6 +182,16 @@ const { xs } = useDisplay();
 const { vFitBody, rows } = useFitScreen();
 
 const loading = ref(true);
+const headerReady = ref(false);
+const refreshedAt = ref(null);
+const firstName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || 'there');
+const greeting = computed(() => {
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23' }).format(refreshedAt.value || new Date()));
+    return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+});
+const refreshedLabel = computed(() => refreshedAt.value
+    ? refreshedAt.value.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PHT'
+    : '');
 const summary = ref(null);
 const actionTotal = ref(0);
 const actionRows = ref([]);
@@ -262,7 +286,10 @@ async function loadSummary() {
     const mine = ++summaryRequest;
     try {
         const res = await fetchSummary();
-        if (mine === summaryRequest) summary.value = res.data;
+        if (mine === summaryRequest) {
+            summary.value = res.data;
+            refreshedAt.value = new Date();
+        }
     } catch {
         /* keep the last numbers; the next poll retries */
     }
@@ -282,41 +309,15 @@ async function load() {
         actionTotal.value = queue.value.total;
     }
     if (office.status === "fulfilled") officeRows.value = office.value.rows;
+    if (sum.status === "fulfilled" || queue.status === "fulfilled" || office.status === "fulfilled") refreshedAt.value = new Date();
     loading.value = false;
 }
 
-onMounted(load);
+onMounted(() => {
+    headerReady.value = !!document.querySelector('#workspace-header-leading');
+    load();
+});
 useSmartPoll(load);
 </script>
 
-<style scoped>
-/* Name + office take the room that's left and shorten with "…". */
-.head-text {
-    flex: 1 1 0;
-    min-width: 0;
-}
-.head-name {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-.head-name-text,
-.head-office {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-.head-role {
-    flex: 0 0 auto;
-}
-.home-period {
-    flex: 0 1 210px;
-    min-width: 150px;
-}
-.portal-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-}
-</style>
+<style src="../../../css/workspace-dashboard.css"></style>

@@ -73,7 +73,7 @@
                 </div>
                 <template v-if="!viewer && receipt">
                     <div class="hover-assigned">
-                        Assign Officer: <b>{{ receipt.received_by?.name || 'Officer no longer available' }}</b>
+                        Assigned Officer: <b>{{ (receipt.assigned_officer || receipt.received_by)?.name || 'Officer no longer available' }}</b>
                     </div>
                     <div class="hover-assigned">Receive at: <b>{{ formatDate(receipt.received_at) }}</b></div>
                 </template>
