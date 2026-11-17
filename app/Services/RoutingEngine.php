@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Transaction;
+use App\Models\TransactionStepRun;
 use App\Models\User;
 use App\Models\WorkflowRoute;
 
@@ -38,6 +39,12 @@ class RoutingEngine
         // assigned office must click Receive before any action is offered.
         if ($this->hasPendingReceipt($tx)) return [];
 
+        // A returned paper can only be resent to the station that sent it
+        // back, but normal Proceed routes remain available so the user can
+        // choose between resending and continuing to the next step. Return
+        // routes are hidden while the correction is pending.
+        $returnSourceStepId = $this->returnSourceStepId($tx);
+
         if (!$this->userCanWorkOnStep($tx, $user, (int) $currentStep->id)) {
             return [];
         }
@@ -46,6 +53,7 @@ class RoutingEngine
 
         $routes = $tx->workflow->routes
             ->where('from_step_id', (int) $currentStep->id)
+            ->when($returnSourceStepId, fn ($routes) => $routes->where('is_return_route', false))
             ->values();
 
         $available = [];
@@ -69,6 +77,34 @@ class RoutingEngine
         }
 
         return $available;
+    }
+
+    /**
+     * When the latest move into the current step is a return, that
+     * station is the only valid resend destination. Returns null once the
+     * paper has moved on (e.g. after the resend reaches the returner), so
+     * the rule clears itself dynamically.
+     */
+    public function returnSourceStepId(Transaction $tx): ?int
+    {
+        $tx->loadMissing('state');
+        $currentStepId = (int) ($tx->state?->current_step_id ?? 0);
+        if (!$currentStepId) return null;
+
+        $lastRun = TransactionStepRun::query()
+            ->where('transaction_id', $tx->id)
+            ->where('to_step_id', $currentStepId)
+            ->orderByDesc('performed_at')
+            ->orderByDesc('id')
+            ->first(['from_step_id', 'action_code']);
+
+        if (!$lastRun || (string) $lastRun->action_code !== 'return') {
+            return null;
+        }
+
+        $fromStepId = (int) $lastRun->from_step_id;
+
+        return $fromStepId > 0 ? $fromStepId : null;
     }
 
     /**
@@ -165,6 +201,7 @@ class RoutingEngine
         if ($this->hasPendingReceipt($tx)) {
             abort(422, 'Please receive the step first before acting.');
         }
+        $returnSourceStepId = $this->returnSourceStepId($tx);
         $tx->loadMissing([
             'workflow.routes',
             'workflow.steps',
@@ -189,6 +226,13 @@ class RoutingEngine
 
         if ((int) $route->from_step_id !== (int) $currentStepId) {
             abort(422, 'Route does not start from current step.');
+        }
+
+        // Normal forward Proceed stays available after a return; sending
+        // the paper somewhere else (a return route) does not. The resend
+        // itself is a goto jump, handled by its own endpoint.
+        if ($returnSourceStepId && (bool) $route->is_return_route) {
+            abort(422, 'This returned transaction must be resent to the station that returned it.');
         }
 
         // Returns never require the checklist: a station sending work back

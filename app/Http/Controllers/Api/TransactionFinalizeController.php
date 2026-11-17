@@ -43,6 +43,10 @@ class TransactionFinalizeController extends Controller
             abort(422, 'Please receive the step first before finalizing.');
         }
 
+        if ($routing->returnSourceStepId($transaction)) {
+            abort(422, 'This returned transaction must be resent to the station that returned it.');
+        }
+
         $transaction->loadMissing(['state.currentStep']);
         $current = $transaction->state?->currentStep;
         if (!$current) abort(422, 'Transaction has no current step.');

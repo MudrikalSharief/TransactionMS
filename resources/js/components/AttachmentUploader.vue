@@ -256,7 +256,7 @@ const props = defineProps({
     // Redesigned proceed-modal styling for the picker, label row and list.
     redesign: { type: Boolean, default: false },
 });
-const emit = defineEmits(["update:modelValue", "uploaded", "deleted", "error", "update:fileLabel", "open-existing"]);
+const emit = defineEmits(["update:modelValue", "uploaded", "uploading", "deleted", "error", "update:fileLabel", "open-existing"]);
 
 const { api } = useApi();
 const picked = ref([]);
@@ -317,6 +317,7 @@ async function onPick(files) {
     picked.value = [];
     if (!valid.length) return;
     uploading.value = true;
+    emit("uploading", true);
     const done = [...props.modelValue];
     try {
         for (const f of valid) {
@@ -347,6 +348,7 @@ async function onPick(files) {
         emit("error", uploadError.value);
     } finally {
         uploading.value = false;
+        emit("uploading", false);
     }
 }
 

@@ -21,6 +21,23 @@ export function formatHistoryDate(v) {
     return historyDateFmt.format(d).replace(/, (\d{1,2}:)/, ' · $1');
 }
 
+// Compact row timestamp: month, day, time — no year.
+const historyDateShortFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+});
+
+export function formatHistoryDateShort(v) {
+    if (!v) return '—';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return '—';
+    return historyDateShortFmt.format(d).replace(/, (\d{1,2}:)/, ' · $1');
+}
+
 // Working-minute formatter: hours, then 8-hour working days after 48 hours.
 export function formatMinutes(v) {
     const n = Number(v);
@@ -110,6 +127,14 @@ function officeOf(step) {
     return step?.office?.name || step?.stage || step?.name || null;
 }
 
+// Office code for the Movement column (e.g. "GSO → OCT"). Falls back to the
+// step code when a legacy/end-user station has no resolved office.
+function officeCodeOf(step) {
+    const officeCode = String(step?.office?.code || '').trim();
+    if (officeCode) return officeCode;
+    return String(step?.code || step?.stage || step?.name || '').trim() || null;
+}
+
 function stepNo(step) {
     return step?.order_number ?? null;
 }
@@ -118,27 +143,18 @@ export function isCreateRun(run) {
     return String(run?.action_code || '').toLowerCase() === 'create';
 }
 
-// "HR → Accounting" (+ "Step 2 → Step 3" caption). Create events with no
-// source render as "Created → HR" instead of a raw dash.
+// Office-code movement only: "GSO → OCT". Create events with no source
+// render as "Created → GSO".
 export function movementOf(run) {
-    const fromOffice = officeOf(run?.from_step);
-    const toOffice = officeOf(run?.to_step);
+    const fromOffice = officeCodeOf(run?.from_step);
+    const toOffice = officeCodeOf(run?.to_step);
     const isCreate = isCreateRun(run);
 
-    let main;
     if (isCreate || !fromOffice) {
-        main = toOffice ? { from: 'Created', to: toOffice } : { from: 'Created', to: null };
-    } else {
-        main = { from: fromOffice, to: toOffice || '—' };
+        return { from: 'Created', to: toOffice || null };
     }
 
-    const fromN = stepNo(run?.from_step);
-    const toN = stepNo(run?.to_step);
-    let sub = null;
-    if (fromN != null && toN != null && !isCreate) sub = `Step ${fromN} → Step ${toN}`;
-    else if (toN != null) sub = `Step ${toN}`;
-
-    return { ...main, sub };
+    return { from: fromOffice, to: toOffice || '—' };
 }
 
 export function stepLabelOf(run, fallbackIndex) {
