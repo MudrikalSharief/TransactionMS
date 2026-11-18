@@ -70,7 +70,7 @@
                             <div class="text-caption text-medium-emphasis">
                                 {{ fmtDateTime(h.performed_at) }}
                                 <template v-if="h.received_at"> · received {{ fmtDateTime(h.received_at) }}<template v-if="h.received_office"> by {{ h.received_office.name }}</template></template>
-                                <template v-else-if="!h.is_creation"> · awaiting receipt</template>
+                                <template v-else-if="!h.is_creation"> · awaiting receive</template>
                             </div>
                         </v-timeline-item>
                     </v-timeline>

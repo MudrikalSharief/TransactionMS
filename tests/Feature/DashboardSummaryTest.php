@@ -42,8 +42,8 @@ class DashboardSummaryTest extends TestCase
 
         $this->payroll = TransactionType::create(['code' => 'payroll', 'name' => 'Payroll']);
         $this->procurement = TransactionType::create(['code' => 'procurement', 'name' => 'Procurement']);
-        $this->payrollStep = $this->stepFor($this->payroll, 60 * 24);      // 1-day SLA
-        $this->procurementStep = $this->stepFor($this->procurement, 60 * 48); // 2-day SLA
+        $this->payrollStep = $this->stepFor($this->payroll, 480);      // 1 working day
+        $this->procurementStep = $this->stepFor($this->procurement, 960); // 2 working days
         $this->chrmo = Office::create(['code' => 'CHRMO', 'name' => 'City Human Resource Management Office']);
     }
 
@@ -83,20 +83,46 @@ class DashboardSummaryTest extends TestCase
         ]);
         $tx->forceFill(['created_at' => $created, 'updated_at' => $created])->saveQuietly();
 
+        $enteredAt = isset($opts['finalizedDaysAgo'])
+            ? $created
+            : now()->subHours($opts['enteredHoursAgo'] ?? 1);
+
+        $currentRunId = null;
+        if (empty($opts['manualRuns'])) {
+            $run = TransactionStepRun::create([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $step->id,
+                'to_step_id' => $step->id,
+                'action_code' => 'create',
+                'performed_by' => $this->admin->id,
+                'performed_at' => $enteredAt,
+                // Creation is auto-received, so working time starts here.
+                'received_at' => $enteredAt,
+                'received_by' => $this->admin->id,
+                'sla_minutes_snapshot' => (int) $step->sla_minutes,
+            ]);
+            $currentRunId = $run->id;
+        }
+
         TransactionState::create([
             'transaction_id' => $tx->id,
             'current_step_id' => $step->id,
-            'entered_at' => now()->subHours($opts['enteredHoursAgo'] ?? 1),
+            'current_run_id' => $currentRunId,
+            'entered_at' => $enteredAt,
         ]);
 
         if (isset($opts['finalizedDaysAgo'])) {
+            $finalizedAt = now()->subDays($opts['finalizedDaysAgo']);
             TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $step->id,
                 'to_step_id' => $step->id,
                 'action_code' => 'finalize',
                 'performed_by' => $this->admin->id,
-                'performed_at' => now()->subDays($opts['finalizedDaysAgo']),
+                'performed_at' => $finalizedAt,
+                'received_at' => $finalizedAt,
+                'received_by' => $this->admin->id,
+                'sla_minutes_snapshot' => (int) $step->sla_minutes,
             ]);
         }
 
@@ -115,7 +141,7 @@ class DashboardSummaryTest extends TestCase
     public function test_counts_each_status_in_the_current_calendar_week(): void
     {
         // Now is Sat 26 Sep, 12:00 Manila, so this week is Mon 21 – Sun 27 Sep.
-        $this->tx($this->payroll, 3, ['enteredHoursAgo' => 30]);        // in process, overdue (30h > 24h)
+        $this->tx($this->payroll, 3, ['enteredHoursAgo' => 48]);        // in process, overdue (12 working hours > 8)
         $this->tx($this->payroll, 5, ['enteredHoursAgo' => 5]);         // created Mon 21: in process, on time
         $this->tx($this->procurement, 10, ['finalizedDaysAgo' => 1]);   // finalized this week: completed
         $this->tx($this->procurement, 60, ['finalizedDaysAgo' => 4]);   // created long ago, finalized Tue 22 -> completed
@@ -131,6 +157,36 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('in_process', 2)
             ->assertJsonPath('overdue', 1)
             ->assertJsonPath('deleted', 1);
+    }
+
+    public function test_summary_separates_pending_receipts_from_working_time(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-23 04:00:00', 'UTC')); // Wed 12:00 Manila
+
+        // Received at the station one hour ago: 60 working minutes.
+        $this->tx($this->payroll, 1);
+
+        // Sent two hours ago and not received yet: 120 pending minutes,
+        // no working clock and no SLA.
+        $pending = $this->tx($this->payroll, 1, ['manualRuns' => true]);
+        TransactionStepRun::create([
+            'transaction_id' => $pending->id,
+            'from_step_id' => $this->payrollStep->id,
+            'to_step_id' => $this->payrollStep->id,
+            'action_code' => 'create',
+            'performed_by' => $this->admin->id,
+            'performed_at' => now()->subHours(2),
+            'received_at' => null,
+            'sla_minutes_snapshot' => 480,
+        ]);
+
+        $this->summary()
+            ->assertJsonPath('pending_transactions', 1)
+            ->assertJsonPath('working_transactions', 1)
+            ->assertJsonPath('pending_minutes', 120)
+            ->assertJsonPath('oldest_pending_minutes', 120)
+            ->assertJsonPath('working_minutes', 60)
+            ->assertJsonPath('oldest_working_minutes', 60);
     }
 
     public function test_this_week_label_spans_two_months_when_the_week_does(): void
@@ -295,17 +351,17 @@ class DashboardSummaryTest extends TestCase
             ]);
         };
 
-        // Both visits are over 60 minutes: 120 + 180 = 300 actual vs 120 SLA.
-        $bothOver = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+        // Both visits are over 60 minutes: 120 + 120 = 240 actual vs 120 SLA.
+        $bothOver = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id, 'manualRuns' => true]);
         $addRun($bothOver, $this->payrollStep->id, $this->payrollStep->id, 300, 'create');
-        $addRun($bothOver, $this->payrollStep->id, $endStep->id, 180);
+        $addRun($bothOver, $this->payrollStep->id, $endStep->id, 120);
         TransactionState::where('transaction_id', $bothOver->id)->update([
             'current_step_id' => $endStep->id,
-            'entered_at' => now()->subMinutes(180),
+            'entered_at' => now()->subMinutes(120),
         ]);
 
         // One visit over (90) and one under (30): total 120 actual vs 120 SLA.
-        $onlyOneOver = $this->tx($this->payroll, 1, ['office' => $gso->id]);
+        $onlyOneOver = $this->tx($this->payroll, 1, ['office' => $gso->id, 'manualRuns' => true]);
         $addRun($onlyOneOver, $this->payrollStep->id, $this->payrollStep->id, 120, 'create');
         $addRun($onlyOneOver, $this->payrollStep->id, $endStep->id, 30);
         TransactionState::where('transaction_id', $onlyOneOver->id)->update([
@@ -377,7 +433,7 @@ class DashboardSummaryTest extends TestCase
         // Two transactions with both visits over SLA: CHRMO payroll step x2,
         // GSO end step x2.
         foreach (['a', 'b'] as $suffix) {
-            $tx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+            $tx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id, 'manualRuns' => true]);
             $addRun($tx, $this->payrollStep->id, $this->payrollStep->id, 240, 'create');
             $addRun($tx, $this->payrollStep->id, $endStep->id, 120);
             TransactionState::where('transaction_id', $tx->id)->update([
@@ -387,7 +443,7 @@ class DashboardSummaryTest extends TestCase
         }
 
         // A third transaction adds one more CHRMO payroll visit and one at OCT.
-        $third = $this->tx($this->payroll, 1, ['office' => $gso->id]);
+        $third = $this->tx($this->payroll, 1, ['office' => $gso->id, 'manualRuns' => true]);
         $addRun($third, $this->payrollStep->id, $this->payrollStep->id, 240, 'create');
         $addRun($third, $this->payrollStep->id, $thirdStep->id, 120);
         TransactionState::where('transaction_id', $third->id)->update([
@@ -433,6 +489,16 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('steps.0.office.code', 'GSO')
             ->assertJsonPath('steps.0.count', 2);
 
+        // Several offices include every visit handled by any of them.
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08&office_ids[]='.$this->chrmo->id.'&office_ids[]='.$gso->id)
+            ->assertOk()
+            ->assertJsonPath('months.2.overdue', 3)
+            ->assertJsonCount(2, 'steps')
+            ->assertJsonPath('steps.0.office.code', 'CHRMO')
+            ->assertJsonPath('steps.0.count', 3)
+            ->assertJsonPath('steps.1.office.code', 'GSO')
+            ->assertJsonPath('steps.1.count', 2);
+
         // Ending the window at July still has no visits in this setup.
         $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-07')
             ->assertOk()
@@ -467,11 +533,11 @@ class DashboardSummaryTest extends TestCase
         };
 
         // Open paper: its current visit is four hours over the one-hour SLA.
-        $open = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+        $open = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id, 'manualRuns' => true]);
         $addRun($open, 240);
 
         // Finished paper: its step visit was late before it was finalized.
-        $done = $this->tx($this->payroll, 3, ['office' => $this->chrmo->id, 'finalizedDaysAgo' => 1]);
+        $done = $this->tx($this->payroll, 3, ['office' => $this->chrmo->id, 'finalizedDaysAgo' => 1, 'manualRuns' => true]);
         $addRun($done, 2 * 24 * 60);
 
         Sanctum::actingAs($this->admin);
@@ -491,7 +557,7 @@ class DashboardSummaryTest extends TestCase
         $this->payrollStep->update(['office_id' => $this->chrmo->id, 'sla_minutes' => 60]);
 
         // CHRMO step visit.
-        $chrmoTx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id]);
+        $chrmoTx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id, 'manualRuns' => true]);
         TransactionStepRun::create([
             'transaction_id' => $chrmoTx->id,
             'from_step_id' => $this->payrollStep->id,

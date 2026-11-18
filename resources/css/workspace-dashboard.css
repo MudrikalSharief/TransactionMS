@@ -854,3 +854,176 @@ html.dark .workspace-shell .workspace-dashboard .dash-body > .v-alert--type-succ
         transform: none;
     }
 }
+
+/* ---- Dashboard chart head and office picker (from bombom) ---- */
+/* Chart card head: month/office chips share the dashboard pill design. */
+.chart-head {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.chart-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* ---- Chart office picker (chip + card-grid panel) ---- */
+.office-seal {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    overflow: hidden;
+    border: 2px solid rgb(var(--v-theme-surface));
+    border-radius: 50%;
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 1px rgba(var(--v-border-color), 0.35);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+.office-seal img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.chart-office-chip .chart-office-seal {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+    font-size: 8px;
+}
+.office-panel {
+    width: min(640px, calc(100vw - 32px));
+    padding: 16px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+}
+.office-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.office-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 8px;
+    background: rgba(var(--v-theme-on-surface), 0.035);
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+}
+.office-search:focus-visible {
+    outline: 3px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+}
+.office-clear {
+    padding: 8px;
+    border: 0;
+    background: none;
+    color: rgb(var(--v-theme-primary));
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.office-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 340px;
+    padding: 4px 4px 8px;
+    overflow-y: auto;
+}
+.office-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 8px 12px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 12px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-on-surface));
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+}
+.office-card:hover {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.08);
+    transform: translateY(-2px);
+}
+.office-card.is-selected {
+    border-color: rgb(var(--v-theme-primary));
+    background: rgba(var(--v-theme-primary), 0.12);
+    box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.25);
+}
+.office-card.is-selected::after {
+    content: "Γ£ô";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgb(var(--v-theme-primary));
+    color: rgb(var(--v-theme-on-primary));
+    font-size: 12px;
+    font-weight: 700;
+}
+.office-card .office-seal {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+    font-size: 13px;
+}
+.office-card-abbr {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.office-no-match {
+    grid-column: 1 / -1;
+    padding: 24px;
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    text-align: center;
+}
+.office-panel-foot {
+    min-height: 34px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    color: rgba(var(--v-theme-on-surface), 0.55);
+    font-size: 13px;
+}
+.office-panel-foot b {
+    color: rgb(var(--v-theme-on-surface));
+}
+@media (max-width: 620px) {
+    .office-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+@media (max-width: 1099.98px) {
+    .chart-filters {
+        flex: 1 1 100%;
+        justify-content: flex-end;
+    }
+}

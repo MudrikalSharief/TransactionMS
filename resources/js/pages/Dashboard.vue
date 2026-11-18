@@ -106,35 +106,128 @@
             <template v-for="id in cardOrder" :key="id">
                 <div v-if="id === 'graph'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-card-title class="d-flex align-center lgu-head dash-head chart-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                                 <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold dash-head-title">Transaction Status</span>
                             <v-spacer />
-                            <v-select
-                                v-model="chartEndMonth"
-                                :items="chartMonthOptions"
-                                label="Month"
-                                prepend-inner-icon="mdi-calendar-range"
-                                variant="outlined"
-                                density="compact"
-                                rounded="lg"
-                                hide-details
-                                class="chart-filter chart-filter--month"
-                            />
-                            <v-select
-                                v-if="isSuperadmin"
-                                v-model="chartOfficeId"
-                                :items="chartOfficeOptions"
-                                label="Office"
-                                prepend-inner-icon="mdi-office-building-outline"
-                                variant="outlined"
-                                density="compact"
-                                rounded="lg"
-                                hide-details
-                                class="chart-filter chart-filter--office"
-                            />
+                            <div class="chart-filters">
+                                <v-menu location="bottom end" offset="6" :close-on-content-click="true">
+                                    <template #activator="{ props }">
+                                        <button
+                                            v-bind="props"
+                                            type="button"
+                                            class="topsteps-month"
+                                            aria-label="Filter Transaction Status by month"
+                                        >
+                                            <v-icon size="16">mdi-calendar-range</v-icon>
+                                            <span>{{ chartMonthLabel }}</span>
+                                            <v-icon size="16">mdi-chevron-down</v-icon>
+                                        </button>
+                                    </template>
+                                    <v-list density="compact" class="topsteps-month-list">
+                                        <v-list-item
+                                            v-for="m in chartMonthOptions"
+                                            :key="m.value"
+                                            :active="chartEndMonth === m.value"
+                                            @click="chartEndMonth = m.value"
+                                        >
+                                            <v-list-item-title>{{ m.title }}</v-list-item-title>
+                                            <template #append>
+                                                <v-icon v-if="chartEndMonth === m.value" size="18">mdi-check</v-icon>
+                                            </template>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+                                <v-menu
+                                    v-if="isSuperadmin"
+                                    v-model="chartOfficeMenuOpen"
+                                    location="bottom end"
+                                    offset="6"
+                                    :close-on-content-click="false"
+                                >
+                                    <template #activator="{ props }">
+                                        <button
+                                            v-bind="props"
+                                            type="button"
+                                            class="topsteps-month chart-office-chip"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="chartOfficeMenuOpen ? 'true' : 'false'"
+                                            aria-controls="chart-office-panel"
+                                            :title="chartOfficeFilterSummary"
+                                        >
+                                            <span v-if="chartOfficePickerSeal" class="office-seal chart-office-seal" aria-hidden="true">
+                                                <img v-if="chartOfficePickerSeal.icon" :src="chartOfficePickerSeal.icon" alt="" />
+                                                <span v-else>{{ chartOfficePickerSeal.initials }}</span>
+                                            </span>
+                                            <v-icon v-else size="16">mdi-office-building-outline</v-icon>
+                                            <span>{{ chartOfficeFilterSummary }}</span>
+                                            <v-icon size="16">mdi-chevron-down</v-icon>
+                                        </button>
+                                    </template>
+                                    <v-card
+                                        id="chart-office-panel"
+                                        class="office-panel"
+                                        rounded="lg"
+                                        elevation="8"
+                                        role="dialog"
+                                        aria-label="Choose offices"
+                                    >
+                                        <div class="office-panel-head">
+                                            <input
+                                                ref="chartOfficeSearchEl"
+                                                v-model="chartOfficeSearch"
+                                                class="office-search"
+                                                type="search"
+                                                placeholder="Search by name or abbreviation"
+                                                aria-label="Search offices"
+                                            />
+                                            <button type="button" class="office-clear" @click="clearChartOfficeFilter">
+                                                Show all offices
+                                            </button>
+                                        </div>
+                                        <div class="office-grid" role="listbox" aria-label="Offices" aria-multiselectable="true">
+                                            <button
+                                                v-for="o in filteredChartOfficeOptions"
+                                                :key="o.value"
+                                                type="button"
+                                                class="office-card"
+                                                :class="{ 'is-selected': chartOfficeIds.includes(o.value) }"
+                                                role="option"
+                                                :aria-selected="chartOfficeIds.includes(o.value) ? 'true' : 'false'"
+                                                :aria-label="o.office?.name || o.title"
+                                                v-tooltip="o.office?.name || o.title"
+                                                @click="toggleChartOffice(o.value)"
+                                                @mouseenter="chartOfficeHover = o"
+                                                @mouseleave="chartOfficeHover = null"
+                                                @focus="chartOfficeHover = o"
+                                                @blur="chartOfficeHover = null"
+                                            >
+                                                <span class="office-seal" aria-hidden="true">
+                                                    <img v-if="o.icon" :src="o.icon" alt="" />
+                                                    <span v-else>{{ o.initials }}</span>
+                                                </span>
+                                                <span class="office-card-abbr">{{ o.code }}</span>
+                                            </button>
+                                            <div v-if="!filteredChartOfficeOptions.length" class="office-no-match">
+                                                No offices match “{{ chartOfficeSearch }}”. Try the abbreviation.
+                                            </div>
+                                        </div>
+                                        <div class="office-panel-foot">
+                                            <template v-if="chartOfficeHover">
+                                                <b>{{ chartOfficeHover.code }}</b> · {{ chartOfficeHover.office?.name || chartOfficeHover.title }}
+                                            </template>
+                                            <template v-else-if="selectedChartOffices.length">
+                                                Selected: <b>{{ selectedChartOffices.map((o) => o.code).join(', ') }}</b>
+                                            </template>
+                                            <template v-else>
+                                                Hover or focus an office to see its full name.
+                                            </template>
+                                        </div>
+                                    </v-card>
+                                </v-menu>
+                            </div>
                         </v-card-title>
                                                 <v-card-text class="pa-2 d-flex flex-column dash-body">
                             <v-alert v-if="chartError" type="error" variant="tonal" density="compact" class="mb-2">
@@ -256,27 +349,30 @@
                                         aria-label="Filter Top Overdue Steps by month"
                                     >
                                         <v-icon size="16">mdi-calendar-range</v-icon>
-                                        <span>{{ chartMonthLabel }}</span>
+                                        <span>{{ topStepsMonthLabel }}</span>
                                         <v-icon size="16">mdi-chevron-down</v-icon>
                                     </button>
                                 </template>
                                 <v-list density="compact" class="topsteps-month-list">
                                     <v-list-item
-                                        v-for="m in chartMonthOptions"
+                                        v-for="m in topStepsMonthOptions"
                                         :key="m.value"
-                                        :active="chartEndMonth === m.value"
-                                        @click="chartEndMonth = m.value"
+                                        :active="topStepsMonth === m.value"
+                                        @click="topStepsMonth = m.value"
                                     >
                                         <v-list-item-title>{{ m.title }}</v-list-item-title>
                                         <template #append>
-                                            <v-icon v-if="chartEndMonth === m.value" size="18">mdi-check</v-icon>
+                                            <v-icon v-if="topStepsMonth === m.value" size="18">mdi-check</v-icon>
                                         </template>
                                     </v-list-item>
                                 </v-list>
                             </v-menu>
                         </v-card-title>
                         <v-card-text class="pa-3 d-flex flex-column dash-body">
-                            <div v-if="chartLoading && !chartData" class="d-flex align-center justify-center dash-loading">
+                            <v-alert v-if="topStepsError" type="error" variant="tonal" density="compact" class="mb-2">
+                                {{ topStepsError }}
+                            </v-alert>
+                            <div v-else-if="topStepsLoading && !topStepsData" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="32" width="3" />
                             </div>
                             <ol v-else-if="topSteps.length" class="top-steps">
@@ -310,8 +406,8 @@
                                     <span class="top-step-count">{{ s.count }}</span>
                                 </li>
                             </ol>
-                            <div v-else-if="!chartError" class="text-caption text-medium-emphasis pa-3">
-                                No overdue steps in {{ chartMonthLabel }}.
+                            <div v-else class="text-caption text-medium-emphasis pa-3">
+                                No overdue steps in {{ topStepsMonthLabel }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -588,7 +684,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
@@ -605,6 +701,7 @@ import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
+import { officeIcon } from '@/utils/officeIcons'
 import { monthOptions, monthValue } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
@@ -842,16 +939,88 @@ const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dar
 // visible to the user (superadmins are usually unassigned, so all offices).
 const myOffice = computed(() => auth.user.value?.office ?? null)
 
-// ---- Transaction Status + Top Overdue Steps: shared Month/Office filters ----
+// ---- Transaction Status: month and multi-office filters ----
 const chartEndMonth = ref(monthValue(new Date()))
 const chartMonthOptions = computed(() => monthOptions())
-const chartOfficeId = ref(0)
-const chartOfficeOptions = computed(() => [
-    { title: 'All offices', value: 0 },
-    ...[...(officeStore.items.value || [])]
+
+function officeInitials(office) {
+    const code = String(office?.code || '').trim()
+    if (code) return code.slice(0, 2).toUpperCase()
+    return (
+        String(office?.name || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || '')
+            .join('')
+            .toUpperCase() || '?'
+    )
+}
+
+const chartOfficeIds = ref([])
+const chartOfficeOptions = computed(() =>
+    [...(officeStore.items.value || [])]
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id })),
-])
+        .map((o) => ({
+            title: o.code ? `${o.name} (${o.code})` : o.name,
+            value: o.id,
+            code: o.code || o.name,
+            office: o,
+            icon: officeIcon(o),
+            initials: officeInitials(o),
+        })),
+)
+const selectedChartOffices = computed(() =>
+    chartOfficeOptions.value.filter((o) => chartOfficeIds.value.includes(o.value)),
+)
+const chartOfficePickerSeal = computed(() => selectedChartOffices.value[0] || null)
+const chartOfficeFilterSummary = computed(() => {
+    const codes = selectedChartOffices.value.map((o) => o.code)
+    if (!codes.length) return 'All offices'
+    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
+})
+const chartOfficeMenuOpen = ref(false)
+const chartOfficeSearch = ref('')
+const chartOfficeSearchEl = ref(null)
+const chartOfficeHover = ref(null)
+const filteredChartOfficeOptions = computed(() => {
+    const q = chartOfficeSearch.value.trim().toLowerCase()
+    if (!q) return chartOfficeOptions.value
+    return chartOfficeOptions.value.filter((o) =>
+        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q),
+    )
+})
+function toggleChartOffice(id) {
+    const next = new Set(chartOfficeIds.value)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    chartOfficeIds.value = [...next]
+}
+function clearChartOfficeFilter() {
+    chartOfficeIds.value = []
+}
+watch(chartOfficeMenuOpen, async (open) => {
+    chartOfficeSearch.value = ''
+    chartOfficeHover.value = null
+    if (!open) return
+    await nextTick()
+    chartOfficeSearchEl.value?.focus()
+})
+watch(chartOfficeSearch, () => {
+    chartOfficeHover.value = null
+})
+
+// ---- Top Overdue Steps: its own month filter, independent of the chart ----
+const topStepsMonth = ref(monthValue(new Date()))
+const topStepsMonthOptions = computed(() => monthOptions())
+const topStepsData = ref(null)
+const topStepsLoading = ref(false)
+const topStepsError = ref('')
+let topStepsRequest = 0
+const topStepsMonthLabel = computed(
+    () => topStepsData.value?.label || topStepsMonthOptions.value.find((o) => o.value === topStepsMonth.value)?.title || topStepsMonth.value,
+)
+const topSteps = computed(() => topStepsData.value?.steps || [])
 
 const chartData = ref(null)
 const chartLoading = ref(false)
@@ -884,8 +1053,8 @@ async function loadChart({ silent = false } = {}) {
             {
                 params: {
                     month: chartEndMonth.value,
-                    ...(isSuperadmin.value && chartOfficeId.value > 0
-                        ? { office_id: chartOfficeId.value }
+                    ...(isSuperadmin.value && chartOfficeIds.value.length
+                        ? { office_ids: chartOfficeIds.value }
                         : {}),
                 },
                 timeout: 10000,
@@ -903,10 +1072,43 @@ async function loadChart({ silent = false } = {}) {
     }
 }
 
-watch([chartEndMonth, chartOfficeId], () => {
+watch([chartEndMonth, chartOfficeIds], () => {
     chartData.value = null
     chartLoading.value = true
     loadChart()
+})
+
+async function loadTopSteps({ silent = false } = {}) {
+    if (!canSeeSummary.value) return
+    const mine = ++topStepsRequest
+    if (!silent && !topStepsData.value) topStepsLoading.value = true
+    topStepsError.value = ''
+    try {
+        const res = await api.get(
+            isSuperadmin.value
+                ? '/api/admin/dashboard/overdue-overview'
+                : '/api/office/dashboard/overdue-overview',
+            {
+                params: { month: topStepsMonth.value },
+                timeout: 10000,
+            },
+        )
+        if (mine !== topStepsRequest) return
+        topStepsData.value = res.data
+    } catch (e) {
+        if (mine !== topStepsRequest) return
+        topStepsError.value = e?.code === 'ECONNABORTED'
+            ? 'The overdue steps took too long to load.'
+            : (e?.response?.data?.message || 'Failed to load the overdue steps.')
+    } finally {
+        if (mine === topStepsRequest) topStepsLoading.value = false
+    }
+}
+
+watch(topStepsMonth, () => {
+    topStepsData.value = null
+    topStepsLoading.value = true
+    loadTopSteps()
 })
 
 async function loadOverduePie({ silent = false } = {}) {
@@ -961,8 +1163,6 @@ const graphSeries = computed(() => {
         { label: 'Overdue', color: palette.overdue, values: rows.map((r) => r.overdue || 0) },
     ]
 })
-const topSteps = computed(() => chartData.value?.steps || [])
-
 // ---- Transaction Summary cards (all-time) ----
 const summary = ref(null)
 const summaryLoading = ref(false)
@@ -1339,12 +1539,12 @@ onMounted(async () => {
 
     refreshedAt.value = new Date()
     loading.value = false
-    entering.value = false
 
     // The page is usable now. Fill the remaining cards in the background:
     // summary first (most visible), then the chart and accounts.
     loadSummary().catch(() => {})
     loadChart()
+    loadTopSteps()
     loadOverduePie()
     if (canApproveAccounts.value) loadAccounts()
     if (isSuperadmin.value) {
@@ -1363,6 +1563,7 @@ useSmartPoll(async () => {
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
         loadChart({ silent: true })
+        loadTopSteps({ silent: true })
         loadOverduePie({ silent: true })
         loadAccounts({ silent: true })
         refreshedAt.value = new Date()

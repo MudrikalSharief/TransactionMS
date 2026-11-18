@@ -58,13 +58,7 @@ class TransactionEngine
                 'created_by' => $userId,
             ]);
 
-            TransactionState::create([
-                'transaction_id' => $tx->id,
-                'current_step_id' => $startStep->id,
-                'entered_at' => now(),
-            ]);
-
-            TransactionStepRun::create([
+            $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
                 'from_step_id' => $startStep->id,
                 'to_step_id' => $startStep->id,
@@ -77,6 +71,13 @@ class TransactionEngine
                 'received_by' => $userId,
                 'received_office_id' => $tx->effectiveStepOfficeId($startStep),
                 'sla_minutes_snapshot' => (int) ($startStep->sla_minutes ?? 0),
+            ]);
+
+            TransactionState::create([
+                'transaction_id' => $tx->id,
+                'current_step_id' => $startStep->id,
+                'current_run_id' => $run->id,
+                'entered_at' => now(),
             ]);
 
             return $tx->load([
@@ -259,6 +260,7 @@ class TransactionEngine
 
             $tx->state->update([
                 'current_step_id' => $toStepId,
+                'current_run_id' => $run->id,
                 'entered_at' => now(),
             ]);
 
@@ -329,10 +331,20 @@ class TransactionEngine
      * Backward arrivals keep the intact-arrival rule (complete destinations
      * keep saved work, gappy ones reset); forward resends preserve all
      * saved work. Recorded as Returned (backward) or Resent (forward).
+     *
+     * Optional attachment targets re-file freshly uploaded corrected files
+     * under the returned checklist item's owning step/requirement before
+     * the resend stamps them to the new run.
      */
-    public function jumpToStep(Transaction $tx, int $toStepId, ?string $remarks, int $userId, array $flaggedItems = []): Transaction
-    {
-        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId, $flaggedItems) {
+    public function jumpToStep(
+        Transaction $tx,
+        int $toStepId,
+        ?string $remarks,
+        int $userId,
+        array $flaggedItems = [],
+        array $attachmentTargets = []
+    ): Transaction {
+        return DB::transaction(function () use ($tx, $toStepId, $remarks, $userId, $flaggedItems, $attachmentTargets) {
             $tx->loadMissing(['state.currentStep', 'workflow', 'workflow.steps']);
 
             $currentStepId = (int) $tx->state?->current_step_id;
@@ -343,6 +355,22 @@ class TransactionEngine
                 abort(422, 'Already at this station.');
             }
 
+            // Dynamic return-to-sender guard (defensive copy of the
+            // controller check): while the latest move into the current
+            // step is a return, only that return's source is allowed.
+            $returnSource = TransactionStepRun::query()
+                ->where('transaction_id', $tx->id)
+                ->where('to_step_id', $currentStepId)
+                ->orderByDesc('performed_at')
+                ->orderByDesc('id')
+                ->first(['from_step_id', 'action_code']);
+            if ($returnSource
+                && (string) $returnSource->action_code === 'return'
+                && (int) $returnSource->from_step_id > 0
+                && (int) $returnSource->from_step_id !== $toStepId) {
+                abort(422, 'This returned transaction must be resent to the station that returned it.');
+            }
+
             $toStep = $tx->workflow->steps->firstWhere('id', $toStepId)
                 ?? \App\Models\WorkflowStep::find($toStepId);
             $currentStep = $tx->workflow->steps->firstWhere('id', $currentStepId);
@@ -350,6 +378,79 @@ class TransactionEngine
             // Forward = target sits ahead in workflow order (quick resend).
             $isForward = $currentStep && $toStep
                 && (int) $toStep->order_number > (int) $currentStep->order_number;
+
+            // Corrected files uploaded in the resend checklist are normal
+            // current-step drafts until this point. Validate them strictly,
+            // then re-file each one under the returned requirement's owner
+            // step so the destination checklist can show the update.
+            $normalizedTargets = [];
+            if (!empty($attachmentTargets)) {
+                if (!$isForward) {
+                    abort(422, 'Corrected checklist files are only allowed on a resend.');
+                }
+                $visited = TransactionStepRun::query()
+                    ->where('transaction_id', $tx->id)
+                    ->get(['from_step_id', 'to_step_id'])
+                    ->flatMap(fn ($r) => [(int) $r->from_step_id, (int) $r->to_step_id])
+                    ->filter()
+                    ->push($currentStepId)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                foreach ($attachmentTargets as $target) {
+                    $attachmentId = (int) ($target['attachment_id'] ?? 0);
+                    $targetStepId = (int) ($target['workflow_step_id'] ?? 0);
+                    if (!$attachmentId || !$targetStepId) {
+                        abort(422, 'Invalid attachment target.');
+                    }
+
+                    $attachment = \App\Models\TransactionAttachment::query()
+                        ->where('transaction_id', $tx->id)
+                        ->whereKey($attachmentId)
+                        ->first();
+                    if (!$attachment) {
+                        abort(422, 'Attachment not found.');
+                    }
+                    if ((int) $attachment->workflow_step_id !== $currentStepId) {
+                        abort(422, 'Only files uploaded on the current step can be attached.');
+                    }
+                    if ((int) ($attachment->uploaded_by ?? 0) !== $userId) {
+                        abort(422, 'You can only attach files you uploaded.');
+                    }
+                    if ($attachment->step_run_id !== null) {
+                        abort(422, 'This file has already been sent.');
+                    }
+                    if (!in_array($targetStepId, $visited, true)) {
+                        abort(422, 'Files can only be attached to a visited station.');
+                    }
+
+                    $targetStep = $tx->workflow->steps->firstWhere('id', $targetStepId);
+                    if (!$targetStep) {
+                        abort(422, 'Target station does not belong to this transaction workflow version.');
+                    }
+
+                    $requirementId = $target['requirement_definition_id'] ?? null;
+                    if ($requirementId !== null && $requirementId !== '') {
+                        $requirementId = (int) $requirementId;
+                        $ownsRequirement = $targetStep->requirementDefinitions()
+                            ->whereKey($requirementId)
+                            ->exists();
+                        if (!$ownsRequirement) {
+                            abort(422, 'The target station does not own this requirement.');
+                        }
+                    } else {
+                        $requirementId = null;
+                    }
+
+                    // Last target wins if the same upload is submitted twice.
+                    $normalizedTargets[(int) $attachment->id] = [
+                        'attachment' => $attachment,
+                        'workflow_step_id' => $targetStepId,
+                        'requirement_definition_id' => $requirementId,
+                    ];
+                }
+            }
 
             $run = TransactionStepRun::create([
                 'transaction_id' => $tx->id,
@@ -366,6 +467,15 @@ class TransactionEngine
                 'sla_minutes_snapshot' => (int) ($toStep?->sla_minutes ?? 0),
             ]);
 
+            // Re-file corrected checklist files before stamping, so they
+            // land under the requirement the destination checker opens.
+            foreach ($normalizedTargets as $target) {
+                $target['attachment']->update([
+                    'workflow_step_id' => $target['workflow_step_id'],
+                    'requirement_definition_id' => $target['requirement_definition_id'],
+                ]);
+            }
+
             // Pending (unlinked) files travel with the jump so evidence
             // is never orphaned.
             \App\Models\TransactionAttachment::query()
@@ -375,6 +485,7 @@ class TransactionEngine
 
             $tx->state->update([
                 'current_step_id' => $toStepId,
+                'current_run_id' => $run->id,
                 'entered_at' => now(),
             ]);
 

@@ -97,7 +97,7 @@ import { useOffices } from "@/composables/useOffices";
 import { useFitScreen } from "@/composables/useFitScreen";
 import { toast } from "@/composables/useToast";
 import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
-import { downloadXlsx, downloadPdf, fmtMinutes } from "@/utils/reportExport";
+import { downloadXlsx, downloadPdf, fmtCalendarMinutes, fmtMinutes } from "@/utils/reportExport";
 
 const { api } = useApi();
 const { user } = useAuth();
@@ -169,6 +169,8 @@ const officeLabel = (o) => (o ? (o.code ? `${o.code} — ${o.name}` : o.name) : 
 const countColumns = [
     { label: "Filed", num: true, value: (r) => r.filed },
     { label: "In process", num: true, value: (r) => r.in_process },
+    { label: "Pending", num: true, value: (r) => r.pending },
+    { label: "Working", num: true, value: (r) => r.working },
     { label: "Completed", num: true, value: (r) => r.completed },
     { label: "Overdue", num: true, value: (r) => r.overdue },
     { label: "Avg. completion", num: true, value: (r) => fmtMinutes(r.avg_completion_minutes) },
@@ -199,7 +201,7 @@ const sections = computed(() => {
             key: "steps",
             title: "Time per station",
             icon: "mdi-timer-alert-outline",
-            note: "How long papers stay at each station. Worst first: most often over the time limit, then most papers waiting now.",
+            note: "Pending is send-to-receive; working is receive-to-send. Over limit uses working time; pending has no SLA.",
             empty: "No station activity in this period.",
             rows: d.steps || [],
             rowClass: (r) => (r.over_limit_pct >= 50 ? "row-hot" : r.over_limit ? "row-warm" : ""),
@@ -210,9 +212,11 @@ const sections = computed(() => {
                 { label: "Limit", num: true, value: (r) => (r.sla_minutes ? fmtMinutes(r.sla_minutes) : "None") },
                 { label: "Handled", num: true, value: (r) => r.handled },
                 { label: "Waiting now", num: true, value: (r) => r.waiting_now },
+                { label: "Pending now", num: true, value: (r) => r.pending_now },
                 { label: "Avg. stay", num: true, value: (r) => fmtMinutes(r.avg_wait_minutes) },
                 { label: "Longest stay", num: true, value: (r) => fmtMinutes(r.max_wait_minutes) },
-                { label: "Avg. to receive", num: true, value: (r) => fmtMinutes(r.avg_receipt_minutes) },
+                { label: "Avg. pending", num: true, value: (r) => fmtCalendarMinutes(r.avg_pending_minutes) },
+                { label: "Avg. working", num: true, value: (r) => fmtMinutes(r.avg_working_minutes) },
                 { label: "Over limit", num: true, value: (r) => `${r.over_limit} (${r.over_limit_pct}%)` },
             ],
         },
@@ -254,7 +258,14 @@ const exportPayload = () => {
             {
                 title: "Summary",
                 columns: [{ label: "Measure", value: (r) => r[0] }, { label: "Value", value: (r) => r[1] }],
-                rows: [["Filed", t.filed ?? 0], ["In process", t.in_process ?? 0], ["Completed", t.completed ?? 0], ["Overdue", t.overdue ?? 0]],
+                rows: [
+                    ["Filed", t.filed ?? 0],
+                    ["In process", t.in_process ?? 0],
+                    ["Pending receipt", t.pending ?? 0],
+                    ["Working now", t.working ?? 0],
+                    ["Completed", t.completed ?? 0],
+                    ["Overdue", t.overdue ?? 0],
+                ],
             },
             ...sections.value,
         ],

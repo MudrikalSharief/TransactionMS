@@ -68,7 +68,7 @@ class DashboardSummaryController extends Controller
 
         // Tile counts are polled silently every 20s by every open Dashboard —
         // 60s server cache cuts that to 1 query-batch per minute per filter.
-        $key = 'dash:summary:'.md5(json_encode([
+        $key = 'dash:summary:v2:'.md5(json_encode([
             $this->periodMeta, $this->processes, $this->offices, $this->officeId, $this->scopeOfficeId,
         ]));
 
@@ -98,6 +98,12 @@ class DashboardSummaryController extends Controller
                 'overdue_steps' => $sla['overdue_steps'],
                 'overdue_transactions' => $sla['overdue_transactions'],
                 'overdue_steps_by_office' => $sla['overdue_steps_by_office'],
+                'pending_transactions' => $sla['pending_transactions'],
+                'pending_minutes' => $sla['pending_minutes'],
+                'oldest_pending_minutes' => $sla['oldest_pending_minutes'],
+                'working_transactions' => $sla['working_transactions'],
+                'working_minutes' => $sla['working_minutes'],
+                'oldest_working_minutes' => $sla['oldest_working_minutes'],
                 'deleted' => $this->deletedQuery()->count(),
                 'by_process' => $byProcess,
                 'monthly' => $this->monthlyStatuses(),
@@ -125,6 +131,8 @@ class DashboardSummaryController extends Controller
         $data = $request->validate([
             'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            'office_ids' => ['nullable', 'array'],
+            'office_ids.*' => ['integer', 'exists:offices,id'],
         ]);
 
         $user = $request->user();
@@ -134,9 +142,15 @@ class DashboardSummaryController extends Controller
         // effective office is filtered while counting visits below.
         $this->officeId = null;
         $this->scopeOfficeId = $user->isSuperadmin() ? null : (int) $user->office_id;
-        $filterOfficeId = $user->isSuperadmin() && !empty($data['office_id'])
-            ? (int) $data['office_id']
-            : null;
+        $filterOfficeIds = [];
+        if ($user->isSuperadmin()) {
+            $filterOfficeIds = array_map('intval', $data['office_ids'] ?? []);
+            if (!$filterOfficeIds && !empty($data['office_id'])) {
+                $filterOfficeIds = [(int) $data['office_id']];
+            }
+            $filterOfficeIds = array_values(array_unique($filterOfficeIds));
+            sort($filterOfficeIds);
+        }
 
         $month = !empty($data['month'])
             ? Carbon::createFromFormat('Y-m', $data['month'], self::TZ)
@@ -147,7 +161,7 @@ class DashboardSummaryController extends Controller
         $windowTo = $monthStart->copy()->addMonthNoOverflow()->utc();
 
         $key = 'dash:overdue-overview:'.md5(json_encode([
-            $data['month'] ?? null, $filterOfficeId, $this->scopeOfficeId,
+            $data['month'] ?? null, $filterOfficeIds, $this->scopeOfficeId,
         ]));
 
         $payload = \Illuminate\Support\Facades\Cache::remember(
@@ -158,7 +172,7 @@ class DashboardSummaryController extends Controller
                 $windowStart,
                 $windowFrom,
                 $windowTo,
-                $filterOfficeId,
+                $filterOfficeIds,
             ),
         );
 
@@ -260,7 +274,7 @@ class DashboardSummaryController extends Controller
     {
         return $this->createdInPeriod($this->filtered(Transaction::query()))
             ->where('is_done', false)
-            ->with(['state.currentStep.office', 'type', 'office', 'creator', 'workflow.stepRoles.role'])
+            ->with(['state.currentStep.office', 'state.currentRun', 'type', 'office', 'creator', 'workflow.stepRoles.role'])
             ->get();
     }
 
@@ -277,14 +291,40 @@ class DashboardSummaryController extends Controller
         return $step ? $tx->effectiveStepOffice($step) : $tx->office;
     }
 
-    /** Working minutes past the current station's SLA (weekends skipped); 0 when on time or no SLA. */
+    /**
+     * Working minutes past the current station's SLA. The clock starts only
+     * when the worker clicked Receive; an unreceived step is pending, not
+     * overdue. Returns 0 when on time, pending, done, or without an SLA.
+     */
     private function overdueMinutes(Transaction $tx): int
     {
-        $sla = (int) ($tx->state?->currentStep?->sla_minutes ?? 0);
-        $enteredAt = $tx->state?->entered_at;
-        if ($sla <= 0 || !$enteredAt) return 0;
+        $run = $tx->state?->currentVisit();
+        $sla = (int) ($run?->sla_minutes_snapshot ?: $tx->state?->currentStep?->sla_minutes ?? 0);
+        $startedAt = $run?->received_at;
+        if ($tx->is_done || $sla <= 0 || !$startedAt) return 0;
 
-        return max(0, WorkingTime::minutesBetween($enteredAt, now()) - $sla);
+        return max(0, WorkingTime::minutesBetween($startedAt, now()) - $sla);
+    }
+
+    /** Working minutes spent at the current station after Receive (ongoing if still there). */
+    private function workingMinutes(Transaction $tx): int
+    {
+        $run = $tx->state?->currentVisit();
+        if ($tx->is_done || !$run?->received_at) return 0;
+
+        return WorkingTime::minutesBetween($run->received_at, now());
+    }
+
+    /**
+     * Real elapsed minutes since the previous step sent the paper, before
+     * anyone received it. Pending has no SLA, so this is calendar time.
+     */
+    private function pendingMinutes(Transaction $tx): int
+    {
+        $run = $tx->state?->currentVisit();
+        if ($tx->is_done || !$run?->performed_at || $run->received_at !== null) return 0;
+
+        return max(0, (int) $run->performed_at->diffInMinutes(now(), true));
     }
 
     // ---- per-office charts (on time, overdue, returns) ------------------------
@@ -366,7 +406,9 @@ class DashboardSummaryController extends Controller
         foreach ($runs as $i => $run) {
             $next = $runs->get($i + 1);
             if (!$next) break;
-            $spent += WorkingTime::minutesBetween($run->performed_at, $next->performed_at);
+            if ($run->received_at) {
+                $spent += WorkingTime::minutesBetween($run->received_at, $next->performed_at);
+            }
             $deadline += (int) ($run->sla_minutes_snapshot ?: $steps->get($run->to_step_id)?->sla_minutes ?: 0);
         }
 
@@ -479,6 +521,8 @@ class DashboardSummaryController extends Controller
             'entered_at' => $enteredAt?->toIso8601String(),
             // Working minutes, so "waiting" compares directly with the limit.
             'waiting_minutes' => $enteredAt ? WorkingTime::minutesBetween($enteredAt, now()) : null,
+            'pending_minutes' => $this->pendingMinutes($tx),
+            'working_minutes' => $this->workingMinutes($tx),
             'sla_minutes' => (int) ($step?->sla_minutes ?? 0),
             'overdue_minutes' => $this->overdueMinutes($tx),
         ];
@@ -599,7 +643,7 @@ class DashboardSummaryController extends Controller
     {
         return $this->createdInPeriod($this->filtered(Transaction::query(), withProcess: false))
             ->where('transactions.transaction_type_id', $processId)
-            ->with(['state.currentStep', 'type', 'office', 'creator', 'workflow.stepRoles.role'])
+            ->with(['state.currentStep', 'state.currentRun', 'type', 'office', 'creator', 'workflow.stepRoles.role'])
             ->get()
             ->map(function (Transaction $tx) {
                 $status = $tx->is_done ? 'completed' : ($this->overdueMinutes($tx) > 0 ? 'overdue' : 'in_process');
@@ -640,7 +684,7 @@ class DashboardSummaryController extends Controller
             ->where('is_done', false)
             ->where('transactions.created_at', '>=', $fromUtc)
             ->where('transactions.created_at', '<', $toUtc)
-            ->with('state.currentStep')
+            ->with(['state.currentStep', 'state.currentRun'])
             ->get();
 
         foreach ($open as $tx) {
@@ -697,20 +741,29 @@ class DashboardSummaryController extends Controller
                 ->where('is_done', false)
                 ->orWhereBetween('transactions.created_at', [$this->from, $this->to])
                 ->orWhereHas('runs', fn ($r) => $r->whereBetween('performed_at', [$this->from, $this->to]))))
-            ->with(['runs' => fn ($r) => $r
-                ->reorder()
-                ->orderBy('performed_at')
-                ->orderBy('id')
-                ->select(['id', 'transaction_id', 'to_step_id', 'performed_at', 'sla_minutes_snapshot'])
-                ->with([
-                    'toStep:id,sla_minutes,office_id,is_end_user',
-                    'toStep.office:id,code,name',
-                ])])
+            ->with([
+                'state.currentRun',
+                'runs' => fn ($r) => $r
+                    ->reorder()
+                    ->orderBy('performed_at')
+                    ->orderBy('id')
+                    ->select(['id', 'transaction_id', 'to_step_id', 'performed_at', 'received_at', 'sla_minutes_snapshot'])
+                    ->with([
+                        'toStep:id,sla_minutes,office_id,is_end_user',
+                        'toStep.office:id,code,name',
+                    ]),
+            ])
             ->get();
 
         $overdueSteps = 0;
         $overdueTransactions = 0;
         $byStepOffice = [];
+        $pendingTransactions = 0;
+        $pendingMinutes = 0;
+        $oldestPendingMinutes = 0;
+        $workingTransactions = 0;
+        $workingMinutes = 0;
+        $oldestWorkingMinutes = 0;
 
         foreach ($txs as $tx) {
             $runs = $tx->runs->values();
@@ -725,14 +778,18 @@ class DashboardSummaryController extends Controller
                 // measure; the previous run's step ends at the finalize.
                 if (!$next && $tx->is_done) continue;
 
-                $enteredAt = $run->performed_at;
+                // The SLA clock starts when the worker receives the paper.
+                // No receive yet = pending, not an overdue working visit.
+                $startedAt = $run->received_at;
+                if (!$startedAt) continue;
+
                 $leftAt = $next?->performed_at ?? $now;
                 $sla = (int) ($run->sla_minutes_snapshot ?: $run->toStep?->sla_minutes ?: 0);
                 if ($sla <= 0) continue;
 
-                $wait = WorkingTime::minutesBetween($enteredAt, $leftAt);
+                $wait = WorkingTime::minutesBetween($startedAt, $leftAt);
 
-                if ($wait > $sla && $enteredAt->lt($this->to) && $leftAt->gt($this->from)) {
+                if ($wait > $sla && $startedAt->lt($this->to) && $leftAt->gt($this->from)) {
                     $overdueSteps++;
                     $stepOffice = $run->toStep ? $tx->effectiveStepOffice($run->toStep) : null;
                     $officeId = $stepOffice?->id ?? 0;
@@ -754,6 +811,23 @@ class DashboardSummaryController extends Controller
             if (!$tx->is_done && $allowed > 0 && $actual > $allowed) {
                 $overdueTransactions++;
             }
+
+            if (!$tx->is_done) {
+                $current = $tx->state?->currentVisit();
+                if ($current && $current->received_at === null) {
+                    $pending = $current->performed_at
+                        ? max(0, (int) $current->performed_at->diffInMinutes($now, true))
+                        : 0;
+                    $pendingTransactions++;
+                    $pendingMinutes += $pending;
+                    $oldestPendingMinutes = max($oldestPendingMinutes, $pending);
+                } elseif ($current && $current->received_at) {
+                    $working = WorkingTime::minutesBetween($current->received_at, $now);
+                    $workingTransactions++;
+                    $workingMinutes += $working;
+                    $oldestWorkingMinutes = max($oldestWorkingMinutes, $working);
+                }
+            }
         }
 
         return [
@@ -763,6 +837,14 @@ class DashboardSummaryController extends Controller
                 ->sortByDesc('count')
                 ->values()
                 ->all(),
+            // Current open-paper split: waiting to be received vs received
+            // and being worked on now. Pending has no SLA.
+            'pending_transactions' => $pendingTransactions,
+            'pending_minutes' => $pendingMinutes,
+            'oldest_pending_minutes' => $oldestPendingMinutes,
+            'working_transactions' => $workingTransactions,
+            'working_minutes' => $workingMinutes,
+            'oldest_working_minutes' => $oldestWorkingMinutes,
         ];
     }
 
@@ -770,7 +852,7 @@ class DashboardSummaryController extends Controller
      * Three months of status counts, the selected month's top overdue step +
      * office pairs, and the open papers with a late step that month grouped
      * by filing office (the month view of the dashboard pie). The ending month
-     * is the card's Month filter; the office filter narrows by the office
+     * is the card's Month filter; the office filters narrow by the office
      * handling the step.
      */
     private function overdueOverviewData(
@@ -778,7 +860,7 @@ class DashboardSummaryController extends Controller
         Carbon $windowStart,
         Carbon $windowFrom,
         Carbon $windowTo,
-        ?int $filterOfficeId,
+        array $filterOfficeIds,
     ): array {
         $buckets = [];
         $bucketList = [];
@@ -806,13 +888,14 @@ class DashboardSummaryController extends Controller
                 ->orWhereHas('runs', fn ($r) => $r->whereBetween('performed_at', [$windowFrom, $windowTo])))
             ->with([
                 'state.currentStep',
+                'state.currentRun',
                 'office:id,code,name',
                 'type:id,name',
                 'runs' => fn ($r) => $r
                     ->reorder()
                     ->orderBy('performed_at')
                     ->orderBy('id')
-                    ->select(['id', 'transaction_id', 'to_step_id', 'action_code', 'performed_at', 'sla_minutes_snapshot'])
+                    ->select(['id', 'transaction_id', 'to_step_id', 'action_code', 'performed_at', 'received_at', 'sla_minutes_snapshot'])
                     ->with([
                         'toStep:id,name,code,order_number,sla_minutes,office_id,is_end_user',
                         'toStep.office:id,code,name',
@@ -842,6 +925,7 @@ class DashboardSummaryController extends Controller
                 if (!$next && $tx->is_done) continue;
 
                 $enteredAt = $run->performed_at;
+                $startedAt = $run->received_at;
                 $leftAt = $next?->performed_at ?? now();
                 $sla = (int) ($run->sla_minutes_snapshot ?: $run->toStep?->sla_minutes ?: 0);
                 if ($sla <= 0) continue;
@@ -850,10 +934,13 @@ class DashboardSummaryController extends Controller
                 if (!$step) continue;
 
                 $office = $tx->effectiveStepOffice($step);
-                $officeMatches = $filterOfficeId === null
-                    || (int) ($office?->id ?? 0) === $filterOfficeId;
+                $officeMatches = !$filterOfficeIds
+                    || in_array((int) ($office?->id ?? 0), $filterOfficeIds, true);
 
-                $wait = WorkingTime::minutesBetween($enteredAt, $leftAt);
+                // The SLA clock runs only after Receive. Pending visits still
+                // count as a station visit for the status graph, but can
+                // never be a late working visit.
+                $wait = $startedAt ? WorkingTime::minutesBetween($startedAt, $leftAt) : null;
 
                 foreach ($bucketList as $bucket) {
                     if (!($enteredAt->lt($bucket['end']) && $leftAt->gt($bucket['start']))) continue;
@@ -861,7 +948,8 @@ class DashboardSummaryController extends Controller
 
                     $officeVisitMonths[$bucket['key']] = true;
 
-                    if ($bucket['key'] !== $selectedKey || $wait <= $sla) continue;
+                    if ($bucket['key'] !== $selectedKey || !$startedAt || $wait <= $sla) continue;
+                    if (!($startedAt->lt($bucket['end']) && $leftAt->gt($bucket['start']))) continue;
 
                     $lateInSelectedMonth = true;
 
@@ -881,7 +969,7 @@ class DashboardSummaryController extends Controller
                 }
             }
 
-            $officeMatches = fn (string $monthKey) => $filterOfficeId === null
+            $officeMatches = fn (string $monthKey) => !$filterOfficeIds
                 || isset($officeVisitMonths[$monthKey]);
 
             if ($tx->is_done) {
