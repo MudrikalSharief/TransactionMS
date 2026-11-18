@@ -82,6 +82,19 @@ export function mainTimestamp(run) {
     return run?.received_at || run?.released_at || run?.performed_at || null;
 }
 
+// Display-only entries. Assignment events deliberately have no receipt, SLA,
+// or attachment fields and never enter the workflow run collection.
+export function mergeAssignmentHistory(runs = [], assignments = []) {
+    return [
+        ...(runs || []).map(run => ({ ...run, history_key: `run:${run.id}` })),
+        ...(assignments || []).map(event => ({ ...event, history_key: `assignment:${event.id}`, event_type: 'assignment', action_code: 'reassign' })),
+    ].sort((a, b) => {
+        const timeA = Date.parse(a.event_type === 'assignment' ? a.assigned_at : mainTimestamp(a)) || 0;
+        const timeB = Date.parse(b.event_type === 'assignment' ? b.assigned_at : mainTimestamp(b)) || 0;
+        return timeB - timeA || (a.event_type === b.event_type ? Number(b.id) - Number(a.id) : a.event_type === 'assignment' ? -1 : 1);
+    });
+}
+
 function officeOf(step) {
     return step?.office?.name || step?.stage || step?.name || null;
 }

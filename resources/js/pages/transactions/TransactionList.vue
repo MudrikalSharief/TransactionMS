@@ -1203,18 +1203,19 @@ html.dark .tl-page {
     line-height: 1.4;
 }
 .tl-tools {
-    display: flex;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: minmax(0, 320px);
+    grid-auto-columns: max-content;
     align-items: center;
-    justify-content: flex-end;
     gap: 12px;
-    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
     margin-left: auto;
 }
 .tl-search {
     position: relative;
-    flex: 0 0 320px;
     min-width: 0;
-    max-width: 320px;
 }
 .tl-search-icon {
     position: absolute;
@@ -1708,11 +1709,8 @@ html.dark .tl-page {
 @media (max-width: 900px) {
     .tl-tools {
         flex: 1 1 100%;
+        grid-template-columns: minmax(0, 1fr);
         margin-left: 0;
-    }
-    .tl-search {
-        flex: 1 1 100%;
-        max-width: none;
     }
 }
 @media (max-width: 760px) {

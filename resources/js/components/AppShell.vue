@@ -1,11 +1,25 @@
 <template>
-    <v-app>
+    <v-app :class="{ 'workspace-shell': workspaceMode }">
         <v-app-bar
             v-if="showAuthUi && !isTrackerView"
             elevation="0"
             class="app-bar"
+            :height="workspaceMode ? 104 : 64"
+            :absolute="workspaceMode"
         >
+            <div v-if="workspaceMode" class="workspace-header-start">
+                <button v-if="mobile" type="button" class="workspace-mobile-nav" aria-label="Open navigation" :aria-expanded="drawer" @click="toggleNav">
+                    <img :src="'/zamboanga-seal.png'" alt="" />
+                </button>
+                <div id="workspace-header-leading" class="workspace-header-leading">
+                    <div v-if="!isWorkspaceOverview" class="workspace-page-context">
+                        <span class="workspace-page-eyebrow">City Government of Zamboanga</span>
+                        <h1>{{ workspacePageTitle }}</h1>
+                    </div>
+                </div>
+            </div>
             <div
+                v-else
                 class="d-flex align-center flex-shrink-0 mr-4 brand-click"
                 style="flex: 0 0 auto; min-width: max-content"
                 role="button"
@@ -44,8 +58,9 @@
             </div>
 
             <div
-                class="d-none d-md-flex align-center justify-center"
-                style="flex: 1 1 auto; min-width: 0; padding: 0 24px"
+                class="align-center justify-center header-search"
+                :class="workspaceMode ? 'd-none d-sm-flex' : 'd-none d-md-flex'"
+                :style="workspaceMode ? undefined : 'flex: 1 1 auto; min-width: 0; padding: 0 24px'"
             >
                 <v-autocomplete
                     v-model="searchSelect"
@@ -60,7 +75,7 @@
                     variant="solo"
                     rounded="pill"
                     prepend-inner-icon="mdi-magnify"
-                    placeholder="Search"
+                    :placeholder="workspaceMode ? 'Search transactions, steps, or offices…' : 'Search'"
                     :no-data-text="searchNoDataText"
                     :menu-props="{ contentClass: 'search-menu', offset: 18 }"
                     class="font-weight-bold search-pixiv"
@@ -80,8 +95,32 @@
             </div>
 
             <div class="d-flex align-center app-bar-right" style="flex: 0 0 auto">
+                <v-menu v-if="workspaceMode" location="bottom end" :location-strategy="workspaceMenuLocation" :close-on-content-click="false" offset="12">
+                    <template #activator="{ props }">
+                        <v-btn v-bind="props" icon="mdi-magnify" variant="text" class="workspace-mobile-search d-sm-none" aria-label="Search workspace" @click="ensureSearchData" />
+                    </template>
+                    <v-card class="pa-3" width="340" max-width="calc(100vw - 24px)">
+                        <v-autocomplete
+                            v-model="searchSelect"
+                            v-model:search="searchText"
+                            :items="searchResults"
+                            item-title="title"
+                            item-value="value"
+                            return-object
+                            clearable
+                            hide-details
+                            autofocus
+                            variant="outlined"
+                            rounded="pill"
+                            prepend-inner-icon="mdi-magnify"
+                            placeholder="Search transactions, steps, or offices…"
+                            :no-data-text="searchNoDataText"
+                            @update:model-value="goToResult"
+                        />
+                    </v-card>
+                </v-menu>
                 <!-- Local status: time and weather. -->
-                <div class="nav-status d-none d-md-flex">
+                <div v-if="!workspaceMode" class="nav-status d-none d-md-flex">
                     <div class="nav-seg nav-time" v-tooltip="'Zamboanga local time'">
                         <v-icon size="20">mdi-clock-outline</v-icon>
                         <div class="nav-time-stack">
@@ -120,6 +159,7 @@
                 <v-menu
                     v-if="auth.user.value && kind !== 'viewer'"
                     location="bottom end"
+                    :location-strategy="workspaceMode ? workspaceMenuLocation : 'connected'"
                     offset="10"
                     transition="fade-transition"
                 >
@@ -130,7 +170,8 @@
                             class="nav-account"
                             aria-label="Account menu"
                         >
-                            <v-icon size="20">mdi-account-outline</v-icon>
+                            <span v-if="workspaceMode" class="workspace-account-initial">{{ accountInitial }}</span>
+                            <v-icon v-else size="20">mdi-account-outline</v-icon>
                         </button>
                     </template>
                     <v-card class="account-menu" rounded="xl" elevation="8">
@@ -140,6 +181,10 @@
                                 <div class="account-menu-name">{{ accountName }}</div>
                                 <div v-if="accountEmail" class="account-menu-mail">{{ accountEmail }}</div>
                             </div>
+                        </div>
+                        <div v-if="workspaceMode" class="workspace-local-status">
+                            <span><v-icon size="16">mdi-clock-outline</v-icon> {{ clock }} <small>Manila</small></span>
+                            <span><v-icon size="16">{{ weatherIcon }}</v-icon> {{ temperature }} <small>{{ weatherLabel }}</small></span>
                         </div>
                         <v-divider class="account-menu-divider" />
                         <v-list density="compact" class="account-menu-list">
@@ -188,32 +233,30 @@
             </div>
         </v-app-bar>
 
-        <!-- Tracker pages: the shared guest session gets a visible
-             way back to sign-in instead of the account menu. -->
-        <v-btn
-            v-if="isTrackerView"
-            class="nav-login"
-            color="primary"
-            variant="flat"
-            rounded="0"
-            size="small"
-            prepend-icon="mdi-login-variant"
-            :loading="loggingOut"
-            :disabled="loggingOut"
-            @click="onLogout"
-        >
-            Login
-        </v-btn>
-
         <v-navigation-drawer
             v-if="showAuthUi && !isTrackerView"
             v-model="drawer"
-            :rail="rail"
+            :rail="rail && !mobile"
             :rail-width="76"
+            :width="workspaceMode ? 236 : 256"
+            :order="workspaceMode ? -1 : 0"
+            :permanent="workspaceMode && !mobile"
+            :temporary="workspaceMode && mobile"
             class="app-drawer"
             @mouseenter="expandOnHover"
             @mouseleave="collapseOnLeave"
+            @focusin="onNavFocus"
+            @focusout="onNavFocusOut"
         >
+            <div v-if="workspaceMode" class="workspace-sidebar-brand" :class="{ 'workspace-sidebar-brand--rail': rail && !mobile }">
+                <img :src="'/zamboanga-seal.png'" alt="City Government of Zamboanga seal" />
+                <div v-if="!rail || mobile" class="workspace-sidebar-wordmark">
+                    <span>CITY GOVERNMENT OF</span>
+                    <strong>ZAMBOANGA</strong>
+                    <span class="workspace-sidebar-product">TRANSACTIONS</span>
+                </div>
+                <v-btn v-if="mobile" icon="mdi-close" size="small" variant="text" aria-label="Close navigation" @click="drawer = false" />
+            </div>
             <v-list nav color="primary" class="nav-groups">
                 <!-- Role-aware groups: superadmin sees everything, office admins
                      their office's work and people, everyone else their own work. -->
@@ -230,6 +273,7 @@
                         :key="item.to"
                         :to="item.to"
                         :exact="!!item.exact"
+                        :active="item.to === '/' ? route.path === '/' && route.query.view !== 'reports' : item.to === '/?view=reports' ? route.path === '/' && route.query.view === 'reports' : undefined"
                         :prepend-icon="item.badge == null ? item.icon : undefined"
                         rounded="lg"
                         v-tooltip:end="rail ? (item.badge ? `${item.title} ${item.badge}` : item.title) : false"
@@ -251,7 +295,7 @@
                             <v-icon v-else>{{ item.icon }}</v-icon>
                         </template>
                         <v-list-item-title class="d-flex align-center">
-                            {{ item.title.toUpperCase() }}
+                            {{ workspaceMode ? item.title : item.title.toUpperCase() }}
                             <v-chip
                                 v-if="item.badge != null && !rail && item.badge > 0"
                                 size="x-small"
@@ -274,7 +318,7 @@
                     <template #prepend>
                         <v-icon>mdi-help-circle-outline</v-icon>
                     </template>
-                    <v-list-item-title class="d-flex align-center">HELP</v-list-item-title>
+                    <v-list-item-title class="d-flex align-center">{{ workspaceMode ? "Help & Support" : "HELP" }}</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                     v-if="false && showApprovals"
@@ -334,7 +378,7 @@
                     <template #prepend>
                         <v-icon>mdi-cog-outline</v-icon>
                     </template>
-                    <v-list-item-title class="nav-settings-label">SETTINGS</v-list-item-title>
+                    <v-list-item-title class="nav-settings-label">{{ workspaceMode ? "Settings" : "SETTINGS" }}</v-list-item-title>
                 </v-list-item>
             </template>
         </v-navigation-drawer>
@@ -343,12 +387,28 @@
             <OfflineBar />
             <!-- The tracker's flag backdrop behind every page; the viewer
                  pages draw their own (search dims it as results appear). -->
-            <TrackBackdrop v-if="showAuthUi && route.meta?.kind !== 'viewer'" quiet />
+            <WorkspaceBackdrop v-if="workspaceMode" />
+            <TrackBackdrop v-else-if="showAuthUi && route.meta?.kind !== 'viewer'" quiet />
             <v-container
                 v-if="showAuthUi"
                 fluid
                 class="pa-6 app-page"
             >
+                <div v-if="isTrackerView" class="tracker-actions">
+                    <v-btn
+                        class="nav-login"
+                        color="primary"
+                        variant="text"
+                        rounded="0"
+                        size="small"
+                        prepend-icon="mdi-login-variant"
+                        :loading="loggingOut"
+                        :disabled="loggingOut"
+                        @click="onLogout"
+                    >
+                        Login
+                    </v-btn>
+                </div>
                 <!-- Keyed by route record (not params) so each page eases in
                      once, while /my/transactions/1 -> /2 stays a plain update. -->
                 <div :key="route.matched[0]?.path || route.path" class="page-enter">
@@ -465,7 +525,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted, onScopeDispose } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
@@ -480,6 +540,8 @@ import OfflineBar from "@/components/OfflineBar.vue";
 import { useMotion } from "@/composables/useMotion";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
 import AppFooter from "@/components/AppFooter.vue";
+import WorkspaceBackdrop from "@/components/WorkspaceBackdrop.vue";
+import "../../css/workspace-shell.css";
 
 
 const router = useRouter();
@@ -487,11 +549,44 @@ const route = useRoute();
 const auth = useAuth();
 const { mobile } = useDisplay();
 
-// ---- Collapsible sidebar (starts collapsed) ----
-// Hover expands via the same `rail` state the hamburger toggles, so both push
-// the content instead of overlaying it.
+// Fixed header menus stay within the viewport through drawer and breakpoint
+// changes. The installed connected strategy can double fixed-header offsets.
+function workspaceMenuLocation(data, props, contentStyles) {
+    let frame = null;
+    const updateLocation = () => {
+        const target = data.target.value;
+        const content = data.contentEl.value;
+        if (!target?.getBoundingClientRect || !content) return;
+        const anchor = target.getBoundingClientRect();
+        const box = content.getBoundingClientRect();
+        const margin = 12;
+        const offset = Number(props.offset) || 10;
+        const left = Math.max(margin, Math.min(anchor.right - box.width, window.innerWidth - box.width - margin));
+        const top = Math.max(margin, Math.min(anchor.bottom + offset, window.innerHeight - box.height - margin));
+        Object.assign(contentStyles.value, {
+            position: "fixed", left: `${left}px`, top: `${top}px`,
+            maxWidth: `${window.innerWidth - margin * 2}px`,
+            maxHeight: `${window.innerHeight - margin * 2}px`,
+            transformOrigin: "right top",
+        });
+    };
+    const observer = new ResizeObserver(updateLocation);
+    watch([data.target, data.contentEl], ([target, content], previous) => {
+        previous?.filter(value => value instanceof Element).forEach(value => observer.unobserve(value));
+        [target, content].filter(value => value instanceof Element).forEach(value => observer.observe(value));
+        if (frame) cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(updateLocation);
+    }, { immediate: true, flush: "post" });
+    onScopeDispose(() => {
+        observer.disconnect();
+        if (frame) cancelAnimationFrame(frame);
+    });
+    return { updateLocation };
+}
+
+// Desktop workspaces use an icon rail and expand on hover or keyboard focus.
 const drawer = ref(!mobile.value);
-const rail = ref(true);
+const rail = ref(false);
 let hoverExpanded = false;
 
 const toggleNav = () => {
@@ -517,10 +612,12 @@ const RAIL_HOT_ZONE_PX = 112;
 const RAIL_RESET_PX = 340;
 function onPointerNearRail(e) {
     if (mobile.value || !drawer.value) return;
-    if (rail.value && e.clientX <= RAIL_HOT_ZONE_PX) {
+    const hotZone = workspaceMode.value ? 84 : RAIL_HOT_ZONE_PX;
+    const resetAt = workspaceMode.value ? 248 : RAIL_RESET_PX;
+    if (rail.value && e.clientX <= hotZone) {
         hoverExpanded = true;
         rail.value = false;
-    } else if (!rail.value && hoverExpanded && e.clientX > RAIL_RESET_PX) {
+    } else if (!rail.value && hoverExpanded && e.clientX > resetAt) {
         hoverExpanded = false;
         rail.value = true;
     }
@@ -538,6 +635,14 @@ const collapseOnLeave = () => {
     rail.value = true;
 };
 
+function onNavFocus(event) {
+    if (workspaceMode.value && event.target.matches(':focus-visible')) expandOnHover();
+}
+
+function onNavFocusOut(event) {
+    if (workspaceMode.value && !event.currentTarget.contains(event.relatedTarget)) collapseOnLeave();
+}
+
 const showAuthUi = computed(() => {
     return !!auth.user.value && route.name !== "login" && !route.meta?.bare;
 });
@@ -549,12 +654,42 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 const kind = computed(() => userKind(auth.user.value));
 // Guest tracker pages show only a standalone Login action.
 const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind === "viewer");
+// Shared and teleported surfaces use the same boundary. Excluded routes lose
+// their marker synchronously, including transitions between account kinds.
+const workspaceMode = computed(() => showAuthUi.value && kind.value !== "viewer"
+    && route.meta?.kind !== "viewer" && !/^\/(?:login|track|scan)(?:\/|$)/.test(route.path));
+const isWorkspaceOverview = computed(() => ["/", "/portal"].includes(route.path));
+const workspacePageTitle = computed(() => {
+    const destination = [...navGroups.value.flatMap(group => group.items),
+        { to: "/profile", title: "My Profile" }, { to: "/help", title: "Help & Support" }]
+        .filter(item => item.to !== "/")
+        .sort((a, b) => b.to.length - a.to.length)
+        .find(item => route.path === item.to || route.path.startsWith(`${item.to}/`));
+    return destination?.title || route.meta?.title || "Workspace";
+});
+watch(workspaceMode, enabled => {
+    document.documentElement.classList.toggle("workspace-active", enabled);
+    if (enabled) {
+        drawer.value = !mobile.value;
+        rail.value = !mobile.value;
+        hoverExpanded = false;
+    } else settingsOpen.value = false;
+}, { immediate: true, flush: "sync" });
 // Viewers have a single page (Track), so the sidebar starts hidden; every
 // other account gets it back. The shell outlives sign-ins, so a viewer
 // session must not leave it hidden for the next admin or clerk.
-watch(kind, (k) => {
-    drawer.value = k !== "viewer" && !mobile.value;
+watch(() => auth.user.value?.id, () => {
+    drawer.value = kind.value !== "viewer" && !mobile.value;
+    rail.value = workspaceMode.value && !mobile.value;
+    hoverExpanded = false;
 }, { immediate: true });
+watch(mobile, isMobile => {
+    drawer.value = !isMobile && kind.value !== "viewer";
+    rail.value = workspaceMode.value && !isMobile;
+});
+watch(() => route.path, () => {
+    if (mobile.value) drawer.value = false;
+});
 // My Profile: every signed-in account except the shared guest viewer.
 const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
 
@@ -596,10 +731,11 @@ const navGroups = computed(() => {
             { title: "Work", items: work },
         ];
     }
-    const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard", to: "/" }] };
+    const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard-outline", to: "/", exact: true }] };
     // Monitoring (read-only) for superadmins and office admins; the Reports
     // are a view inside the Dashboard.
     if (isSuperadmin.value || isOfficeAdmin.value) {
+        overview.items.push({ title: "Reports", icon: "mdi-chart-box-outline", to: "/?view=reports", exact: true });
         overview.items.push({ title: "Activity Log", icon: "mdi-history", to: "/admin/activity" });
     }
     if (isSuperadmin.value) {
@@ -612,8 +748,8 @@ const navGroups = computed(() => {
             {
                 title: "People",
                 items: [
-                    { title: "Users", icon: "mdi-account-group", to: "/admin/users" },
-                    { title: "Roles", icon: "mdi-shield-account", to: "/admin/roles" },
+                    { title: "Accounts", icon: "mdi-account-group-outline", to: "/admin/users" },
+                    { title: "Roles", icon: "mdi-shield-account-outline", to: "/admin/roles" },
                 ],
             },
             {
@@ -662,7 +798,13 @@ function refreshApprovalBadge() {
 // Recount on every page change; the boot timer in onMounted handles the
 // first check after the page settles, and a timer catches work that arrives
 // from other users meanwhile. Do not fire this during the first paint.
-watch(() => route.fullPath, refreshApprovalBadge);
+let routeBadgeTimer = null;
+watch(() => route.fullPath, () => {
+    if (routeBadgeTimer) clearTimeout(routeBadgeTimer);
+    // Do not put badge work ahead of the dashboard's first data requests.
+    if (isWorkspaceOverview.value) routeBadgeTimer = setTimeout(refreshApprovalBadge, 5000);
+    else refreshApprovalBadge();
+});
 let approvalBadgeTimer = null;
 
 const confirmLogout = ref(false);
@@ -1034,6 +1176,7 @@ function toggleTheme() {
 }
 
 onMounted(() => {
+    document.documentElement.classList.toggle("workspace-active", workspaceMode.value);
     let saved = null;
     try {
         saved = localStorage.getItem(THEME_KEY);
@@ -1081,6 +1224,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    // HMR can mount the replacement before this old instance's cleanup runs.
+    // Keep its workspace marker, but remove it when no workspace remains.
+    document.documentElement.classList.toggle("workspace-active", !!document.querySelector(".workspace-shell"));
     if (clockTimer) clearInterval(clockTimer);
     if (weatherTimer) clearInterval(weatherTimer);
     if (weatherRetryTimer) {
@@ -1091,6 +1237,7 @@ onUnmounted(() => {
     document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("pointermove", onPointerNearRail);
     if (approvalBadgeTimer) clearInterval(approvalBadgeTimer);
+    if (routeBadgeTimer) clearTimeout(routeBadgeTimer);
 });
 </script>
 
@@ -1213,12 +1360,15 @@ onUnmounted(() => {
     height: 16px;
     background: rgba(var(--v-theme-on-surface), 0.16);
 }
-/* Keep sign-in available without a header or navigation on tracker pages. */
+/* Reserve space for sign-in so active searches never slide underneath it. */
+.tracker-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
 .nav-login {
-    position: fixed;
-    top: 12px;
-    right: 16px;
-    z-index: 1000;
     height: 40px !important;
     padding-inline: 16px !important;
     font-weight: 700;

@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\UserTransactionController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\PortalController;
 use App\Http\Controllers\Api\ViewerTrackingController;
+use App\Http\Controllers\Api\OfficerReassignmentController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
@@ -126,6 +127,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     // Office admins start transactions for their own office (checked in the controller).
     Route::post('/transactions', [UserTransactionController::class, 'store']);
     Route::get('/transactions/{transaction}', [UserTransactionController::class, 'show']);
+    Route::get('/transactions/{transaction}/steps/{step}/receivers', [\App\Http\Controllers\Api\TransactionReceivingOfficerController::class, 'show']);
     Route::post('/transactions/{transaction}/execute', [UserTransactionController::class, 'execute']);
     Route::post('/transactions/{transaction}/receive', [TransactionReceiveController::class, 'receive']);
     Route::post('/transactions/{transaction}/goto', [TransactionGotoController::class, 'goto']);
@@ -169,6 +171,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class]
 Route::middleware(['auth:sanctum', BlockViewer::class])
     ->prefix('admin')
     ->group(function () {
+        Route::get('transactions/{transaction}/officer-assignment', [OfficerReassignmentController::class, 'show']);
+        Route::post('transactions/{transaction}/officer-assignment', [OfficerReassignmentController::class, 'store']);
         // Master data: superadmin only.
         Route::middleware(EnsureRole::class.':superadmin')->group(function () {
             Route::apiResource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -276,6 +280,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         Route::get('/transactions/archive', [TransactionArchiveController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
+            ->middleware(EnsureTransactionOffice::class);
+        Route::get('/transactions/{transaction}/steps/{step}/receivers', [\App\Http\Controllers\Api\TransactionReceivingOfficerController::class, 'showAdmin'])
             ->middleware(EnsureTransactionOffice::class);
         Route::post('/transactions/{transaction}/archive', [TransactionArchiveController::class, 'store'])
             ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);

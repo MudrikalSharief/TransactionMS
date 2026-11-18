@@ -37,6 +37,7 @@ class TransactionStepRunResource extends JsonResource
             'released_at' => $this->performed_at?->toISOString(),
             // #4 To user / #2 To (receiving) timestamp
             'received_by' => $this->receiver ? $this->userPayload($this->receiver) : null,
+            'assigned_officer' => app(\App\Services\OfficerAssignmentAccess::class)->responsibleOfficer($this->resource),
             'received_at' => $this->received_at?->toISOString(),
             'received_office' => $this->receivedOfficePayload(),
             // #5 Estimated duration (snapshot of destination sla_minutes)

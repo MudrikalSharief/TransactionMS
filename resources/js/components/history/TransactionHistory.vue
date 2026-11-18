@@ -63,8 +63,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template v-for="(run, idx) in filtered" :key="run.id">
-                            <tr class="history-row" @click="toggle(run.id)">
+                        <template v-for="(run, idx) in filtered" :key="run.history_key">
+                            <tr v-if="run.event_type === 'assignment'"><td colspan="8" class="pa-0"><AssignmentHistoryEvent :event="run" /></td></tr>
+                            <tr v-else class="history-row" @click="toggle(run.id)">
                                 <td>
                                     <v-avatar
                                         size="32"
@@ -123,7 +124,7 @@
                                     />
                                 </td>
                             </tr>
-                            <tr v-if="isOpen(run.id)" :key="`d-${run.id}`" class="history-details-row">
+                            <tr v-if="run.event_type !== 'assignment' && isOpen(run.id)" :key="`d-${run.id}`" class="history-details-row">
                                 <td colspan="8" class="history-details-cell">
                                     <v-row v-if="isCreateRun(run)" dense>
                                             <v-col cols="12" sm="4">
@@ -192,12 +193,13 @@
             <div v-if="!loading && filtered.length" class="d-block d-md-none pa-3">
                 <v-card
                     v-for="(run, idx) in filtered"
-                    :key="`m-${run.id}`"
+                    :key="`m-${run.history_key}`"
                     variant="outlined"
                     rounded="0"
                     class="mb-3"
                 >
-                    <v-card-text class="pa-3" @click="toggle(run.id)">
+                    <AssignmentHistoryEvent v-if="run.event_type === 'assignment'" :event="run" />
+                    <v-card-text v-else class="pa-3" @click="toggle(run.id)">
                         <div class="d-flex align-center justify-space-between mb-2">
                             <div class="d-flex align-center ga-2">
                                 <v-avatar
@@ -305,10 +307,13 @@ import {
     stepLabelOf,
     detailStepText,
     userPositionText,
+    mergeAssignmentHistory,
 } from '@/utils/history';
+import AssignmentHistoryEvent from '@/components/history/AssignmentHistoryEvent.vue';
 
 const props = defineProps({
     runs: { type: Array, default: () => [] },
+    assignmentHistory: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
@@ -369,9 +374,10 @@ function boundToText(run) {
     return steps.length ? steps.map((s) => detailStepText(s)).join(' / ') : '—';
 }
 
+const historyEntries = computed(() => mergeAssignmentHistory(props.runs, props.assignmentHistory));
 const actionOptions = computed(() => {
     const seen = new Map();
-    for (const r of (props.runs || [])) {
+    for (const r of historyEntries.value) {
         const cfg = getActionConfig(r?.action_code);
         if (!seen.has(cfg.code)) seen.set(cfg.code, cfg.label);
     }
@@ -379,7 +385,7 @@ const actionOptions = computed(() => {
 });
 
 const filtered = computed(() => {
-    let rows = [...(props.runs || [])];
+    let rows = historyEntries.value;
     if (actionFilter.value) {
         rows = rows.filter((r) => String(r?.action_code || '').toLowerCase() === String(actionFilter.value).toLowerCase());
     }
@@ -390,12 +396,16 @@ const filtered = computed(() => {
                 r?.action_code,
                 getActionConfig(r?.action_code).label,
                 r?.remarks,
+                r?.reason,
+                r?.from_officer?.name,
+                r?.to_officer?.name,
+                r?.assigned_by?.name,
                 r?.performed_by?.name,
                 r?.performed_by?.position,
                 r?.received_by?.name,
                 r?.received_by?.position,
-                movementOf(r).from,
-                movementOf(r).to,
+                r.event_type === 'assignment' ? null : movementOf(r).from,
+                r.event_type === 'assignment' ? null : movementOf(r).to,
                 detailStepText(r?.from_step),
                 detailStepText(r?.to_step),
             ].filter(Boolean).join(' ').toLowerCase();

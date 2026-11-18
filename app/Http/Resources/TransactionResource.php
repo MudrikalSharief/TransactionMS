@@ -475,6 +475,9 @@ class TransactionResource extends JsonResource
 
             'current_step_fields' => $currentStepFields,
 
+            'officer_assignment' => app(\App\Services\OfficerAssignmentAccess::class)->metadata($this->resource, $request?->user()),
+            'assignment_history' => app(\App\Services\OfficerAssignmentAccess::class)->history($this->resource),
+
             'current_step_data' => $this->buildCurrentStepData($currentStep),
 
             'current_step_requirements' => $currentStepRequirements,

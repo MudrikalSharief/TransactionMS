@@ -1,0 +1,220 @@
+/* Authenticated workspace only. Login and viewer tracking share components,
+   so neither unqualified component rules nor :root tokens belong here. */
+html.workspace-active {
+    --ws-blue: #0055ed;
+    --ws-bg: #eff5ff;
+    --ws-surface: #ffffff;
+    --ws-soft: #f4f7ff;
+    --ws-hover: #edf3ff;
+    --ws-ink: #11172f;
+    --ws-muted: #5b6c92;
+    --ws-line: #dce7fc;
+    --ws-shadow: 0 3px 8px rgba(20, 74, 162, .06), 0 12px 28px -15px rgba(34, 88, 177, .25);
+    --ws-radius: 24px;
+    --tms-grad: linear-gradient(#0055ed, #0055ed);
+    --tms-grad-h: linear-gradient(#0055ed, #0055ed);
+    --tms-glow: 0 3px 10px rgba(0, 85, 237, .12);
+}
+html.workspace-active.dark {
+    --ws-blue: #91baff;
+    --ws-bg: #101b30;
+    --ws-surface: #19273e;
+    --ws-soft: #20314b;
+    --ws-hover: #253b5d;
+    --ws-ink: #ecf3ff;
+    --ws-muted: #a8b9d4;
+    --ws-line: #344b70;
+    --ws-shadow: 0 5px 22px rgba(0, 0, 0, .2);
+}
+.workspace-shell {
+    --v-theme-primary: 0, 85, 237;
+    --v-theme-on-surface: 17, 23, 47;
+    color: var(--ws-ink);
+    background: var(--ws-bg) !important;
+    font-variant-numeric: tabular-nums;
+}
+html.dark .workspace-shell {
+    --v-theme-primary: 145, 186, 255;
+    --v-theme-on-surface: 236, 243, 255;
+}
+.workspace-shell .app-page { max-width: 1800px; margin-inline: auto; }
+.workspace-shell .app-page > * { min-width: 0; }
+.workspace-shell :is(h1, h2, h3, .text-h5, .text-h6) { letter-spacing: -.025em !important; }
+.workspace-shell :is(.v-card, .v-sheet).rounded-0:not(.hover-card) { border-radius: var(--ws-radius) !important; }
+.workspace-shell .v-card:not(.hover-card) { border: 1px solid var(--ws-line); box-shadow: var(--ws-shadow) !important; }
+.workspace-shell .v-card--variant-outlined { box-shadow: none !important; }
+.workspace-shell .v-card-title { color: var(--ws-ink); font-size: 18px; letter-spacing: -.025em; }
+.workspace-shell .v-divider { border-color: var(--ws-line); opacity: 1; }
+.workspace-shell .lgu-head {
+    border-bottom: 1px solid var(--ws-line) !important;
+    border-image: none !important;
+    background: transparent !important;
+    padding: 18px 22px !important;
+    min-height: 70px;
+    white-space: normal;
+}
+.workspace-shell .lgu-head-avatar {
+    border: 0 !important;
+    border-radius: 14px !important;
+    background: var(--ws-hover) !important;
+    box-shadow: none !important;
+}
+.workspace-shell .lgu-head-avatar .v-icon { color: var(--ws-blue) !important; }
+.workspace-shell :is(.v-card-text, .v-card-subtitle) { color: inherit; }
+.workspace-shell .v-alert { border-radius: 14px !important; }
+.workspace-shell .v-chip { border-radius: 9px !important; font-weight: 600; }
+.workspace-shell .v-btn {
+    border-radius: 11px !important;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 13px;
+    font-weight: 650 !important;
+}
+.workspace-shell .v-btn--variant-flat.bg-primary { color: white !important; box-shadow: 0 4px 12px rgba(0, 85, 237, .16); }
+.workspace-shell .v-btn--variant-outlined { border-color: var(--ws-line); }
+.workspace-shell .v-btn--disabled { opacity: .5; box-shadow: none !important; }
+.workspace-shell .v-field {
+    border-radius: 12px !important;
+    color: var(--ws-ink);
+    background-color: var(--ws-surface);
+}
+.workspace-shell .v-field__outline { color: var(--ws-line); }
+.workspace-shell .v-field--focused .v-field__outline { color: var(--ws-blue); }
+.workspace-shell .v-label { opacity: 1; color: var(--ws-muted); }
+.workspace-shell .v-field--error :is(.v-field__outline, .v-label) { color: rgb(var(--v-theme-error)) !important; }
+.workspace-shell .v-selection-control__input .v-icon { opacity: 1; }
+.workspace-shell :is(a, button, [tabindex], input, textarea, select):focus-visible,
+html.workspace-active .v-overlay :is(a, button, input, textarea, select):focus-visible {
+    outline: 3px solid var(--ws-blue);
+    outline-offset: 3px;
+}
+
+/* Existing custom page components retain their operations and semantic
+   status colors, with shared surfaces instead of separate sharp panels. */
+.workspace-shell :is(.us-page, .tl-page, .ofp-page, .tt-page, .wf-page, .tx-header) {
+    border: 1px solid var(--ws-line) !important;
+    border-radius: var(--ws-radius) !important;
+    box-shadow: var(--ws-shadow) !important;
+    background: var(--ws-surface) !important;
+    color: var(--ws-ink);
+    overflow: hidden;
+}
+.workspace-shell .us-page { --us-panel: var(--ws-surface); --us-ink: var(--ws-ink); --us-muted: var(--ws-muted); --us-line: var(--ws-line); --us-field: var(--ws-soft); --us-hover: var(--ws-hover); --us-blue: var(--ws-blue); --us-blue-bg: var(--ws-hover); }
+.workspace-shell .tl-page { --tl-panel: var(--ws-surface); --tl-ink: var(--ws-ink); --tl-muted: var(--ws-muted); --tl-line: var(--ws-line); --tl-field: var(--ws-soft); --tl-hover: var(--ws-hover); --tl-blue: var(--ws-blue); --tl-blue-bg: var(--ws-hover); }
+.workspace-shell .ofp-page { --ofp-panel: var(--ws-surface); --ofp-ink: var(--ws-ink); --ofp-muted: var(--ws-muted); --ofp-line: var(--ws-line); --ofp-field: var(--ws-soft); --ofp-hover: var(--ws-hover); --ofp-blue: var(--ws-blue); --ofp-blue-bg: var(--ws-hover); }
+.workspace-shell .tt-page { --tt-panel: var(--ws-surface); --tt-ink: var(--ws-ink); --tt-muted: var(--ws-muted); --tt-line: var(--ws-line); --tt-field: var(--ws-soft); --tt-hover: var(--ws-hover); --tt-blue: var(--ws-blue); --tt-blue-bg: var(--ws-hover); }
+.workspace-shell .wf-page { --wf-ink: var(--ws-ink); --wf-muted: var(--ws-muted); --wf-line: var(--ws-line); --wf-field: var(--ws-soft); --wf-hover: var(--ws-hover); --wf-blue: var(--ws-blue); --wf-blue-bg: var(--ws-hover); }
+.workspace-shell .ro-page { --ro-bg: transparent; --ro-panel: var(--ws-surface); --ro-ink: var(--ws-ink); --ro-muted: var(--ws-muted); --ro-line: var(--ws-line); --ro-field: var(--ws-soft); --ro-hover: var(--ws-hover); --ro-blue: var(--ws-blue); --ro-blue-bg: var(--ws-hover); border-radius: var(--ws-radius); }
+.workspace-shell .sr-page { --sr-field: var(--ws-soft); --sr-hover: var(--ws-hover); }
+.workspace-shell .sd-page { --sd-field: var(--ws-soft); --sd-hover: var(--ws-hover); }
+.workspace-shell .app-page :is(.sr-page, .sd-page, .ro-page) { margin-inline: 0; max-width: 100%; padding-inline: 0; }
+.workspace-shell .ro-page:has(> .ro-hd) { box-shadow: var(--ws-shadow); border: 1px solid var(--ws-line); }
+.workspace-shell .app-page :is(.sr-trigger, .sr-add, .sr-code-in, .sd-trigger, .sd-add, .ro-search-input, .ro-add) { border-radius: 12px; }
+.workspace-shell .app-page :is(.sr-card, .sd-card) { border-radius: 18px; border-color: var(--ws-line); box-shadow: var(--ws-shadow); }
+.workspace-shell .tx-header { --tx-panel: var(--ws-surface); --tx-ink: var(--ws-ink); --tx-muted: var(--ws-muted); --tx-line: var(--ws-line); --tx-field: var(--ws-soft); --tx-hover: var(--ws-hover); --tx-blue: var(--ws-blue); --tx-blue-bg: var(--ws-hover); }
+.workspace-shell :is(.us-hd, .tl-hd, .ofp-hd, .tt-hd, .wf-hd, .tx-header) {
+    border-bottom: 1px solid var(--ws-line) !important;
+    padding: 22px 24px;
+    gap: 16px;
+}
+.workspace-shell :is(.us-badge, .tl-badge, .ofp-badge, .tt-badge, .wf-badge) {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--ws-hover) !important;
+    color: var(--ws-blue) !important;
+}
+.workspace-shell :is(.us-title, .tl-title, .ofp-title, .tt-title, .wf-title) { color: var(--ws-ink); font-size: clamp(20px, 1.8vw, 26px); }
+.workspace-shell :is(.us-search, .tl-search, .ofp-search, .tt-search, .wf-search) {
+    border-radius: 24px !important;
+    background: var(--ws-soft) !important;
+    border-color: var(--ws-line) !important;
+}
+.workspace-shell .app-page :is(.us-add, .tl-add, .ofp-add, .tt-add, .wf-add) {
+    border-radius: 12px !important;
+    background: #0055ed;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 85, 237, .16);
+}
+.workspace-shell .app-page :is(.us-search-input, .tl-search-input, .ofp-search-input, .tt-search-input) {
+    border-radius: 24px;
+    color: var(--ws-ink);
+    background: var(--ws-soft);
+    border-color: var(--ws-line);
+}
+.workspace-shell .app-page :is(.wf-ver, .wf-tool-btn, .tx-back) { border-radius: 10px; }
+.workspace-shell .app-page select { border-radius: 10px; }
+
+/* Tables can scroll inside their panel without widening the document. */
+.workspace-shell :is(.v-table, .v-data-table) { color: var(--ws-ink); background: var(--ws-surface); }
+.workspace-shell .v-table > .v-table__wrapper { max-width: 100%; }
+.workspace-shell .v-table :is(thead th, thead th.v-data-table__th) {
+    background: var(--ws-soft) !important;
+    color: var(--ws-muted) !important;
+    border-bottom: 1px solid var(--ws-line) !important;
+    font-size: 12px !important;
+    letter-spacing: .025em;
+    font-weight: 650 !important;
+}
+.workspace-shell .v-table thead th .v-data-table-header__content { color: var(--ws-muted) !important; }
+.workspace-shell .v-table thead th { white-space: normal !important; overflow-wrap: normal; word-break: normal; }
+.workspace-shell .us-table table { min-width: 1100px; }
+.workspace-shell .tl-table table { min-width: 1050px; }
+.workspace-shell .v-table tbody td { border-color: var(--ws-line) !important; font-size: 13px; }
+.workspace-shell .v-table tbody tr:not(.v-data-table__tr--selected):hover { background: var(--ws-hover) !important; }
+.workspace-shell .v-data-table-footer { border-top: 1px solid var(--ws-line); background: var(--ws-surface); color: var(--ws-muted); }
+.workspace-shell .v-pagination__item .v-btn { border-radius: 10px !important; }
+.workspace-shell .v-pagination__item--is-active .v-btn { background: #0055ed; color: white; }
+.workspace-shell :is(.us-pager, .tl-pager, .ofp-pager, .tt-pager, .wf-pager) { background: var(--ws-soft); border-color: var(--ws-line); }
+
+/* Detail, profile, reports and workflow surfaces. */
+.workspace-shell :is(.pf-card, .assignment-event) { border-radius: 16px; border-color: var(--ws-line); }
+.workspace-shell .app-page :is(.profile-body, .pf-card, .history-row) { background: var(--ws-surface); color: var(--ws-ink); }
+.workspace-shell .profile-body :is(.id-name, .id-fact-value, .pf-title, .pf-label) { color: var(--ws-ink); }
+.workspace-shell .profile-body :is(.id-user, .id-fact-label) { color: var(--ws-muted); }
+.workspace-shell .profile-body .pf-field .v-field { background: var(--ws-soft); }
+.workspace-shell .profile-body .pf-field .v-field__outline { color: var(--ws-line); }
+.workspace-shell .profile-body .pf-field .v-field--error :is(.v-field__outline, .v-label) { color: rgb(var(--v-theme-error)) !important; }
+.workspace-shell.v-theme--pixivDark .app-drawer .v-icon { color: #91baff; }
+.workspace-shell.v-theme--pixivDark .workspace-sidebar-product { color: #91baff; }
+.workspace-shell.v-theme--pixivDark .tf-credit { color: #dceaff; }
+.workspace-shell.v-theme--pixivDark .tf-credit b { color: #ffffff; }
+.workspace-shell .assignment-event { background: var(--ws-soft); }
+.workspace-shell .v-tabs { background: transparent; }
+.workspace-shell .v-tab { text-transform: none; letter-spacing: 0; color: var(--ws-muted); }
+.workspace-shell .v-tab--selected { color: var(--ws-blue); }
+.workspace-shell .v-slide-group__content { min-width: 0; }
+.workspace-shell .v-breadcrumbs { color: var(--ws-muted); font-size: 13px; }
+.workspace-shell .step-link { background: var(--ws-line); }
+.workspace-shell .station-node { border-radius: 12px; }
+.workspace-shell .track-scroll { scrollbar-color: var(--ws-line) transparent; }
+
+/* Overlays are teleported outside the page. The html marker is removed
+   whenever the viewer/login experience is active, including account switches. */
+html.workspace-active .v-overlay :is(.v-card:not(.hover-card), .v-list) {
+    border: 1px solid var(--ws-line);
+    border-radius: 20px !important;
+    background-color: var(--ws-surface);
+    color: var(--ws-ink);
+    box-shadow: 0 12px 40px -12px rgba(25, 65, 128, .28) !important;
+}
+html.workspace-active .v-dialog > .v-overlay__content > .v-card { max-height: calc(100dvh - 40px); }
+html.workspace-active .v-overlay .v-card-title { color: var(--ws-ink); white-space: normal; }
+html.workspace-active .v-overlay .v-field { border-radius: 12px !important; }
+html.workspace-active .v-overlay .v-btn { border-radius: 11px !important; text-transform: none; letter-spacing: 0; }
+html.workspace-active .v-overlay .v-btn.bg-primary { background-image: linear-gradient(#0055ed, #0055ed) !important; color: white; }
+html.workspace-active .v-overlay .v-list-item { border-radius: 9px; }
+html.workspace-active .v-overlay .v-list-item--active { color: var(--ws-blue); }
+html.workspace-active .v-tooltip > .v-overlay__content { border-radius: 9px; }
+html.workspace-active .pm-dialog { --pm-ink: var(--ws-ink); --pm-muted: var(--ws-muted); --pm-panel: var(--ws-surface); --pm-line: var(--ws-line); }
+
+@media (max-width: 700px) {
+    .workspace-shell .app-page { padding: 16px 12px !important; }
+    .workspace-shell :is(.us-hd, .tl-hd, .ofp-hd, .tt-hd, .wf-hd, .tx-header) { padding: 18px 16px; gap: 12px; }
+    .workspace-shell :is(.us-tools, .tl-tools, .ofp-tools, .tt-tools, .wf-tools) { min-width: 0; max-width: 100%; }
+    .workspace-shell .lgu-head { padding: 16px !important; }
+    .workspace-shell .v-card-text { min-width: 0; }
+    .workspace-shell :is(.v-card, .v-sheet).rounded-0:not(.hover-card) { border-radius: 18px !important; }
+    .workspace-shell .profile-grid { grid-template-columns: minmax(0, 1fr); }
+    html.workspace-active .v-dialog > .v-overlay__content { margin: 12px; width: calc(100% - 24px); max-width: calc(100% - 24px); }
+}

@@ -28,14 +28,12 @@
         <div class="artboard" :style="{ '--s': scale }">
             <section class="card">
                 <h1 class="sr-only">TransactionMS sign in</h1>
-                <!-- System emblem on the sign-in screen; the large file only on sharp screens. -->
+                <!-- City Legal Office emblem on the sign-in screen. -->
                 <img
                     v-if="mode === 'signin'"
                     class="card-logo"
-                    :src="'/tms-logo-128.png'"
-                    :srcset="'/tms-logo-128.png 128w, /tms-logo.png 512w'"
-                    sizes="104px"
-                    alt="Transaction Management System emblem"
+                    :src="'/images/offices/city-legal.png'"
+                    alt="City Legal Office emblem"
                     width="104"
                     height="104"
                     decoding="async"
@@ -380,7 +378,7 @@
             <div class="hero-heading">
                 <p class="hero-eyebrow">
                     <span class="hero-line" aria-hidden="true"></span>
-                    Monitor City Government
+                    City Government of Zamboanga
                     <span class="hero-line" aria-hidden="true"></span>
                 </p>
                 <h2 class="hero-title">Transactions</h2>
@@ -1107,7 +1105,7 @@ async function guestLogin() {
     padding-right: 76px;
 }
 .control input::placeholder {
-    color: var(--ink);
+    color: #8792a5;
     opacity: 1;
 }
 .control input:hover:not(:disabled),

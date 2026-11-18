@@ -133,6 +133,7 @@ class RoutingEngine
 
     public function assertUserCanExecute(Transaction $tx, User $user): void
     {
+        app(OfficerAssignmentAccess::class)->assertAccess($tx, $user);
         if ((bool) ($tx->is_archive ?? false)) {
             abort(422, 'Transaction is archived and view-only.');
         }
@@ -154,6 +155,7 @@ class RoutingEngine
      */
     public function assertUserCanView(Transaction $tx, User $user): void
     {
+        app(OfficerAssignmentAccess::class)->assertAccess($tx, $user);
         if ($user->isSuperadmin() || $this->officeScope->covers($tx, $user)) return;
 
         $this->assertUserCanExecute($tx, $user);
@@ -328,6 +330,7 @@ class RoutingEngine
 
     private function userCanWorkOnStep(Transaction $tx, User $user, int $stepId): bool
     {
+        if (!app(OfficerAssignmentAccess::class)->canAccess($tx, $user)) return false;
         $user->loadMissing('roles');
         if ($user->roles->contains(fn ($r) => $r->code === 'superadmin')) return true;
 

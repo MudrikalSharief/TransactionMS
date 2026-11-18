@@ -29,6 +29,7 @@ class StepFileAccess
     public function allowedStepIds(Transaction $tx, ?User $user): ?array
     {
         if (!$user) return null;
+        if (!app(OfficerAssignmentAccess::class)->canAccess($tx, $user)) return [];
 
         $user->loadMissing('roles');
         if ($user->roles->contains(fn ($r) => in_array($r->code, self::UNRESTRICTED_ROLES, true))) {

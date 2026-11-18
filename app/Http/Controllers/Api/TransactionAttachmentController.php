@@ -419,6 +419,7 @@ class TransactionAttachmentController extends Controller
     private function assertCanView(Transaction $transaction, Request $request, RoutingEngine $routing): void
     {
         $user = $request->user();
+        app(\App\Services\OfficerAssignmentAccess::class)->assertAccess($transaction, $user);
         $user->loadMissing('roles');
 
         if ($user->roles?->contains(fn ($r) => $r->code === 'superadmin')) return;

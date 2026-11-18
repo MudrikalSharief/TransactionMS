@@ -48,11 +48,12 @@ class UserTransactionController extends Controller
         $txMax = $maxOf('transactions', ['updated_at']);
         $stateMax = $maxOf('transaction_states', ['updated_at']);
         $runMax = $maxOf('transaction_step_runs', ['updated_at', 'performed_at', 'received_at']);
+        $assignmentMax = $maxOf('transaction_officer_assignments', ['assigned_at']);
         $attachMax = $maxOf('transaction_attachments', ['updated_at', 'created_at']);
         $reqCheckMax = $maxOf('transaction_requirement_checks', ['updated_at', 'checked_at', 'created_at']);
         $checkMax = $maxOf('transaction_checklist_checks', ['updated_at', 'checked_at', 'created_at']);
 
-        $stamps = array_filter([$txMax, $stateMax, $runMax, $attachMax, $reqCheckMax, $checkMax]);
+        $stamps = array_filter([$txMax, $stateMax, $runMax, $assignmentMax, $attachMax, $reqCheckMax, $checkMax]);
         rsort($stamps);
         $latest = $stamps[0] ?? null;
 
@@ -287,4 +288,3 @@ class UserTransactionController extends Controller
         ]);
     }
 }
- 
