@@ -11,6 +11,7 @@
             </div>
             <v-spacer />
             </template>
+            <span class="text-caption text-medium-emphasis">Updates every 5 min</span>
             <v-select
                 v-model="actionFilter"
                 :items="actionOptions"
@@ -52,19 +53,75 @@
                 <v-table hover density="comfortable" class="lgu-table history-table">
                     <thead>
                         <tr>
-                            <th class="text-left">Step</th>
-                            <th class="text-left">Movement</th>
-                            <th class="text-left">Action</th>
-                            <th class="text-left">Performed By</th>
-                            <th class="text-left">Date &amp; Time</th>
-                            <th class="text-left">SLA</th>
-                            <th class="text-left">Status</th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Workflow station number for this entry.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Step</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Office codes the paper moved between.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Movement</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Action recorded for this history entry.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Action</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Person who performed the action.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Performed By</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="When the action was performed or received.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Date &amp; Time</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Office-hours time used versus the step's SLA.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Working/SLA</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Working time beyond the SLA.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Overdue</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Real time waiting to be received by the next office.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Transit</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
+                            <th class="text-left">
+                                <v-tooltip location="top" text="Pending, On time, or Overdue.">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="history-th-help">Status</span>
+                                    </template>
+                                </v-tooltip>
+                            </th>
                             <th class="text-right" style="width: 48px"><span class="sr-only">Details</span></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <template v-for="(run, idx) in filtered" :key="run.history_key">
-                            <tr v-if="run.event_type === 'assignment'"><td colspan="8" class="pa-0"><AssignmentHistoryEvent :event="run" /></td></tr>
+                        <template v-for="(run, idx) in displayRows" :key="run.history_key">
+                            <tr v-if="run.event_type === 'assignment'"><td colspan="10" class="pa-0"><AssignmentHistoryEvent :event="run" /></td></tr>
                             <tr v-else class="history-row" @click="toggle(run.id)">
                                 <td>
                                     <v-avatar
@@ -72,15 +129,14 @@
                                         color="white"
                                         :class="idx === 0 ? 'history-step-latest font-weight-bold' : 'history-step-ring font-weight-bold'"
                                     >
-                                        {{ stepLabelOf(run, filtered.length - idx) }}
+                                        {{ stepLabelOf(run, displayRows.length - idx) }}
                                     </v-avatar>
                                 </td>
                                 <td>
-                                    <div class="font-weight-medium">
+                                    <div class="font-weight-medium text-no-wrap">
                                         {{ movementOf(run).from }}
                                         <template v-if="movementOf(run).to"> → {{ movementOf(run).to }}</template>
                                     </div>
-                                    <div v-if="movementOf(run).sub" class="text-caption text-medium-emphasis">{{ movementOf(run).sub }}</div>
                                 </td>
                                 <td>
                                     <v-chip size="small" variant="tonal" rounded="0" :color="getActionConfig(run.action_code).color">
@@ -89,22 +145,19 @@
                                     </v-chip>
                                 </td>
                                 <td>
-                                    <div class="d-flex align-center ga-2">
-                                        <v-avatar size="30" color="grey-lighten-3" class="font-weight-bold text-caption text-grey-darken-3">
-                                            {{ getUserInitials(run.performed_by?.name) }}
-                                        </v-avatar>
-                                        <div>
-                                            <div class="text-body-2 font-weight-medium lh-1">{{ run.performed_by?.name || '—' }}</div>
-                                            <div v-if="userPositionText(run.performed_by)" class="text-caption text-medium-emphasis">{{ userPositionText(run.performed_by) }}</div>
-                                        </div>
-                                    </div>
+                                    <div class="text-body-2 font-weight-medium">{{ run.performed_by?.name || '—' }}</div>
                                 </td>
                                 <td>
-                                    <div class="text-body-2 text-no-wrap">{{ formatHistoryDate(mainTimestamp(run)) }}</div>
+                                    <div class="text-body-2 text-no-wrap">{{ formatHistoryDateShort(mainTimestamp(run)) }}</div>
                                 </td>
                                 <td>
-                                    <div class="font-weight-medium text-no-wrap">{{ slaMain(run) }}</div>
-                                    <div class="text-caption text-medium-emphasis">{{ slaCaption(run) }}</div>
+                                    <div class="font-weight-medium text-no-wrap">{{ workingMain(run) }}</div>
+                                </td>
+                                <td>
+                                    <div class="font-weight-medium text-no-wrap" :class="{ 'text-error': isOverdue(run) }">{{ overdueMain(run) }}</div>
+                                </td>
+                                <td>
+                                    <div class="font-weight-medium text-no-wrap">{{ pendingMain(run) }}</div>
                                 </td>
                                 <td>
                                     <v-chip size="small" variant="tonal" :color="getStatusConfig(run).color" class="font-weight-medium">
@@ -125,7 +178,7 @@
                                 </td>
                             </tr>
                             <tr v-if="run.event_type !== 'assignment' && isOpen(run.id)" :key="`d-${run.id}`" class="history-details-row">
-                                <td colspan="8" class="history-details-cell">
+                                <td colspan="10" class="history-details-cell">
                                     <v-row v-if="isCreateRun(run)" dense>
                                             <v-col cols="12" sm="4">
                                                 <div class="history-label">Created By</div>
@@ -190,9 +243,9 @@
             </div>
 
             <!-- Mobile cards -->
-            <div v-if="!loading && filtered.length" class="d-block d-md-none pa-3">
+            <div v-if="!loading && displayRows.length" class="d-block d-md-none pa-3">
                 <v-card
-                    v-for="(run, idx) in filtered"
+                    v-for="(run, idx) in displayRows"
                     :key="`m-${run.history_key}`"
                     variant="outlined"
                     rounded="0"
@@ -207,7 +260,7 @@
                                     color="white"
                                     :class="idx === 0 ? 'history-step-latest font-weight-bold text-caption' : 'history-step-ring font-weight-bold text-caption'"
                                 >
-                                    {{ stepLabelOf(run, filtered.length - idx) }}
+                                    {{ stepLabelOf(run, displayRows.length - idx) }}
                                 </v-avatar>
                                 <v-chip size="small" variant="tonal" :color="getStatusConfig(run).color" class="font-weight-medium">
                                     <span :class="['status-dot mr-1', getStatusConfig(run).dot]" />
@@ -225,26 +278,25 @@
                             />
                         </div>
                         <div class="font-weight-bold">{{ movementOf(run).from }}<template v-if="movementOf(run).to"> → {{ movementOf(run).to }}</template></div>
-                        <div v-if="movementOf(run).sub" class="text-caption text-medium-emphasis">{{ movementOf(run).sub }}</div>
                         <div class="mt-2">
                             <v-chip size="small" variant="tonal" rounded="0" :color="getActionConfig(run.action_code).color">
                                 <v-icon start size="small">{{ getActionConfig(run.action_code).icon }}</v-icon>
                                 {{ getActionConfig(run.action_code).label }}
                             </v-chip>
                         </div>
-                        <div class="d-flex align-center ga-2 mt-2">
-                            <v-avatar size="28" color="grey-lighten-3" class="font-weight-bold text-caption text-grey-darken-3">
-                                {{ getUserInitials(run.performed_by?.name) }}
-                            </v-avatar>
-                            <div>
-                                <div class="text-body-2 font-weight-medium lh-1">{{ run.performed_by?.name || '—' }}</div>
-                                <div v-if="userPositionText(run.performed_by)" class="text-caption text-medium-emphasis">{{ userPositionText(run.performed_by) }}</div>
-                            </div>
-                        </div>
-                        <div class="text-caption text-medium-emphasis mt-2">{{ formatHistoryDate(mainTimestamp(run)) }}</div>
+                        <div class="text-body-2 font-weight-medium mt-2">{{ run.performed_by?.name || '—' }}</div>
+                        <div class="text-caption text-medium-emphasis mt-2">{{ formatHistoryDateShort(mainTimestamp(run)) }}</div>
                         <div class="mt-1">
-                            <span class="text-caption text-medium-emphasis">SLA </span>
-                            <span class="font-weight-medium text-body-2">{{ slaMain(run) }}</span>
+                            <span class="text-caption text-medium-emphasis">Working/SLA </span>
+                            <span class="font-weight-medium text-body-2">{{ workingMain(run) }}</span>
+                        </div>
+                        <div class="mt-1">
+                            <span class="text-caption text-medium-emphasis">Overdue </span>
+                            <span class="font-weight-medium text-body-2" :class="{ 'text-error': isOverdue(run) }">{{ overdueMain(run) }}</span>
+                        </div>
+                        <div class="mt-1">
+                            <span class="text-caption text-medium-emphasis">Transit </span>
+                            <span class="font-weight-medium text-body-2">{{ pendingMain(run) }}</span>
                         </div>
                         <v-expand-transition>
                             <div v-if="isOpen(run.id)" class="mt-3 pt-3 history-mobile-details" @click.stop>
@@ -292,15 +344,17 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AttachmentList from '@/components/AttachmentList.vue';
 import mascotEmptyUrl from '@/assets/mascots/mascot-empty.jpg';
+import { workingMs } from '@/utils/workingTime';
 import {
+    formatCalendarMinutes,
     formatHistoryDate,
+    formatHistoryDateShort,
     formatMinutes,
     getActionConfig,
     getStatusConfig,
-    getUserInitials,
     isCreateRun,
     mainTimestamp,
     movementOf,
@@ -315,6 +369,7 @@ const props = defineProps({
     runs: { type: Array, default: () => [] },
     assignmentHistory: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
+    isDone: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
     // Bare mode: melt into a parent tab pane (no outer chrome/title),
@@ -415,28 +470,108 @@ const filtered = computed(() => {
     return rows;
 });
 
-function slaMain(run) {
-    const actual = run?.sla_actual_minutes;
+// Recompute the current open visit every five minutes so the Pending and
+// Working columns move without a page refresh. Completed visits keep their
+// final values.
+const now = ref(Date.now());
+let clockTimer = null;
+onMounted(() => {
+    clockTimer = window.setInterval(() => {
+        now.value = Date.now();
+    }, 5 * 60 * 1000);
+});
+onUnmounted(() => clearInterval(clockTimer));
+
+const orderedRuns = computed(() =>
+    [...(props.runs || [])].sort((a, b) => {
+        const at = Date.parse(a?.performed_at || '') || 0;
+        const bt = Date.parse(b?.performed_at || '') || 0;
+        return at - bt || Number(a?.id || 0) - Number(b?.id || 0);
+    }),
+);
+const nextRunById = computed(() => {
+    const map = new Map();
+    const runs = orderedRuns.value;
+    for (let i = 0; i < runs.length; i++) {
+        map.set(String(runs[i].id), runs[i + 1] || null);
+    }
+    return map;
+});
+
+const displayRows = computed(() =>
+    filtered.value.map((run) => {
+        const isFinalize = run?.action_code === 'finalize';
+        const next = nextRunById.value.get(String(run?.id)) || null;
+        let pending = run?.pending_minutes;
+        let working = run?.working_minutes;
+
+        // Pending is real elapsed time.
+        if (!props.isDone && !isFinalize && !run?.received_at && run?.performed_at) {
+            const started = Date.parse(run.performed_at);
+            if (Number.isFinite(started)) {
+                pending = Math.max(0, Math.floor((now.value - started) / 60000));
+            }
+        }
+
+        // Working is office-hours time and only moves while the paper is at
+        // the current (latest) station.
+        if (!props.isDone && !isFinalize && run?.received_at && !next) {
+            working = Math.floor(workingMs(run.received_at, now.value) / 60000);
+        }
+
+        const est = Number(run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot ?? 0);
+        const overdue = est > 0 && working != null
+            ? Math.max(0, Math.floor(Number(working) - est))
+            : null;
+        const breached = overdue != null && overdue > 0;
+
+        return {
+            ...run,
+            pending_minutes: pending,
+            working_minutes: working,
+            overdue_minutes: overdue,
+            is_working_breached: breached,
+        };
+    }),
+);
+
+function workingMain(run) {
+    if (run?.action_code === 'finalize') return '—';
+    const working = run?.working_minutes;
     const est = run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot;
-    const a = actual == null ? '—' : formatMinutes(actual);
+    const a = working == null ? '—' : formatMinutes(working);
     return `${a} / ${formatMinutes(est)}`;
 }
-function slaCaption(run) {
-    if (run?.received_at == null) return 'Awaiting receipt';
-    return 'Actual / Allowed';
+function isOverdue(run) {
+    return Number(run?.overdue_minutes ?? 0) > 0;
+}
+function overdueMain(run) {
+    if (run?.action_code === 'finalize') return '—';
+    const overdue = run?.overdue_minutes;
+    return overdue == null || overdue <= 0 ? '—' : formatMinutes(overdue);
+}
+function pendingMain(run) {
+    if (run?.action_code === 'finalize') return '—';
+    const pending = run?.pending_minutes;
+    return pending == null ? '—' : formatCalendarMinutes(pending);
 }
 </script>
 
 <style scoped>
 .history-table thead th {
     background: #f8fafc;
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: #64748b;
     padding: 12px 16px;
     white-space: nowrap;
+}
+.history-th-help {
+    cursor: help;
+    border-bottom: 1px dotted currentColor;
+    padding-bottom: 1px;
 }
 .history-table tbody td {
     padding: 16px;
@@ -465,7 +600,7 @@ function slaCaption(run) {
     padding: 20px !important;
 }
 .history-label {
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;

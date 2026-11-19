@@ -167,6 +167,12 @@ export function createRouter() {
                 meta: { requiresAuth: true, superadmin: true, kind: "admin" },
             },
             {
+                path: "/office/roles",
+                name: "office.roles",
+                component: AdminRoles,
+                meta: { requiresAuth: true, officeScope: true, kind: "admin" },
+            },
+            {
                 path: "/admin/offices",
                 component: AdminOffices,
                 meta: { requiresAuth: true, superadmin: true, kind: "admin" },

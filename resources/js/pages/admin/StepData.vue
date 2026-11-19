@@ -1,11 +1,5 @@
 <template>
     <div class="sd-page">
-        <DepthNav
-            :levels="depthLevels"
-            :deeper="depthDeeper"
-            deeper-label="Step pages"
-            class="mb-4"
-        />
         <v-alert
             v-if="error"
             type="error"
@@ -129,7 +123,7 @@
                     <h2>Data fields for this step</h2>
                     <p>{{ cardSubtitle }}</p>
                 </div>
-                <div class="sd-actions">
+                <div class="sd-hd-actions">
                     <button
                         type="button"
                         class="sd-overview"
@@ -771,9 +765,7 @@ import { useToast } from "@/composables/useToast";
 import { tmpKey, useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
-import DepthNav from "@/components/DepthNav.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
-import { buildWorkflowDepthLevels, workflowStepTo } from "@/utils/workflowDepth";
 
 const route = useRoute();
 const router = useRouter();
@@ -862,64 +854,7 @@ const selectedStep = computed(
         ) ?? null,
 );
 
-const { items: txTypes, fetchAll: fetchTxTypes } = useTransactionTypes();
-
-const selectedTypeName = computed(() => {
-    const t = (txTypes.value || []).find(
-        (x) => Number(x.id) === Number(typeId.value),
-    );
-    return t?.name || "";
-});
-
-const depthStepLabel = computed(() => {
-    const s = selectedStep.value;
-    if (!s) return "Step";
-    const n = s.order_number;
-    const name = s.name || s.code || "";
-    return `Step ${n ?? ""}${name ? ` · ${name}` : ""}`.trim();
-});
-
-const depthLevels = computed(() =>
-    buildWorkflowDepthLevels({
-        typeId: typeId.value,
-        typeName: selectedTypeName.value,
-        workflowId: workflowDefinitionId.value,
-        stepId: selectedStepId.value || stepIdFromUrl.value || null,
-        stepLabel: depthStepLabel.value,
-        stepTo: workflowStepTo("admin.step-data", {
-            workflowId: workflowDefinitionId.value,
-            stepId: selectedStepId.value || stepIdFromUrl.value || null,
-            typeId: typeId.value,
-        }),
-        currentLabel: "Step Data",
-    }),
-);
-
-const depthDeeper = computed(() => {
-    const wid = workflowDefinitionId.value;
-    const sid = selectedStepId.value || stepIdFromUrl.value;
-    if (!wid || !sid) return [];
-    const stepId = Number(sid);
-    return [
-        {
-            label: "Requirements",
-            to: workflowStepTo("admin.step-requirements", {
-                workflowId: wid,
-                stepId,
-                typeId: typeId.value,
-            }),
-        },
-        {
-            label: "Step Data",
-            to: workflowStepTo("admin.step-data", {
-                workflowId: wid,
-                stepId,
-                typeId: typeId.value,
-            }),
-            current: true,
-        },
-    ];
-});
+const { fetchAll: fetchTxTypes } = useTransactionTypes();
 
 const stepOptions = computed(() =>
     steps.value.map((s) => ({
@@ -2049,7 +1984,7 @@ onBeforeUnmount(() => {
 .sd-menu-head {
     padding: 4px 8px 8px;
     color: rgb(var(--v-theme-secondary));
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2157,11 +2092,17 @@ onBeforeUnmount(() => {
 
 .sd-card-hd {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
     padding: 18px 20px;
     border-bottom: 1px solid
         rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.sd-card-hd > :first-child {
+    flex: 1 1 240px;
+    min-width: 0;
 }
 
 .sd-card-hd h2 {
@@ -2207,12 +2148,15 @@ onBeforeUnmount(() => {
     cursor: not-allowed;
 }
 
-.sd-actions {
+.sd-hd-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: auto;
-    flex: none;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .sd-overview {
@@ -2562,7 +2506,7 @@ onBeforeUnmount(() => {
     padding: 2px 7px;
     background: #cfe7fa;
     color: #124d7a;
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
 }
@@ -3052,7 +2996,7 @@ onBeforeUnmount(() => {
 }
 
 .df-carry .cr-tag {
-    font-size: 10.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -3352,10 +3296,14 @@ html.dark .df-in :deep(.v-field--focused) {
         border-radius: 24px 24px 0 0 !important;
     }
 
-    .sd-card-hd {
-        flex-wrap: wrap;
+    .sd-hd-actions {
+        width: 100%;
+        margin-left: 0;
+        flex-direction: column;
     }
 
+    .sd-overview,
+    .sd-previous,
     .sd-add {
         width: 100%;
         margin-left: 0;

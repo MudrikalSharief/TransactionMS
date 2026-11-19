@@ -503,6 +503,7 @@
             :runs="tx?.runs || []"
             :assignment-history="tx?.assignment_history || []"
             :loading="loading"
+            :is-done="!!tx?.is_done"
             :tx-id="route.params.id"
             is-admin
             :attachments="tx?.attachments || []"
@@ -622,6 +623,9 @@
         <JumpBackDialog
             v-model:open="jumpDialog"
             :tx="tx"
+            :tx-id="route.params.id"
+            is-admin
+            :current-step-id="tx?.current_step?.id"
             :current-label="jumpCurrentLabel"
             :destination-label="jumpDestinationLabel"
             :destination-name="jumpDestinationName"
@@ -630,6 +634,7 @@
             :saving="saving"
             :is-forward="isJumpForward"
             :checklist="tx?.current_step_checklist || []"
+            :resend-checklist="resendChecklist"
             @confirm="confirmJump"
         />
 
@@ -917,16 +922,17 @@ const selectedRouteId = ref(null);
 // Steps the paper already passed (meta.visited_step_ids). Powers the
 // yellow tracker nodes + the "Return to Step N" jump options.
 const visitedStepIds = ref([]);
+const normalizeText = (value) => String(value ?? '').trim().toLowerCase();
 // Finalized transactions are view-only (backend rejects all writes).
 const isDone = computed(() => !!(tx.value?.is_done));
 const isArchived = computed(() => !!(tx.value?.is_archive));
 const archiveMode = computed(() => (tx.value?.is_archive ? 'unarchive' : 'archive'));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value);
+const showFinalize = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value && !returnSourceStepId.value);
 // Complete Step replaces Finalize on the last station: green button that
 // opens the checklist modal, then finalizes. No outgoing routes needed.
 const isCompleting = ref(false);
-const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value);
+const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value && !returnSourceStepId.value);
 const completeModalTitle = computed(() => {
     const cur = tx.value?.current_step;
     const n = cur?.order_number ?? '';
@@ -976,9 +982,8 @@ const returnReviewBase = computed(() => {
     const txAtts = tx.value?.attachments || [];
     const station = (tx.value?.station_checklist || []).find((s) => Number(s?.step?.id) === prevStepId);
     const flagged = ctx?.run?.flagged_items || [];
-    const attsForReq = (code, name, reqId) => txAtts
-        .filter((a) => {
-            if (Number(a.workflow_step_id) !== prevStepId) return false;
+    const attsForReq = (code, name, reqId) => {
+        const matchesReq = (a) => {
             if (reqId && Number(a.requirement_definition_id) === Number(reqId)) return true;
             const c = norm(code);
             const rc = norm(a.requirement?.code);
@@ -987,8 +992,13 @@ const returnReviewBase = computed(() => {
             const n = norm(name);
             if (n && (rn === n)) return true;
             return false;
-        })
-        .map((a) => ({
+        };
+        // Prefer the returning station's own copy, then fall back to the
+        // whole transaction: a flag may point at a requirement owned by an
+        // earlier station, and that is where the returned file lives.
+        const local = txAtts.filter((a) => Number(a.workflow_step_id) === prevStepId && matchesReq(a));
+        const picked = local.length ? local : txAtts.filter(matchesReq);
+        return picked.map((a) => ({
             id: a.id,
             original_name: a.original_name,
             label: a.label,
@@ -1000,6 +1010,7 @@ const returnReviewBase = computed(() => {
             download_url: a.download_url,
             view_url: a.view_url,
         }));
+    };
     const rows = [];
     const pushRow = (key, name, code, description, attachments) => {
         if (!name && !code) return;
@@ -1061,6 +1072,141 @@ const returnReviewBase = computed(() => {
     }
     return rows;
 });
+
+// Latest move into the current step. When that move was a return, its
+// source station is the only valid resend destination. This is dynamic:
+// 5 -> 1 allows only Step 5, 4 -> 1 allows only Step 4, 5 -> 3 allows only
+// Step 5, and so on. Once the paper is resent, the latest move into the
+// current step is no longer a return, so the rule clears itself.
+const latestReturnRun = computed(() => {
+    const currentStepId = Number(tx.value?.current_step?.id);
+    if (!currentStepId) return null;
+    const runs = [...(tx.value?.runs || [])].sort((a, b) => {
+        const at = Date.parse(a?.performed_at || '') || 0;
+        const bt = Date.parse(b?.performed_at || '') || 0;
+        return at - bt || Number(a?.id || 0) - Number(b?.id || 0);
+    });
+    const last = [...runs].reverse().find(
+        (run) => Number(run?.to_step?.id ?? run?.to_step_id) === currentStepId,
+    );
+    return normalizeText(last?.action_code) === 'return' ? last : null;
+});
+
+const returnSourceStepId = computed(() => {
+    const run = latestReturnRun.value;
+    const fromId = Number(run?.from_step?.id ?? run?.from_step_id);
+    return Number.isFinite(fromId) && fromId > 0 ? fromId : null;
+});
+
+// Optional returned checklist for the resend dialog. Rows are the items the
+// returning station flagged (or, when nothing was flagged, its checklist
+// requirements) plus any additional files that came back. Nothing here is
+// mandatory: the resender can resend as-is or upload a corrected file.
+const resendChecklist = computed(() => {
+    const run = latestReturnRun.value;
+    if (!run) return [];
+    const returningStep = run.from_step || null;
+    const returningStepId = Number(returningStep?.id ?? run.from_step_id);
+    const returningLabel = `Returned from Step ${returningStep?.order_number ?? ''}${returningStep?.name ? ` · ${returningStep.name}` : ''}`;
+    const flags = Array.isArray(run.flagged_items) ? run.flagged_items : [];
+    const rows = [];
+    const seen = new Set();
+
+    const pushRow = (row) => {
+        if (!row?.key || seen.has(row.key)) return;
+        seen.add(row.key);
+        rows.push({
+            ...row,
+            description: returningLabel,
+            is_required: false,
+        });
+    };
+    const ownerFor = (reqId, code, name) => {
+        for (const station of (tx.value?.station_checklist || [])) {
+            const match = (station?.requirements || []).find((r) => {
+                const def = r?.definition || {};
+                if (reqId != null && Number(def.id) === Number(reqId)) return true;
+                if (code && normalizeText(def.code) === normalizeText(code)) return true;
+                if (name && normalizeText(def.name) === normalizeText(name)) return true;
+                return false;
+            });
+            if (match) {
+                return { step: station.step || null, definition: match.definition || null };
+            }
+        }
+        return null;
+    };
+    const filesFor = (reqId, code, name) => {
+        const found = [];
+        const seenFiles = new Set();
+        for (const a of (tx.value?.attachments || [])) {
+            const matches = (reqId != null && Number(a.requirement_definition_id) === Number(reqId))
+                || (code && normalizeText(a.requirement?.code) === normalizeText(code))
+                || (name && normalizeText(a.requirement?.name) === normalizeText(name));
+            if (!matches || seenFiles.has(Number(a.id))) continue;
+            seenFiles.add(Number(a.id));
+            found.push(a);
+        }
+        return found;
+    };
+
+    if (flags.length) {
+        flags.forEach((flag, index) => {
+            const code = String(flag?.code || '').trim();
+            const name = String(flag?.name || '').trim();
+            const reqId = flag?.requirement_definition_id ?? null;
+            const owner = ownerFor(reqId, code, name);
+            const label = owner?.definition?.name || name || code || `Returned item ${index + 1}`;
+            const resolvedCode = owner?.definition?.code || code || '';
+            const resolvedId = owner?.definition?.id ?? reqId;
+            pushRow({
+                key: `flag-${normalizeText(resolvedCode) || normalizeText(label) || index}`,
+                name: label,
+                code: resolvedCode,
+                requirement_definition_id: resolvedId,
+                owner_step: owner?.step || null,
+                attachments: filesFor(resolvedId, resolvedCode || code, label),
+            });
+        });
+    } else if (returningStepId) {
+        const station = (tx.value?.station_checklist || []).find(
+            (s) => Number(s?.step?.id) === returningStepId,
+        );
+        for (const r of (station?.requirements || [])) {
+            const label = r?.definition?.name || r?.definition?.code || 'Returned file';
+            const code = r?.definition?.code || '';
+            const reqId = r?.definition?.id ?? null;
+            const owner = ownerFor(reqId, code, label);
+            pushRow({
+                key: `req-${normalizeText(code) || normalizeText(label)}`,
+                name: label,
+                code,
+                requirement_definition_id: reqId,
+                owner_step: owner?.step || returningStep,
+                attachments: filesFor(reqId, code, label),
+            });
+        }
+    }
+
+    // Move-level Additional files from the returning station. Files already
+    // shown under a checklist row are not repeated here.
+    for (const a of (run.attachments || [])) {
+        const alreadyShown = rows.some((row) => (row.attachments || []).some(
+            (file) => Number(file.id) === Number(a.id),
+        ));
+        if (alreadyShown) continue;
+        pushRow({
+            key: `file-${a.id}`,
+            name: a.original_name || a.label || 'Returned file',
+            code: '',
+            requirement_definition_id: null,
+            owner_step: null,
+            attachments: [a],
+        });
+    }
+
+    return rows;
+});
 const isReturnedToFirstStep = computed(() => {
     if (!isAtFirstStep.value) return false;
     if (!returnReviewBase.value.length) return false;
@@ -1081,6 +1227,7 @@ const skipReview = computed(() => (isFirstStepTransition.value || isAtFirstStep.
 // Dropdown selection: the '__clear' entry ("CANCEL") maps back
 // to null so the box always shows a real destination or the placeholder.
 function onSelectAction(v) {
+    jumpTarget.value = null;
     selectedRouteId.value = v === '__clear' ? null : v;
 }
 // Drop a selection that no longer exists in the refreshed action list.
@@ -1317,22 +1464,33 @@ async function receiveStep() {
         tx.value = fresh;
         availableActions.value = meta?.available_actions || [];
         visitedStepIds.value = meta?.visited_step_ids || [];
-        // Drop stale selections from the previous station, then pre-select
-        // the next step when it is the only forward route — otherwise the
-        // modal opens with no action and Proceed stays disabled no matter
-        // how complete the requirements are. Returns/jumps are never
-        // auto-picked; multiple forward routes stay a manual choice.
+        // Drop stale selections from the previous station. On a backward
+        // arrival, default to resending to the station that returned the
+        // paper — not to the immediate forward route (the sender step).
+        // That forward route stays available as an explicit choice.
         pruneSelectedRoute();
         const forwards = (availableActions.value || []).filter((a) => !a.is_return_route);
-        if (selectedRouteId.value == null && forwards.length === 1) {
+        const returningStepId = wasBackward ? Number(pend?.from_step?.id) : null;
+        const resendTarget = returningStepId
+            ? (jumpRouteOptions.value || []).find(
+                (o) => o.is_forward && Number(o.to_step_id) === returningStepId,
+            )
+            : null;
+        if (resendTarget) {
+            // The returned paper's natural next move is back to the
+            // returning station. Override any stale pre-receive pick.
+            selectedRouteId.value = resendTarget.value;
+        } else if (selectedRouteId.value == null && forwards.length === 1) {
             selectedRouteId.value = forwards[0].route_id;
         }
-        // Claimed — drop straight into the Proceed modal when an onward
-        // action exists so receiving flows into proceeding in one gesture.
+        // Claimed — let the user choose between Proceed and Resend. A
+        // returned paper preselects Resend to the returner but does not
+        // force the dialog open; a normal forward arrival still opens
+        // Proceed directly.
         autoReturnInfo.value = (wasBackward && retRemarks)
             ? { remarks: retRemarks, sender: pend?.performed_by?.name || '', fromStep: pend?.from_step || null }
             : null;
-        if ((availableActions.value || []).length) openProceed();
+        if (!resendTarget && (availableActions.value || []).length) openProceed();
     } catch (e) {
         if (clearUnavailableTransaction(e)) return;
         executeError.value = formatApiError(e, "Receive failed.");
@@ -1515,10 +1673,16 @@ async function load() {
         hydrateForm();
         hydrateStepDataForm();
 
-        const allIds = new Set(
-            (availableActions.value || []).map((a) => a.route_id),
-        );
-        if (!allIds.has(selectedRouteId.value)) selectedRouteId.value = null;
+        // Keep a valid selection across full reloads. Jump targets are
+        // "jump:<stepId>" strings, so the old route-id-only check cleared
+        // a selected Resend action even though it was still available.
+        pruneSelectedRoute();
+        // A returned paper has exactly one allowed destination: preselect
+        // it so the action button is immediately usable after a reload.
+        if (selectedRouteId.value == null && returnSourceStepId.value) {
+            const onlyResend = jumpRouteOptions.value[0];
+            if (onlyResend) selectedRouteId.value = onlyResend.value;
+        }
     } catch (e) {
         if (clearUnavailableTransaction(e)) return;
         error.value = e?.response?.data?.message || "Failed to load transaction.";
@@ -1551,6 +1715,7 @@ async function onOfficerReassigned() {
 
 function openProceed() {
     isCompleting.value = false;
+    jumpTarget.value = null;
     remarks.value = "";
     // Available-action returns (return routes and backward jumps alike)
     // open the same modal as the in-modal Return button: return mode.
@@ -1581,6 +1746,7 @@ function openProceed() {
 // Checklist shows even with no outgoing routes; gating is prev_checked only.
 function openComplete() {
     isCompleting.value = true;
+    jumpTarget.value = null;
     remarks.value = "";
     proceedAttachments.value = [];
     attachmentName.value = "";
@@ -1772,6 +1938,9 @@ async function confirmArchiveAction() {
 // Complete Step on the last station. Validates required files + data
 // like Proceed, then saves staged station info with finalize.
 const jumpDialog = ref(false);
+// Capture the destination when the resend dialog opens so a background
+// refresh cannot silently switch the confirmed jump to another station.
+const jumpTarget = ref(null);
 async function finalizeTx() {
     if (saving.value) return;
     if (isCompleting.value && completeBlocked.value) {
@@ -1821,6 +1990,7 @@ async function finalizeTx() {
 
 function openJump() {
     if (!isJumpSelected.value) return;
+    jumpTarget.value = selectedJumpOption.value ? { ...selectedJumpOption.value } : null;
     jumpDialog.value = true;
 }
 
@@ -1839,6 +2009,7 @@ async function confirmJump(payload) {
 // Uses the reason + flag pills already entered in this modal.
 async function returnViaJump() {
     if (!isJumpSelected.value || !jumpStepId.value || saving.value) return;
+    jumpTarget.value = null;
     await gotoStation({ remarks: (remarks.value || '').trim() || null, flagged: [...(returnFlags.value || [])] });
     if (!error.value) {
         remarksDialog.value = false;
@@ -1849,20 +2020,29 @@ async function returnViaJump() {
 }
 
 async function gotoStation(payload) {
-    if (!isJumpSelected.value || !jumpStepId.value || saving.value) return;
+    // Prefer the destination captured when the dialog opened. This keeps a
+    // resend on the user's chosen done step even if a quiet refresh or a
+    // selection change happens while the dialog is open.
+    const targetStepId = Number(jumpTarget.value?.to_step_id ?? jumpStepId.value);
+    if (!targetStepId || saving.value) return;
     saving.value = true;
     error.value = "";
     try {
         const remarks = typeof payload === "string" ? payload : payload?.remarks;
         const flagged = payload && typeof payload === "object" && Array.isArray(payload.flagged) ? payload.flagged : [];
+        const attachmentTargets = payload && typeof payload === "object" && Array.isArray(payload.attachment_targets)
+            ? payload.attachment_targets
+            : [];
         const res = await gotoStationApi(route.params.id, {
-            to_step_id: jumpStepId.value,
+            to_step_id: targetStepId,
             remarks: remarks || null,
             flagged_items: flagged,
+            attachment_targets: attachmentTargets,
         });
         tx.value = res.tx;
         availableActions.value = res.meta?.available_actions ?? [];
         visitedStepIds.value = res.meta?.visited_step_ids ?? [];
+        jumpTarget.value = null;
         selectedRouteId.value = null;
         hydrateForm();
         hydrateStepDataForm();
@@ -1963,11 +2143,15 @@ function canUncheck(item) {
 }
 
 const forwardActions = computed(() =>
+    // Normal Proceed stays available after a return so the user can choose
+    // between continuing to the next step and resending to the returner.
     (availableActions.value || []).filter((a) => !a.is_return_route),
 );
-const returnActions = computed(() =>
-    (availableActions.value || []).filter((a) => !!a.is_return_route),
-);
+const returnActions = computed(() => {
+    // Sending the paper elsewhere is not allowed while a return is pending.
+    if (returnSourceStepId.value) return [];
+    return (availableActions.value || []).filter((a) => !!a.is_return_route);
+});
 
 function labelForAction(a) {
     const name = a?.to_step?.name ?? `Step #${a.to_step_id ?? ""}`;
@@ -2015,6 +2199,26 @@ const unifiedRouteOptions = computed(() => [
 const jumpRouteOptions = computed(() => {
     // Locked until received — backend rejects jumps on pending receipt.
     if (pendingReceipt.value) return [];
+    // Dynamic return-to-sender rule: the station that returned the paper
+    // is the only allowed destination. No other visited step may be picked.
+    const returnSourceId = returnSourceStepId.value;
+    if (returnSourceId) {
+        const source = (tx.value?.workflow_steps || []).find(
+            (s) => Number(s.id) === returnSourceId,
+        );
+        if (!source) return [];
+        return [{
+            value: `jump:${source.id}`,
+            to_step_id: source.id,
+            to_number: source.order_number ?? source.id,
+            is_jump: true,
+            is_forward: true,
+            label: `Resend to Step ${source.order_number} · ${source.name || source.code || ''}`.trim(),
+            kind: 'resend',
+            verb: `Resend to Step ${source.order_number}`,
+            detail: source.name || source.code || '',
+        }];
+    }
     const visited = new Set((visitedStepIds.value || []).map((v) => Number(v)));
     const cur = Number(tx.value?.current_step?.id);
     const curOrder = Number(
@@ -2395,14 +2599,16 @@ function removeAttachment(id) {
 
 let detailPollTimer = null;
 let detailStopped = false;
+// Quiet smart poll: keep pending/working values current without a manual
+// refresh. One minute balances responsiveness against server load.
 async function pollDetail() {
     if (detailStopped) return;
     if (!document.hidden && navigator.onLine && tx.value && !loading.value && !saving.value && !savingChecklist.value) await refreshTxPreservingForm();
-    if (!detailStopped) detailPollTimer = setTimeout(pollDetail, 20000);
+    if (!detailStopped) detailPollTimer = setTimeout(pollDetail, 60000);
 }
 onMounted(() => {
     load();
-    detailPollTimer = setTimeout(pollDetail, 20000);
+    detailPollTimer = setTimeout(pollDetail, 60000);
 });
 onUnmounted(() => {
     detailStopped = true;
@@ -2468,6 +2674,7 @@ html.dark .tx-header {
 
 .tx-top {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 14px;
     padding: 12px 24px;
@@ -2490,9 +2697,12 @@ html.dark .tx-header {
 
 .tx-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
     margin-left: auto;
 }
 
@@ -2504,7 +2714,7 @@ html.dark .tx-header {
 }
 
 .tx-kicker {
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;

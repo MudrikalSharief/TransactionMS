@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreOfficeRequest;
 use App\Http\Requests\Admin\UpdateOfficeRequest;
 use App\Http\Resources\OfficeResource;
 use App\Models\Office;
+use App\Models\Role;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -100,15 +101,17 @@ class OfficeController extends Controller
     {
         $iconPath = $office->icon_path;
         $old = $office->only(['code', 'name', 'description', 'icon_path', 'is_active']);
-        $old['user_ids'] = $office->users()->pluck('users.id')->all();
-
         DB::transaction(function () use ($request, $office, $old, $audit) {
+            $old['user_ids'] = $office->users()->lockForUpdate()->pluck('users.id')->all();
+            DB::table('role_user')->whereIn('user_id', $old['user_ids'])
+                ->whereIn('role_id', Role::withTrashed()->whereNotNull('office_id')->select('id'))
+                ->delete();
             $office->users()->update(['office_id' => null]);
             $office->delete();
 
             $audit->log($request, 'offices.delete', $office, [
                 'old' => $old,
-                'note' => 'Soft deleted office; members unassigned',
+                'note' => 'Soft deleted office; members unassigned and office-specific roles removed',
             ]);
         });
 

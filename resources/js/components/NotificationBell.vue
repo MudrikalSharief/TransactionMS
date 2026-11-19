@@ -76,6 +76,7 @@ const { user } = useAuth();
 const KIND = {
     overdue: { label: "Overdue", icon: "mdi-alert-circle", color: "error" },
     due: { label: "Due soon", icon: "mdi-clock-alert-outline", color: "warning" },
+    pending: { label: "Pending", icon: "mdi-tray-arrow-down", color: "info" },
     new: { label: "New", icon: "mdi-inbox-arrow-down", color: "primary" },
 };
 // "New": arrived at the user's step within this window.
@@ -131,8 +132,8 @@ async function load() {
 
 const dur = (min) => {
     if (min < 60) return `${Math.max(1, Math.round(min))}m`;
-    if (min < 1440) return `${Math.round(min / 60)}h`;
-    return `${Math.round(min / 1440)}d`;
+    if (min < 480) return `${Math.round(min / 60)}h`;
+    return `${Math.round(min / 480)}d`;
 };
 
 const items = computed(() => {
@@ -153,9 +154,20 @@ const items = computed(() => {
         const state = dueState(t, now.value);
         const step = t.current_step?.name || "your step";
         const entered = Date.parse(t.entered_at || "");
-        if (state) {
+        const started = Date.parse(t.work_started_at || "");
+
+        if (t.pending_receipt) {
+            out.push({
+                key: `${t.id}:pending:${t.entered_at}`,
+                id: t.id,
+                ref,
+                title: t.title,
+                kind: "pending",
+                text: `Pending receipt at ${step}`,
+            });
+        } else if (state && Number.isFinite(started)) {
             const limit = Number(t.current_step?.sla_minutes || 0) * 60000;
-            const used = workingMs(entered, now.value);
+            const used = workingMs(started, now.value);
             out.push({
                 key: `${t.id}:${state}:${t.entered_at}`,
                 id: t.id,
@@ -168,7 +180,7 @@ const items = computed(() => {
             out.push({ key: `${t.id}:new:${t.entered_at}`, id: t.id, ref, title: t.title, kind: "new", text: `arrived at ${step}` });
         }
     }
-    const rank = { overdue: 0, due: 1, new: 2 };
+    const rank = { overdue: 0, due: 1, pending: 2, new: 3 };
     return out.sort((a, b) => rank[a.kind] - rank[b.kind]);
 });
 

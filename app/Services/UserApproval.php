@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  */
 class UserApproval
 {
-    /** Roles nobody can ask for when signing up; a superadmin grants them. */
+    /** Privileged roles cannot be requested through public signup. */
     public const PROTECTED_ROLES = ['superadmin', 'admin'];
 
     public function approve(User $user, User $approver): User

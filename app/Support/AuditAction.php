@@ -30,6 +30,7 @@ class AuditAction
         'make_live' => 'made live',
         'delete_draft' => 'deleted draft',
         'reassign_office' => 'office reassigned',
+        'officer_restore' => 'restored the previous officer',
         'privacy' => 'privacy changed',
         'finalize' => 'finalized',
         'password' => 'password changed',

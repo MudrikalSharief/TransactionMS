@@ -1,23 +1,6 @@
 <template>
     <div class="fit-page workspace-dashboard">
-        <Teleport v-if="headerReady" defer to="#workspace-header-leading">
-            <div class="workspace-header-greeting">
-                <div class="workspace-greeting-line">{{ greeting }}</div>
-                <div class="workspace-greeting-name" :title="auth.user.value?.name">{{ firstName }}</div>
-                <div class="workspace-greeting-meta">
-                    <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
-                    <span v-if="scopeLabel" class="workspace-greeting-scope">{{ scopeLabel }}</span>
-                </div>
-            </div>
-        </Teleport>
         <div class="dash-hello">
-            <div v-if="!headerReady" class="dash-hello-text">
-                <div class="workspace-greeting-line">{{ greeting }}</div>
-                <div class="workspace-greeting-name">{{ firstName }}</div>
-                <div class="dash-hello-sub">
-                    <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
-                </div>
-            </div>
             <div class="dash-hello-actions">
                 <!-- Overview cards, or the monitoring Reports (superadmins and
                      office admins). Transaction Status and Top Overdue Steps
@@ -29,7 +12,6 @@
                     density="comfortable"
                     color="primary"
                     variant="outlined"
-                    divided
                     rounded="lg"
                     class="dash-view"
                 >
@@ -49,8 +31,8 @@
                 </v-btn>
             </div>
         </div>
-        <!-- The headline numbers stay on top. -->
-        <div v-if="canSeeSummary">
+        <!-- The headline numbers stay on top, overview only. -->
+        <div v-if="canSeeSummary && view === 'overview'">
             <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
                 {{ summaryError }}
             </v-alert>
@@ -106,35 +88,128 @@
             <template v-for="id in cardOrder" :key="id">
                 <div v-if="id === 'graph'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-card-title class="d-flex align-center lgu-head dash-head chart-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                                 <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold dash-head-title">Transaction Status</span>
                             <v-spacer />
-                            <v-select
-                                v-model="chartEndMonth"
-                                :items="chartMonthOptions"
-                                label="Month"
-                                prepend-inner-icon="mdi-calendar-range"
-                                variant="outlined"
-                                density="compact"
-                                rounded="lg"
-                                hide-details
-                                class="chart-filter chart-filter--month"
-                            />
-                            <v-select
-                                v-if="isSuperadmin"
-                                v-model="chartOfficeId"
-                                :items="chartOfficeOptions"
-                                label="Office"
-                                prepend-inner-icon="mdi-office-building-outline"
-                                variant="outlined"
-                                density="compact"
-                                rounded="lg"
-                                hide-details
-                                class="chart-filter chart-filter--office"
-                            />
+                            <div class="chart-filters">
+                                <v-menu location="bottom end" offset="6" :close-on-content-click="true">
+                                    <template #activator="{ props }">
+                                        <button
+                                            v-bind="props"
+                                            type="button"
+                                            class="topsteps-month"
+                                            aria-label="Filter Transaction Status by month"
+                                        >
+                                            <v-icon size="16">mdi-calendar-range</v-icon>
+                                            <span>{{ chartMonthLabel }}</span>
+                                            <v-icon size="16">mdi-chevron-down</v-icon>
+                                        </button>
+                                    </template>
+                                    <v-list density="compact" class="topsteps-month-list">
+                                        <v-list-item
+                                            v-for="m in chartMonthOptions"
+                                            :key="m.value"
+                                            :active="chartEndMonth === m.value"
+                                            @click="chartEndMonth = m.value"
+                                        >
+                                            <v-list-item-title>{{ m.title }}</v-list-item-title>
+                                            <template #append>
+                                                <v-icon v-if="chartEndMonth === m.value" size="18">mdi-check</v-icon>
+                                            </template>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+                                <v-menu
+                                    v-if="isSuperadmin"
+                                    v-model="chartOfficeMenuOpen"
+                                    location="bottom end"
+                                    offset="6"
+                                    :close-on-content-click="false"
+                                >
+                                    <template #activator="{ props }">
+                                        <button
+                                            v-bind="props"
+                                            type="button"
+                                            class="topsteps-month chart-office-chip"
+                                            aria-haspopup="listbox"
+                                            :aria-expanded="chartOfficeMenuOpen ? 'true' : 'false'"
+                                            aria-controls="chart-office-panel"
+                                            :title="chartOfficeFilterSummary"
+                                        >
+                                            <span v-if="chartOfficePickerSeal" class="office-seal chart-office-seal" aria-hidden="true">
+                                                <img v-if="chartOfficePickerSeal.icon" :src="chartOfficePickerSeal.icon" alt="" />
+                                                <span v-else>{{ chartOfficePickerSeal.initials }}</span>
+                                            </span>
+                                            <v-icon v-else size="16">mdi-office-building-outline</v-icon>
+                                            <span>{{ chartOfficeFilterSummary }}</span>
+                                            <v-icon size="16">mdi-chevron-down</v-icon>
+                                        </button>
+                                    </template>
+                                    <v-card
+                                        id="chart-office-panel"
+                                        class="office-panel"
+                                        rounded="lg"
+                                        elevation="8"
+                                        role="dialog"
+                                        aria-label="Choose offices"
+                                    >
+                                        <div class="office-panel-head">
+                                            <input
+                                                ref="chartOfficeSearchEl"
+                                                v-model="chartOfficeSearch"
+                                                class="office-search"
+                                                type="search"
+                                                placeholder="Search by name or abbreviation"
+                                                aria-label="Search offices"
+                                            />
+                                            <button type="button" class="office-clear" @click="clearChartOfficeFilter">
+                                                Show all offices
+                                            </button>
+                                        </div>
+                                        <div class="office-grid" role="listbox" aria-label="Offices" aria-multiselectable="true">
+                                            <button
+                                                v-for="o in filteredChartOfficeOptions"
+                                                :key="o.value"
+                                                type="button"
+                                                class="office-card"
+                                                :class="{ 'is-selected': chartOfficeIds.includes(o.value) }"
+                                                role="option"
+                                                :aria-selected="chartOfficeIds.includes(o.value) ? 'true' : 'false'"
+                                                :aria-label="o.office?.name || o.title"
+                                                v-tooltip="o.office?.name || o.title"
+                                                @click="toggleChartOffice(o.value)"
+                                                @mouseenter="chartOfficeHover = o"
+                                                @mouseleave="chartOfficeHover = null"
+                                                @focus="chartOfficeHover = o"
+                                                @blur="chartOfficeHover = null"
+                                            >
+                                                <span class="office-seal" aria-hidden="true">
+                                                    <img v-if="o.icon" :src="o.icon" alt="" />
+                                                    <span v-else>{{ o.initials }}</span>
+                                                </span>
+                                                <span class="office-card-abbr">{{ o.code }}</span>
+                                            </button>
+                                            <div v-if="!filteredChartOfficeOptions.length" class="office-no-match">
+                                                No offices match “{{ chartOfficeSearch }}”. Try the abbreviation.
+                                            </div>
+                                        </div>
+                                        <div class="office-panel-foot">
+                                            <template v-if="chartOfficeHover">
+                                                <b>{{ chartOfficeHover.code }}</b> · {{ chartOfficeHover.office?.name || chartOfficeHover.title }}
+                                            </template>
+                                            <template v-else-if="selectedChartOffices.length">
+                                                Selected: <b>{{ selectedChartOffices.map((o) => o.code).join(', ') }}</b>
+                                            </template>
+                                            <template v-else>
+                                                Hover or focus an office to see its full name.
+                                            </template>
+                                        </div>
+                                    </v-card>
+                                </v-menu>
+                            </div>
                         </v-card-title>
                                                 <v-card-text class="pa-2 d-flex flex-column dash-body">
                             <v-alert v-if="chartError" type="error" variant="tonal" density="compact" class="mb-2">
@@ -191,16 +266,50 @@
                                 <div class="text-subtitle-1 font-weight-bold">Overdue Transactions by Office</div>
                                 <div class="dash-panel-sub">Which offices hold the most late items</div>
                             </div>
+                            <v-spacer />
+                            <v-menu location="bottom end" offset="6" :close-on-content-click="true">
+                                <template #activator="{ props }">
+                                    <button
+                                        v-bind="props"
+                                        type="button"
+                                        class="topsteps-month"
+                                        aria-label="Filter overdue transactions by month"
+                                    >
+                                        <v-icon size="16">mdi-calendar-range</v-icon>
+                                        <span>{{ overduePieMonthLabel }}</span>
+                                        <v-icon size="16">mdi-chevron-down</v-icon>
+                                    </button>
+                                </template>
+                                <v-list density="compact" class="topsteps-month-list">
+                                    <v-list-item
+                                        v-for="m in overduePieMonthOptions"
+                                        :key="m.value"
+                                        :active="overduePieMonth === m.value"
+                                        @click="overduePieMonth = m.value"
+                                    >
+                                        <v-list-item-title>{{ m.title }}</v-list-item-title>
+                                        <template #append>
+                                            <v-icon v-if="overduePieMonth === m.value" size="18">mdi-check</v-icon>
+                                        </template>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
                         </v-card-title>
-                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': summaryLoading && summary }">
+                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': overduePieLoading && overduePieData }">
+                            <v-alert v-if="overduePieError" type="error" variant="tonal" density="compact" class="ma-2">
+                                {{ overduePieError }}
+                            </v-alert>
                             <OfficeDonut
-                                v-if="overdueOfficeRows.length"
+                                v-else-if="overdueOfficeRows.length"
                                 :slices="overdueOfficeRows"
                                 :size="transactionsPieSize"
                                 aria-label="Overdue transactions by office"
                             />
-                            <div v-else-if="summary" class="text-caption text-medium-emphasis">
-                                No overdue transactions.
+                            <div v-else-if="overduePieLoading" class="d-flex align-center justify-center dash-loading">
+                                <v-progress-circular indeterminate color="grey-darken-3" size="40" width="3" />
+                            </div>
+                            <div v-else-if="overduePieData" class="text-caption text-medium-emphasis">
+                                No overdue transactions in {{ overduePieMonthLabel }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -222,27 +331,30 @@
                                         aria-label="Filter Top Overdue Steps by month"
                                     >
                                         <v-icon size="16">mdi-calendar-range</v-icon>
-                                        <span>{{ chartMonthLabel }}</span>
+                                        <span>{{ topStepsMonthLabel }}</span>
                                         <v-icon size="16">mdi-chevron-down</v-icon>
                                     </button>
                                 </template>
                                 <v-list density="compact" class="topsteps-month-list">
                                     <v-list-item
-                                        v-for="m in chartMonthOptions"
+                                        v-for="m in topStepsMonthOptions"
                                         :key="m.value"
-                                        :active="chartEndMonth === m.value"
-                                        @click="chartEndMonth = m.value"
+                                        :active="topStepsMonth === m.value"
+                                        @click="topStepsMonth = m.value"
                                     >
                                         <v-list-item-title>{{ m.title }}</v-list-item-title>
                                         <template #append>
-                                            <v-icon v-if="chartEndMonth === m.value" size="18">mdi-check</v-icon>
+                                            <v-icon v-if="topStepsMonth === m.value" size="18">mdi-check</v-icon>
                                         </template>
                                     </v-list-item>
                                 </v-list>
                             </v-menu>
                         </v-card-title>
                         <v-card-text class="pa-3 d-flex flex-column dash-body">
-                            <div v-if="chartLoading && !chartData" class="d-flex align-center justify-center dash-loading">
+                            <v-alert v-if="topStepsError" type="error" variant="tonal" density="compact" class="mb-2">
+                                {{ topStepsError }}
+                            </v-alert>
+                            <div v-else-if="topStepsLoading && !topStepsData" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="32" width="3" />
                             </div>
                             <ol v-else-if="topSteps.length" class="top-steps">
@@ -276,8 +388,8 @@
                                     <span class="top-step-count">{{ s.count }}</span>
                                 </li>
                             </ol>
-                            <div v-else-if="!chartError" class="text-caption text-medium-emphasis pa-3">
-                                No overdue steps in {{ chartMonthLabel }}.
+                            <div v-else class="text-caption text-medium-emphasis pa-3">
+                                No overdue steps in {{ topStepsMonthLabel }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -347,7 +459,7 @@
                             </v-avatar>
                             <div class="dash-head-title">
                                 <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
-                                <div v-if="actionSub" class="dash-panel-sub text-truncate">{{ actionSub }}</div>
+                                <div v-if="actionSub" class="dash-panel-sub">{{ actionSub }}</div>
                             </div>
                             <v-spacer />
                             <v-btn
@@ -370,7 +482,7 @@
                                 {{ accountError }}
                             </v-alert>
                             <v-alert
-                                v-if="!accountsLoading && !pendingAccounts.length"
+                                v-if="!accountsLoading && !pendingAccounts.length && !accountError"
                                 type="success"
                                 variant="tonal"
                                 rounded="0"
@@ -396,7 +508,7 @@
                                                 </div>
                                                 <div style="min-width: 0">
                                                     <div class="font-weight-bold action-title text-truncate">{{ u.name }}</div>
-                                                    <div class="text-caption text-medium-emphasis text-truncate only-wide" :title="u.email">{{ u.email }}</div>
+                                                    <div class="text-caption text-medium-emphasis text-truncate only-wide" :title="u.username || u.email">{{ u.username || u.email }}</div>
                                                     <div class="text-caption text-medium-emphasis text-truncate only-narrow">{{ accountScope(u) }}</div>
                                                 </div>
                                             </div>
@@ -554,7 +666,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
@@ -567,10 +679,12 @@ import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useFitScreen } from '@/composables/useFitScreen'
 import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
+import { markWorkspaceRefreshed } from '@/composables/useWorkspaceHeader'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
+import { officeIcon } from '@/utils/officeIcons'
 import { monthOptions, monthValue } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
@@ -583,7 +697,6 @@ const txStore = useTransactions()
 const officeStore = useOffices()
 
 const loading = ref(false)
-const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
 // scroll, no half rows) and the pie follows its card's height.
@@ -624,29 +737,13 @@ const myOfficeId = computed(
     () => auth.user.value?.office_id ?? auth.user.value?.office?.id ?? null,
 )
 
-// ---- Greeting strip ----
-const headerReady = ref(false)
-const greeting = computed(() => {
-    const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23' }).format(refreshedAt.value || new Date()))
-    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
-})
-const firstName = computed(() => (auth.user.value?.name || '').trim().split(/\s+/)[0] || 'there')
-const scopeLabel = computed(() => {
-    const u = auth.user.value
-    if (isSuperadmin.value) return 'All offices'
-    return u?.office?.name || u?.office?.code || ''
-})
-const refreshedLabel = computed(() =>
-    refreshedAt.value ? refreshedAt.value.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PHT' : '',
-)
-
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
 // Default order; the staff layout swaps the graph for the queue. The
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['graph', 'topsteps', 'action', 'byprocess']
+        return ['graph', 'byprocess', 'action', 'topsteps']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
@@ -774,7 +871,6 @@ function onEscapeWhileArmed(e) {
 }
 
 onMounted(() => {
-    headerReady.value = !!document.querySelector('#workspace-header-leading')
     window.addEventListener('keydown', onEscapeWhileArmed)
 })
 
@@ -808,21 +904,106 @@ const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dar
 // visible to the user (superadmins are usually unassigned, so all offices).
 const myOffice = computed(() => auth.user.value?.office ?? null)
 
-// ---- Transaction Status + Top Overdue Steps: shared Month/Office filters ----
+// ---- Transaction Status: month and multi-office filters ----
 const chartEndMonth = ref(monthValue(new Date()))
 const chartMonthOptions = computed(() => monthOptions())
-const chartOfficeId = ref(0)
-const chartOfficeOptions = computed(() => [
-    { title: 'All offices', value: 0 },
-    ...[...(officeStore.items.value || [])]
+
+function officeInitials(office) {
+    const code = String(office?.code || '').trim()
+    if (code) return code.slice(0, 2).toUpperCase()
+    return (
+        String(office?.name || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0] || '')
+            .join('')
+            .toUpperCase() || '?'
+    )
+}
+
+const chartOfficeIds = ref([])
+const chartOfficeOptions = computed(() =>
+    [...(officeStore.items.value || [])]
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => ({ title: o.code ? `${o.name} (${o.code})` : o.name, value: o.id })),
-])
+        .map((o) => ({
+            title: o.code ? `${o.name} (${o.code})` : o.name,
+            value: o.id,
+            code: o.code || o.name,
+            office: o,
+            icon: officeIcon(o),
+            initials: officeInitials(o),
+        })),
+)
+const selectedChartOffices = computed(() =>
+    chartOfficeOptions.value.filter((o) => chartOfficeIds.value.includes(o.value)),
+)
+const chartOfficePickerSeal = computed(() => selectedChartOffices.value[0] || null)
+const chartOfficeFilterSummary = computed(() => {
+    const codes = selectedChartOffices.value.map((o) => o.code)
+    if (!codes.length) return 'All offices'
+    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
+})
+const chartOfficeMenuOpen = ref(false)
+const chartOfficeSearch = ref('')
+const chartOfficeSearchEl = ref(null)
+const chartOfficeHover = ref(null)
+const filteredChartOfficeOptions = computed(() => {
+    const q = chartOfficeSearch.value.trim().toLowerCase()
+    if (!q) return chartOfficeOptions.value
+    return chartOfficeOptions.value.filter((o) =>
+        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q),
+    )
+})
+function toggleChartOffice(id) {
+    const next = new Set(chartOfficeIds.value)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    chartOfficeIds.value = [...next]
+}
+function clearChartOfficeFilter() {
+    chartOfficeIds.value = []
+}
+watch(chartOfficeMenuOpen, async (open) => {
+    chartOfficeSearch.value = ''
+    chartOfficeHover.value = null
+    if (!open) return
+    await nextTick()
+    chartOfficeSearchEl.value?.focus()
+})
+watch(chartOfficeSearch, () => {
+    chartOfficeHover.value = null
+})
+
+// ---- Top Overdue Steps: its own month filter, independent of the chart ----
+const topStepsMonth = ref(monthValue(new Date()))
+const topStepsMonthOptions = computed(() => monthOptions())
+const topStepsData = ref(null)
+const topStepsLoading = ref(false)
+const topStepsError = ref('')
+let topStepsRequest = 0
+const topStepsMonthLabel = computed(
+    () => topStepsData.value?.label || topStepsMonthOptions.value.find((o) => o.value === topStepsMonth.value)?.title || topStepsMonth.value,
+)
+const topSteps = computed(() => topStepsData.value?.steps || [])
 
 const chartData = ref(null)
 const chartLoading = ref(false)
 const chartError = ref('')
 let chartRequest = 0
+
+// The overdue-by-office pie always uses monthly data; it no longer falls back
+// to the all-time summary. It has its own month filter, independent of the
+// chart's Month/Office filters.
+const overduePieMonth = ref(monthValue(new Date()))
+const overduePieMonthOptions = computed(() => monthOptions())
+const overduePieMonthLabel = computed(
+    () => overduePieMonthOptions.value.find((o) => o.value === overduePieMonth.value)?.title || overduePieMonth.value,
+)
+const overduePieData = ref(null)
+const overduePieLoading = ref(false)
+const overduePieError = ref('')
+let overduePieRequest = 0
 
 async function loadChart({ silent = false } = {}) {
     if (!canSeeSummary.value) return
@@ -837,8 +1018,8 @@ async function loadChart({ silent = false } = {}) {
             {
                 params: {
                     month: chartEndMonth.value,
-                    ...(isSuperadmin.value && chartOfficeId.value > 0
-                        ? { office_id: chartOfficeId.value }
+                    ...(isSuperadmin.value && chartOfficeIds.value.length
+                        ? { office_ids: chartOfficeIds.value }
                         : {}),
                 },
                 timeout: 10000,
@@ -856,10 +1037,79 @@ async function loadChart({ silent = false } = {}) {
     }
 }
 
-watch([chartEndMonth, chartOfficeId], () => {
+watch([chartEndMonth, chartOfficeIds], () => {
     chartData.value = null
     chartLoading.value = true
     loadChart()
+})
+
+async function loadTopSteps({ silent = false } = {}) {
+    if (!canSeeSummary.value) return
+    const mine = ++topStepsRequest
+    if (!silent && !topStepsData.value) topStepsLoading.value = true
+    topStepsError.value = ''
+    try {
+        const res = await api.get(
+            isSuperadmin.value
+                ? '/api/admin/dashboard/overdue-overview'
+                : '/api/office/dashboard/overdue-overview',
+            {
+                params: { month: topStepsMonth.value },
+                timeout: 10000,
+            },
+        )
+        if (mine !== topStepsRequest) return
+        topStepsData.value = res.data
+    } catch (e) {
+        if (mine !== topStepsRequest) return
+        topStepsError.value = e?.code === 'ECONNABORTED'
+            ? 'The overdue steps took too long to load.'
+            : (e?.response?.data?.message || 'Failed to load the overdue steps.')
+    } finally {
+        if (mine === topStepsRequest) topStepsLoading.value = false
+    }
+}
+
+watch(topStepsMonth, () => {
+    topStepsData.value = null
+    topStepsLoading.value = true
+    loadTopSteps()
+})
+
+async function loadOverduePie({ silent = false } = {}) {
+    if (!canSeeSummary.value) return
+
+    const mine = ++overduePieRequest
+    overduePieError.value = ''
+    if (!silent || overduePieData.value == null) {
+        overduePieData.value = null
+        overduePieLoading.value = true
+    }
+    try {
+        const res = await api.get(
+            isSuperadmin.value
+                ? '/api/admin/dashboard/overdue-overview'
+                : '/api/office/dashboard/overdue-overview',
+            {
+                params: { month: overduePieMonth.value },
+                timeout: 10000,
+            },
+        )
+        if (mine !== overduePieRequest) return
+        overduePieData.value = res.data
+    } catch (e) {
+        if (mine !== overduePieRequest) return
+        overduePieData.value = null
+        overduePieError.value = e?.code === 'ECONNABORTED'
+            ? 'The monthly office breakdown took too long to load.'
+            : (e?.response?.data?.message || 'Failed to load the monthly office breakdown.')
+    } finally {
+        if (mine === overduePieRequest) overduePieLoading.value = false
+    }
+}
+
+watch(overduePieMonth, () => {
+    loadOverduePie()
 })
 
 const chartMonthLabel = computed(
@@ -878,15 +1128,16 @@ const graphSeries = computed(() => {
         { label: 'Overdue', color: palette.overdue, values: rows.map((r) => r.overdue || 0) },
     ]
 })
-const topSteps = computed(() => chartData.value?.steps || [])
-
 // ---- Transaction Summary cards (all-time) ----
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 
-// Without the global Period/Offices filters, the summary cards and pies show
-// all-time data. Office admins are still scoped by the server.
+// The pie's active source: the fetched month's office breakdown.
+const overdueOfficeSource = computed(() => overduePieData.value?.overdue_by_office)
+
+// Without the global Period/Offices filters, the summary tiles show all-time
+// data. Office admins are still scoped by the server.
 const summaryQuery = computed(() => ({ month: 'all' }))
 
 // One key for both the setup paint and refreshes. storedUserId() covers the
@@ -967,7 +1218,7 @@ function sortedOfficeRows(source) {
 
 const officeColorMap = computed(() => {
     const seen = new Map()
-    for (const row of sortedOfficeRows(summary.value?.overdue_by_office).slice(0, MAX_OFFICE_SLICES)) {
+    for (const row of sortedOfficeRows(overdueOfficeSource.value).slice(0, MAX_OFFICE_SLICES)) {
         if (row.id != null) seen.set(row.id, row)
     }
     const sorted = [...seen.values()].sort((a, b) =>
@@ -1016,7 +1267,7 @@ function officePieRows(source) {
     return out
 }
 
-const overdueOfficeRows = computed(() => officePieRows(summary.value?.overdue_by_office))
+const overdueOfficeRows = computed(() => officePieRows(overdueOfficeSource.value))
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1180,7 +1431,9 @@ function accountScope(u) {
 
 function loadAccounts(opts = {}) {
     if (!canApproveAccounts.value) return
-    return accountStore.fetchUsers(opts).catch(() => {})
+    return accountStore.fetchUsers(opts)
+        .then(() => { accountError.value = '' })
+        .catch((e) => { accountError.value = e?.response?.data?.message || 'Unable to load account requests.' })
 }
 
 async function approveAccount(u) {
@@ -1200,7 +1453,7 @@ async function approveAccount(u) {
 async function rejectAccount(u) {
     const ok = await confirm({
         title: 'Reject this request?',
-        message: `${u.name} (${u.email}) will not get access, and the request will be removed. They can sign up again.`,
+        message: `${u.name}${u.username ? ` (@${u.username})` : ''} will not get access, and the request will be removed. They can sign up again.`,
         confirmLabel: 'Reject',
         cancelLabel: 'Keep',
     })
@@ -1242,7 +1495,7 @@ onMounted(async () => {
     if (canApproveAccounts.value) loadAccounts()
     if (primaryCards.length) {
         await Promise.allSettled(primaryCards)
-        refreshedAt.value = new Date()
+        markWorkspaceRefreshed()
     }
     if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {})
 
@@ -1251,8 +1504,19 @@ onMounted(async () => {
         await txStore.fetchAll({ ...opts, timeout: 8000 })
     } catch { /* keep defaults */ }
 
-    refreshedAt.value = new Date()
+    markWorkspaceRefreshed()
     loading.value = false
+
+    // The page is usable now. Fill the remaining cards in the background:
+    // summary first (most visible), then the chart and accounts.
+    loadSummary().catch(() => {})
+    loadChart()
+    loadTopSteps()
+    loadOverduePie()
+    if (canApproveAccounts.value) loadAccounts()
+    if (isSuperadmin.value) {
+        officeStore.fetchAll({ silent: true }).catch(() => {})
+    }
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.
@@ -1266,11 +1530,18 @@ useSmartPoll(async () => {
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
         loadChart({ silent: true })
-        loadAccounts({ silent: true })
-        refreshedAt.value = new Date()
+        loadTopSteps({ silent: true })
+        loadOverduePie({ silent: true })
+        markWorkspaceRefreshed()
     } catch {
         /* next tick retries */
     }
+})
+
+// Signups and approvals change independently of transaction activity.
+useSmartPoll(() => loadAccounts({ silent: true }), {
+    checkVersion: false,
+    enabled: () => canApproveAccounts.value && accountBusyId.value == null,
 })
 
 </script>

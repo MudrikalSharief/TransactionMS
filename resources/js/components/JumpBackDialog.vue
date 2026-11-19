@@ -16,6 +16,90 @@
                     <span class="pm-route-chip is-dest">{{ destinationLabel }}</span>
                 </div>
 
+                <!-- Returned checklist shown only on a forward resend. The
+                     returned files are optional requirements: the resender
+                     can upload a corrected copy or resend unchanged. -->
+                <section v-if="isForward && (resendChecklist || []).length" class="pm-section">
+                    <div class="pm-sh">
+                        <h3>Returned checklist</h3>
+                        <span class="pm-count">{{ updatedCount }} of {{ resendChecklist.length }} updated</span>
+                    </div>
+                    <p class="pm-hint">
+                        Optional. Upload an updated file only if you fixed it —
+                        resending does not require an upload.
+                    </p>
+                    <div class="pm-upload-list">
+                        <div
+                            v-for="row in resendChecklist"
+                            :key="row.key"
+                            class="pm-upload"
+                            :class="{ 'is-ok': rowFiles(row).length }"
+                        >
+                            <div class="pm-uh">
+                                <span class="pm-sico">
+                                    <v-icon size="17">{{ rowFiles(row).length ? 'mdi-check' : 'mdi-file-check-outline' }}</v-icon>
+                                </span>
+                                <div class="pm-ut">
+                                    <b :title="row.name">{{ row.name }}</b>
+                                    <span class="pm-meta">
+                                        Optional
+                                        <i v-if="row.owner_step">Step {{ row.owner_step.order_number }}</i>
+                                    </span>
+                                </div>
+                                <AttachmentUploader
+                                    :tx-id="txId"
+                                    :is-admin="isAdmin"
+                                    :model-value="rowFiles(row)"
+                                    :file-label="`Updated: ${String(row.name || '').slice(0, 110)}`"
+                                    :show-list="false"
+                                    minimal
+                                    :disabled="saving"
+                                    @update:model-value="(files) => setRowFiles(row, files)"
+                                    @uploading="(value) => setRowUploading(row, value)"
+                                >
+                                    <template #header="{ open, uploading, disabled }">
+                                        <button
+                                            type="button"
+                                            class="pm-lnk"
+                                            :disabled="disabled || saving"
+                                            @click="open"
+                                        >
+                                            <v-icon v-if="!uploading" size="15">mdi-paperclip</v-icon>
+                                            {{ uploading ? 'Uploading…' : (rowFiles(row).length ? 'Add another file' : 'Choose files') }}
+                                        </button>
+                                    </template>
+                                </AttachmentUploader>
+                            </div>
+
+                            <div v-if="(row.attachments || []).length" class="mt-3">
+                                <span class="pm-meta">Returned file</span>
+                                <AttachmentList
+                                    :items="row.attachments"
+                                    :tx-id="txId"
+                                    :is-admin="isAdmin"
+                                    action="download"
+                                    :show-details="false"
+                                    redesign
+                                    hide-delete
+                                />
+                            </div>
+                            <div v-if="rowFiles(row).length" class="mt-3">
+                                <span class="pm-meta">Updated file</span>
+                                <AttachmentList
+                                    :items="rowFiles(row)"
+                                    :tx-id="txId"
+                                    :is-admin="isAdmin"
+                                    :current-step-id="currentStepId"
+                                    action="download"
+                                    :show-details="false"
+                                    redesign
+                                    @deleted="(id) => removeRowFile(row, id)"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <div v-if="!isForward && (checklist || []).length" class="pm-warn-card">
                     <div class="pm-warn-title">
                         <v-icon size="17">mdi-flag-outline</v-icon>
@@ -62,7 +146,7 @@
                 :busy="saving"
                 :primary-label="isForward ? 'Resend' : 'Return'"
                 :primary-tone="isForward ? 'resend' : 'warn'"
-                :primary-disabled="!remarks.trim() || saving"
+                :primary-disabled="!remarks.trim() || saving || uploadingAny"
                 @cancel="close"
                 @primary="confirm"
             />
@@ -72,6 +156,8 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import AttachmentList from '@/components/AttachmentList.vue'
+import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import ProceedModalHeader from '@/components/ProceedModalHeader.vue'
 import ProceedModalFooter from '@/components/ProceedModalFooter.vue'
 
@@ -90,12 +176,82 @@ const props = defineProps({
     // Received checklist (current_step_checklist): drives the return
     // flag-cards above the reason box. Empty outside return mode.
     checklist: { type: Array, default: () => [] },
+    // Optional returned checklist (latest return run) shown on forward
+    // resends. Each row can take an updated file, but nothing is required.
+    resendChecklist: { type: Array, default: () => [] },
+    txId: { type: [Number, String], default: null },
+    isAdmin: { type: Boolean, default: false },
+    currentStepId: { type: [Number, String], default: null },
 })
 
 const emit = defineEmits(['update:open', 'confirm'])
 
 const remarks = ref('')
 const remarksError = ref('')
+// Updated files staged against each returned-checklist row. Uploads are
+// persisted immediately on the current step; on confirm their IDs are sent
+// as attachment_targets so the server can re-file them under the returned
+// requirement before stamping them to the resend run.
+const updatedFiles = ref({})
+const uploadingRows = ref({})
+
+watch(() => [props.txId, props.currentStepId], () => {
+    updatedFiles.value = {}
+    uploadingRows.value = {}
+}, { immediate: true })
+
+const uploadingAny = computed(() =>
+    Object.values(uploadingRows.value || {}).some(Boolean),
+)
+
+const updatedCount = computed(() =>
+    (props.resendChecklist || []).filter((row) => rowFiles(row).length > 0).length,
+)
+
+function rowFiles(row) {
+    return updatedFiles.value?.[row?.key] || []
+}
+
+function setRowUploading(row, value) {
+    if (!row?.key) return
+    uploadingRows.value = {
+        ...uploadingRows.value,
+        [row.key]: !!value,
+    }
+}
+
+function setRowFiles(row, files) {
+    if (!row?.key) return
+    updatedFiles.value = {
+        ...updatedFiles.value,
+        [row.key]: [...(files || [])],
+    }
+}
+
+function removeRowFile(row, id) {
+    setRowFiles(row, rowFiles(row).filter((f) => Number(f.id) !== Number(id)))
+}
+
+function buildAttachmentTargets() {
+    if (!props.isForward) return []
+    const targets = []
+    for (const row of (props.resendChecklist || [])) {
+        const stepId = Number(row?.owner_step?.id)
+        if (!Number.isFinite(stepId) || !stepId) continue
+        const reqId = row?.requirement_definition_id
+        for (const file of rowFiles(row)) {
+            if (!file?.id) continue
+            targets.push({
+                attachment_id: Number(file.id),
+                workflow_step_id: stepId,
+                requirement_definition_id: reqId !== null && reqId !== undefined && reqId !== ''
+                    ? Number(reqId)
+                    : null,
+            })
+        }
+    }
+    return targets
+}
 
 // Short destination for the heading/caption (e.g. "Station 1 · Collect DTR" -> "Station 1").
 const shortDestination = computed(() => (props.destinationLabel || '').split('·')[0].trim() || props.destinationLabel)
@@ -171,6 +327,10 @@ function confirm() {
         remarksError.value = props.isForward ? 'Remarks are required to resend.' : 'Remarks are required to return.'
         return
     }
-    emit('confirm', { remarks: remarks.value.trim(), flagged: [...(flagged.value || [])] })
+    emit('confirm', {
+        remarks: remarks.value.trim(),
+        flagged: [...(flagged.value || [])],
+        attachment_targets: buildAttachmentTargets(),
+    })
 }
 </script>

@@ -21,8 +21,24 @@ export function formatHistoryDate(v) {
     return historyDateFmt.format(d).replace(/, (\d{1,2}:)/, ' · $1');
 }
 
-// Same buckets as the inline fmtMinutes in the detail pages (kept in sync
-// so SLA values stay exactly consistent with the previous implementation).
+// Compact row timestamp: month, day, time — no year.
+const historyDateShortFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+});
+
+export function formatHistoryDateShort(v) {
+    if (!v) return '—';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return '—';
+    return historyDateShortFmt.format(d).replace(/, (\d{1,2}:)/, ' · $1');
+}
+
+// Working-minute formatter: hours, then 8-hour working days after 48 hours.
 export function formatMinutes(v) {
     const n = Number(v);
     if (!Number.isFinite(n)) return '—';
@@ -30,9 +46,28 @@ export function formatMinutes(v) {
     const h = Math.floor(n / 60);
     const m = n % 60;
     if (h < 48) return m ? `${h}h ${m}m` : `${h}h`;
+    // A "day" in these durations is an 8-hour working day.
+    const d = Math.floor(n / 480);
+    const rh = Math.floor((n % 480) / 60);
+    const rm = n % 60;
+    return [d ? `${d}d` : '', rh ? `${rh}h` : '', rm ? `${rm}m` : '']
+        .filter(Boolean)
+        .join(' ');
+}
+
+// Calendar-minute formatter for pending time: real elapsed time, 24-hour days.
+export function formatCalendarMinutes(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    if (n < 60) return `${n}m`;
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    if (h < 24) return m ? `${h}h ${m}m` : `${h}h`;
     const d = Math.floor(h / 24);
     const rh = h % 24;
-    return rh ? `${d}d ${rh}h` : `${d}d`;
+    return [d ? `${d}d` : '', rh ? `${rh}h` : '', m ? `${m}m` : '']
+        .filter(Boolean)
+        .join(' ');
 }
 
 const ACTION_CONFIGS = {
@@ -66,8 +101,14 @@ export function getActionConfig(actionCode) {
 
 export function getStatusConfig(run) {
     if (!run?.received_at) return { label: 'Pending', color: 'warning', dot: 'bg-warning' };
-    if (run?.is_breached) return { label: 'Overdue', color: 'error', dot: 'bg-error' };
-    return { label: 'On time', color: 'success', dot: 'bg-success' };
+
+    const est = Number(run?.duration_estimated_minutes ?? run?.sla_minutes_snapshot ?? 0);
+    const working = Number(run?.working_minutes ?? 0);
+    const breached = run?.is_working_breached === true || (est > 0 && working > est);
+
+    return breached
+        ? { label: 'Overdue', color: 'error', dot: 'bg-error' }
+        : { label: 'On time', color: 'success', dot: 'bg-success' };
 }
 
 export function getUserInitials(name) {
@@ -99,6 +140,14 @@ function officeOf(step) {
     return step?.office?.name || step?.stage || step?.name || null;
 }
 
+// Office code for the Movement column (e.g. "GSO → OCT"). Falls back to the
+// step code when a legacy/end-user station has no resolved office.
+function officeCodeOf(step) {
+    const officeCode = String(step?.office?.code || '').trim();
+    if (officeCode) return officeCode;
+    return String(step?.code || step?.stage || step?.name || '').trim() || null;
+}
+
 function stepNo(step) {
     return step?.order_number ?? null;
 }
@@ -107,27 +156,18 @@ export function isCreateRun(run) {
     return String(run?.action_code || '').toLowerCase() === 'create';
 }
 
-// "HR → Accounting" (+ "Step 2 → Step 3" caption). Create events with no
-// source render as "Created → HR" instead of a raw dash.
+// Office-code movement only: "GSO → OCT". Create events with no source
+// render as "Created → GSO".
 export function movementOf(run) {
-    const fromOffice = officeOf(run?.from_step);
-    const toOffice = officeOf(run?.to_step);
+    const fromOffice = officeCodeOf(run?.from_step);
+    const toOffice = officeCodeOf(run?.to_step);
     const isCreate = isCreateRun(run);
 
-    let main;
     if (isCreate || !fromOffice) {
-        main = toOffice ? { from: 'Created', to: toOffice } : { from: 'Created', to: null };
-    } else {
-        main = { from: fromOffice, to: toOffice || '—' };
+        return { from: 'Created', to: toOffice || null };
     }
 
-    const fromN = stepNo(run?.from_step);
-    const toN = stepNo(run?.to_step);
-    let sub = null;
-    if (fromN != null && toN != null && !isCreate) sub = `Step ${fromN} → Step ${toN}`;
-    else if (toN != null) sub = `Step ${toN}`;
-
-    return { ...main, sub };
+    return { from: fromOffice, to: toOffice || '—' };
 }
 
 export function stepLabelOf(run, fallbackIndex) {

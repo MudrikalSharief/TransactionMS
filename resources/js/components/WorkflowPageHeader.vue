@@ -250,7 +250,7 @@ html.dark .wsh {
     padding: 3px 7px;
     background: #fff1d6;
     color: #704000;
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
 }

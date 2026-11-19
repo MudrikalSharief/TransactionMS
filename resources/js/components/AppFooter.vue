@@ -192,7 +192,7 @@ const edgeGradients = [
     justify-content: center;
     gap: 6px;
     margin-top: 0;
-    font-size: 0.66rem;
+    font-size: var(--tms-text-xs);
     /* Navy on the light (25%) blue, so it stays readable. */
     color: #0f2a6b;
 }
@@ -239,7 +239,7 @@ const edgeGradients = [
     }
     .tf-credit {
         flex-wrap: wrap;
-        font-size: 0.62rem;
+        font-size: var(--tms-text-xs);
     }
     .tf-credit-line {
         display: none;

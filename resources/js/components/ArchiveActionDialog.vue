@@ -247,7 +247,7 @@ html.dark .aa-card {
 
 .aa-section h3 {
   margin: 0 0 8px;
-  font-size: 11.5px;
+  font-size: var(--tms-text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;

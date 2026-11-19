@@ -14,7 +14,7 @@
             <v-btn-toggle v-model="tab" mandatory density="compact" color="primary" variant="outlined" divided class="report-tabs">
                 <v-btn v-for="s in sections" :key="s.key" :value="s.key" size="small" class="text-none">
                     <v-icon start size="16">{{ s.icon }}</v-icon>{{ s.title }}
-                    <span class="tab-count">{{ s.rows.length }}</span>
+                    <span class="report-tab-count">{{ s.rows.length }}</span>
                 </v-btn>
             </v-btn-toggle>
             <v-spacer />
@@ -83,7 +83,7 @@
         </v-card-text>
 
         <div class="report-foot">
-            <span class="text-caption text-medium-emphasis">Times are working time (weekends not counted).</span>
+            <span class="text-caption text-medium-emphasis">Counts reflect the selected period.</span>
             <v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" :total-visible="5" density="compact" size="small" />
         </div>
     </v-card>
@@ -97,7 +97,7 @@ import { useOffices } from "@/composables/useOffices";
 import { useFitScreen } from "@/composables/useFitScreen";
 import { toast } from "@/composables/useToast";
 import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
-import { downloadXlsx, downloadPdf, fmtMinutes } from "@/utils/reportExport";
+import { downloadXlsx, downloadPdf } from "@/utils/reportExport";
 
 const { api } = useApi();
 const { user } = useAuth();
@@ -119,8 +119,8 @@ const officeOptions = computed(() =>
 );
 
 // Table rows that fit the card body: header 32px + 34px per row.
-const ROW_PX = 34;
-const HEAD_PX = 32;
+const ROW_PX = 45;
+const HEAD_PX = 41;
 
 const report = ref(null);
 const loading = ref(false);
@@ -170,8 +170,6 @@ const countColumns = [
     { label: "Filed", num: true, value: (r) => r.filed },
     { label: "In process", num: true, value: (r) => r.in_process },
     { label: "Completed", num: true, value: (r) => r.completed },
-    { label: "Overdue", num: true, value: (r) => r.overdue },
-    { label: "Avg. completion", num: true, value: (r) => fmtMinutes(r.avg_completion_minutes) },
 ];
 
 const sections = computed(() => {
@@ -195,44 +193,6 @@ const sections = computed(() => {
             rows: d.by_process || [],
             columns: [{ label: "Process", strong: true, value: (r) => r.item?.name || "—" }, ...countColumns],
         },
-        {
-            key: "steps",
-            title: "Time per station",
-            icon: "mdi-timer-alert-outline",
-            note: "How long papers stay at each station. Worst first: most often over the time limit, then most papers waiting now.",
-            empty: "No station activity in this period.",
-            rows: d.steps || [],
-            rowClass: (r) => (r.over_limit_pct >= 50 ? "row-hot" : r.over_limit ? "row-warm" : ""),
-            columns: [
-                { label: "Station", strong: true, value: (r) => r.step },
-                { label: "Office", value: (r) => r.office?.code || r.office?.name || "—" },
-                { label: "Process", value: (r) => r.process || "—" },
-                { label: "Limit", num: true, value: (r) => (r.sla_minutes ? fmtMinutes(r.sla_minutes) : "None") },
-                { label: "Handled", num: true, value: (r) => r.handled },
-                { label: "Waiting now", num: true, value: (r) => r.waiting_now },
-                { label: "Avg. stay", num: true, value: (r) => fmtMinutes(r.avg_wait_minutes) },
-                { label: "Longest stay", num: true, value: (r) => fmtMinutes(r.max_wait_minutes) },
-                { label: "Avg. to receive", num: true, value: (r) => fmtMinutes(r.avg_receipt_minutes) },
-                { label: "Over limit", num: true, value: (r) => `${r.over_limit} (${r.over_limit_pct}%)` },
-            ],
-        },
-        {
-            key: "requirements",
-            title: "Missing requirements",
-            icon: "mdi-file-alert-outline",
-            note: "Required items still incomplete on open transactions filed in the period, at their current station: physical copy not checked, or no file attached.",
-            empty: "No missing requirements on open transactions.",
-            rows: d.requirements || [],
-            columns: [
-                { label: "Requirement", strong: true, value: (r) => r.requirement },
-                { label: "Process", value: (r) => r.process || "—" },
-                { label: "Station", value: (r) => r.step },
-                { label: "Office", value: (r) => r.office?.code || r.office?.name || "—" },
-                { label: "Transactions", num: true, value: (r) => r.transactions },
-                { label: "Not checked", num: true, value: (r) => r.not_checked },
-                { label: "No file", num: true, value: (r) => r.no_file },
-            ],
-        },
     ];
 });
 const current = computed(() => sections.value.find((s) => s.key === tab.value) || sections.value[0]);
@@ -249,12 +209,19 @@ const exportPayload = () => {
     const t = report.value?.totals || {};
     return {
         title: "Monitoring Report",
-        subtitle: `${scopeText.value} · Times are working time (weekends not counted)`,
+        subtitle: scopeText.value,
         sections: [
             {
                 title: "Summary",
                 columns: [{ label: "Measure", value: (r) => r[0] }, { label: "Value", value: (r) => r[1] }],
-                rows: [["Filed", t.filed ?? 0], ["In process", t.in_process ?? 0], ["Completed", t.completed ?? 0], ["Overdue", t.overdue ?? 0]],
+                rows: [
+                    ["Filed", t.filed ?? 0],
+                    ["In process", t.in_process ?? 0],
+                    ["Pending receipt", t.pending ?? 0],
+                    ["Working now", t.working ?? 0],
+                    ["Completed", t.completed ?? 0],
+                    ["Overdue", t.overdue ?? 0],
+                ],
             },
             ...sections.value,
         ],
@@ -280,14 +247,14 @@ defineExpose({ reload: load });
 
 <style scoped>
 .report-head {
-    row-gap: 6px;
+    gap: 10px 14px;
 }
 .report-filters {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 0 16px 10px;
+    gap: 12px;
+    padding: 12px 16px;
 }
 .report-filter {
     flex: 0 0 180px;
@@ -306,33 +273,39 @@ defineExpose({ reload: load });
         max-width: none;
     }
 }
-/* Same small subtitle as the other dashboard cards. */
-.dash-panel-sub {
-    font-size: 0.75rem;
-    font-weight: 400;
-    line-height: 1.3;
-    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-}
+/* Same subtitle treatment as the other dashboard cards (inherited globally). */
 .report-tabs {
-    height: 32px !important;
+    height: 34px !important;
+    margin-left: 2px;
 }
 .report-tabs :deep(.v-btn) {
-    height: 32px !important;
+    height: 34px !important;
+    padding-inline: 12px;
     letter-spacing: 0;
     font-weight: 600;
 }
-.tab-count {
-    margin-left: 6px;
-    min-width: 20px;
-    padding: 0 5px;
+.report-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    height: 18px;
+    min-width: 18px;
+    padding: 0 6px;
+    margin-left: 8px;
+    margin-right: 2px;
+    border-radius: 999px;
     background: rgba(var(--v-theme-primary), 0.12);
-    font-size: 0.72rem;
+    color: rgb(var(--v-theme-primary));
+    font-size: var(--tms-text-xs);
+    font-weight: 700;
+    line-height: 1;
     text-align: center;
 }
 .report-note {
     display: flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: 6px 16px;
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 .report-body {
@@ -349,23 +322,50 @@ defineExpose({ reload: load });
     width: 100%;
     min-width: 720px;
     border-collapse: collapse;
-    font-size: 0.82rem;
+    font-size: 14px;
     font-variant-numeric: tabular-nums;
 }
 .report-table th {
-    height: 32px;
-    padding: 0 10px;
-    background: #1A1F2B;
-    color: #fff;
-    font-weight: 700;
+    height: 40px;
+    padding: 0 16px;
+    background: #f4f6fb;
+    color: rgb(var(--v-theme-secondary));
+    font-size: var(--tms-text-xs);
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
     text-align: left;
     white-space: nowrap;
+    border-bottom: 1px solid var(--ws-line, #e4edfb);
 }
 .report-table td {
-    height: 34px;
-    padding: 0 10px;
-    border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+    height: 44px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--ws-line, #e4edfb);
+    font-size: 14px;
+    vertical-align: middle;
     white-space: nowrap;
+}
+.report-table tbody tr {
+    transition: background 0.12s;
+}
+.report-table tbody tr:hover td {
+    background: rgba(var(--v-theme-on-surface), 0.035);
+}
+.report-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+.report-table th:first-child,
+.report-table td:first-child {
+    padding-left: 16px;
+}
+.report-table th:last-child,
+.report-table td:last-child {
+    padding-right: 16px;
+}
+html.dark .report-table th {
+    background: #1c2645;
+    color: #93c5fd;
 }
 .report-table .num {
     text-align: right;
@@ -382,18 +382,12 @@ defineExpose({ reload: load });
     text-align: center;
     color: rgba(var(--v-theme-on-surface), 0.6);
 }
-.report-table .row-hot {
-    background: rgba(var(--v-theme-error), 0.08);
-}
-.report-table .row-warm {
-    background: rgba(var(--v-theme-warning), 0.08);
-}
 .report-foot {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 4px 12px;
+    padding: 8px 16px;
     border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
     min-height: 36px;
 }

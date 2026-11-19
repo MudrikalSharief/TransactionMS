@@ -5,12 +5,6 @@
             label="workflow steps"
             icon="mdi-source-branch"
         />
-        <DepthNav
-            :levels="depthLevels"
-            :deeper="depthDeeper"
-            deeper-label="Steps"
-            class="mb-4"
-        />
         <v-card rounded="0" elevation="0" class="wf-page mb-4">
             <header class="wf-hd">
                 <div class="wf-badge" aria-hidden="true">
@@ -1936,35 +1930,6 @@
             </v-card>
         </v-dialog>
 
-        <!-- End-of-workflow footer: same deep-blue bar as the dashboard foot. -->
-        <v-sheet
-            v-if="selectedTypeId"
-            color="#1A1F2B"
-            rounded="0"
-            class="pa-4 mt-6 d-flex align-center justify-center ga-3 text-center"
-        >
-            <v-avatar
-                color="white"
-                rounded="0"
-                size="52"
-                class="lgu-head-avatar"
-            >
-                <v-icon color="#005EED" size="32">mdi-flag-checkered</v-icon>
-            </v-avatar>
-            <v-divider
-                vertical
-                :thickness="2"
-                color="white"
-                opacity="0.6"
-                style="height: 48px"
-            />
-            <div class="text-left">
-                <div class="text-h6 font-weight-bold text-white lh-1">
-                    END OF WORKFLOW
-                </div>
-            </div>
-        </v-sheet>
-
         <!-- Route save feedback (design mockup toast). -->
         <AppToast ref="routeToast" />
     </div>
@@ -1988,10 +1953,9 @@ import { officeIcon } from "@/utils/officeIcons";
 import TableLoader from "@/components/TableLoader.vue";
 import mascotEmptyUrl from "@/assets/mascots/mascot-empty.jpg";
 import LoadingVeil from "@/components/LoadingVeil.vue";
-import DepthNav from "@/components/DepthNav.vue";
-import { buildWorkflowDepthLevels } from "@/utils/workflowDepth";
 import AppToast from "@/components/AppToast.vue";
 import SlaDurationInput from "@/components/SlaDurationInput.vue";
+import { WORKDAY_MINUTES } from "@/utils/workingTime";
 
 const { defs, loading, fetchDefinitions, createDraft, publish, makeLive } =
     useWorkflows();
@@ -2231,15 +2195,6 @@ const selectedTypeShortName = computed(() => {
     );
     return t ? t.name : "";
 });
-
-const depthLevels = computed(() =>
-    buildWorkflowDepthLevels({
-        typeId: selectedTypeId.value,
-        typeName: selectedTypeShortName.value,
-        currentLabel: "Steps and Routes",
-        isWorkflows: true,
-    }),
-);
 
 const activeDefStatusLabel = computed(() => {
     const d = activeDef.value;
@@ -2725,31 +2680,6 @@ function stepOnDef(def, item) {
     );
 }
 
-const depthDeeper = computed(() => {
-    const target = liveEditableTarget();
-    if (!target?.id) return [];
-    const query = selectedTypeId.value
-        ? { type: Number(selectedTypeId.value) }
-        : {};
-    return (flatStepRows.value || [])
-        .filter((step) => step?.id && typeof step.id !== "string")
-        .map((step) => {
-            const fresh = stepOnDef(target, step);
-            if (!fresh?.id) return null;
-            const n = step._num ?? step.order_number ?? "";
-            const name = step.name || step.code || "";
-            return {
-                key: `step-${step.id}`,
-                label: `Step ${n}${name ? ` · ${name}` : ""}`,
-                to: {
-                    path: `/admin/workflows/${target.id}/steps/${fresh.id}/requirements`,
-                    query,
-                },
-            };
-        })
-        .filter(Boolean);
-});
-
 async function goStepRequirements(item) {
     error.value = "";
     notice.value = "";
@@ -3173,7 +3103,7 @@ function toggleEndUser(item, value) {
 // The shared input handles the mockup's presets and custom day/hour/minute
 // fields; this page keeps the strict 30-day total cap.
 const SLA_MAX_DAYS = 30;
-const SLA_MAX_TOTAL = SLA_MAX_DAYS * 24 * 60; // 43200
+const SLA_MAX_TOTAL = SLA_MAX_DAYS * WORKDAY_MINUTES; // 14,400 working minutes
 const slaMinutes = ref(60);
 // Bumping the key remounts the input so preset/custom state is rebuilt from
 // the step being opened instead of leaking from the previous edit.
@@ -3185,8 +3115,8 @@ const slaOverLimit = computed(
 
 function minutesToSla(total) {
     const t = Math.max(0, Number(total || 0));
-    const days = Math.floor(t / 1440);
-    const rest = t - days * 1440;
+    const days = Math.floor(t / WORKDAY_MINUTES);
+    const rest = t - days * WORKDAY_MINUTES;
     const h = String(Math.floor(rest / 60)).padStart(2, "0");
     const min = String(rest % 60).padStart(2, "0");
     return { days, time: `${h}:${min}` };
@@ -3742,7 +3672,7 @@ html.dark .wf-page {
     padding: 3px 7px;
     background: rgba(var(--v-theme-warning), 0.18);
     color: var(--wf-amber);
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
 }
@@ -4000,7 +3930,7 @@ html.dark .wf-page {
     margin-left: 8px;
     background: var(--wf-new-chip-bg);
     color: var(--wf-new-chip-ink);
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
 }
 .wf-parent-note {
@@ -4282,7 +4212,7 @@ html.dark .wf-page {
     background: var(--wf-field);
     color: var(--wf-muted);
     font-family: ui-monospace, Menlo, Consolas, monospace;
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -4975,7 +4905,7 @@ html.dark .wf-page {
     border-radius: 99px;
     background: rgba(var(--v-theme-primary), 0.14);
     color: rgb(var(--v-theme-primary));
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
 }
 .sv-chip.is-zero {
@@ -5004,7 +4934,7 @@ html.dark .wf-page {
 }
 .sv-pop-count {
     flex: none;
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     color: rgb(var(--v-theme-secondary));
     white-space: nowrap;
@@ -5051,7 +4981,7 @@ html.dark .wf-page {
 }
 .sv-pop-kind {
     margin-right: 6px;
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -5172,7 +5102,7 @@ html.dark .wf-page {
     height: 20px;
     padding: 0 8px;
     border-radius: 99px;
-    font-size: 10.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.02em;
     text-transform: uppercase;

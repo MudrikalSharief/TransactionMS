@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Office;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\RoleResource;
 use App\Http\Resources\UserResource;
 use App\Models\Role;
 use App\Models\TransactionType;
@@ -13,16 +12,15 @@ use App\Services\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 /**
  * Office admin area: manage the people in the admin's own office and look
- * up what that office may file. Never touches other offices, and never
- * grants or edits the admin/superadmin roles (those stay with superadmin).
+ * up what that office may file. Includes other office admins, but never
+ * touches other offices or grants or manages superadmin access.
  */
 class OfficeAdminController extends Controller
 {
-    private const PROTECTED_ROLES = UserApproval::PROTECTED_ROLES;
+    private const PROTECTED_ROLES = ['superadmin'];
 
     private const CONTACT_RULE = ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'];
 
@@ -49,7 +47,7 @@ class OfficeAdminController extends Controller
             'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
-            'role_ids.*' => ['integer', $this->assignableRoleRule()],
+            'role_ids.*' => ['integer', $this->assignableRoleRule($request)],
         ], User::USERNAME_MESSAGES);
         $officeId = (int) $request->user()->office_id;
 
@@ -103,7 +101,7 @@ class OfficeAdminController extends Controller
             'contact_number' => self::CONTACT_RULE,
             'is_active' => ['sometimes', 'boolean'],
             'role_ids' => ['sometimes', 'array'],
-            'role_ids.*' => ['integer', $this->assignableRoleRule()],
+            'role_ids.*' => ['integer', $this->assignableRoleRule($request)],
         ], User::USERNAME_MESSAGES);
 
         return DB::transaction(function () use ($request, $user, $data, $audit) {
@@ -212,14 +210,6 @@ class OfficeAdminController extends Controller
         return response()->json(['message' => 'Request rejected.']);
     }
 
-    /** Roles an office admin may give out: everything except admin/superadmin. */
-    public function roles()
-    {
-        return RoleResource::collection(
-            Role::query()->whereNotIn('code', self::PROTECTED_ROLES)->orderBy('name')->get()
-        );
-    }
-
     /** Processes the admin's office may start (for "New transaction"). */
     public function transactionTypes(Request $request)
     {
@@ -232,8 +222,8 @@ class OfficeAdminController extends Controller
     }
 
     /**
-     * Office admins manage regular members of their own office only: not
-     * themselves, not other offices, not other admins or superadmins.
+     * Office admins manage other members and admins of their own office:
+     * never themselves, another office's users or any superadmin account.
      */
     private function assertManageable(Request $request, User $target): void
     {
@@ -246,12 +236,12 @@ class OfficeAdminController extends Controller
         abort_if(
             $target->roles->contains(fn ($r) => in_array($r->code, self::PROTECTED_ROLES, true)),
             403,
-            'Admins and superadmins can only be changed by a superadmin.'
+            'Superadmins can only be changed by a superadmin.'
         );
     }
 
-    private function assignableRoleRule()
+    private function assignableRoleRule(Request $request)
     {
-        return Rule::exists('roles', 'id')->whereNotIn('code', self::PROTECTED_ROLES);
+        return Role::assignmentRule((int) $request->user()->office_id)->whereNotIn('code', self::PROTECTED_ROLES);
     }
 }

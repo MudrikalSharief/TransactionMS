@@ -22,6 +22,7 @@
                     :runs="runs"
                     :assignment-history="assignmentHistory"
                     :loading="loading"
+                    :is-done="isDone"
                     :tx-id="txId"
                     :is-admin="isAdmin"
                     :workflow-steps="workflowSteps"
@@ -63,6 +64,7 @@ const props = defineProps({
     runs: { type: Array, default: () => [] },
     assignmentHistory: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
+    isDone: { type: Boolean, default: false },
     txId: { type: [Number, String], default: null },
     isAdmin: { type: Boolean, default: false },
     attachments: { type: Array, default: () => [] },

@@ -141,7 +141,7 @@ const emit = defineEmits(['activate'])
     border-radius: 999px;
     background: var(--stat-c);
     color: var(--stat-badge-ink);
-    font-size: 0.74rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.03em;
     text-transform: uppercase;

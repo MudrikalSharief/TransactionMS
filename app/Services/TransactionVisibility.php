@@ -36,7 +36,9 @@ class TransactionVisibility
                     ->orWhereHas('state.currentStep', function ($s) use ($roleIds) {
                         $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds))
                             ->whereLegacyNoOriginFallback();
-                    });
+                    })
+                    ->orWhereHas('runs', fn ($runs) => $runs->whereNotNull('received_at')
+                        ->where('received_office_id', $user->office_id));
             });
         }
 
@@ -61,7 +63,8 @@ class TransactionVisibility
                             $x->whereEffectiveOffice($user->office_id)
                                 ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
                         });
-                });
+                })
+                ->orWhere(fn ($owned) => app(OfficerAssignmentAccess::class)->whereAssignedOffice($owned, $user));
         });
     }
 }

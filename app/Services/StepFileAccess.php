@@ -6,6 +6,7 @@ use App\Models\Transaction;
 use App\Models\TransactionAttachment;
 use App\Models\TransactionStepRun;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Which steps' files a user may open on a transaction.
@@ -46,13 +47,36 @@ class StepFileAccess
             ->firstWhere(fn ($s) => (int) $s->order_number === (int) $current->order_number - 1);
         if ($previous) $ids[] = (int) $previous->id;
 
-        $sentFrom = TransactionStepRun::query()
+        $lastRun = TransactionStepRun::query()
             ->where('transaction_id', $tx->id)
             ->where('to_step_id', $current->id)
             ->orderByDesc('performed_at')
             ->orderByDesc('id')
-            ->value('from_step_id');
-        if ($sentFrom) $ids[] = (int) $sentFrom;
+            ->first(['from_step_id', 'action_code', 'flagged_items']);
+        if ($lastRun?->from_step_id) $ids[] = (int) $lastRun->from_step_id;
+
+        // Returned items must be readable at the station that has to fix
+        // them. Flags may point at a requirement owned by an earlier
+        // station (not the station that returned the paper), so include
+        // every owning step of the latest return's flagged requirements.
+        if ($lastRun?->action_code === 'return') {
+            $flaggedReqIds = collect($lastRun->flagged_items ?? [])
+                ->pluck('requirement_definition_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+            if ($flaggedReqIds) {
+                $ownerStepIds = DB::table('step_requirements')
+                    ->whereIn('requirement_definition_id', $flaggedReqIds)
+                    ->whereIn('workflow_step_id', collect($tx->workflow?->steps ?? [])->pluck('id'))
+                    ->pluck('workflow_step_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+                $ids = array_merge($ids, $ownerStepIds);
+            }
+        }
 
         return array_values(array_unique($ids));
     }

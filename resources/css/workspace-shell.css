@@ -35,6 +35,39 @@
     min-width: 0;
 }
 .workspace-header-leading { flex: 1 1 auto; min-width: 0; border-left: 3px solid #0055ed; padding-left: 14px; }
+.workspace-shell .workspace-header-greeting {
+    min-width: 0;
+    color: var(--ws-ink, #14294b);
+}
+.workspace-shell .workspace-greeting-line {
+    font-size: 15px;
+    line-height: 1.35;
+    font-weight: 500;
+    color: var(--ws-muted, #6a7d99);
+}
+.workspace-shell .workspace-greeting-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(26px, 2.2vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1.15;
+}
+.workspace-shell .workspace-greeting-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    margin-top: 5px;
+    font-size: var(--tms-text-xs);
+    line-height: 1.4;
+    color: var(--ws-muted, #6a7d99);
+}
+.workspace-shell .workspace-greeting-scope {
+    padding-left: 12px;
+    border-left: 1px solid var(--ws-line, #dbe7f6);
+}
 .workspace-shell .workspace-mobile-nav {
     flex: 0 0 34px;
     width: 34px;
@@ -47,20 +80,6 @@
     cursor: pointer;
 }
 .workspace-mobile-nav img { width: 30px; height: 30px; object-fit: contain; }
-.workspace-page-context h1 {
-    color: var(--workspace-shell-ink);
-    margin: 3px 0 0;
-    font-size: 25px;
-    font-weight: 750;
-    line-height: 1.2;
-    letter-spacing: -.6px;
-}
-.workspace-page-eyebrow {
-    display: block;
-    font-size: 11px;
-    color: var(--workspace-shell-muted);
-    line-height: 1.4;
-}
 .workspace-shell .header-search {
     flex: 0 1 420px;
     min-width: 160px;
@@ -144,14 +163,14 @@
     color: var(--workspace-shell-ink);
     line-height: 1.2;
 }
-.workspace-sidebar-wordmark > span { font-size: 8px; font-weight: 700; letter-spacing: .8px; white-space: nowrap; }
+.workspace-sidebar-wordmark > span { font-size: var(--tms-text-xs); font-weight: 700; letter-spacing: .8px; white-space: nowrap; }
 .workspace-sidebar-wordmark > strong { font-size: 15px; letter-spacing: .5px; }
-.workspace-sidebar-wordmark .workspace-sidebar-product { margin-top: 7px; font-size: 10px; letter-spacing: 1.3px; color: #0055ed; }
+.workspace-sidebar-wordmark .workspace-sidebar-product { margin-top: 7px; font-size: var(--tms-text-xs); letter-spacing: 1.3px; color: #0055ed; }
 .workspace-sidebar-brand--rail { padding-inline: 13px; min-height: 166px; }
 .workspace-sidebar-brand--rail > img { width: 46px; height: 46px; }
 .workspace-sidebar-brand > .v-btn { position: absolute; right: 8px; top: 10px; }
 .workspace-shell.v-application .nav-groups { padding: 0 10px 12px; background: transparent; }
-.workspace-shell.v-application .nav-group-label { padding: 15px 14px 7px; font-size: 9px; letter-spacing: 1.3px; color: #8b9ab0; }
+.workspace-shell.v-application .nav-group-label { padding: 15px 14px 7px; font-size: var(--tms-text-xs); letter-spacing: 1.3px; color: #8b9ab0; }
 .workspace-shell.v-application .nav-group-label--rail { visibility: hidden; }
 .workspace-shell.v-application .nav-groups .v-list-item,
 .workspace-shell.v-application .nav-settings-item {
@@ -198,7 +217,7 @@
 .workspace-wave-mid { fill: #c4d9ff; }
 .workspace-wave-strong { fill: #9cbfff; }
 .workspace-shell.v-theme--pixivDark .workspace-wave { opacity: .12; }
-html.workspace-active .workspace-local-status { display: flex; flex-direction: column; gap: 8px; padding: 2px 20px 12px; font-size: 11px; color: rgb(var(--v-theme-on-surface)); }
+html.workspace-active .workspace-local-status { display: flex; flex-direction: column; gap: 8px; padding: 2px 20px 12px; font-size: var(--tms-text-xs); color: rgb(var(--v-theme-on-surface)); }
 html.workspace-active .workspace-local-status > span { display: flex; align-items: center; gap: 6px; }
 html.workspace-active .workspace-local-status small { opacity: .6; }
 .workspace-shell button:focus-visible,
@@ -218,8 +237,6 @@ html.workspace-active .workspace-local-status small { opacity: .6; }
     .workspace-shell.v-application .bell-btn,
     .workspace-shell .app-bar-right > .v-btn { height: 34px; width: 34px; }
     .workspace-shell .app-page { padding: 8px 15px 24px !important; }
-    .workspace-page-context h1 { font-size: 18px; letter-spacing: -.3px; }
-    .workspace-page-eyebrow { font-size: 8px; }
     .workspace-wave { height: 150px; }
 }
 @media (prefers-reduced-motion: reduce) {

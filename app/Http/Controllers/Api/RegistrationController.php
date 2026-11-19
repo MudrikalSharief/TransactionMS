@@ -12,7 +12,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 /**
  * "Create an account" on the login page. The same details a superadmin
@@ -37,7 +36,7 @@ class RegistrationController extends Controller
             'roles' => Role::query()
                 ->whereNotIn('code', self::NOT_OFFERED)
                 ->orderBy('name')
-                ->get(['id', 'code', 'name']),
+                ->get(['id', 'code', 'name', 'office_id']),
         ]);
     }
 
@@ -53,7 +52,7 @@ class RegistrationController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'office_id' => ['required', 'integer', 'exists:offices,id'],
             'role_ids' => ['required', 'array', 'min:1'],
-            'role_ids.*' => ['integer', Rule::exists('roles', 'id')->whereNotIn('code', self::NOT_OFFERED)],
+            'role_ids.*' => ['integer', Role::assignmentRule($request->input('office_id') ? (int) $request->input('office_id') : null)->whereNotIn('code', self::NOT_OFFERED)],
         ], User::USERNAME_MESSAGES + [
             'contact_number.regex' => 'Enter a valid contact number, for example 09171234567.',
             'office_id.required' => 'Choose your office.',
@@ -84,7 +83,7 @@ class RegistrationController extends Controller
         });
 
         return response()->json([
-            'message' => 'Account created. You can sign in once an administrator approves it.',
+            'message' => "Account created. Your selected office's administrator will review your request. You can sign in after approval.",
         ], 201);
     }
 }

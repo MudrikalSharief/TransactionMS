@@ -6,10 +6,10 @@
                 <v-icon size="26">mdi-shield-account</v-icon>
             </div>
             <div class="ro-hd-main">
-                <h1 class="ro-title">Roles</h1>
+                <h1 class="ro-title">{{ officeMode ? 'Office Roles' : 'Roles' }}</h1>
+                <ScopeChip v-if="officeMode" class="mt-1" />
                 <p class="ro-sub">
-                    The roles your system uses for access and workflow
-                    assignments.
+                    {{ officeMode ? 'Create roles for your office. Shared roles are available for assignment and managed by a superadmin.' : 'The roles your system uses for access and workflow assignments.' }}
                 </p>
             </div>
             <div class="ro-tools">
@@ -94,7 +94,7 @@
                         />
                     </div>
                     <button
-                        v-else-if="item.code !== 'superadmin'"
+                        v-else-if="item.code !== 'superadmin' && canManageRole(item)"
                         type="button"
                         class="ro-cell-btn ro-code-btn"
                         :disabled="inlineSavingId != null"
@@ -114,7 +114,7 @@
                     <span
                         v-else
                         class="ro-code ro-code-locked"
-                        title="The superadmin code cannot be changed"
+                        :title="officeMode ? 'Shared roles are managed by a superadmin' : 'The superadmin code cannot be changed'"
                     >
                         {{ item.code }}
                         <v-icon size="14" aria-hidden="true"
@@ -148,20 +148,24 @@
                         v-else
                         type="button"
                         class="ro-cell-btn ro-name-btn"
-                        :disabled="inlineSavingId != null"
-                        title="Click to edit name"
+                        :disabled="!canManageRole(item) || inlineSavingId != null"
+                        :title="canManageRole(item) ? 'Click to edit name' : 'Shared role: managed by a superadmin'"
                         @click="startNameEdit(item)"
                     >
                         <span class="ro-name" :title="item.name">{{
                             item.name
                         }}</span>
                         <v-icon
+                            v-if="canManageRole(item)"
                             class="ro-edit-hint"
                             size="14"
                             aria-hidden="true"
                             >mdi-pencil</v-icon
                         >
                     </button>
+                    <div v-if="officeMode || item.office_id != null" class="text-caption text-medium-emphasis">
+                        {{ item.office_id == null ? 'Shared · read only' : item.office?.name || `Office ${item.office_id}` }}
+                    </div>
                 </template>
 
                 <template v-slot:[`item.description`]="{ item }">
@@ -195,14 +199,15 @@
                         v-else
                         type="button"
                         class="ro-cell-btn ro-desc-btn"
-                        :disabled="inlineSavingId != null"
-                        title="Click to edit description"
+                        :disabled="!canManageRole(item) || inlineSavingId != null"
+                        :title="canManageRole(item) ? 'Click to edit description' : 'Shared role: managed by a superadmin'"
                         @click="startDescEdit(item)"
                     >
                         <span class="ro-desc" :title="item.description || ''">{{
                             item.description || "—"
                         }}</span>
                         <v-icon
+                            v-if="canManageRole(item)"
                             class="ro-edit-hint"
                             size="14"
                             aria-hidden="true"
@@ -212,7 +217,7 @@
                 </template>
 
                 <template v-slot:[`item.actions`]="{ item }">
-                    <div v-if="item.code !== 'superadmin'" class="ro-actions">
+                    <div v-if="item.code !== 'superadmin' && canManageRole(item)" class="ro-actions">
                         <v-btn
                             class="ro-ib is-delete"
                             icon="mdi-delete"
@@ -318,7 +323,7 @@
                 <div class="nro-hd-t">
                     <div class="nro-title">New Role</div>
                     <div class="nro-sub">
-                        Define a role used for access and workflow steps.
+                        {{ officeMode ? `Create a role for ${auth.user.value?.office?.name || 'your office'}.` : 'Define a role used for access and workflow steps.' }}
                     </div>
                 </div>
                 <v-btn
@@ -378,6 +383,7 @@
                     />
                     <div v-if="!fieldErrors.code" class="nro-help">
                         Lowercase letters, numbers and underscores only.
+                        <span v-if="officeMode">Use a unique code, such as csd_records.</span>
                     </div>
                 </div>
 
@@ -426,13 +432,19 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import { useAuth } from "@/composables/useAuth";
+import ScopeChip from "@/components/ScopeChip.vue";
 import { useRoles } from "@/composables/useRoles";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import { useEntryVeil } from "@/composables/useEntryVeil";
 import { toast } from "@/composables/useToast";
 
+const officeMode = !!useRoute().meta.officeScope;
+const auth = useAuth();
 const { roles, loading, fetchRoles, createRole, updateRole, deleteRole } =
-    useRoles();
+    useRoles({ office: officeMode, officeId: auth.user.value?.office?.id ?? auth.user.value?.office_id });
+const canManageRole = item => !officeMode || item.can_manage === true;
 
 // Full-page loader on every visit: brief when cached rows are already
 // painted, otherwise until the first fetch finishes.
@@ -612,7 +624,7 @@ function validateDescription(value) {
 }
 
 async function startCodeEdit(item) {
-    if (item.code === "superadmin" || inlineSavingId.value != null) return;
+    if (!canManageRole(item) || item.code === "superadmin" || inlineSavingId.value != null) return;
     editingCodeId.value = item.id;
     codeDraft.value = item.code || "";
     await nextTick();
@@ -658,7 +670,7 @@ async function saveCode(item) {
 }
 
 async function startNameEdit(item) {
-    if (inlineSavingId.value != null) return;
+    if (!canManageRole(item) || inlineSavingId.value != null) return;
     editingNameId.value = item.id;
     nameDraft.value = item.name || "";
     await nextTick();
@@ -704,7 +716,7 @@ async function saveName(item) {
 }
 
 async function startDescEdit(item) {
-    if (inlineSavingId.value != null) return;
+    if (!canManageRole(item) || inlineSavingId.value != null) return;
     editingDescId.value = item.id;
     descDraft.value = item.description || "";
     await nextTick();
@@ -839,7 +851,7 @@ async function save() {
 }
 
 async function removeRow(item) {
-    if (item.code === "superadmin" || inlineSavingId.value != null) return;
+    if (!canManageRole(item) || item.code === "superadmin" || inlineSavingId.value != null) return;
     error.value = "";
     try {
         await deleteRole(item.id);
@@ -851,7 +863,9 @@ async function removeRow(item) {
 }
 
 onMounted(() => {
-    settle(fetchRoles(), { warm: !loading.value });
+    settle(fetchRoles().catch(e => {
+        error.value = apiErrorMessage(e, 'Could not load roles. Please try again.');
+    }), { warm: !loading.value });
 });
 </script>
 
@@ -939,11 +953,14 @@ html.dark .ro-page {
     align-items: center;
     gap: 12px;
     flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
     margin-left: auto;
 }
 .ro-search {
     position: relative;
-    flex: 0 0 320px;
+    width: 320px;
+    flex: 1 1 320px;
     min-width: 0;
     max-width: 320px;
 }
@@ -1280,7 +1297,7 @@ html.dark .ro-page {
 .ro-inline-hint {
     margin-top: 4px;
     color: var(--ro-muted);
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 600;
 }
 .ro-inline-spin {
@@ -1427,9 +1444,6 @@ html.dark .ro-page {
 @media (max-width: 520px) {
     .ro-add {
         padding: 0 16px;
-    }
-    .ro-add-label {
-        display: none;
     }
 }
 </style>

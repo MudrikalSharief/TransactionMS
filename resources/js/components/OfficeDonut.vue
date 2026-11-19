@@ -137,7 +137,7 @@ const segments = computed(() => {
     font-variant-numeric: tabular-nums;
 }
 .od-sub {
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     fill: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .od-list {
@@ -191,7 +191,7 @@ const segments = computed(() => {
 .od-p {
     width: 42px;
     text-align: right;
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-variant-numeric: tabular-nums;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
@@ -217,14 +217,14 @@ const segments = computed(() => {
     }
     .od-top {
         gap: 4px;
-        font-size: 11px;
+        font-size: var(--tms-text-xs);
     }
     .od-row {
         padding: 3px 4px;
     }
     .od-p {
         width: 34px;
-        font-size: 10px;
+        font-size: var(--tms-text-xs);
     }
 }
 </style>

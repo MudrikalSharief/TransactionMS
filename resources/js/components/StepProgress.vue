@@ -1,5 +1,5 @@
 <template>
-    <v-card rounded="0" min-width="320" :max-width="fluid ? undefined : 520" :style="fluid ? 'width: 100%' : ''" elevation="4">
+    <v-card rounded="0" min-width="0" :max-width="fluid ? undefined : 520" :style="fluid ? 'width: 100%' : ''" elevation="4">
         <v-card-title class="d-flex align-center pa-4 lgu-head">
             <v-avatar color="white" rounded="0" size="36" class="mr-3 lgu-head-avatar">
                 <v-icon color="#005EED" size="20">mdi-map-marker-path</v-icon>
@@ -393,7 +393,7 @@ function moveFor(s) {
     letter-spacing: -0.01em;
 }
 .step-card-position {
-    font-size: 0.68rem;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: 0.1em;

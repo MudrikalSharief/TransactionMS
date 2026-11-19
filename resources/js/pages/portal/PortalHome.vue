@@ -1,19 +1,5 @@
 <template>
     <div class="fit-page workspace-dashboard workspace-dashboard--staff">
-        <Teleport v-if="headerReady" defer to="#workspace-header-leading">
-            <div class="workspace-header-greeting">
-                <div class="workspace-greeting-line">{{ greeting }}</div>
-                <div class="workspace-greeting-name" :title="user?.name">{{ firstName }}</div>
-                <div class="workspace-greeting-meta">
-                    <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
-                </div>
-            </div>
-        </Teleport>
-        <div v-else class="workspace-header-greeting">
-            <div class="workspace-greeting-line">{{ greeting }}</div>
-            <div class="workspace-greeting-name">{{ firstName }}</div>
-            <div v-if="refreshedLabel" class="workspace-greeting-meta">Updated {{ refreshedLabel }}</div>
-        </div>
         <!-- Full-page loader on every visit; later polls refresh quietly. -->
         <LoadingVeil :show="loading" label="home" icon="mdi-home-city-outline" />
         <!-- Welcome: who you are, which office, which roles -->
@@ -169,6 +155,7 @@ import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
+import { markWorkspaceRefreshed } from "@/composables/useWorkspaceHeader";
 import { useFitScreen } from "@/composables/useFitScreen";
 import StatCard from "@/components/StatCard.vue";
 import TxMiniList from "@/components/portal/TxMiniList.vue";
@@ -182,16 +169,6 @@ const { xs } = useDisplay();
 const { vFitBody, rows } = useFitScreen();
 
 const loading = ref(true);
-const headerReady = ref(false);
-const refreshedAt = ref(null);
-const firstName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || 'there');
-const greeting = computed(() => {
-    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23' }).format(refreshedAt.value || new Date()));
-    return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-});
-const refreshedLabel = computed(() => refreshedAt.value
-    ? refreshedAt.value.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PHT'
-    : '');
 const summary = ref(null);
 const actionTotal = ref(0);
 const actionRows = ref([]);
@@ -288,7 +265,7 @@ async function loadSummary() {
         const res = await fetchSummary();
         if (mine === summaryRequest) {
             summary.value = res.data;
-            refreshedAt.value = new Date();
+            markWorkspaceRefreshed();
         }
     } catch {
         /* keep the last numbers; the next poll retries */
@@ -309,12 +286,11 @@ async function load() {
         actionTotal.value = queue.value.total;
     }
     if (office.status === "fulfilled") officeRows.value = office.value.rows;
-    if (sum.status === "fulfilled" || queue.status === "fulfilled" || office.status === "fulfilled") refreshedAt.value = new Date();
+    if (sum.status === "fulfilled" || queue.status === "fulfilled" || office.status === "fulfilled") markWorkspaceRefreshed();
     loading.value = false;
 }
 
 onMounted(() => {
-    headerReady.value = !!document.querySelector('#workspace-header-leading');
     load();
 });
 useSmartPoll(load);

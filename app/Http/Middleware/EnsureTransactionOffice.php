@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Transaction;
 use App\Services\RoutingEngine;
+use App\Services\OfficerAssignmentAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,6 +38,10 @@ class EnsureTransactionOffice
 
                 $allowed = $ownsTransaction
                     || $this->routing->userCanWorkOnCurrentStep($transaction, $user);
+                if (!$allowed && $request->isMethodSafe()) {
+                    $allowed = app(OfficerAssignmentAccess::class)->canManage($transaction, $user)
+                        || app(OfficerAssignmentAccess::class)->hasOfficeAssignment($transaction, $user);
+                }
             }
 
             if (!$allowed) {
