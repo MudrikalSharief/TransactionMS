@@ -318,7 +318,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center lgu-head dash-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">mdi-format-list-numbered</v-icon>
+                                <v-icon color="#005EED" size="20">mdi-format-list-bulleted</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold dash-head-title">Top Overdue Steps</span>
                             <v-spacer />
@@ -330,7 +330,7 @@
                                         class="topsteps-month"
                                         aria-label="Filter Top Overdue Steps by month"
                                     >
-                                        <v-icon size="16">mdi-calendar-range</v-icon>
+                                        <v-icon size="16">mdi-calendar-blank-outline</v-icon>
                                         <span>{{ topStepsMonthLabel }}</span>
                                         <v-icon size="16">mdi-chevron-down</v-icon>
                                     </button>

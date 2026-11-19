@@ -215,20 +215,67 @@
 .workspace-shell .workspace-dashboard .chart-filter .v-field__append-inner {
     padding-top: 7px;
 }
+.workspace-shell .workspace-dashboard [data-card="topsteps"] {
+    container-type: inline-size;
+    --overdue-ink: #111d4d;
+    --overdue-blue: #0055ed;
+    --overdue-step: #4569a4;
+    --overdue-divider: #89adea;
+    --overdue-tab: linear-gradient(115deg, #a8ccff, #679ff5);
+    --overdue-row: radial-gradient(ellipse 120px 56px at left top, #bad7ff, transparent),
+        linear-gradient(105deg, #eef4ff, #dce9ff 54%, #e8f0ff);
+    --overdue-edge: #c7dcfc;
+    --overdue-panel-edge: #d3e2fd;
+    --overdue-panel-shadow: 0 5px 12px rgb(48 109 206 / 14%), 0 16px 28px rgb(48 109 206 / 10%);
+    --overdue-badge: #fff;
+    --overdue-count-fill: #ffe4e7;
+    --overdue-count-ink: #bf2319;
+}
+html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
+    --overdue-ink: #eaf1ff;
+    --overdue-blue: #accaff;
+    --overdue-step: #a7bce0;
+    --overdue-divider: #5476ad;
+    --overdue-tab: linear-gradient(115deg, #4c76b3, #3564a9);
+    --overdue-row: radial-gradient(ellipse 120px 56px at left top, #355989, transparent),
+        linear-gradient(105deg, #253b5c, #2c4870 54%, #263d60);
+    --overdue-edge: #405d84;
+    --overdue-panel-edge: var(--ws-line, #405d84);
+    --overdue-panel-shadow: var(--ws-shadow, 0 8px 22px rgb(0 0 0 / 22%));
+    --overdue-badge: #1c2c45;
+    --overdue-count-fill: #502d3a;
+    --overdue-count-ink: #ffabb1;
+}
+.workspace-shell .workspace-dashboard [data-card="topsteps"] > .dash-panel {
+    border-color: var(--overdue-panel-edge) !important;
+    box-shadow: var(--overdue-panel-shadow) !important;
+}
+.workspace-shell .workspace-dashboard [data-card="topsteps"] .dash-panel .lgu-head {
+    border-bottom: 1px solid var(--ws-line, #e4edfb);
+    color: var(--overdue-ink);
+}
+.workspace-shell .workspace-dashboard [data-card="topsteps"] .dash-head-title {
+    flex: 0 1 auto;
+}
+.workspace-shell .workspace-dashboard [data-card="topsteps"] .topsteps-month {
+    white-space: nowrap;
+}
 .workspace-shell .workspace-dashboard .topsteps-month {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 8px 10px;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 10px;
     border: 1px solid var(--ws-line, #dbe7f6);
     border-radius: 12px;
     background: var(--ws-surface, #fff);
-    color: var(--ws-muted, #6a7d99);
+    color: var(--overdue-ink, #111d4d);
     font: inherit;
     font-size: var(--tms-text-xs);
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 2px 4px rgb(34 91 165 / 8%);
 }
 .workspace-shell .workspace-dashboard .topsteps-month:focus-visible {
     outline: 2px solid var(--ws-blue, #0055ed);
@@ -241,53 +288,75 @@
 .workspace-shell .workspace-dashboard .top-steps {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 16px 0 0;
     display: flex;
     flex-direction: column;
     justify-content: space-evenly;
-    gap: 12px;
+    gap: 24px;
     width: 100%;
     flex: 1 1 auto;
 }
 .workspace-shell .workspace-dashboard .top-step-row {
     position: relative;
+    isolation: isolate;
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 12px;
-    min-height: 58px;
-    padding: 9px 14px 9px 12px;
-    border: 1px solid var(--ws-line, #e4edfb);
-    border-left: 4px solid #236df1;
-    border-radius: 13px;
-    background: var(--ws-soft, #f5f8ff);
+    min-height: 65px;
+    padding: 10px 14px;
+    color: var(--overdue-ink);
+}
+.workspace-shell .workspace-dashboard .top-step-row::before,
+.workspace-shell .workspace-dashboard .top-step-row::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+/* The tab and the left side are a single back layer behind the folder face. */
+.workspace-shell .workspace-dashboard .top-step-row::before {
+    z-index: -2;
+    inset: -17px auto auto 0;
+    width: 94px;
+    height: 57px;
+    clip-path: path("M 0 57 V 17 C 0 11 4 8 9 8 C 12 3 14 0 20 0 H 54 C 62 0 62 8 67 8 H 78 C 86 8 87 13 94 20 V 57 Z");
+    background: var(--overdue-tab);
+    box-shadow: inset 1px 0 rgb(68 136 232 / 30%);
+}
+.workspace-shell .workspace-dashboard .top-step-row::after {
+    z-index: -1;
+    inset: 0;
+    border-radius: 15px;
+    background: var(--overdue-row);
+    box-shadow: inset -1px -1px 0 var(--overdue-edge), 0 3px 7px rgb(43 104 200 / 10%);
 }
 .workspace-shell .workspace-dashboard .top-step-rank {
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: var(--ws-surface, #fff);
-    color: var(--ws-blue, #0055ed);
-    font-size: 13px;
+    background: var(--overdue-badge);
+    color: var(--overdue-blue);
+    font-size: 21px;
     font-weight: 800;
+    box-shadow: 0 2px 4px rgb(29 88 180 / 15%);
 }
 .workspace-shell .workspace-dashboard .top-step-main {
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 0;
+    padding-inline-start: 12px;
+    border-inline-start: 1px solid var(--overdue-divider);
 }
 .workspace-shell .workspace-dashboard .top-step-type {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--tms-text-xs);
-    font-weight: 650;
-    letter-spacing: 0.035em;
+    font-size: 15px;
+    font-weight: 800;
     text-transform: uppercase;
-    color: var(--ws-muted, #6a7d99);
 }
 .workspace-shell .workspace-dashboard .top-step-step {
     display: flex;
@@ -297,8 +366,9 @@
 }
 .workspace-shell .workspace-dashboard .top-step-number {
     flex: 0 0 auto;
-    color: var(--ws-muted, #6a7d99);
-    font-size: var(--tms-text-xs);
+    color: var(--overdue-step);
+    font-size: 13px;
+    font-weight: 650;
     white-space: nowrap;
 }
 .workspace-shell .workspace-dashboard .top-step-label {
@@ -306,7 +376,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
 }
 .workspace-shell .workspace-dashboard .top-step-office {
@@ -314,18 +384,78 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding: 3px 7px;
-    border-radius: 7px;
-    color: var(--ws-blue, #0055ed);
-    background: var(--ws-surface, #fff);
-    font-size: var(--tms-text-xs);
-    font-weight: 650;
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: var(--overdue-blue);
+    background: var(--overdue-badge);
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 2px 4px rgb(29 88 180 / 15%);
 }
 .workspace-shell .workspace-dashboard .top-step-count {
-    color: #dc4254;
-    font-size: 20px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 37px;
+    min-height: 37px;
+    margin-inline-start: 7px;
+    padding-inline: 6px;
+    border-radius: 10px;
+    background: var(--overdue-count-fill);
+    color: var(--overdue-count-ink);
+    font-size: 24px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    box-shadow: 0 2px 4px rgb(29 88 180 / 15%);
+}
+.workspace-shell .workspace-dashboard .top-step-count::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -10px;
+    border-inline-start: 1px solid var(--overdue-divider);
+}
+@container (max-width: 430px) {
+    .workspace-shell .workspace-dashboard .top-step-row {
+        gap: 6px 8px;
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        padding: 9px;
+    }
+    .workspace-shell .workspace-dashboard .top-step-rank {
+        grid-row: 1 / span 2;
+        width: 30px;
+        height: 30px;
+        font-size: 17px;
+    }
+    .workspace-shell .workspace-dashboard .top-step-main {
+        padding-inline-start: 8px;
+    }
+    .workspace-shell .workspace-dashboard .top-step-step {
+        flex-wrap: wrap;
+        row-gap: 2px;
+    }
+    .workspace-shell .workspace-dashboard .top-step-type,
+    .workspace-shell .workspace-dashboard .top-step-label {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    .workspace-shell .workspace-dashboard .top-step-office {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: start;
+        margin-inline-start: 9px;
+    }
+    .workspace-shell .workspace-dashboard .top-step-count {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        min-width: 30px;
+        min-height: 32px;
+        margin-inline-start: 4px;
+        font-size: 19px;
+    }
+    .workspace-shell .workspace-dashboard .top-step-count::before {
+        inset-inline-start: -7px;
+    }
 }
 .workspace-shell .workspace-dashboard .process-pie-body {
     display: flex;
@@ -603,7 +733,6 @@ html.dark .workspace-shell .workspace-dashboard .summary-seg-icon {
 html.dark .workspace-shell .workspace-dashboard .summary-strip::after {
     opacity: 0.1;
 }
-html.dark .workspace-shell .workspace-dashboard .top-step-count,
 html.dark .workspace-shell .workspace-dashboard .summary-seg-label,
 html.dark .workspace-shell .workspace-dashboard .waiting-late {
     color: #ff8995;
@@ -662,22 +791,25 @@ html.dark .workspace-shell .workspace-dashboard .dash-body > .v-alert--type-succ
     }
 }
 @media (min-width: 1100px) {
-    html.workspace-active:has(.workspace-dashboard--staff) {
+    html.workspace-active:has(.workspace-dashboard--staff, [data-card="topsteps"]) {
         overflow-y: auto;
     }
-    .workspace-shell .app-main--fit:has(.workspace-dashboard--staff) {
+    .workspace-shell .app-main--fit:has(.workspace-dashboard--staff, [data-card="topsteps"]) {
         height: auto;
         min-height: 100dvh;
         overflow: visible;
     }
-    .workspace-shell .app-main--fit:has(.workspace-dashboard--staff) :is(.app-page, .page-enter) {
+    .workspace-shell .app-main--fit:has(.workspace-dashboard--staff, [data-card="topsteps"]) :is(.app-page, .page-enter) {
         flex: none;
     }
-    .workspace-shell .app-main--fit .workspace-dashboard--staff {
+    .workspace-shell .app-main--fit :is(.workspace-dashboard--staff, .workspace-dashboard:has([data-card="topsteps"])) {
         height: auto;
     }
-    .workspace-shell .workspace-dashboard--staff .dash-grid {
+    .workspace-shell :is(.workspace-dashboard--staff, .workspace-dashboard:has([data-card="topsteps"])) .dash-grid {
         flex: none;
+    }
+    .workspace-shell .workspace-dashboard [data-card="topsteps"] .dash-panel > .dash-body {
+        flex: 1 0 auto;
     }
 }
 @media (max-width: 1399px) and (min-width: 1100px) {
@@ -789,31 +921,6 @@ html.dark .workspace-shell .workspace-dashboard .dash-body > .v-alert--type-succ
     }
     .workspace-shell .workspace-dashboard .dash-slot[data-card='graph'] .v-spacer {
         display: none;
-    }
-    .workspace-shell .workspace-dashboard .top-step-row {
-        gap: 8px;
-        grid-template-columns: 28px minmax(0, 1fr) auto;
-        padding: 10px;
-    }
-    .workspace-shell .workspace-dashboard .top-step-office {
-        grid-column: 2;
-        grid-row: 2;
-        justify-self: start;
-    }
-    .workspace-shell .workspace-dashboard .top-step-count {
-        grid-column: 3;
-        grid-row: 1 / span 2;
-    }
-    .workspace-shell .workspace-dashboard .top-step-rank {
-        width: 26px;
-        height: 26px;
-    }
-    .workspace-shell .workspace-dashboard .top-step-step {
-        flex-wrap: wrap;
-        row-gap: 2px;
-    }
-    .workspace-shell .workspace-dashboard .top-step-label {
-        white-space: normal;
     }
     .workspace-shell .workspace-dashboard .od-wrap {
         gap: 16px;
