@@ -113,6 +113,7 @@
 
 <script setup>
 import { computed, nextTick, ref, useId, watch } from "vue";
+import { WORKDAY_MINUTES } from "@/utils/workingTime";
 
 const props = defineProps({
     modelValue: { type: Number, default: 0 },
@@ -126,10 +127,9 @@ const PRESETS = [
     { label: "No limit", days: 0, hours: 0, minutes: 0, total: 0 },
     { label: "30 min", days: 0, hours: 0, minutes: 30, total: 30 },
     { label: "2 hours", days: 0, hours: 2, minutes: 0, total: 120 },
-    { label: "8 hours", days: 0, hours: 8, minutes: 0, total: 480 },
-    { label: "1 day", days: 1, hours: 0, minutes: 0, total: 1440 },
-    { label: "3 days", days: 3, hours: 0, minutes: 0, total: 4320 },
-    { label: "7 days", days: 7, hours: 0, minutes: 0, total: 10080 },
+    { label: "1 working day", days: 1, hours: 0, minutes: 0, total: WORKDAY_MINUTES },
+    { label: "3 working days", days: 3, hours: 0, minutes: 0, total: WORKDAY_MINUTES * 3 },
+    { label: "7 working days", days: 7, hours: 0, minutes: 0, total: WORKDAY_MINUTES * 7 },
 ];
 
 const uid = useId();
@@ -154,11 +154,11 @@ const autoClearNotice = ref(false);
 let internalUpdate = false;
 
 const total = computed(
-    () => days.value * 1440 + hours.value * 60 + minutes.value,
+    () => days.value * WORKDAY_MINUTES + hours.value * 60 + minutes.value,
 );
 const totalLimit = computed(() => {
     const explicit = Number(props.maxTotal);
-    return explicit > 0 ? explicit : Math.max(1, props.maxDays) * 1440;
+    return explicit > 0 ? explicit : Math.max(1, props.maxDays) * WORKDAY_MINUTES;
 });
 const limitError = computed(() =>
     total.value > totalLimit.value ? `Max SLA is ${props.maxDays} days.` : "",
@@ -180,7 +180,7 @@ function plural(value, word) {
 
 function applyTotal(raw) {
     const original = Math.max(0, Math.trunc(Number(raw) || 0));
-    const originalDays = Math.floor(original / 1440);
+    const originalDays = Math.floor(original / WORKDAY_MINUTES);
     let value = original;
 
     // At 30 days there is no room for extra hours/minutes. If the incoming
@@ -188,16 +188,16 @@ function applyTotal(raw) {
     // why the two fields are now disabled.
     autoClearNotice.value =
         originalDays > props.maxDays ||
-        (originalDays === props.maxDays && original % 1440 > 0);
+        (originalDays === props.maxDays && original % WORKDAY_MINUTES > 0);
 
     if (originalDays >= props.maxDays) {
-        value = props.maxDays * 1440;
+        value = props.maxDays * WORKDAY_MINUTES;
         days.value = props.maxDays;
         hours.value = 0;
         minutes.value = 0;
     } else {
         days.value = originalDays;
-        hours.value = Math.floor((value % 1440) / 60);
+        hours.value = Math.floor((value % WORKDAY_MINUTES) / 60);
         minutes.value = value % 60;
     }
 

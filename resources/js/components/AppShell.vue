@@ -12,9 +12,13 @@
                     <img :src="'/zamboanga-seal.png'" alt="" />
                 </button>
                 <div id="workspace-header-leading" class="workspace-header-leading">
-                    <div v-if="!isWorkspaceOverview" class="workspace-page-context">
-                        <span class="workspace-page-eyebrow">City Government of Zamboanga</span>
-                        <h1>{{ workspacePageTitle }}</h1>
+                    <div class="workspace-header-greeting">
+                        <div class="workspace-greeting-line">{{ greeting }}</div>
+                        <div class="workspace-greeting-name" :title="accountName">{{ accountFirstName }}</div>
+                        <div class="workspace-greeting-meta">
+                            <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
+                            <span v-if="scope" class="workspace-greeting-scope">{{ scope.label }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -50,7 +54,7 @@
                     </div>
                     <div
                         class="font-weight-bold brand-sub"
-                        style="font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; margin-top: 3px"
+                        style="font-size: var(--tms-text-xs); letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; margin-top: 3px"
                     >
                         Management Framework
                     </div>
@@ -274,7 +278,7 @@
                         :key="item.to"
                         :to="item.to"
                         :exact="!!item.exact"
-                        :active="item.to === '/' ? route.path === '/' && route.query.view !== 'reports' : item.to === '/?view=reports' ? route.path === '/' && route.query.view === 'reports' : undefined"
+                        :active="item.to === '/' ? route.path === '/' : undefined"
                         :prepend-icon="item.badge == null ? item.icon : undefined"
                         rounded="lg"
                         v-tooltip:end="rail ? (item.badge ? `${item.title} ${item.badge}` : item.title) : false"
@@ -310,6 +314,18 @@
                         </v-list-item-title>
                     </v-list-item>
                 </template>
+                <!-- Monitoring destinations sit with Help, below the setup groups. -->
+                <v-list-item
+                    v-if="isSuperadmin || isOfficeAdmin"
+                    to="/admin/activity"
+                    rounded="lg"
+                    v-tooltip:end="rail ? 'Activity Log' : false"
+                >
+                    <template #prepend>
+                        <v-icon>mdi-history</v-icon>
+                    </template>
+                    <v-list-item-title class="d-flex align-center">{{ workspaceMode ? "Activity Log" : "ACTIVITY LOG" }}</v-list-item-title>
+                </v-list-item>
                 <!-- Help lives with the destinations, right after the last group. -->
                 <v-list-item
                     to="/help"
@@ -353,35 +369,6 @@
                 </v-list-item>
 
             </v-list>
-            <template #append>
-                <v-divider />
-                <!-- Settings: one row in the sidebar (a gear in the rail) that
-                     opens the profile + preferences dialog. -->
-                <div v-if="rail" class="nav-rail-tools">
-                    <v-btn
-                        icon
-                        variant="text"
-                        density="comfortable"
-                        class="nav-rail-gear"
-                        aria-label="Settings"
-                        v-tooltip:end="'Settings'"
-                        @click="settingsOpen = true"
-                    >
-                        <v-icon>mdi-cog-outline</v-icon>
-                    </v-btn>
-                </div>
-                <v-list-item
-                    v-else
-                    rounded="lg"
-                    class="nav-settings-item"
-                    @click="settingsOpen = true"
-                >
-                    <template #prepend>
-                        <v-icon>mdi-cog-outline</v-icon>
-                    </template>
-                    <v-list-item-title class="nav-settings-label">{{ workspaceMode ? "Settings" : "SETTINGS" }}</v-list-item-title>
-                </v-list-item>
-            </template>
         </v-navigation-drawer>
 
         <v-main class="app-main" :class="{ 'app-main--fit': showAuthUi && route.meta?.fit }">
@@ -532,6 +519,8 @@ import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
+import { useOfficeScope } from "@/composables/useOfficeScope";
+import { useWorkspaceHeader } from "@/composables/useWorkspaceHeader";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
 import LoginApprovalNotice from "@/components/LoginApprovalNotice.vue";
@@ -629,14 +618,6 @@ const isWorkspaceOverview = computed(() => ["/", "/portal"].includes(route.path)
 // Work, account and setup sections use their page search instead. Activity
 // Log also has its own filters; only the overview keeps the global search.
 const showHeaderSearch = computed(() => !workspaceMode.value || ["dashboard", "portal"].includes(route.name));
-const workspacePageTitle = computed(() => {
-    const destination = [...navGroups.value.flatMap(group => group.items),
-        { to: "/profile", title: "My Profile" }, { to: "/help", title: "Help & Support" }]
-        .filter(item => item.to !== "/")
-        .sort((a, b) => b.to.length - a.to.length)
-        .find(item => route.path === item.to || route.path.startsWith(`${item.to}/`));
-    return destination?.title || route.meta?.title || "Workspace";
-});
 watch(workspaceMode, enabled => {
     document.documentElement.classList.toggle("workspace-active", enabled);
     if (enabled) {
@@ -671,6 +652,11 @@ const accountEmail = computed(() => auth.user.value?.email || "");
 const accountInitial = computed(
     () => (accountName.value || "?").trim().charAt(0).toUpperCase() || "?",
 );
+const accountFirstName = computed(
+    () => accountName.value.trim().split(/\s+/)[0] || "there",
+);
+const scope = useOfficeScope();
+const { greeting, refreshedLabel } = useWorkspaceHeader();
 
 const showApprovals = computed(() => canUseApprovals(auth.user.value));
 
@@ -702,12 +688,6 @@ const navGroups = computed(() => {
         ];
     }
     const overview = { title: "Overview", items: [{ title: "Dashboard", icon: "mdi-view-dashboard-outline", to: "/", exact: true }] };
-    // Monitoring (read-only) for superadmins and office admins; the Reports
-    // are a view inside the Dashboard.
-    if (isSuperadmin.value || isOfficeAdmin.value) {
-        overview.items.push({ title: "Reports", icon: "mdi-chart-box-outline", to: "/?view=reports", exact: true });
-        overview.items.push({ title: "Activity Log", icon: "mdi-history", to: "/admin/activity" });
-    }
     if (isSuperadmin.value) {
         return [
             overview,
@@ -1451,7 +1431,7 @@ onUnmounted(() => {
 }
 .account-menu-mail {
     margin-top: 1px;
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     color: rgba(var(--v-theme-on-surface), 0.55);
     white-space: nowrap;
     overflow: hidden;
@@ -1553,7 +1533,7 @@ onUnmounted(() => {
     border: 0;
     border-radius: 12px;
     font: inherit;
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -1603,14 +1583,14 @@ onUnmounted(() => {
 }
 /* Keep the APPROVALS badge on the icon, clear of the title */
 .approvals-badge :deep(.v-badge__badge) {
-    font-size: 0.65rem;
+    font-size: var(--tms-text-xs);
     min-width: 18px;
     height: 18px;
 }
 /* Sidebar group labels: quiet small caps that organize, never compete. */
 .nav-group-label {
     padding: 14px 12px 4px;
-    font-size: 0.64rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     line-height: 16px;
     letter-spacing: 0.16em;
@@ -1627,7 +1607,7 @@ onUnmounted(() => {
 .nav-group-label--rail {
     padding-left: 0;
     padding-right: 0;
-    font-size: 0.53rem;
+    font-size: var(--tms-text-xs);
     letter-spacing: 0.08em;
     text-align: center;
     overflow: hidden;
@@ -1724,28 +1704,6 @@ onUnmounted(() => {
 .app-drawer {
     background: rgb(var(--v-theme-surface)) !important;
     border-right: 1px solid rgba(var(--v-border-color), 0.16) !important;
-}
-/* Sidebar: the settings row (expanded) and its gear (collapsed rail). */
-.nav-settings-item {
-    margin: 1px 8px 6px;
-    border-radius: 10px;
-}
-.nav-settings-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-}
-.nav-rail-tools {
-    display: flex;
-    justify-content: center;
-    padding: 8px 0;
-}
-.nav-rail-gear {
-    color: rgba(var(--v-theme-on-surface), 0.6) !important;
-}
-.nav-rail-gear:hover {
-    color: #2f6feb !important;
-    background: rgba(47, 111, 235, 0.08) !important;
 }
 /* ---- Settings dialog ---- */
 .settings-row {

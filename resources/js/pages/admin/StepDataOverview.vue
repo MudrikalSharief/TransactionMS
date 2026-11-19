@@ -7,12 +7,6 @@
         :style="{ '--ro-minimap-height': `${minimapHeight}px` }"
     >
         <LoadingVeil :show="loading" label="step data overview" icon="mdi-view-column-outline" />
-        <DepthNav
-            :levels="depthLevels"
-            :deeper="depthDeeper"
-            deeper-label="Step pages"
-            class="mb-4"
-        />
         <v-alert
             v-if="error"
             type="error"
@@ -236,9 +230,7 @@ import { useApi } from "@/composables/useApi";
 import { useTransactionTypes } from "@/composables/useTransactionTypes";
 import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import LoadingVeil from "@/components/LoadingVeil.vue";
-import DepthNav from "@/components/DepthNav.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
-import { buildWorkflowDepthLevels, workflowStepTo } from "@/utils/workflowDepth";
 
 const route = useRoute();
 const router = useRouter();
@@ -425,71 +417,7 @@ const miniEl = ref(null);
 const miniSvgEl = ref(null);
 const viewportEl = ref(null);
 
-const { items: txTypes, fetchAll: fetchTxTypes } = useTransactionTypes();
-
-const selectedTypeName = computed(() => {
-    const t = (txTypes.value || []).find(
-        (x) => Number(x.id) === Number(typeId.value),
-    );
-    return t?.name || "";
-});
-
-const depthStep = computed(() => {
-    const cols = overview.value?.columns || [];
-    return (
-        cols.find(
-            (column) => Number(column.stepId) === Number(stepIdFromUrl.value),
-        ) || null
-    );
-});
-
-const depthStepLabel = computed(() => {
-    const s = depthStep.value;
-    if (!s) return "Step";
-    const n = s.stepNumber;
-    const name = s.name || "";
-    return `Step ${n ?? ""}${name ? ` · ${name}` : ""}`.trim();
-});
-
-const depthLevels = computed(() =>
-    buildWorkflowDepthLevels({
-        typeId: typeId.value,
-        typeName: selectedTypeName.value,
-        workflowId: workflowDefinitionId.value,
-        stepId: stepIdFromUrl.value,
-        stepLabel: depthStepLabel.value,
-        stepTo: workflowStepTo("admin.step-data", {
-            workflowId: workflowDefinitionId.value,
-            stepId: stepIdFromUrl.value,
-            typeId: typeId.value,
-        }),
-        currentLabel: "Step Data overview",
-    }),
-);
-
-const depthDeeper = computed(() => {
-    const wid = workflowDefinitionId.value;
-    const sid = stepIdFromUrl.value;
-    if (!wid || !sid) return [];
-    return [
-        {
-            label: "Requirements",
-            to: workflowStepTo("admin.step-requirements", {
-                workflowId: wid,
-                stepId: sid,
-                typeId: typeId.value,
-            }),
-        },
-        {
-            label: "Step Data",
-            to: workflowStepTo("admin.step-data", {
-                workflowId: wid,
-                stepId: sid,
-                typeId: typeId.value,
-            }),
-        },
-    ];
-});
+const { fetchAll: fetchTxTypes } = useTransactionTypes();
 
 const fits = ref(true);
 const dragging = ref(false);
@@ -1321,7 +1249,7 @@ onBeforeUnmount(() => {
 .ro-step-t small {
     display: block;
     color: var(--ro-muted);
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1371,7 +1299,7 @@ onBeforeUnmount(() => {
     padding: 2px 6px;
     background: #cfe7fa;
     color: #124d7a;
-    font-size: 9px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
     vertical-align: middle;
@@ -1392,7 +1320,7 @@ onBeforeUnmount(() => {
     background: var(--ro-field);
     color: var(--ro-muted);
     font-family: ui-monospace, Menlo, Consolas, monospace;
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     overflow-wrap: anywhere;
 }
 
@@ -1408,7 +1336,7 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 5px;
     padding: 3px 8px;
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.02em;
 }

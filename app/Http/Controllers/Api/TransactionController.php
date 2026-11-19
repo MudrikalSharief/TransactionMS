@@ -46,6 +46,7 @@ class TransactionController extends Controller
                 'workflow.steps.office:id,code,name,icon_path',
                 'workflow.stepRoles.role',
                 'state.currentStep.office:id,code,name,icon_path',
+                'state.currentRun:id,to_step_id,received_at,performed_at',
                 'creator:id,name,email',
             ])
             ->latest();

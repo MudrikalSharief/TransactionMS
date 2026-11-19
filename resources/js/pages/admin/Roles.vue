@@ -1297,7 +1297,7 @@ html.dark .ro-page {
 .ro-inline-hint {
     margin-top: 4px;
     color: var(--ro-muted);
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 600;
 }
 .ro-inline-spin {

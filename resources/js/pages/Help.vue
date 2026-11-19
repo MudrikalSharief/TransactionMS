@@ -653,7 +653,7 @@ html.dark .help-page {
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
-    font-size: 0.68rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -726,7 +726,7 @@ html.dark .help-page {
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.92);
     color: #0b2b66;
-    font-size: 0.68rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
 }
 
@@ -795,7 +795,7 @@ html.dark .help-page {
 
 .hp-kicker {
     color: var(--hp-muted);
-    font-size: 0.66rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -816,7 +816,7 @@ html.dark .help-page {
     border-radius: 999px;
     background: var(--hp-card);
     color: var(--hp-muted);
-    font-size: 0.74rem;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
 }
 

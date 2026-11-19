@@ -460,6 +460,7 @@ class TransactionResource extends JsonResource
                 $this->stepOfficePayload($state->currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
+            'work_started_at' => $state?->currentVisit()?->received_at?->toISOString(),
             // Inbox lists only (withExists in ApprovalController): sent to the
             // current station but not received there yet.
             'awaiting_receipt' => $this->when(

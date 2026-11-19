@@ -41,6 +41,8 @@ html.no-motion {
     /* Table row height: stretches so 7 rows + header + footer fill the window
        (no page scroll, no dead space), between 56px and 96px. */
     --tms-row: clamp(56px, calc((100vh - 394px) / 8), 96px);
+    /* Smallest readable text size across the app. */
+    --tms-text-xs: 12px;
     /* Glow: one brand-blue halo for app bar, active nav, cards, fields,
        buttons and footer. Stronger in dark mode, where it reads as light. */
     --tms-glow-c: rgba(0, 94, 237, 0.45);
@@ -304,7 +306,7 @@ html.dark *::-webkit-scrollbar-thumb:hover {
     letter-spacing: 0 !important;
 }
 .dash-panel .v-table th {
-    font-size: 0.72rem !important;
+    font-size: var(--tms-text-xs) !important;
     letter-spacing: 0.04em;
 }
 html.dark .dash-panel.start-hero {
@@ -532,7 +534,7 @@ html.nav-open .row-actions {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 0.68rem;
+    font-size: var(--tms-text-xs);
 }
 
 /* One-off shorter viewport (Process Version definitions) */
@@ -790,7 +792,7 @@ html.dark .lgu-table .v-table__wrapper::-webkit-scrollbar-track {
 .office-select .v-field__input,
 .office-select .v-field__input input,
 .office-select .v-select__selection-text {
-    font-size: 0.72rem !important;
+    font-size: var(--tms-text-xs) !important;
     font-weight: 700;
 }
 .office-select .v-select__selection-text {

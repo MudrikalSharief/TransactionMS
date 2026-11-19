@@ -393,7 +393,7 @@ function moveFor(s) {
     letter-spacing: -0.01em;
 }
 .step-card-position {
-    font-size: 0.68rem;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: 0.1em;

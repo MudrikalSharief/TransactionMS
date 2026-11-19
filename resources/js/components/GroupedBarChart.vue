@@ -313,7 +313,7 @@ onUnmounted(() => {
     fill: rgba(var(--v-theme-on-surface), 0.05);
 }
 .bar-axis-text {
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     fill: rgba(var(--v-theme-on-surface), 0.55);
 }
@@ -325,7 +325,7 @@ onUnmounted(() => {
     flex-wrap: wrap;
     gap: 4px 14px;
     padding: 2px 2px 8px;
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     color: rgba(var(--v-theme-on-surface), 0.7);
 }
@@ -367,7 +367,7 @@ onUnmounted(() => {
     color: #f1f5f9;
     border-radius: 8px;
     padding: 8px 10px;
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 600;
     pointer-events: none;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);

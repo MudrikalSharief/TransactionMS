@@ -2615,7 +2615,7 @@ html.dark .us-page {
 .us-role-menu-head {
     padding: 12px 12px 6px;
     color: rgb(var(--v-theme-secondary));
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;

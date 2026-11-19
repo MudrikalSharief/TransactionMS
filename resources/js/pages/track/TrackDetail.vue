@@ -70,7 +70,7 @@
                             <div class="text-caption text-medium-emphasis">
                                 {{ fmtDateTime(h.performed_at) }}
                                 <template v-if="h.received_at"> · received {{ fmtDateTime(h.received_at) }}<template v-if="h.received_office"> by {{ h.received_office.name }}</template></template>
-                                <template v-else-if="!h.is_creation"> · awaiting receipt</template>
+                                <template v-else-if="!h.is_creation"> · awaiting receive</template>
                             </div>
                         </v-timeline-item>
                     </v-timeline>
@@ -185,7 +185,7 @@ useSmartPoll(() => load({ silent: true }));
     border: 2px solid rgb(var(--v-theme-primary));
 }
 .fact-label {
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;

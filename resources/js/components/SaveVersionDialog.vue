@@ -580,7 +580,7 @@ async function confirmSave() {
     border-radius: 99px;
     background: rgba(var(--v-theme-primary), 0.14);
     color: rgb(var(--v-theme-primary));
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
 }
 .sv-chip.is-zero {
@@ -609,7 +609,7 @@ async function confirmSave() {
 }
 .sv-pop-count {
     flex: none;
-    font-size: 11.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     color: rgb(var(--v-theme-secondary));
     white-space: nowrap;
@@ -656,7 +656,7 @@ async function confirmSave() {
 }
 .sv-pop-kind {
     margin-right: 6px;
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -772,7 +772,7 @@ async function confirmSave() {
     height: 20px;
     padding: 0 8px;
     border-radius: 99px;
-    font-size: 10.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.02em;
     text-transform: uppercase;

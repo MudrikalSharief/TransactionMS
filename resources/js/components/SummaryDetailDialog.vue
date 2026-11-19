@@ -465,7 +465,7 @@ watch(open, (isOpen) => {
     min-width: 0;
 }
 .sd-stop-label {
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .sd-stop-value {

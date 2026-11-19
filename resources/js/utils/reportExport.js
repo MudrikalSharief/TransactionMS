@@ -142,17 +142,32 @@ export async function downloadPdf(filename, { title, subtitle, sections, printed
     doc.save(filename)
 }
 
-// Working-time minutes as "2d 3h" / "45m" (a day = 24 h of a weekday).
+// Working-time minutes as "2d 3h" / "45m" (a day = an 8-hour office day).
 export function fmtMinutes(min) {
     if (min == null) return '—'
     const m = Math.round(Number(min))
     if (m < 60) return `${m}m`
-    if (m < 1440) {
-        const h = Math.floor(m / 60)
-        const r = m % 60
-        return r ? `${h}h ${r}m` : `${h}h`
-    }
-    const d = Math.floor(m / 1440)
-    const h = Math.round((m % 1440) / 60)
-    return h ? `${d}d ${h}h` : `${d}d`
+    // Working minutes: a day is an 8-hour office day.
+    const d = Math.floor(m / 480)
+    const h = Math.floor((m % 480) / 60)
+    const r = m % 60
+    if (!d) return r ? `${h}h ${r}m` : `${h}h`
+    return [d ? `${d}d` : '', h ? `${h}h` : '', r ? `${r}m` : '']
+        .filter(Boolean)
+        .join(' ')
+}
+
+/** Calendar minutes for pending time: real elapsed time, 24-hour days. */
+export function fmtCalendarMinutes(min) {
+    if (min == null) return '—'
+    const m = Math.round(Number(min))
+    if (m < 60) return `${m}m`
+    const h = Math.floor(m / 60)
+    const r = m % 60
+    if (h < 24) return r ? `${h}h ${r}m` : `${h}h`
+    const d = Math.floor(h / 24)
+    const rh = h % 24
+    return [d ? `${d}d` : '', rh ? `${rh}h` : '', r ? `${r}m` : '']
+        .filter(Boolean)
+        .join(' ')
 }

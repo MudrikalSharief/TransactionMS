@@ -89,7 +89,7 @@ function subtitle(tx) {
     text-overflow: ellipsis;
     -webkit-line-clamp: unset;
     line-clamp: unset;
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     line-height: 1.3;
 }
 .mini-row :deep(.v-list-item__prepend) {
@@ -116,7 +116,7 @@ function subtitle(tx) {
     max-width: 130px;
     padding: 3px 10px;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;

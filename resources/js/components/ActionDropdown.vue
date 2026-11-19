@@ -268,7 +268,7 @@ function onKeydown(e) {
     border-radius: 99px;
     background: #fde8e8;
     color: #c62828;
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.02em;
 }

@@ -142,7 +142,7 @@ const ariaLabel = computed(() => `${props.label}: ` + props.rows.map((r) => `${r
     color: rgb(var(--v-theme-on-surface));
 }
 .ob-people {
-    font-size: 0.7rem;
+    font-size: var(--tms-text-xs);
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .ob-track {

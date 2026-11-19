@@ -1290,7 +1290,7 @@ async function guestLogin() {
 .office-option .office-avatar {
     width: 26px;
     height: 26px;
-    font-size: 10.5px;
+    font-size: var(--tms-text-xs);
 }
 .office-option:hover {
     background: #f1f5fd;
