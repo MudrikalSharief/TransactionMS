@@ -51,6 +51,49 @@ class UsernameAuthenticationTest extends TestCase
         $this->assertGuest('web');
     }
 
+    public function test_registration_request_is_managed_by_the_admin_of_the_selected_office(): void
+    {
+        $csd = Office::create(['code' => 'CSD', 'name' => 'Computer Service Division']);
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Service Office']);
+        $adminRole = Role::firstOrCreate(['code' => 'admin'], ['name' => 'Admin']);
+        $csdAdmin = User::factory()->create(['office_id' => $csd->id, 'is_active' => true, 'approved_at' => now()]);
+        $gsoAdmin = User::factory()->create(['office_id' => $gso->id, 'is_active' => true, 'approved_at' => now()]);
+        $csdAdmin->roles()->attach($adminRole);
+        $gsoAdmin->roles()->attach($adminRole);
+        foreach (['csd.applicant' => $csd, 'csd.reject' => $csd, 'gso.applicant' => $gso] as $username => $office) {
+            $this->postJson('/api/auth/register', $this->registration(['username' => $username, 'office_id' => $office->id]))->assertCreated();
+        }
+        $request = User::where('username', 'csd.applicant')->firstOrFail();
+        $reject = User::where('username', 'csd.reject')->firstOrFail();
+        $otherRequest = User::where('username', 'gso.applicant')->firstOrFail();
+
+        Sanctum::actingAs($gsoAdmin);
+        $gsoPending = collect($this->getJson('/api/office/users')->assertOk()->json('data'))->where('pending_approval', true)->pluck('id')->all();
+        $this->assertSame([$otherRequest->id], $gsoPending);
+        $this->postJson("/api/office/users/{$request->id}/approve")->assertNotFound();
+        $this->deleteJson("/api/office/users/{$reject->id}/reject")->assertNotFound();
+        $this->assertNull($request->fresh()->approved_at);
+
+        Sanctum::actingAs($csdAdmin);
+        $csdPending = collect($this->getJson('/api/office/users')->assertOk()->json('data'))->where('pending_approval', true)->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$request->id, $reject->id], $csdPending);
+        $this->postJson("/api/office/users/{$request->id}/approve")->assertOk();
+        $this->assertSame($csdAdmin->id, $request->fresh()->approved_by);
+        $this->assertTrue($request->fresh()->is_active);
+        $this->deleteJson("/api/office/users/{$reject->id}/reject")->assertOk();
+        $this->assertDatabaseMissing('users', ['id' => $reject->id]);
+        $this->assertNull($otherRequest->fresh()->approved_at);
+
+        $superadmin = User::factory()->create(['office_id' => null, 'is_active' => true, 'approved_at' => now()]);
+        $superadmin->roles()->attach(Role::firstOrCreate(['code' => 'superadmin'], ['name' => 'Superadmin']));
+        Sanctum::actingAs($superadmin);
+        $this->postJson("/api/admin/users/{$otherRequest->id}/approve")->assertOk();
+        $this->assertSame($superadmin->id, $otherRequest->fresh()->approved_by);
+
+        $this->app['auth']->forgetGuards();
+        $this->postJson('/api/auth/login', ['login' => 'csd.applicant', 'password' => 'password123'])->assertOk();
+    }
+
     public function test_multiple_accounts_can_register_without_email(): void
     {
         $this->postJson('/api/auth/register', $this->registration())->assertCreated();

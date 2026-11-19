@@ -129,7 +129,7 @@
                     <h2>Data fields for this step</h2>
                     <p>{{ cardSubtitle }}</p>
                 </div>
-                <div class="sd-actions">
+                <div class="sd-hd-actions">
                     <button
                         type="button"
                         class="sd-overview"
@@ -2157,11 +2157,17 @@ onBeforeUnmount(() => {
 
 .sd-card-hd {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
     padding: 18px 20px;
     border-bottom: 1px solid
         rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.sd-card-hd > :first-child {
+    flex: 1 1 240px;
+    min-width: 0;
 }
 
 .sd-card-hd h2 {
@@ -2207,12 +2213,15 @@ onBeforeUnmount(() => {
     cursor: not-allowed;
 }
 
-.sd-actions {
+.sd-hd-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-left: auto;
-    flex: none;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .sd-overview {
@@ -3352,10 +3361,14 @@ html.dark .df-in :deep(.v-field--focused) {
         border-radius: 24px 24px 0 0 !important;
     }
 
-    .sd-card-hd {
-        flex-wrap: wrap;
+    .sd-hd-actions {
+        width: 100%;
+        margin-left: 0;
+        flex-direction: column;
     }
 
+    .sd-overview,
+    .sd-previous,
     .sd-add {
         width: 100%;
         margin-left: 0;

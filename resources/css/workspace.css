@@ -60,6 +60,17 @@ html.dark .workspace-shell {
     box-shadow: none !important;
 }
 .workspace-shell .lgu-head-avatar .v-icon { color: var(--ws-blue) !important; }
+/* Header controls must fit the card, including when the sidebar or zoom
+   leaves less room than the viewport breakpoint suggests. */
+.workspace-shell .app-page .v-card-title.d-flex {
+    flex-wrap: wrap;
+    gap: 8px;
+    white-space: normal;
+}
+.workspace-shell .app-page .v-card-title.d-flex > :not(.v-avatar):not(.v-spacer) {
+    min-width: 0;
+    max-width: 100%;
+}
 .workspace-shell :is(.v-card-text, .v-card-subtitle) { color: inherit; }
 .workspace-shell .v-alert { border-radius: 14px !important; }
 .workspace-shell .v-chip { border-radius: 9px !important; font-weight: 600; }
@@ -199,6 +210,16 @@ html.workspace-active .v-overlay :is(.v-card:not(.hover-card), .v-list) {
     box-shadow: 0 12px 40px -12px rgba(25, 65, 128, .28) !important;
 }
 html.workspace-active .v-dialog > .v-overlay__content > .v-card { max-height: calc(100dvh - 40px); }
+/* Let long forms scroll inside the bounded card while keeping its footer
+   in view. Without min-height: 0 the form pushes Save below the card. */
+html.workspace-active .v-dialog > .v-overlay__content > .v-card > .v-card-text {
+    min-height: 0;
+    overflow-y: auto;
+}
+.workspace-shell .v-card-actions,
+html.workspace-active .v-dialog .v-card-actions { flex-wrap: wrap; }
+.workspace-shell .v-card-actions > .v-btn,
+html.workspace-active .v-dialog .v-card-actions > .v-btn { max-width: 100%; }
 html.workspace-active .v-overlay .v-card-title { color: var(--ws-ink); white-space: normal; }
 html.workspace-active .v-overlay .v-field { border-radius: 12px !important; }
 html.workspace-active .v-overlay .v-btn { border-radius: 11px !important; text-transform: none; letter-spacing: 0; }
@@ -207,6 +228,20 @@ html.workspace-active .v-overlay .v-list-item { border-radius: 9px; }
 html.workspace-active .v-overlay .v-list-item--active { color: var(--ws-blue); }
 html.workspace-active .v-tooltip > .v-overlay__content { border-radius: 9px; }
 html.workspace-active .pm-dialog { --pm-ink: var(--ws-ink); --pm-muted: var(--ws-muted); --pm-panel: var(--ws-surface); --pm-line: var(--ws-line); }
+
+/* Keep search and Add on one row even on small phones, with enough room
+   for the search icon and its clear control. */
+@media (max-width: 360px) {
+    .workspace-shell .app-page :is(.us-add, .ofp-add, .ro-add, .tt-add, .tl-add) {
+        padding-inline: 10px;
+        gap: 6px;
+        font-size: 13px;
+    }
+    .workspace-shell .app-page :is(.us-search-icon, .ofp-search-icon, .ro-search-icon, .tt-search-icon, .tl-search-icon) { left: 8px; }
+    .workspace-shell .app-page :is(.us-search-input, .ofp-search-input, .ro-search-input, .tt-search-input, .tl-search-input) { padding-left: 32px; }
+    .workspace-shell .app-page :is(.us-search-input, .ofp-search-input, .ro-search-input, .tt-search-input, .tl-search-input):not(:placeholder-shown) { padding-right: 32px; }
+    .workspace-shell .app-page :is(.us-clear, .ofp-clear, .ro-clear, .tt-clear, .tl-clear) { width: 24px; right: 4px; }
+}
 
 @media (max-width: 700px) {
     .workspace-shell .app-page { padding: 16px 12px !important; }

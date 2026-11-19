@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -34,7 +35,7 @@ class StoreUserRequest extends FormRequest
             'is_active' => ['sometimes', 'boolean'],
             'office_id' => ['nullable', 'integer', 'exists:offices,id'],
             'role_ids' => ['sometimes', 'array'],
-            'role_ids.*' => ['integer', 'exists:roles,id'],
+            'role_ids.*' => ['integer', Role::assignmentRule($this->input('office_id') ? (int) $this->input('office_id') : null)],
         ];
     }
 }

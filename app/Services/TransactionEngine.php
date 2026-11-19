@@ -262,6 +262,8 @@ class TransactionEngine
                 'entered_at' => now(),
             ]);
 
+            if ($isReturn) app(OfficerAssignmentAccess::class)->restoreOnReturn($tx, $run);
+
             // Every station arrival starts unchecked: clear the destination
             // station's checklist checks so its items must be verified fresh.
             // First visits are a no-op (nothing to clear); revisits (return
@@ -378,6 +380,8 @@ class TransactionEngine
                 'entered_at' => now(),
             ]);
 
+            if (!$isForward) app(OfficerAssignmentAccess::class)->restoreOnReturn($tx, $run);
+
             // Forward resends are remarks-only: preserve all saved work at
             // the destination. Backward returns keep the intact-arrival
             // rule (reset gappy destinations so items are re-verified).
@@ -438,6 +442,9 @@ class TransactionEngine
             if (!$pending) abort(422, 'Nothing to receive — already received.');
             if ((int) $pending->to_step_id !== $currentStepId) {
                 abort(422, 'Pending receipt does not match the current step.');
+            }
+            if ($pending->assigned_to === null && $pending->officerAssignments()->exists()) {
+                abort(422, 'Reassign an eligible officer before receiving this return.');
             }
 
             $claimed = TransactionStepRun::where('id', $pending->id)

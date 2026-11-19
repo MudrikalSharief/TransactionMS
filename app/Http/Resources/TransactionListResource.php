@@ -50,6 +50,8 @@ class TransactionListResource extends JsonResource
             // dashboard split "waiting on me" from "in transit with other
             // offices" without re-deriving role/office rules client-side.
             'needs_action' => $this->needsAction($request),
+            'can_reassign_officer' => $request?->user() !== null
+                && app(\App\Services\OfficerAssignmentAccess::class)->canReassign($this->resource, $request->user()),
 
             // Minimal steps for the hover StepProgress popout (works from cache too).
             'workflow_steps' => $this->whenLoaded(

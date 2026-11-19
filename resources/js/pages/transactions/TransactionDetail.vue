@@ -2468,6 +2468,7 @@ html.dark .tx-header {
 
 .tx-top {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 14px;
     padding: 12px 24px;
@@ -2490,9 +2491,12 @@ html.dark .tx-header {
 
 .tx-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
     margin-left: auto;
 }
 

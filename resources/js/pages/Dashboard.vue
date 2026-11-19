@@ -370,7 +370,7 @@
                                 {{ accountError }}
                             </v-alert>
                             <v-alert
-                                v-if="!accountsLoading && !pendingAccounts.length"
+                                v-if="!accountsLoading && !pendingAccounts.length && !accountError"
                                 type="success"
                                 variant="tonal"
                                 rounded="0"
@@ -396,7 +396,7 @@
                                                 </div>
                                                 <div style="min-width: 0">
                                                     <div class="font-weight-bold action-title text-truncate">{{ u.name }}</div>
-                                                    <div class="text-caption text-medium-emphasis text-truncate only-wide" :title="u.email">{{ u.email }}</div>
+                                                    <div class="text-caption text-medium-emphasis text-truncate only-wide" :title="u.username || u.email">{{ u.username || u.email }}</div>
                                                     <div class="text-caption text-medium-emphasis text-truncate only-narrow">{{ accountScope(u) }}</div>
                                                 </div>
                                             </div>
@@ -1180,7 +1180,9 @@ function accountScope(u) {
 
 function loadAccounts(opts = {}) {
     if (!canApproveAccounts.value) return
-    return accountStore.fetchUsers(opts).catch(() => {})
+    return accountStore.fetchUsers(opts)
+        .then(() => { accountError.value = '' })
+        .catch((e) => { accountError.value = e?.response?.data?.message || 'Unable to load account requests.' })
 }
 
 async function approveAccount(u) {
@@ -1200,7 +1202,7 @@ async function approveAccount(u) {
 async function rejectAccount(u) {
     const ok = await confirm({
         title: 'Reject this request?',
-        message: `${u.name} (${u.email}) will not get access, and the request will be removed. They can sign up again.`,
+        message: `${u.name}${u.username ? ` (@${u.username})` : ''} will not get access, and the request will be removed. They can sign up again.`,
         confirmLabel: 'Reject',
         cancelLabel: 'Keep',
     })
@@ -1266,11 +1268,16 @@ useSmartPoll(async () => {
         await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
         loadChart({ silent: true })
-        loadAccounts({ silent: true })
         refreshedAt.value = new Date()
     } catch {
         /* next tick retries */
     }
+})
+
+// Signups and approvals change independently of transaction activity.
+useSmartPoll(() => loadAccounts({ silent: true }), {
+    checkVersion: false,
+    enabled: () => canApproveAccounts.value && accountBusyId.value == null,
 })
 
 </script>

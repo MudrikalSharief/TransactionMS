@@ -622,6 +622,7 @@
                 variant="outlined"
                 rounded="0"
                 class="us-ib is-ok"
+                :aria-label="`Approve ${item.name}`"
                 :loading="busyId === item.id"
                 :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="approve(item)"
@@ -633,6 +634,7 @@
                 variant="outlined"
                 rounded="0"
                 class="us-ib is-delete"
+                :aria-label="`Reject ${item.name}`"
                 :disabled="busyId === item.id || rowBusyId === item.id"
                 @click="reject(item)"
               />
@@ -1020,6 +1022,7 @@
             </div>
             <div v-else id="nu-roles-help" class="nu-help">
               Select one or more.
+              <span v-if="!officeMode">Choose an office to include its custom roles.</span>
             </div>
           </div>
 
@@ -1027,7 +1030,7 @@
             <span class="nu-label">Office</span>
             <div class="nu-help">
               {{ isEdit ? 'Stays in' : 'Joins' }} <b>{{ myOffice?.name || 'your office' }}</b>.
-              Admin and superadmin roles are given by a superadmin.
+              You can assign Admin within this office. Only a superadmin can assign Superadmin.
             </div>
           </div>
           <div
@@ -1117,7 +1120,9 @@ import { confirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import LoadingVeil from '@/components/LoadingVeil.vue'
 import { useEntryVeil } from '@/composables/useEntryVeil'
+import { useSmartPoll } from '@/composables/useSmartPoll'
 import ScopeChip from '@/components/ScopeChip.vue'
+import { isRoleAvailableInOffice } from '@/utils/roleOfficeScope'
 import { officeIcon } from '@/utils/officeIcons'
 
 const auth = useAuth()
@@ -1139,7 +1144,7 @@ const canManage = computed(() => officeMode || (auth.user.value?.roles ?? []).so
 const meId = computed(() => auth.user.value?.id)
 const myOffice = computed(() => auth.user.value?.office ?? null)
 
-// Office admins may only give out roles below admin (server list).
+// Office admins may assign Admin and staff roles from the server list.
 const officeRoles = ref([])
 const officeRolesLoading = ref(false)
 const roles = computed(() => (officeMode ? officeRoles.value : allRoles.value))
@@ -1155,12 +1160,12 @@ async function fetchRoles() {
   }
 }
 
-// Admins, superadmins and your own account stay with a superadmin.
+// Other office admins are manageable; self-service and superadmins stay locked.
 function lockReason(item) {
   if (!officeMode) return ''
-  if (item.id === meId.value) return 'Your own account is managed by a superadmin'
-  if ((item.roles || []).some((r) => ['admin', 'superadmin'].includes(r.code))) {
-    return 'Admins are managed by a superadmin'
+  if (Number(item.id) === Number(meId.value)) return 'Ask another office admin or a superadmin to manage your account'
+  if ((item.roles || []).some((r) => r.code === 'superadmin')) {
+    return 'Superadmins are managed by a superadmin'
   }
   return ''
 }
@@ -1571,11 +1576,12 @@ async function saveName(item) {
   }
 }
 
-// Office admins only receive assignable roles, so their edit list comes from
-// that scoped list. Superadmins also see roles already present on a row.
+// Custom roles must match the office of the account being edited.
 const roleEditOptions = computed(() => {
-  if (!officeMode) return roleFilterOptions.value
+  const row = (users.value || []).find(u => Number(u.id) === Number(roleMenuId.value))
+  const officeId = officeMode ? myOffice.value?.id : itemOfficeId(row || {})
   return (roles.value || [])
+    .filter(r => isRoleAvailableInOffice(r, officeId))
     .map((r) => ({ id: Number(r.id), label: r.name || r.code || 'Role' }))
     .filter((r) => Number.isFinite(r.id))
     .sort((a, b) => a.label.localeCompare(b.label))
@@ -1834,8 +1840,18 @@ const passwordStrength = computed(() => {
 })
 
 const roleOptions = computed(() =>
-   (roles.value || []).map(r => ({ id: r.id, label: `${r.name}` })) // use ${r.code} to show Role Code
+   (roles.value || [])
+     .filter(r => isRoleAvailableInOffice(r, officeMode ? myOffice.value?.id : form.value.office_id))
+     .map(r => ({ id: r.id, label: `${r.name}` }))
 )
+
+watch(() => form.value.office_id, officeId => {
+  if (!officeMode) {
+    form.value.role_ids = form.value.role_ids.filter(id =>
+      isRoleAvailableInOffice((roles.value || []).find(r => Number(r.id) === Number(id)), officeId),
+    )
+  }
+})
 
 const officeOptions = computed(() =>
   (offices.value || []).map(o => ({ id: o.id, label: `${o.name}` }))
@@ -2090,6 +2106,11 @@ onMounted(() => {
   if (!officeMode) fetchOffices().catch(() => {})
   settle(fetchUsers(), { warm: !loading.value })
 })
+
+useSmartPoll(() => fetchUsers({ silent: true }), {
+  checkVersion: false,
+  enabled: () => canManage.value && busyId.value == null && rowBusyId.value == null,
+})
 </script>
 
 <style scoped>
@@ -2186,11 +2207,14 @@ html.dark .us-page {
     align-items: center;
     gap: 12px;
     flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
     margin-left: auto;
 }
 .us-search {
     position: relative;
-    flex: 0 0 320px;
+    width: 320px;
+    flex: 1 1 320px;
     min-width: 0;
     max-width: 320px;
 }
@@ -2918,9 +2942,6 @@ html.dark .us-page {
 @media (max-width: 520px) {
     .us-add {
         padding: 0 16px;
-    }
-    .us-add-label {
-        display: none;
     }
 }
 

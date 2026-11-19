@@ -58,6 +58,7 @@
             </div>
 
             <div
+                v-if="showHeaderSearch"
                 class="align-center justify-center header-search"
                 :class="workspaceMode ? 'd-none d-sm-flex' : 'd-none d-md-flex'"
                 :style="workspaceMode ? undefined : 'flex: 1 1 auto; min-width: 0; padding: 0 24px'"
@@ -95,7 +96,7 @@
             </div>
 
             <div class="d-flex align-center app-bar-right" style="flex: 0 0 auto">
-                <v-menu v-if="workspaceMode" location="bottom end" :location-strategy="workspaceMenuLocation" :close-on-content-click="false" offset="12">
+                <v-menu v-if="workspaceMode && showHeaderSearch" location="bottom end" :location-strategy="workspaceMenuLocation" :close-on-content-click="false" offset="12">
                     <template #activator="{ props }">
                         <v-btn v-bind="props" icon="mdi-magnify" variant="text" class="workspace-mobile-search d-sm-none" aria-label="Search workspace" @click="ensureSearchData" />
                     </template>
@@ -525,7 +526,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted, onScopeDispose } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
@@ -541,6 +542,7 @@ import { useMotion } from "@/composables/useMotion";
 import TrackBackdrop from "@/components/track/TrackBackdrop.vue";
 import AppFooter from "@/components/AppFooter.vue";
 import WorkspaceBackdrop from "@/components/WorkspaceBackdrop.vue";
+import { workspaceMenuLocation } from "@/utils/workspaceMenuLocation";
 import "../../css/workspace-shell.css";
 
 
@@ -548,41 +550,6 @@ const router = useRouter();
 const route = useRoute();
 const auth = useAuth();
 const { mobile } = useDisplay();
-
-// Fixed header menus stay within the viewport through drawer and breakpoint
-// changes. The installed connected strategy can double fixed-header offsets.
-function workspaceMenuLocation(data, props, contentStyles) {
-    let frame = null;
-    const updateLocation = () => {
-        const target = data.target.value;
-        const content = data.contentEl.value;
-        if (!target?.getBoundingClientRect || !content) return;
-        const anchor = target.getBoundingClientRect();
-        const box = content.getBoundingClientRect();
-        const margin = 12;
-        const offset = Number(props.offset) || 10;
-        const left = Math.max(margin, Math.min(anchor.right - box.width, window.innerWidth - box.width - margin));
-        const top = Math.max(margin, Math.min(anchor.bottom + offset, window.innerHeight - box.height - margin));
-        Object.assign(contentStyles.value, {
-            position: "fixed", left: `${left}px`, top: `${top}px`,
-            maxWidth: `${window.innerWidth - margin * 2}px`,
-            maxHeight: `${window.innerHeight - margin * 2}px`,
-            transformOrigin: "right top",
-        });
-    };
-    const observer = new ResizeObserver(updateLocation);
-    watch([data.target, data.contentEl], ([target, content], previous) => {
-        previous?.filter(value => value instanceof Element).forEach(value => observer.unobserve(value));
-        [target, content].filter(value => value instanceof Element).forEach(value => observer.observe(value));
-        if (frame) cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(updateLocation);
-    }, { immediate: true, flush: "post" });
-    onScopeDispose(() => {
-        observer.disconnect();
-        if (frame) cancelAnimationFrame(frame);
-    });
-    return { updateLocation };
-}
 
 // Desktop workspaces use an icon rail and expand on hover or keyboard focus.
 const drawer = ref(!mobile.value);
@@ -659,6 +626,9 @@ const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind
 const workspaceMode = computed(() => showAuthUi.value && kind.value !== "viewer"
     && route.meta?.kind !== "viewer" && !/^\/(?:login|track|scan)(?:\/|$)/.test(route.path));
 const isWorkspaceOverview = computed(() => ["/", "/portal"].includes(route.path));
+// Work, account and setup sections use their page search instead. Activity
+// Log also has its own filters; only the overview keeps the global search.
+const showHeaderSearch = computed(() => !workspaceMode.value || ["dashboard", "portal"].includes(route.name));
 const workspacePageTitle = computed(() => {
     const destination = [...navGroups.value.flatMap(group => group.items),
         { to: "/profile", title: "My Profile" }, { to: "/help", title: "Help & Support" }]
@@ -768,7 +738,10 @@ const navGroups = computed(() => {
                 { title: "Office Transactions", icon: "mdi-file-document-multiple", to: "/transactions" },
                 { title: "Archive", icon: "mdi-archive-outline", to: "/transactions/archive" },
             ] },
-            { title: "People", items: [{ title: "Office Users", icon: "mdi-account-group", to: "/office/users" }] },
+            { title: "People", items: [
+                { title: "Office Users", icon: "mdi-account-group", to: "/office/users" },
+                { title: "Roles", icon: "mdi-shield-account-outline", to: "/office/roles" },
+            ] },
             {
                 title: "Setup",
                 items: [{ title: "Transaction Types", icon: "mdi-format-list-bulleted-type", to: "/admin/transaction-types" }],
@@ -901,6 +874,7 @@ const searchPages = computed(() => {
     }
     if (isOfficeAdmin.value) {
         pages.push({ title: "Archive", subtitle: "Page · Admin", icon: "mdi-archive-outline", to: "/transactions/archive" });
+        pages.push({ title: "Office Roles", subtitle: "Page · Admin", icon: "mdi-shield-account-outline", to: "/office/roles" });
     }
     if (isSuperadmin.value) {
         pages.push(
@@ -925,7 +899,7 @@ const searchPages = computed(() => {
 
 async function ensureSearchData() {
     // Viewers search pages only: the transaction lists are closed to them.
-    if (kind.value === "viewer") return;
+    if (!showHeaderSearch.value || kind.value === "viewer") return;
     if (searchLoaded || searchLoading.value) return;
     searchLoading.value = true;
     try {
@@ -942,11 +916,19 @@ async function ensureSearchData() {
 // filtering a stale page-1 snapshot — correct results on large datasets
 // with one small 25-row payload per pause, not per keystroke.
 let searchTimer = null;
+watch(showHeaderSearch, visible => {
+    if (visible) return;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = null;
+    searchText.value = "";
+    searchSelect.value = null;
+});
 watch(searchText, (q) => {
     if (searchTimer) clearTimeout(searchTimer);
+    if (!showHeaderSearch.value) return;
     searchTimer = setTimeout(async () => {
         const query = String(q || "").trim();
-        if (!query || kind.value === "viewer") return;
+        if (!query || !showHeaderSearch.value || kind.value === "viewer") return;
         searchLoading.value = true;
         try {
             await allTx.fetchAll({ q: query, silent: true });

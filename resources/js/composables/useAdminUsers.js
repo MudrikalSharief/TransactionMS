@@ -13,8 +13,10 @@ export function useAdminUsers({ office = false } = {}) {
   const _cached = readCache(cacheKey)
   const users = ref(_cached ?? [])
   const loading = ref(_cached == null)
+  let fetchVersion = 0
 
   async function fetchUsers({ silent = false } = {}) {
+    const requestVersion = ++fetchVersion
     const cached = readCache(cacheKey)
     const quiet = silent || cached != null
     if (cached != null) {
@@ -24,40 +26,46 @@ export function useAdminUsers({ office = false } = {}) {
     if (!quiet) loading.value = true
     try {
       const res = await api.get(base)
+      if (requestVersion !== fetchVersion) return
       users.value = res.data.data ?? res.data
       writeCache(cacheKey, users.value)
     } finally {
-      if (!quiet) loading.value = false
+      if (requestVersion === fetchVersion) loading.value = false
     }
+  }
+
+  function invalidateUsersCache() {
+    fetchVersion += 1
+    invalidateCache(cacheKey)
   }
 
   async function createUser(payload) {
     const res = await api.post(base, payload)
-    invalidateCache(cacheKey)
+    invalidateUsersCache()
     return res.data.data ?? res.data
   }
 
   async function updateUser(id, payload) {
     const res = await api.put(`${base}/${id}`, payload)
-    invalidateCache(cacheKey)
+    invalidateUsersCache()
     return res.data.data ?? res.data
   }
 
   async function deactivateUser(id) {
     await api.delete(`${base}/${id}`)
-    invalidateCache(cacheKey)
+    invalidateUsersCache()
   }
 
   // Accounts created on the login page wait for one of these.
   async function approveUser(id) {
     const res = await api.post(`${base}/${id}/approve`)
-    invalidateCache(cacheKey)
+    invalidateUsersCache()
     return res.data.data ?? res.data
   }
 
   async function rejectUser(id) {
     await api.delete(`${base}/${id}/reject`)
-    invalidateCache(cacheKey)
+    invalidateUsersCache()
   }
 
   return { users, loading, fetchUsers, createUser, updateUser, deactivateUser, approveUser, rejectUser }

@@ -51,6 +51,7 @@ class TransactionController extends Controller
             ->latest();
 
         $user = $request->user();
+        if ($user->isSuperadmin() || $user->isOfficeAdmin()) $query->with('runs.toStep.office');
         $visibility->apply($query, $user);
 
         if ($q !== '') {

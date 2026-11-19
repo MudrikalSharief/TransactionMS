@@ -7,20 +7,24 @@ use App\Models\{Transaction, TransactionOfficerAssignment, User};
 use App\Services\{AuditService, OfficerAssignmentAccess};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class OfficerReassignmentController extends Controller
 {
     public function show(Transaction $transaction, Request $request, OfficerAssignmentAccess $access)
     {
-        abort_unless($access->canManage($transaction, $request->user()), 403, 'Only the current office administrator can reassign this officer.');
-        return response()->json(['data' => $access->metadata($transaction, $request->user(), true)]);
+        abort_unless($access->canManage($transaction, $request->user()), 403, 'Only an authorized office administrator can reassign this officer.');
+        $data = $request->validate(['run_id' => ['nullable', 'integer', 'min:1']]);
+        $runId = isset($data['run_id']) ? (int) $data['run_id'] : null;
+        if ($runId !== null) {
+            abort_unless($access->officeVisits($transaction, $request->user())->contains('id', $runId), 403, 'Choose a visit managed by your office.');
+        }
+        return response()->json(['data' => $access->metadata($transaction, $request->user(), true, $runId)]);
     }
 
     public function store(Transaction $transaction, Request $request, OfficerAssignmentAccess $access, AuditService $audit)
     {
-        abort_unless($access->canManage($transaction, $request->user()), 403, 'Only the current office administrator can reassign this officer.');
+        abort_unless($access->canManage($transaction, $request->user()), 403, 'Only an authorized office administrator can reassign this officer.');
         $data = $request->validate([
             'run_id' => ['required', 'integer', 'min:1'],
             'version' => ['required', 'integer', 'min:0'],
@@ -34,15 +38,17 @@ class OfficerReassignmentController extends Controller
             // Routing/receipt/finalization use the same transaction-row lock.
             $tx = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
             $tx->load('state.currentStep');
-            abort_unless($access->canManage($tx, $request->user()), 403, 'Only the current office administrator can reassign this officer.');
-            $run = $access->currentRun($tx);
-            abort_if(!$run || (int) $data['run_id'] !== (int) $run->id || (int) $data['version'] !== $access->version($run), 409, 'The current step or officer changed. Reload before reassigning.');
-            abort_unless($access->canReassign($tx, $request->user()), 422, 'Only an active, received step can be reassigned.');
+            abort_unless($access->canManage($tx, $request->user()), 403, 'Only an authorized office administrator can reassign this officer.');
+            $run = $tx->runs()->with('toStep.office')->find($data['run_id']);
+            abort_if(!$run, 409, 'The office visit changed. Reload before reassigning.');
+            abort_unless($request->user()->isSuperadmin() || $access->officeId($tx, $run) === (int) $request->user()->office_id, 403, 'Choose a visit managed by your office.');
+            abort_if(!$access->officeVisits($tx, $request->user())->contains('id', $run->id) || (int) $data['version'] !== $access->version($run), 409, 'The office visit or officer changed. Reload before reassigning.');
+            abort_unless($access->canReassign($tx, $request->user(), $run), 422, 'Only an active received visit or pending return can be reassigned.');
 
             // Lock the target account and recheck eligibility; do not trust the dialog's candidate list.
             $target = User::query()->whereKey($data['assigned_to'])->lockForUpdate()->first();
-            if (!$target || !$access->eligibleOfficers($tx)->contains('id', $target->id)) {
-                throw ValidationException::withMessages(['assigned_to' => 'Choose an active eligible officer in the current step office.']);
+            if (!$target || !$access->eligibleOfficers($tx, $run)->contains('id', $target->id)) {
+                throw ValidationException::withMessages(['assigned_to' => 'Choose an active eligible officer in the selected office.']);
             }
             $previous = $access->responsibleOfficer($run);
             if ((int) ($previous['id'] ?? 0) === (int) $target->id) {
@@ -68,16 +74,13 @@ class OfficerReassignmentController extends Controller
                 'step_run_id' => $run->id,
                 'reason' => $reason,
                 'assignment_id' => $event->id,
-                'description' => 'Reassigned the responsible officer for the current received step.',
+                'description' => 'Reassigned the responsible officer for the selected office visit.',
             ]);
             // Cached inbox counts predate the now-exclusive ownership. Clear
             // every active account's short-lived count after a committed transfer.
-            DB::afterCommit(function () {
-                User::query()->select('id')->chunkById(500, function ($users) {
-                    foreach ($users as $user) Cache::forget('approvals:count:u' . $user->id);
-                });
-            });
-            return response()->json(['data' => $access->metadata($tx, $request->user(), true)]);
+            $access->forgetApprovalCountsAfterCommit();
+            $tx->unsetRelation('runs');
+            return response()->json(['data' => $access->metadata($tx, $request->user(), true, $run->id)]);
         });
     }
 }

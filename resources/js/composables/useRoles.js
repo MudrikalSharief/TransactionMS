@@ -1,17 +1,19 @@
 import { ref } from 'vue'
 import { useApi } from '@/composables/useApi'
-import { readCache, writeCache, invalidateCache, CacheKeys } from '@/composables/useCache'
+import { readCache, writeCache, invalidatePrefix, CacheKeys } from '@/composables/useCache'
 
-export function useRoles() {
+export function useRoles({ office = false, officeId = null } = {}) {
   const { api } = useApi()
+  const base = office ? '/api/office/roles' : '/api/admin/roles'
+  const cacheKey = office ? `${CacheKeys.roles}:office:${officeId}` : CacheKeys.roles
   // Init from cache at setup: warm loads paint rows on first render with
   // loading already false (zero loader flash); cold loads start loading.
-  const _cached = readCache(CacheKeys.roles)
+  const _cached = readCache(cacheKey)
   const roles = ref(_cached ?? [])
   const loading = ref(_cached == null)
 
   async function fetchRoles({ silent = false } = {}) {
-    const cached = readCache(CacheKeys.roles)
+    const cached = readCache(cacheKey)
     const quiet = silent || cached != null
     if (cached != null) {
       roles.value = cached
@@ -19,29 +21,29 @@ export function useRoles() {
     }
     if (!quiet) loading.value = true
     try {
-      const res = await api.get('/api/admin/roles')
+      const res = await api.get(base)
       roles.value = res.data.data ?? res.data
-      writeCache(CacheKeys.roles, roles.value)
+      writeCache(cacheKey, roles.value)
     } finally {
       if (!quiet) loading.value = false
     }
   }
 
   async function createRole(payload) {
-    const res = await api.post('/api/admin/roles', payload)
-    invalidateCache(CacheKeys.roles)
+    const res = await api.post(base, payload)
+    invalidatePrefix(CacheKeys.roles)
     return res.data.data ?? res.data
   }
 
   async function updateRole(id, payload) {
-    const res = await api.put(`/api/admin/roles/${id}`, payload)
-    invalidateCache(CacheKeys.roles)
+    const res = await api.put(`${base}/${id}`, payload)
+    invalidatePrefix(CacheKeys.roles)
     return res.data.data ?? res.data
   }
 
   async function deleteRole(id) {
-    await api.delete(`/api/admin/roles/${id}`)
-    invalidateCache(CacheKeys.roles)
+    await api.delete(`${base}/${id}`)
+    invalidatePrefix(CacheKeys.roles)
   }
 
   return { roles, loading, fetchRoles, createRole, updateRole, deleteRole }

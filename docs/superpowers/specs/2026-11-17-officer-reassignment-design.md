@@ -1,5 +1,7 @@
 # Officer reassignment with exclusive access
 
+The confirmed extension in docs/superpowers/specs/2026-11-18-office-officer-reassignment-design.md adds Office Transactions list actions, reassignment of each office's latest visit after forwarding, assignment on pending returns, and explicit assignee viewing access across office handoffs. It supersedes the current-step-only restrictions below for those cases.
+
 ## Intent
 Allow an office administrator to transfer responsibility for a specific transaction's current received step immediately. Preserve receipt facts and make each reassignment visible in route history. Once explicitly assigned, only the responsible officer and authorized administrators may access that transaction at that step.
 

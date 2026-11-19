@@ -2423,11 +2423,17 @@ onBeforeUnmount(() => {
 
 .sr-card-hd {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
     padding: 18px 20px;
     border-bottom: 1px solid
         rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.sr-card-hd > :first-child {
+    flex: 1 1 240px;
+    min-width: 0;
 }
 
 .sr-card-hd h2 {
@@ -2447,7 +2453,10 @@ onBeforeUnmount(() => {
 .sr-hd-actions {
     display: flex;
     align-items: center;
-    flex: none;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
     gap: 10px;
     margin-left: auto;
 }
@@ -2953,10 +2962,6 @@ html.dark .sr-ib-delete:hover {
 }
 
 @media (max-width: 720px) {
-    .sr-card-hd {
-        flex-wrap: wrap;
-    }
-
     .sr-hd-actions {
         width: 100%;
         margin-left: 0;

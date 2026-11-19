@@ -1493,11 +1493,14 @@ html.dark .ofp-page {
   align-items: center;
   gap: 12px;
   flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
   margin-left: auto;
 }
 .ofp-search {
   position: relative;
-  flex: 0 1 360px;
+  width: 360px;
+  flex: 1 1 360px;
   min-width: 0;
   max-width: 360px;
 }
@@ -2236,9 +2239,6 @@ html.dark .ofp-page {
 @media (max-width: 520px) {
   .ofp-add {
     padding: 0 16px;
-  }
-  .ofp-add-label {
-    display: none;
   }
 }
 

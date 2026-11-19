@@ -10,7 +10,8 @@ const MAX_BACKOFF_MS = 60000;
 // Never touches window scroll, search text, pagination, or dialog state —
 // callers must use silent fetches ({ silent: true }) inside onChanged so no
 // loader/spinner flashes and the page never reloads.
-export function useSmartPoll(onChanged, { interval = POLL_INTERVAL_MS, enabled = null } = {}) {
+// Lists without a version endpoint can refresh each tick with checkVersion: false.
+export function useSmartPoll(onChanged, { interval = POLL_INTERVAL_MS, enabled = null, checkVersion = true } = {}) {
     const { api } = useApi();
     // Bad-network adaptation: stretch the version-check interval on 2g /
     // saveData so weak devices + poor links aren't woken every 20s.
@@ -51,6 +52,11 @@ export function useSmartPoll(onChanged, { interval = POLL_INTERVAL_MS, enabled =
         }
         inFlight = true;
         try {
+            if (!checkVersion) {
+                await onChanged();
+                backoffMs = 0;
+                return;
+            }
             const res = await api.get("/api/transactions/version");
             const v = res.data?.version ?? null;
             if (!baselineSet) {

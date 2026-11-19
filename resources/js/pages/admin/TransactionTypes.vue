@@ -1734,11 +1734,14 @@ html.dark .tt-page {
     align-items: center;
     gap: 12px;
     flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
     margin-left: auto;
 }
 .tt-search {
     position: relative;
-    flex: 0 0 320px;
+    width: 320px;
+    flex: 1 1 320px;
     min-width: 0;
     max-width: 320px;
 }
@@ -2411,9 +2414,6 @@ html.dark .tt-page {
 @media (max-width: 520px) {
     .tt-add {
         padding: 0 16px;
-    }
-    .tt-add-label {
-        display: none;
     }
 }
 </style>

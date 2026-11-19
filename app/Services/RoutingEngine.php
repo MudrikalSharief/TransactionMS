@@ -156,7 +156,8 @@ class RoutingEngine
     public function assertUserCanView(Transaction $tx, User $user): void
     {
         app(OfficerAssignmentAccess::class)->assertAccess($tx, $user);
-        if ($user->isSuperadmin() || $this->officeScope->covers($tx, $user)) return;
+        if ($user->isSuperadmin() || $this->officeScope->covers($tx, $user)
+            || app(OfficerAssignmentAccess::class)->hasOfficeAssignment($tx, $user)) return;
 
         $this->assertUserCanExecute($tx, $user);
     }

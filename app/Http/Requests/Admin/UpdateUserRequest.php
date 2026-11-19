@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -28,6 +30,7 @@ class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         $userId = $this->route('user')?->id;
+        $officeId = $this->exists('office_id') ? $this->input('office_id') : $this->route('user')?->office_id;
 
         return [
             'name' => ['required', 'string', 'max:120'],
@@ -39,7 +42,26 @@ class UpdateUserRequest extends FormRequest
             'is_active' => ['sometimes', 'boolean'],
             'office_id' => ['nullable', 'integer', 'exists:offices,id'],
             'role_ids' => ['sometimes', 'array'],
-            'role_ids.*' => ['integer', 'exists:roles,id'],
+            'role_ids.*' => ['integer', Role::assignmentRule($officeId ? (int) $officeId : null)],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if (!$this->exists('office_id') || $this->exists('role_ids') || $validator->errors()->isNotEmpty()) {
+                return;
+            }
+            // Include deleted roles: restoring one must not give a transferred
+            // member a role from their previous office.
+            $roles = $this->route('user')->roles()->withTrashed()->whereNotNull('roles.office_id');
+            $officeId = (int) $this->input('office_id');
+            if ($officeId > 0) {
+                $roles->where('roles.office_id', '!=', $officeId);
+            }
+            if ($roles->exists()) {
+                $validator->errors()->add('role_ids', 'Remove roles belonging to another office before transferring this account.');
+            }
+        });
     }
 }

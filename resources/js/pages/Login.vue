@@ -116,7 +116,7 @@
 
                     <main v-else id="panel-register" key="register" class="pane">
                         <h2 class="card-title is-small">Create Account</h2>
-                        <p class="sub">Choose a username to sign in. An administrator will review your request.</p>
+                        <p class="sub">Choose a username to sign in. The administrator of your selected office will review your request.</p>
 
                         <div v-if="regError" :key="errorKey" class="error" role="alert" aria-live="assertive">
                             <v-icon aria-hidden="true">mdi-alert-circle-outline</v-icon>
@@ -253,6 +253,7 @@
                                             <v-menu
                                                 v-model="officeMenuOpen"
                                                 :close-on-content-click="false"
+                                                :location-strategy="workspaceMenuLocation"
                                                 location="bottom start"
                                                 offset="8"
                                             >
@@ -325,7 +326,7 @@
                                                 required
                                             >
                                                 <option :value="null" disabled>Choose your role</option>
-                                                <option v-for="r in options.roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+                                                <option v-for="r in registrationRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
                                             </select>
                                         </div>
                                         <p v-if="fieldErrors.role_ids" class="field-error">{{ fieldErrors.role_ids }}</p>
@@ -427,7 +428,9 @@
                     <span class="track-divider" aria-hidden="true"></span>
                     <span class="track-text">
                         <template v-if="guestLoading">Opening tracker…</template>
-                        <template v-else>Track your<br />Transaction</template>
+                        <template v-else>
+                            Click here to<br />track your<br />transaction
+                        </template>
                     </span>
                     <span class="track-go" aria-hidden="true"><v-icon>mdi-arrow-right</v-icon></span>
                 </span>
@@ -450,6 +453,8 @@ import { useAuth, homePathFor, userKind } from "@/composables/useAuth";
 import { useApi } from "@/composables/useApi";
 import { useMotion } from "@/composables/useMotion";
 import { officeIcon } from "@/utils/officeIcons";
+import { isRoleAvailableInOffice } from "@/utils/roleOfficeScope";
+import { workspaceMenuLocation } from "@/utils/workspaceMenuLocation";
 
 // Respect the shared motion preference without showing a login toggle.
 const { motionEnabled } = useMotion();
@@ -647,6 +652,11 @@ const officeMenuOpen = ref(false);
 const selectedOffice = computed(
     () => (options.value.offices || []).find((o) => Number(o.id) === Number(reg.value.office_id)) || null,
 );
+const registrationRoles = computed(() => (options.value.roles || []).filter(role => isRoleAvailableInOffice(role, reg.value.office_id)));
+watch(() => reg.value.office_id, officeId => {
+    const selectedRole = (options.value.roles || []).find(role => Number(role.id) === Number(reg.value.role_id));
+    if (!isRoleAvailableInOffice(selectedRole, officeId)) reg.value.role_id = null;
+});
 
 function onContactInput(e) {
     const digits = String(e?.target?.value ?? reg.value.contact_number ?? "")
@@ -796,7 +806,7 @@ async function register() {
         contactTouched.value = false;
         officeMenuOpen.value = false;
         regStep.value = 0;
-        notice.value = res.data?.message || "Account created. You can sign in once an administrator approves it.";
+        notice.value = res.data?.message || "Account created. Your selected office's administrator will review your request. You can sign in after approval.";
         mode.value = "signin";
     } catch (e) {
         const errs = e?.response?.data?.errors || {};
@@ -1568,7 +1578,7 @@ async function guestLogin() {
     left: 1214px;
     top: 663.4px;
     width: 440px;
-    height: 88px;
+    height: 104px;
     padding: 0;
     border: 2px solid rgba(29, 86, 196, 0.35);
     border-radius: 16px;
@@ -1580,6 +1590,8 @@ async function guestLogin() {
     font: inherit;
     cursor: pointer;
     transform: skewX(-19deg);
+    transform-origin: right center;
+    animation: track-pop 1.5s ease-in-out infinite;
     box-shadow: 0 0 0 0 rgba(110, 180, 255, 0);
     transition:
         background 0.25s ease,
@@ -1606,6 +1618,19 @@ async function guestLogin() {
 .track:focus-visible {
     outline: 4px solid rgba(29, 86, 196, 0.45);
     outline-offset: 4px;
+}
+.track:hover,
+.track:focus-within,
+.track:disabled {
+    animation-play-state: paused;
+}
+@keyframes track-pop {
+    0%, 55%, 100% { transform: scale(1) skewX(-19deg); }
+    20% { transform: scale(1.03) skewX(-19deg); }
+    35% { transform: scale(0.995) skewX(-19deg); }
+}
+html.no-motion .track {
+    animation: none;
 }
 .track-face {
     display: flex;
@@ -1674,6 +1699,7 @@ async function guestLogin() {
         top: auto;
         display: grid;
         gap: 22px;
+        grid-template-columns: minmax(0, 1fr);
         width: auto;
         max-width: 480px;
         height: auto;
@@ -1692,6 +1718,8 @@ async function guestLogin() {
     }
     .card {
         width: auto;
+        min-width: 0;
+        max-width: 100%;
         min-height: 0;
         padding: 30px 22px 26px;
         border-radius: 24px;
@@ -1768,6 +1796,18 @@ async function guestLogin() {
     .reg-step-title {
         font-size: 16px;
     }
+    .reg-nav {
+        gap: 8px;
+    }
+    .reg-nav .btn {
+        min-width: 0;
+        gap: 8px;
+        line-height: 1.2;
+    }
+    .reg-nav .btn-ghost {
+        padding-inline: 12px;
+        gap: 6px;
+    }
     .error,
     .notice {
         margin-top: 0;
@@ -1775,8 +1815,10 @@ async function guestLogin() {
     }
     .track {
         width: calc(100% - 24px);
-        height: 72px;
+        min-width: 0;
+        height: 88px;
         margin: 0 auto;
+        transform-origin: center;
     }
     .track-face {
         justify-content: center;
@@ -1804,6 +1846,9 @@ async function guestLogin() {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .track {
+        animation: none;
+    }
     .control input,
     .control select,
     .btn,
