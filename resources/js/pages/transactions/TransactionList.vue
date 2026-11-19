@@ -1268,7 +1268,7 @@ html.dark .tl-page {
     width: 100%;
     height: 46px;
     padding: 0 14px 0 42px;
-    border: 1.5px solid var(--tl-line);
+    border: 1px solid var(--tl-line);
     border-radius: 0;
     background: var(--tl-field);
     color: var(--tl-ink);
@@ -1294,9 +1294,8 @@ html.dark .tl-page {
 }
 .tl-search-input:focus {
     outline: none;
-    border-color: var(--tl-blue);
+    border-color: transparent;
     background: var(--tl-panel);
-    box-shadow: 0 0 0 4px var(--tl-ring);
 }
 .tl-search-input::-webkit-search-cancel-button {
     display: none;

@@ -104,8 +104,7 @@
     color: var(--workspace-shell-muted);
 }
 .workspace-shell.v-application .search-pixiv .v-field--focused {
-    border-color: #80aaff;
-    box-shadow: 0 0 0 3px rgb(0 85 237 / 10%);
+    border-color: transparent;
 }
 .workspace-shell .app-bar-right { gap: 13px; }
 .workspace-shell.v-application .nav-account {
