@@ -1,11 +1,5 @@
 <template>
     <div class="sr-page">
-        <DepthNav
-            :levels="depthLevels"
-            :deeper="depthDeeper"
-            deeper-label="Step pages"
-            class="mb-4"
-        />
         <v-alert
             v-if="error"
             type="error"
@@ -900,9 +894,7 @@ import { useWorkflowStaging } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 import StagingSaveBar from "@/components/StagingSaveBar.vue";
 import TableLoader from "@/components/TableLoader.vue";
-import DepthNav from "@/components/DepthNav.vue";
 import WorkflowPageHeader from "@/components/WorkflowPageHeader.vue";
-import { buildWorkflowDepthLevels, workflowStepTo } from "@/utils/workflowDepth";
 
 const route = useRoute();
 const router = useRouter();
@@ -981,59 +973,7 @@ const selectedStep = computed(
         ) || null,
 );
 
-const { items: txTypes, fetchAll: fetchTxTypes } = useTransactionTypes();
-
-const selectedTypeName = computed(() => {
-    const t = (txTypes.value || []).find(
-        (x) => Number(x.id) === Number(typeId.value),
-    );
-    return t?.name || "";
-});
-
-const depthStepLabel = computed(() => {
-    const s = selectedStep.value;
-    if (!s) return "Step";
-    const n = s.order_number;
-    const name = s.name || s.code || "";
-    return `Step ${n ?? ""}${name ? ` · ${name}` : ""}`.trim();
-});
-
-const depthLevels = computed(() =>
-    buildWorkflowDepthLevels({
-        typeId: typeId.value,
-        typeName: selectedTypeName.value,
-        workflowId: workflowDefinitionId.value,
-        stepId: selectedStepId.value || stepIdFromUrl.value || null,
-        stepLabel: depthStepLabel.value,
-        currentLabel: "Requirements",
-    }),
-);
-
-const depthDeeper = computed(() => {
-    const wid = workflowDefinitionId.value;
-    const sid = selectedStepId.value || stepIdFromUrl.value;
-    if (!wid || !sid) return [];
-    const stepId = Number(sid);
-    return [
-        {
-            label: "Requirements",
-            to: workflowStepTo("admin.step-requirements", {
-                workflowId: wid,
-                stepId,
-                typeId: typeId.value,
-            }),
-            current: true,
-        },
-        {
-            label: "Step Data",
-            to: workflowStepTo("admin.step-data", {
-                workflowId: wid,
-                stepId,
-                typeId: typeId.value,
-            }),
-        },
-    ];
-});
+const { fetchAll: fetchTxTypes } = useTransactionTypes();
 
 const orderedSteps = computed(() =>
     [...steps.value].sort((a, b) => {
@@ -2304,7 +2244,7 @@ onBeforeUnmount(() => {
 .sr-menu-head {
     padding: 4px 8px 8px;
     color: rgb(var(--v-theme-secondary));
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2704,7 +2644,7 @@ onBeforeUnmount(() => {
     padding: 2px 7px;
     background: #cfe7fa;
     color: #124d7a;
-    font-size: 10px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.04em;
 }
@@ -3031,7 +2971,7 @@ html.dark .sr-ib-delete:hover {
 
     .sr-count {
         padding: 3px 8px;
-        font-size: 11px;
+        font-size: var(--tms-text-xs);
     }
 
     .sr-option {
@@ -3468,7 +3408,7 @@ html.dark .sr-ib-delete:hover {
 }
 
 .req-carry .cr-tag {
-    font-size: 10.5px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: uppercase;

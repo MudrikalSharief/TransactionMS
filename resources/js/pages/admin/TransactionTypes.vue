@@ -2172,7 +2172,7 @@ html.dark .tt-page {
 .tt-inline-hint {
     margin-top: 4px;
     color: var(--tt-muted);
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 600;
 }
 .tt-inline-spin {

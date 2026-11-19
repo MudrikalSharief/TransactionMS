@@ -2710,7 +2710,7 @@ html.dark .tx-header {
 }
 
 .tx-kicker {
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;

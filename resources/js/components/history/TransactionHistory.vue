@@ -560,7 +560,7 @@ function pendingMain(run) {
 <style scoped>
 .history-table thead th {
     background: #f8fafc;
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -600,7 +600,7 @@ function pendingMain(run) {
     padding: 20px !important;
 }
 .history-label {
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;

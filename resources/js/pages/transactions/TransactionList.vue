@@ -310,7 +310,7 @@
                     style="
                       margin-bottom: 8px;
                       color: rgb(var(--v-theme-secondary));
-                      font-size: 11px;
+                      font-size: var(--tms-text-xs);
                       font-weight: 800;
                       letter-spacing: 0.08em;
                       text-transform: uppercase;

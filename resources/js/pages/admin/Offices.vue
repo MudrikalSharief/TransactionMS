@@ -1992,7 +1992,7 @@ html.dark .ofp-page {
 .ofp-inline-hint {
   margin-top: 4px;
   color: var(--ofp-muted);
-  font-size: 11px;
+  font-size: var(--tms-text-xs);
   font-weight: 600;
 }
 .ofp-inline-spin {

@@ -1,23 +1,6 @@
 <template>
     <div class="fit-page workspace-dashboard">
-        <Teleport v-if="headerReady" defer to="#workspace-header-leading">
-            <div class="workspace-header-greeting">
-                <div class="workspace-greeting-line">{{ greeting }}</div>
-                <div class="workspace-greeting-name" :title="auth.user.value?.name">{{ firstName }}</div>
-                <div class="workspace-greeting-meta">
-                    <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
-                    <span v-if="scopeLabel" class="workspace-greeting-scope">{{ scopeLabel }}</span>
-                </div>
-            </div>
-        </Teleport>
         <div class="dash-hello">
-            <div v-if="!headerReady" class="dash-hello-text">
-                <div class="workspace-greeting-line">{{ greeting }}</div>
-                <div class="workspace-greeting-name">{{ firstName }}</div>
-                <div class="dash-hello-sub">
-                    <template v-if="refreshedLabel">Updated {{ refreshedLabel }}</template>
-                </div>
-            </div>
             <div class="dash-hello-actions">
                 <!-- Overview cards, or the monitoring Reports (superadmins and
                      office admins). Transaction Status and Top Overdue Steps
@@ -29,7 +12,6 @@
                     density="comfortable"
                     color="primary"
                     variant="outlined"
-                    divided
                     rounded="lg"
                     class="dash-view"
                 >
@@ -49,8 +31,8 @@
                 </v-btn>
             </div>
         </div>
-        <!-- The headline numbers stay on top. -->
-        <div v-if="canSeeSummary">
+        <!-- The headline numbers stay on top, overview only. -->
+        <div v-if="canSeeSummary && view === 'overview'">
             <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
                 {{ summaryError }}
             </v-alert>
@@ -477,7 +459,7 @@
                             </v-avatar>
                             <div class="dash-head-title">
                                 <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
-                                <div v-if="actionSub" class="dash-panel-sub text-truncate">{{ actionSub }}</div>
+                                <div v-if="actionSub" class="dash-panel-sub">{{ actionSub }}</div>
                             </div>
                             <v-spacer />
                             <v-btn
@@ -697,6 +679,7 @@ import { useAdminUsers } from '@/composables/useAdminUsers'
 import { useFitScreen } from '@/composables/useFitScreen'
 import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
+import { markWorkspaceRefreshed } from '@/composables/useWorkspaceHeader'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
@@ -714,7 +697,6 @@ const txStore = useTransactions()
 const officeStore = useOffices()
 
 const loading = ref(false)
-const refreshedAt = ref(null)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
 // scroll, no half rows) and the pie follows its card's height.
@@ -755,29 +737,13 @@ const myOfficeId = computed(
     () => auth.user.value?.office_id ?? auth.user.value?.office?.id ?? null,
 )
 
-// ---- Greeting strip ----
-const headerReady = ref(false)
-const greeting = computed(() => {
-    const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23' }).format(refreshedAt.value || new Date()))
-    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
-})
-const firstName = computed(() => (auth.user.value?.name || '').trim().split(/\s+/)[0] || 'there')
-const scopeLabel = computed(() => {
-    const u = auth.user.value
-    if (isSuperadmin.value) return 'All offices'
-    return u?.office?.name || u?.office?.code || ''
-})
-const refreshedLabel = computed(() =>
-    refreshedAt.value ? refreshedAt.value.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' PHT' : '',
-)
-
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
 // Default order; the staff layout swaps the graph for the queue. The
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['graph', 'topsteps', 'action', 'byprocess']
+        return ['graph', 'byprocess', 'action', 'topsteps']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
@@ -905,7 +871,6 @@ function onEscapeWhileArmed(e) {
 }
 
 onMounted(() => {
-    headerReady.value = !!document.querySelector('#workspace-header-leading')
     window.addEventListener('keydown', onEscapeWhileArmed)
 })
 
@@ -1528,7 +1493,7 @@ onMounted(async () => {
     if (canApproveAccounts.value) loadAccounts()
     if (primaryCards.length) {
         await Promise.allSettled(primaryCards)
-        refreshedAt.value = new Date()
+        markWorkspaceRefreshed()
     }
     if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {})
 
@@ -1537,7 +1502,7 @@ onMounted(async () => {
         await txStore.fetchAll({ ...opts, timeout: 8000 })
     } catch { /* keep defaults */ }
 
-    refreshedAt.value = new Date()
+    markWorkspaceRefreshed()
     loading.value = false
 
     // The page is usable now. Fill the remaining cards in the background:
@@ -1566,7 +1531,7 @@ useSmartPoll(async () => {
         loadTopSteps({ silent: true })
         loadOverduePie({ silent: true })
         loadAccounts({ silent: true })
-        refreshedAt.value = new Date()
+        markWorkspaceRefreshed()
     } catch {
         /* next tick retries */
     }

@@ -185,7 +185,7 @@ useSmartPoll(() => load({ silent: true }));
     border: 2px solid rgb(var(--v-theme-primary));
 }
 .fact-label {
-    font-size: 0.72rem;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
