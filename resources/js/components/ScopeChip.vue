@@ -38,7 +38,7 @@ const scope = useOfficeScope()
     text-overflow: ellipsis;
 }
 .scope-chip__badge {
-    font-size: 0.62rem;
+    font-size: var(--tms-text-xs);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 2px 6px;

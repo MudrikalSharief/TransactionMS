@@ -20,6 +20,7 @@ class TransactionListResource extends JsonResource
     {
         $state = $this->whenLoaded('state');
         $currentStep = $state?->currentStep;
+        $currentVisit = $state?->currentVisit();
 
         return [
             'id' => $this->id,
@@ -44,12 +45,18 @@ class TransactionListResource extends JsonResource
                 $this->stepOfficePayload($currentStep)
             ) : null,
             'entered_at' => $state?->entered_at?->toISOString(),
+            // When the current worker clicked Receive. Null = pending receipt,
+            // and the SLA clock has not started yet.
+            'work_started_at' => $currentVisit?->received_at?->toISOString(),
+            'pending_receipt' => $currentVisit ? $currentVisit->received_at === null : null,
 
             // True when the paper is currently waiting on the requesting
             // user (same gate the write endpoints enforce). Lets the
             // dashboard split "waiting on me" from "in transit with other
             // offices" without re-deriving role/office rules client-side.
             'needs_action' => $this->needsAction($request),
+            'can_reassign_officer' => $request?->user() !== null
+                && app(\App\Services\OfficerAssignmentAccess::class)->canReassign($this->resource, $request->user()),
 
             // Minimal steps for the hover StepProgress popout (works from cache too).
             'workflow_steps' => $this->whenLoaded(

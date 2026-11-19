@@ -101,7 +101,7 @@ class ApprovalController extends Controller
         $query = Transaction::query()
             ->active()
             ->where('is_done', false)
-            ->with(['state.currentStep', 'attachments', 'checklistChecks', 'requirementChecks'])
+            ->with(['state.currentStep', 'state.currentRun', 'attachments', 'checklistChecks', 'requirementChecks'])
             ->latest();
 
         if (!$isSuperadmin) {
@@ -221,6 +221,7 @@ class ApprovalController extends Controller
                 'workflow.routes',
                 'workflow.stepRoles.role',
                 'state.currentStep.office',
+                'state.currentRun:id,to_step_id,received_at,performed_at',
                 'creator:id,name,email',
                 'fieldValues.fieldDefinition',
                 'requirementChecks.checker',

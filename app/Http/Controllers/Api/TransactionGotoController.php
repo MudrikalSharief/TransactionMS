@@ -48,16 +48,27 @@ class TransactionGotoController extends Controller
             abort(422, 'You can only jump to stations the paper has already passed.');
         }
 
+        // Dynamic return-to-sender rule: while the latest move into the
+        // current step is a return, the only allowed destination is that
+        // return's source step. This is not hardcoded — it follows the
+        // station that actually sent the paper back.
+        $returnSourceStepId = $routing->returnSourceStepId($transaction);
+        if ($returnSourceStepId && $toStepId !== $returnSourceStepId) {
+            abort(422, 'This returned transaction must be resent to the station that returned it.');
+        }
+
         // Both directions allowed as long as the target was visited:
         // backward = return, forward = quick resend to a passed station
         // (e.g. 1 -> 3 after a 3 -> 1 return). A forward target already
         // reachable via a normal Proceed route must use Proceed (full
-        // gating) so the remarks-only shortcut never duplicates it.
+        // gating) so the remarks-only shortcut never duplicates it. The
+        // return source is exempt: it must be resent even when a direct
+        // route exists.
         $directForward = $transaction->workflow->routes
             ->where('from_step_id', $currentStepId)
             ->where('to_step_id', $toStepId)
             ->firstWhere('is_return_route', false);
-        if ($directForward) {
+        if ($directForward && $toStepId !== $returnSourceStepId) {
             abort(422, 'Use Proceed to move forward to this station.');
         }
 
@@ -66,7 +77,8 @@ class TransactionGotoController extends Controller
             $toStepId,
             $request->validated()['remarks'] ?? null,
             (int) $request->user()->id,
-            $request->validated()['flagged_items'] ?? []
+            $request->validated()['flagged_items'] ?? [],
+            $request->validated()['attachment_targets'] ?? []
         );
 
         $tx->load([

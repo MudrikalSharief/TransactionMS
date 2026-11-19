@@ -529,7 +529,7 @@ const avatarLetter = computed(() => String(moveBy.value || '?').trim().charAt(0)
     font-size: 12.5px;
     font-weight: 700;
 }
-.hover-group-count { flex: none; color: #9ca0a8; font-size: 11px; }
+.hover-group-count { flex: none; color: #9ca0a8; font-size: var(--tms-text-xs); }
 .hover-group-chev {
     flex: none;
     color: #9ca0a8;
@@ -537,7 +537,7 @@ const avatarLetter = computed(() => String(moveBy.value || '?').trim().charAt(0)
 }
 .hover-group-head[aria-expanded="true"] .hover-group-chev { transform: rotate(180deg); }
 .hover-filewrap { display: flex; flex-direction: column; gap: 2px; }
-.hover-from { font-size: 11px; color: #9ca0a8; margin-left: 2px; }
+.hover-from { font-size: var(--tms-text-xs); color: #9ca0a8; margin-left: 2px; }
 .hover-chip {
     display: flex;
     align-items: center;
@@ -582,7 +582,7 @@ const avatarLetter = computed(() => String(moveBy.value || '?').trim().charAt(0)
     margin-bottom: 8px;
 }
 .hover-act {
-    font-size: 11px;
+    font-size: var(--tms-text-xs);
     font-weight: 700;
     text-transform: none;
     letter-spacing: 0;

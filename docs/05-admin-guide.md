@@ -1,12 +1,20 @@
-# 5. Admin Guide (superadmin only UI)
+# 5. Admin Guide
 
 Order of setup: Types -> Steps (via Types) -> Routes -> Fields -> Requirements -> Roles/Users.
 
 ## Users (`admin/Users.vue`)
-CRUD via `/api/admin/users`. Fields: `name, email, password (min 8, required on create), is_active, office_id, role_ids`. Audit-logged.
+Superadmins use **Accounts** (`/admin/users`) to create and manage accounts across offices, including Admin and Superadmin roles. Fields include name, position, username, optional email/contact number, password (minimum 8 characters; required on create), active status, office and roles. Changes are audit-logged.
+
+Office admins use **Office Users** (`/office/users`) to manage their own office. To create another admin, choose **Add user**, enter the account details, select **Admin**, and create the account. To promote an existing member, edit their roles and select Admin. Other admins in the same office can be edited, demoted, deactivated or reactivated. Newly created accounts are approved immediately.
+
+Office admins cannot move accounts between offices, manage their own access here, assign Superadmin, or change any Superadmin account. Superadmins retain oversight across offices. Public signup cannot request Admin or Superadmin.
 
 ## Roles (`admin/Roles.vue`)
-CRUD via `/api/admin/roles`. `code` is immutable key (`superadmin` cannot be deleted — 422). Assign via Users screen.
+CRUD via `/api/admin/roles`. Codes, names and descriptions can be edited inline; the UI locks the Superadmin code, and deleting Superadmin is blocked by the server (422). Assign via the Users screen.
+
+Office admins also have **Roles** under People (`/office/roles`). It uses the same Add Role and inline code/name/description editing controls. They can manage and restore custom roles created for their own office; shared roles are read-only. Role codes are unique across the system, so an office prefix such as `csd_records` helps distinguish custom roles. Recreating an owned deleted code restores its original role and relationships.
+
+Assign a custom role through **Office Users** by opening a user's Roles cell, selecting the role and saving. Custom roles can only be assigned to accounts in the owning office. Superadmins see all roles and offices, but must remove incompatible custom roles before transferring a user. Public registration only offers shared roles and roles for the selected office. Removing an office unassigns its members and removes office-specific role assignments while preserving shared roles.
 
 ## Offices (ARCHIVED — hidden from UI, data kept)
 `offices` + `office_steps` tables and `users/transactions.office_id` still exist with all rows intact, but every office surface is hidden: no sidebar item, no search entry, no Users column/picker, no transaction assignment UI, no office tracker. Roles alone gate the flow. Backend endpoints (`/api/admin/offices`, steps, `transactions/{id}/office`) remain live for reversibility. To restore: re-add the UI pieces (all removed from Vue only). To delete permanently: drop the tables/columns + remove the API.

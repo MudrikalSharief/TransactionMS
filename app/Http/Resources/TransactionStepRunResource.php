@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Office;
 use App\Models\Transaction;
+use App\Support\WorkingTime;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TransactionStepRunResource extends JsonResource
@@ -21,8 +22,27 @@ class TransactionStepRunResource extends JsonResource
     public function toArray($request): array
     {
         $estimated = (int) ($this->sla_minutes_snapshot ?? $this->toStep?->sla_minutes ?? 0);
-        // Working minutes (weekends skipped), same as the model's actual_minutes.
+        // Send-to-receive minutes, kept for compatibility with the existing
+        // receipt metric.
         $actual = $this->actual_minutes;
+
+        $runs = $this->transaction?->relationLoaded('runs')
+            ? $this->transaction->runs
+                ->sortBy(fn ($r) => [$r->performed_at?->timestamp ?? 0, $r->id])
+                ->values()
+            : collect();
+        $index = $runs->search(fn ($r) => (int) $r->id === (int) $this->id);
+        $next = $index !== false ? $runs->get($index + 1) : null;
+        $isFinalize = $this->action_code === 'finalize';
+
+        // Pending is real elapsed time (no SLA): send until receive, or now.
+        // Working time below still uses office hours.
+        $pending = (!$isFinalize && $this->performed_at)
+            ? max(0, (int) $this->performed_at->diffInMinutes($this->received_at ?? now(), true))
+            : null;
+        $working = (!$isFinalize && $this->received_at)
+            ? WorkingTime::minutesBetween($this->received_at, $next?->performed_at ?? now())
+            : null;
 
         return [
             'id' => $this->id,
@@ -43,10 +63,14 @@ class TransactionStepRunResource extends JsonResource
             // #5 Estimated duration (snapshot of destination sla_minutes)
             'duration_estimated_minutes' => $estimated,
             'sla_minutes_snapshot' => $estimated,
-            // #6 Actual send→receive time + breach flag
+            // #6 Actual send→receive time + receipt breach flag (legacy metric)
             'sla_actual_minutes' => $actual,
+            // Pending (no SLA) and working (SLA applies) minutes.
+            'pending_minutes' => $pending,
+            'working_minutes' => $working,
             'is_pending' => $this->received_at === null,
-            'is_breached' => $actual !== null && $actual > $estimated,
+            'is_breached' => $estimated > 0 && $actual !== null && $actual > $estimated,
+            'is_working_breached' => $estimated > 0 && $working !== null && $working > $estimated,
             'attachments' => TransactionAttachmentResource::collection($this->whenLoaded('attachments')),
         ];
     }

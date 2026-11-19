@@ -158,7 +158,10 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class]
         Route::delete('/users/{user}', [OfficeAdminController::class, 'deactivateUser']);
         Route::post('/users/{user}/approve', [OfficeAdminController::class, 'approveUser']);
         Route::delete('/users/{user}/reject', [OfficeAdminController::class, 'rejectUser']);
-        Route::get('/roles', [OfficeAdminController::class, 'roles']);
+        Route::get('/roles', [RoleController::class, 'index']);
+        Route::post('/roles', [RoleController::class, 'store']);
+        Route::put('/roles/{role}', [RoleController::class, 'update']);
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
         Route::get('/transaction-types', [OfficeAdminController::class, 'transactionTypes']);
 
         // Same Transaction Summary card, forced to the admin's office scope.

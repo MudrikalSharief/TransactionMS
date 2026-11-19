@@ -44,10 +44,12 @@
             v-if="hasFilters"
             type="button"
             class="tl-clear-filters"
+            aria-label="Clear filters"
+            title="Clear filters"
             @click="clearFilters"
           >
             <v-icon size="16">mdi-close</v-icon>
-            Clear filters
+            <span class="tl-clear-filters-label">Clear filters</span>
           </button>
           <button
             v-if="canManage && !isArchive"
@@ -310,7 +312,7 @@
                     style="
                       margin-bottom: 8px;
                       color: rgb(var(--v-theme-secondary));
-                      font-size: 11px;
+                      font-size: var(--tms-text-xs);
                       font-weight: 800;
                       letter-spacing: 0.08em;
                       text-transform: uppercase;
@@ -525,28 +527,39 @@
           </template>
 
           <template v-slot:[`item.actions`]="{ item }">
-            <v-btn
-              v-if="isArchive"
-              icon="mdi-restore"
-              size="small"
-              variant="text"
-              color="primary"
-              class="tl-unarchive-btn"
-              aria-label="Unarchive transaction"
-              v-tooltip="'Unarchive transaction'"
-              @click.stop="askUnarchive(item)"
-            />
-            <v-btn
-              v-else
-              icon="mdi-archive-outline"
-              size="small"
-              variant="text"
-              color="grey-darken-2"
-              class="tl-archive-btn"
-              aria-label="Archive transaction"
-              v-tooltip="'Archive transaction'"
-              @click.stop="askArchive(item)"
-            />
+            <div class="d-flex align-center justify-end ga-2">
+              <v-btn
+                v-if="!isArchive && item.can_reassign_officer"
+                prepend-icon="mdi-account-switch-outline"
+                size="small"
+                variant="tonal"
+                color="primary"
+                :aria-label="`Reassign officer for ${item.reference_number || 'transaction'}`"
+                @click.stop="openReassignment(item)"
+              >Reassign officer</v-btn>
+              <v-btn
+                v-if="isArchive"
+                icon="mdi-restore"
+                size="small"
+                variant="text"
+                color="primary"
+                class="tl-unarchive-btn"
+                aria-label="Unarchive transaction"
+                v-tooltip="'Unarchive transaction'"
+                @click.stop="askUnarchive(item)"
+              />
+              <v-btn
+                v-else
+                icon="mdi-archive-outline"
+                size="small"
+                variant="text"
+                color="grey-darken-2"
+                class="tl-archive-btn"
+                aria-label="Archive transaction"
+                v-tooltip="'Archive transaction'"
+                @click.stop="askArchive(item)"
+              />
+            </div>
           </template>
 
           <template #no-data>
@@ -643,6 +656,13 @@
       @confirm="confirmAction"
     />
 
+    <OfficerReassignmentDialog
+      v-model="reassignmentOpen"
+      :tx-id="reassignmentTarget?.id"
+      @saved="onOfficerReassigned"
+      @unavailable="refreshAssignments"
+    />
+
   </div>
 </template>
 
@@ -660,6 +680,7 @@ import { useEntryVeil } from '@/composables/useEntryVeil'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
+import OfficerReassignmentDialog from '@/components/OfficerReassignmentDialog.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
 const props = defineProps({
@@ -675,6 +696,23 @@ const { items, loading, meta, fetchAll, create, archive: archiveTx, unarchive, s
 // painted, otherwise until the first fetch finishes.
 const { entering, settle } = useEntryVeil()
 const page = ref(1)
+const reassignmentOpen = ref(false)
+const reassignmentTarget = ref(null)
+
+function openReassignment(item) {
+  reassignmentTarget.value = item
+  reassignmentOpen.value = true
+}
+
+async function refreshAssignments() {
+  reassignmentOpen.value = false
+  await fetchAll(requestParams(page.value))
+}
+
+async function onOfficerReassigned() {
+  toast.success('Officer reassigned.')
+  await refreshAssignments()
+}
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 const auth = useAuth()
@@ -835,7 +873,7 @@ const headers = computed(() => {
     if (!isArchive.value) {
       base.push({ title: 'Access', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }
-    base.push({ title: '', key: 'actions', sortable: false, width: '64px', align: 'end' })
+    base.push({ title: isArchive.value ? '' : 'Actions', key: 'actions', sortable: false, width: isArchive.value ? '64px' : '220px', align: 'end' })
   }
   return base
 })
@@ -1203,10 +1241,8 @@ html.dark .tl-page {
     line-height: 1.4;
 }
 .tl-tools {
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-columns: minmax(0, 320px);
-    grid-auto-columns: max-content;
+    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 12px;
     min-width: 0;
@@ -1215,6 +1251,9 @@ html.dark .tl-page {
 }
 .tl-search {
     position: relative;
+    width: 320px;
+    flex: 1 1 320px;
+    max-width: 320px;
     min-width: 0;
 }
 .tl-search-icon {
@@ -1709,8 +1748,11 @@ html.dark .tl-page {
 @media (max-width: 900px) {
     .tl-tools {
         flex: 1 1 100%;
-        grid-template-columns: minmax(0, 1fr);
         margin-left: 0;
+    }
+    .tl-search {
+        flex-basis: 100%;
+        max-width: none;
     }
 }
 @media (max-width: 760px) {
@@ -1729,11 +1771,21 @@ html.dark .tl-page {
     }
 }
 @media (max-width: 520px) {
+    .tl-tools {
+        gap: 8px;
+    }
+    .tl-clear-filters {
+        flex: 0 0 28px;
+        width: 28px;
+        padding: 0;
+        gap: 0;
+        justify-content: center;
+    }
+    .tl-clear-filters-label {
+        display: none;
+    }
     .tl-add {
         padding: 0 16px;
-    }
-    .tl-add-label {
-        display: none;
     }
 }
 </style>

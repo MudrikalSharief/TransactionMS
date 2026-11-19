@@ -94,9 +94,12 @@ class UserTransactionController extends Controller
                 'workflow.steps.office:id,code,name,icon_path',
                 'workflow.stepRoles.role',
                 'state.currentStep.office:id,code,name,icon_path',
+                'state.currentRun:id,to_step_id,received_at,performed_at',
                 'creator:id,name,email',
             ])
             ->latest();
+
+        if ($isSuperadmin || $isOfficeAdmin) $query->with('runs.toStep.office');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -129,17 +132,19 @@ class UserTransactionController extends Controller
                 // has their office as its effective office. Legacy transactions
                 // with no Originating Office keep role-only access to blank and
                 // end-user stations.
-                $query->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
-                    $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
+                $query->where(function ($visible) use ($roleIds, $user) {
+                    $visible->whereHas('state.currentStep', function ($s) use ($roleIds, $user) {
+                        $s->whereHas('roles', fn ($r) => $r->whereIn('roles.id', $roleIds));
 
-                    if ($user->office_id === null) {
-                        $s->whereLegacyNoOriginFallback();
-                    } else {
-                        $s->where(function ($x) use ($user) {
-                            $x->whereEffectiveOffice($user->office_id)
-                                ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
-                        });
-                    }
+                        if ($user->office_id === null) {
+                            $s->whereLegacyNoOriginFallback();
+                        } else {
+                            $s->where(function ($x) use ($user) {
+                                $x->whereEffectiveOffice($user->office_id)
+                                    ->orWhere(fn ($y) => $y->whereLegacyNoOriginFallback());
+                            });
+                        }
+                    })->orWhere(fn ($owned) => app(\App\Services\OfficerAssignmentAccess::class)->whereAssignedOffice($owned, $user));
                 });
             }
         }
@@ -154,6 +159,7 @@ class UserTransactionController extends Controller
                 fn (Transaction $tx) => $isSuperadmin
                     || $officeScope->covers($tx, $user)
                     || $routing->userCanWorkOnCurrentStep($tx, $user)
+                    || app(\App\Services\OfficerAssignmentAccess::class)->hasOfficeAssignment($tx, $user)
             )->values()
         );
 

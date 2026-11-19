@@ -20,7 +20,7 @@ use Tests\TestCase;
  * Office admin: superadmin powers limited to one office. Sees transactions
  * its office filed or that pass through one of its steps, acts at its own
  * office's steps, starts transactions for processes its office files, and
- * manages the regular users of its own office.
+ * manages staff and other admins of its own office.
  */
 class OfficeAdminTest extends TestCase
 {
@@ -245,7 +245,7 @@ class OfficeAdminTest extends TestCase
         $this->postJson('/api/transactions', ['transaction_type_id' => $this->pr->id])->assertForbidden();
     }
 
-    public function test_office_admin_manages_only_regular_users_of_their_own_office(): void
+    public function test_office_admin_manages_staff_and_other_admins_of_their_own_office(): void
     {
         $gsoAdmin = $this->user($this->gso, $this->adminRole);
         $gsoClerk = $this->user($this->gso, $this->gsoStaff);
@@ -256,7 +256,7 @@ class OfficeAdminTest extends TestCase
         $listed = collect($this->getJson('/api/office/users')->assertOk()->json('data'))->pluck('id')->sort()->values()->all();
         $this->assertSame(collect([$gsoAdmin->id, $gsoClerk->id, $peerAdmin->id])->sort()->values()->all(), $listed);
 
-        // New users always join the admin's office; admin/superadmin can't be granted.
+        // New staff and admins always join the actor's office.
         $created = $this->postJson('/api/office/users', [
             'name' => 'New Staff', 'position' => 'Administrative Officer',
             'email' => 'new@lgu.test', 'password' => 'secret123',
@@ -264,22 +264,174 @@ class OfficeAdminTest extends TestCase
         ])->assertCreated();
         $this->assertSame($this->gso->id, $created->json('data.office_id'));
         $this->assertSame('Administrative Officer', $created->json('data.position'));
-        $this->postJson('/api/office/users', [
-            'name' => 'Sneaky', 'email' => 'sneaky@lgu.test', 'password' => 'secret123',
+        $createdAdmin = $this->postJson('/api/office/users', [
+            'name' => 'New Admin', 'username' => 'new.gso.admin', 'password' => 'secret123',
+            'office_id' => $this->csd->id,
             'role_ids' => [$this->adminRole->id],
-        ])->assertUnprocessable();
+        ])->assertCreated()->assertJsonPath('data.office_id', $this->gso->id)
+            ->assertJsonPath('data.roles.0.code', 'admin')
+            ->assertJsonPath('data.is_active', true)
+            ->assertJsonPath('data.pending_approval', false);
+        $newAdmin = User::findOrFail($createdAdmin->json('data.id'));
+        $this->assertSame($gsoAdmin->id, $newAdmin->approved_by);
+        $this->assertNotNull($newAdmin->approved_at);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'office.users.create', 'actor_user_id' => $gsoAdmin->id,
+            'entity_id' => $newAdmin->id, 'office_id' => $this->gso->id,
+        ]);
 
         $edit = fn (User $u) => ['name' => $u->name, 'position' => 'Records Officer', 'email' => $u->email, 'role_ids' => [$this->gsoStaff->id]];
         $this->putJson("/api/office/users/{$gsoClerk->id}", $edit($gsoClerk))->assertOk()
             ->assertJsonPath('data.position', 'Records Officer');
         $this->putJson("/api/office/users/{$csdClerk->id}", $edit($csdClerk))->assertNotFound();
-        $this->putJson("/api/office/users/{$peerAdmin->id}", $edit($peerAdmin))->assertForbidden();
+        $this->putJson("/api/office/users/{$peerAdmin->id}", [
+            ...$edit($peerAdmin), 'role_ids' => [$this->adminRole->id],
+            'office_id' => $this->csd->id,
+        ])->assertOk()->assertJsonPath('data.office_id', $this->gso->id)
+            ->assertJsonPath('data.position', 'Records Officer');
         $this->putJson("/api/office/users/{$gsoAdmin->id}", $edit($gsoAdmin))->assertUnprocessable();
-        $this->deleteJson("/api/office/users/{$peerAdmin->id}")->assertForbidden();
+        $this->deleteJson("/api/office/users/{$gsoAdmin->id}")->assertUnprocessable();
+        $this->deleteJson("/api/office/users/{$peerAdmin->id}")->assertOk();
+        $this->assertFalse($peerAdmin->fresh()->is_active);
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'office.users.deactivate', 'actor_user_id' => $gsoAdmin->id,
+            'entity_id' => $peerAdmin->id,
+        ]);
 
         $roleCodes = collect($this->getJson('/api/office/roles')->assertOk()->json('data'))->pluck('code');
-        $this->assertFalse($roleCodes->contains('admin'));
+        $this->assertTrue($roleCodes->contains('admin'));
         $this->assertTrue($roleCodes->contains('gso'));
+    }
+
+    public function test_office_admin_can_promote_demote_and_reactivate_another_admin(): void
+    {
+        $admin = $this->user($this->gso, $this->adminRole);
+        $member = $this->user($this->gso, $this->gsoStaff);
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/office/users/{$member->id}", [
+            'name' => $member->name, 'role_ids' => [$this->adminRole->id, $this->gsoStaff->id],
+        ])->assertOk();
+        $this->assertTrue($member->fresh()->hasRole('admin'));
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'office.users.update', 'actor_user_id' => $admin->id,
+            'entity_id' => $member->id, 'office_id' => $this->gso->id,
+        ]);
+
+        $this->deleteJson("/api/office/users/{$member->id}")->assertOk();
+        $this->putJson("/api/office/users/{$member->id}", [
+            'name' => $member->name, 'is_active' => true,
+        ])->assertOk()->assertJsonPath('data.is_active', true);
+        $this->assertTrue($member->fresh()->hasRole('admin'));
+
+        $this->putJson("/api/office/users/{$member->id}", [
+            'name' => $member->name, 'role_ids' => [$this->gsoStaff->id],
+        ])->assertOk();
+        $this->assertFalse($member->fresh()->hasRole('admin'));
+        $this->assertTrue($member->fresh()->hasRole('gso'));
+    }
+
+    public function test_office_admin_cannot_grant_superadmin_or_manage_protected_accounts(): void
+    {
+        $superRole = Role::create(['code' => 'superadmin', 'name' => 'Superadmin']);
+        $admin = $this->user($this->gso, $this->adminRole);
+        $peer = $this->user($this->gso, $this->adminRole);
+        $super = $this->user($this->gso, $superRole, $this->adminRole);
+        Sanctum::actingAs($admin);
+
+        $codes = collect($this->getJson('/api/office/roles')->assertOk()->json('data'))->pluck('code');
+        $this->assertTrue($codes->contains('admin'));
+        $this->assertFalse($codes->contains('superadmin'));
+        $this->postJson('/api/office/users', [
+            'name' => 'Escalation', 'username' => 'escalation', 'password' => 'secret123',
+            'role_ids' => [$this->adminRole->id, $superRole->id],
+        ])->assertUnprocessable()->assertJsonValidationErrors('role_ids.1');
+        $this->assertDatabaseMissing('users', ['username' => 'escalation']);
+        $this->putJson("/api/office/users/{$peer->id}", [
+            'name' => 'Escalated peer', 'role_ids' => [$superRole->id],
+        ])->assertUnprocessable()->assertJsonValidationErrors('role_ids.0');
+        $this->assertSame($peer->name, $peer->fresh()->name);
+        $this->assertFalse($peer->fresh()->hasRole('superadmin'));
+
+        $this->putJson("/api/office/users/{$super->id}", [
+            'name' => 'Changed superadmin', 'role_ids' => [$this->gsoStaff->id],
+        ])->assertForbidden();
+        $this->deleteJson("/api/office/users/{$super->id}")->assertForbidden();
+        $this->postJson("/api/office/users/{$super->id}/approve")->assertForbidden();
+        $this->deleteJson("/api/office/users/{$super->id}/reject")->assertForbidden();
+        $this->assertTrue($super->fresh()->is_active);
+        $this->assertTrue($super->fresh()->hasRole('superadmin'));
+        $this->assertSame($super->name, $super->fresh()->name);
+    }
+
+    public function test_office_admin_cannot_manage_admins_in_another_office(): void
+    {
+        $admin = $this->user($this->gso, $this->adminRole);
+        $other = $this->user($this->csd, $this->adminRole);
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/office/users/{$other->id}", [
+            'name' => 'Other office admin', 'office_id' => $this->gso->id,
+            'role_ids' => [$this->gsoStaff->id],
+        ])->assertNotFound();
+        $this->deleteJson("/api/office/users/{$other->id}")->assertNotFound();
+        $this->postJson("/api/office/users/{$other->id}/approve")->assertNotFound();
+        $this->deleteJson("/api/office/users/{$other->id}/reject")->assertNotFound();
+        $this->assertSame($this->csd->id, $other->fresh()->office_id);
+        $this->assertTrue($other->fresh()->is_active);
+        $this->assertTrue($other->fresh()->hasRole('admin'));
+
+        $this->putJson("/api/admin/users/{$other->id}", ['name' => 'Bypass'])->assertForbidden();
+    }
+
+    public function test_regular_staff_cannot_create_or_manage_office_admins(): void
+    {
+        $staff = $this->user($this->gso, $this->gsoStaff);
+        $admin = $this->user($this->gso, $this->adminRole);
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/office/roles')->assertForbidden();
+        $this->postJson('/api/office/users', [
+            'name' => 'Admin', 'username' => 'staff.created.admin', 'password' => 'secret123',
+            'role_ids' => [$this->adminRole->id],
+        ])->assertForbidden();
+        $this->putJson("/api/office/users/{$admin->id}", ['name' => 'Changed'])->assertForbidden();
+        $this->deleteJson("/api/office/users/{$admin->id}")->assertForbidden();
+        $this->assertDatabaseMissing('users', ['username' => 'staff.created.admin']);
+    }
+
+    public function test_new_office_admin_has_office_access_without_master_data_access(): void
+    {
+        $creator = $this->user($this->gso, $this->adminRole);
+        Sanctum::actingAs($creator);
+        $response = $this->postJson('/api/office/users', [
+            'name' => 'New Admin', 'username' => 'new.office.admin', 'password' => 'secret123',
+            'role_ids' => [$this->adminRole->id],
+        ])->assertCreated();
+
+        Sanctum::actingAs(User::findOrFail($response->json('data.id')));
+        $this->getJson('/api/office/users')->assertOk();
+        $this->getJson('/api/office/roles')->assertOk();
+        $this->getJson('/api/admin/users')->assertForbidden();
+        $this->getJson('/api/admin/roles')->assertForbidden();
+        $this->postJson('/api/admin/roles', ['code' => 'custom', 'name' => 'Custom'])->assertForbidden();
+    }
+
+    public function test_public_signup_still_cannot_request_admin_or_superadmin(): void
+    {
+        $superRole = Role::create(['code' => 'superadmin', 'name' => 'Superadmin']);
+        $codes = collect($this->getJson('/api/auth/register/options')->assertOk()->json('roles'))->pluck('code');
+        $this->assertFalse($codes->contains('admin'));
+        $this->assertFalse($codes->contains('superadmin'));
+        foreach ([$this->adminRole, $superRole] as $role) {
+            $username = 'public.'.$role->code;
+            $this->postJson('/api/auth/register', [
+                'name' => 'Public account', 'username' => $username, 'password' => 'secret123',
+                'contact_number' => '09171234567', 'office_id' => $this->gso->id,
+                'role_ids' => [$role->id],
+            ])->assertUnprocessable()->assertJsonValidationErrors('role_ids.0');
+            $this->assertDatabaseMissing('users', ['username' => $username]);
+        }
     }
 
     public function test_office_admin_approves_only_pending_signups_for_their_office(): void

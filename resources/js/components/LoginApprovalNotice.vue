@@ -16,7 +16,7 @@
                 <div class="tray-tab">
                     <!-- Folder tab: rounded on the left, curving down into
                          the card's navy top edge on the right. -->
-                    <svg class="tab-shape" viewBox="0 0 360 64" preserveAspectRatio="none" aria-hidden="true">
+                    <svg class="tray-tab-shape" viewBox="0 0 360 64" preserveAspectRatio="none" aria-hidden="true">
                         <defs>
                             <linearGradient id="tray-tab-fill" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0" stop-color="#1f3f7e" />
@@ -25,10 +25,10 @@
                         </defs>
                         <path d="M0 64 V30 Q0 0 30 0 H262 C292 0 300 18 312 36 C322 54 332 64 360 64 Z" fill="url(#tray-tab-fill)" />
                     </svg>
-                    <img class="tab-seal" :src="'/zamboanga-seal.png'" alt="" width="34" height="34" />
-                    <span class="tab-code">{{ officeCode }}</span>
-                    <span class="tab-sep" aria-hidden="true"></span>
-                    <span class="tab-count" :aria-label="`${total} waiting`">{{ total }}</span>
+                    <img class="tray-tab-seal" :src="'/zamboanga-seal.png'" alt="" width="34" height="34" />
+                    <span class="tray-tab-code">{{ officeCode }}</span>
+                    <span class="tray-tab-sep" aria-hidden="true"></span>
+                    <span class="tray-tab-count" :aria-label="`${total} waiting`">{{ total }}</span>
                 </div>
                 <button type="button" class="tray-close" aria-label="Close" @click="open = false">
                     <v-icon size="26">mdi-close</v-icon>
@@ -145,12 +145,14 @@ const timed = computed(() =>
     rows.value
         .map((tx) => {
             const sla = Number(tx.current_step?.sla_minutes || 0);
-            const entered = Date.parse(tx.entered_at || "");
-            if (!sla || !Number.isFinite(entered)) return null;
-            return { tx, sla, left: sla * 60000 - workingMs(entered, now.value) };
+            const started = Date.parse(tx.work_started_at || "");
+            if (!sla || !Number.isFinite(started)) return null;
+            return { tx, sla, left: sla * 60000 - workingMs(started, now.value) };
         })
         .filter(Boolean),
 );
+// A paper still waiting to be received has no SLA clock yet.
+const pending = computed(() => rows.value.filter((tx) => tx.pending_receipt || !tx.work_started_at));
 // Past due: the time limit has passed. Due: still within it; "almost due"
 // when a quarter or less of the time is left.
 const pastDue = computed(() => timed.value.filter((d) => d.left < 0));
@@ -169,6 +171,7 @@ const total = computed(() => rows.value.length);
 const tally = computed(() => {
     const almost = almostDue.value.length;
     return [
+        { key: "pending", mark: "Pending", icon: "mdi-tray-arrow-down", n: pending.value.length, label: "waiting to be received" },
         { key: "past", mark: "Past due", icon: "mdi-alert", n: pastDue.value.length, label: "past the time limit", always: true },
         {
             key: "due",
@@ -293,33 +296,33 @@ function openApprovals() {
     padding: 0 0 4px 24px;
     color: #fff;
 }
-.tab-shape {
+.tray-tab-shape {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
 }
-.tray-tab > :not(.tab-shape) {
+.tray-tab > :not(.tray-tab-shape) {
     position: relative;
 }
-.tab-seal {
+.tray-tab-seal {
     border-radius: 50%;
     background: #fff;
     padding: 1px;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
-.tab-code {
+.tray-tab-code {
     font-family: "Montserrat", "Inter", sans-serif;
     font-weight: 800;
     font-size: 1.45rem;
     letter-spacing: 0.02em;
 }
-.tab-sep {
+.tray-tab-sep {
     width: 2px;
     height: 30px;
     background: rgba(255, 255, 255, 0.55);
 }
-.tab-count {
+.tray-tab-count {
     display: grid;
     place-items: center;
     min-width: 38px;
@@ -705,7 +708,7 @@ function openApprovals() {
         gap: 10px;
         padding-left: 16px;
     }
-    .tab-code {
+    .tray-tab-code {
         font-size: 1.15rem;
     }
     .tray-close {
