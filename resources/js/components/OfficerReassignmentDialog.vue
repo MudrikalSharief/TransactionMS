@@ -59,7 +59,7 @@
                         </div>
                     </div>
                     <v-alert v-if="assignment.requires_reassignment" type="warning" variant="tonal" class="mb-4">The previous officer is unavailable. Select a replacement before this return can be received.</v-alert>
-                    <v-alert v-if="assignment.is_pending" type="info" variant="tonal" class="mb-4">This return is waiting to be received. The new officer must still receive it.</v-alert>
+                    <v-alert v-if="assignment.is_pending" type="info" variant="tonal" class="or-pending mb-4">This return is waiting to be received. The new officer must still receive it.</v-alert>
                     <div class="or-note" role="note">
                         <v-icon size="18" aria-hidden="true">mdi-alert-outline</v-icon>
                         <span>Responsibility transfers immediately for this office. The previous officer will lose access to this transaction.</span>
@@ -295,6 +295,9 @@ async function submit() {
     font-weight: 700;
     line-height: 1.3;
     overflow-wrap: anywhere;
+}
+.or-pending :deep(.v-alert__underlay) {
+    display: none;
 }
 .or-note {
     display: flex;

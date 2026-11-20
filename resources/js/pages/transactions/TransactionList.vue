@@ -647,13 +647,6 @@
       @confirm="confirmAction"
     />
 
-    <OfficerReassignmentDialog
-      v-model="reassignmentOpen"
-      :tx-id="reassignmentTarget?.id"
-      @saved="onOfficerReassigned"
-      @unavailable="refreshAssignments"
-    />
-
   </div>
 </template>
 
@@ -671,7 +664,6 @@ import { useEntryVeil } from '@/composables/useEntryVeil'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
-import OfficerReassignmentDialog from '@/components/OfficerReassignmentDialog.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
 const props = defineProps({
@@ -687,18 +679,6 @@ const { items, loading, meta, fetchAll, create, archive: archiveTx, unarchive, s
 // painted, otherwise until the first fetch finishes.
 const { entering, settle } = useEntryVeil()
 const page = ref(1)
-const reassignmentOpen = ref(false)
-const reassignmentTarget = ref(null)
-
-async function refreshAssignments() {
-  reassignmentOpen.value = false
-  await fetchAll(requestParams(page.value))
-}
-
-async function onOfficerReassigned() {
-  toast.success('Officer reassigned.')
-  await refreshAssignments()
-}
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 const auth = useAuth()
@@ -859,7 +839,7 @@ const headers = computed(() => {
     if (!isArchive.value) {
       base.push({ title: 'Access', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }
-    base.push({ title: isArchive.value ? '' : 'Actions', key: 'actions', sortable: false, width: isArchive.value ? '64px' : '220px', align: 'end' })
+    base.push({ title: isArchive.value ? '' : 'Actions', key: 'actions', sortable: false, width: '64px', align: 'end' })
   }
   return base
 })
@@ -1254,7 +1234,7 @@ html.dark .tl-page {
     width: 100%;
     height: 46px;
     padding: 0 14px 0 42px;
-    border: 1.5px solid var(--tl-line);
+    border: 1px solid var(--tl-line);
     border-radius: 0;
     background: var(--tl-field);
     color: var(--tl-ink);
@@ -1280,9 +1260,8 @@ html.dark .tl-page {
 }
 .tl-search-input:focus {
     outline: none;
-    border-color: var(--tl-blue);
+    border-color: transparent;
     background: var(--tl-panel);
-    box-shadow: 0 0 0 4px var(--tl-ring);
 }
 .tl-search-input::-webkit-search-cancel-button {
     display: none;

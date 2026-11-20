@@ -1832,7 +1832,7 @@ const passwordStrength = computed(() => {
 
 const roleOptions = computed(() =>
    (roles.value || [])
-     .filter(r => isRoleAvailableInOffice(r, officeMode ? myOffice.value?.id : form.value.office_id))
+     .filter(r => !['viewer', 'end_user'].includes(r.code) && isRoleAvailableInOffice(r, officeMode ? myOffice.value?.id : form.value.office_id))
      .map(r => ({ id: r.id, label: `${r.name}` }))
 )
 
@@ -2242,7 +2242,7 @@ html.dark .us-page {
     width: 100%;
     height: 46px;
     padding: 0 14px 0 42px;
-    border: 1.5px solid var(--us-line);
+    border: 1px solid var(--us-line);
     border-radius: 0;
     background: var(--us-field);
     color: var(--us-ink);
@@ -2268,9 +2268,8 @@ html.dark .us-page {
 }
 .us-search-input:focus {
     outline: none;
-    border-color: var(--us-blue);
+    border-color: transparent;
     background: var(--us-panel);
-    box-shadow: 0 0 0 4px var(--us-ring);
 }
 .us-search-input::-webkit-search-cancel-button {
     display: none;

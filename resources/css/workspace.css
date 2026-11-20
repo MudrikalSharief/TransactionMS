@@ -94,8 +94,8 @@ html.dark .workspace-shell {
 .workspace-shell .v-label { opacity: 1; color: var(--ws-muted); }
 .workspace-shell .v-field--error :is(.v-field__outline, .v-label) { color: rgb(var(--v-theme-error)) !important; }
 .workspace-shell .v-selection-control__input .v-icon { opacity: 1; }
-.workspace-shell :is(a, button, [tabindex], input, textarea, select):focus-visible,
-html.workspace-active .v-overlay :is(a, button, input, textarea, select):focus-visible {
+.workspace-shell :is(a, button, [tabindex], input, textarea, select):focus-visible:not(input[type="search"], .v-field :is(input, textarea)),
+html.workspace-active .v-overlay :is(a, button, input, textarea, select):focus-visible:not(input[type="search"], .v-field :is(input, textarea)) {
     outline: 3px solid var(--ws-blue);
     outline-offset: 3px;
 }
@@ -202,7 +202,7 @@ html.workspace-active .v-overlay :is(a, button, input, textarea, select):focus-v
 
 /* Overlays are teleported outside the page. The html marker is removed
    whenever the viewer/login experience is active, including account switches. */
-html.workspace-active .v-overlay :is(.v-card:not(.hover-card), .v-list) {
+html.workspace-active .v-overlay :is(.v-card:not(.hover-card), .v-list:not(.search-menu > .v-list)) {
     border: 1px solid var(--ws-line);
     border-radius: 20px !important;
     background-color: var(--ws-surface);
