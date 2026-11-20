@@ -94,15 +94,17 @@ const previousFiles = computed(() =>
 </script>
 
 <style scoped>
-/* Fixed pane height with internal scroll: the History table and the
-   Files list differ in length, so panes scroll inside instead of
-   resizing the card (and the page) on every tab switch. */
+/* Let the active pane grow with its content up to 560px, then scroll
+   inside the card. The 44px gutter matches the comfortable tabs header
+   so the card's top and bottom bands balance. */
 .doc-tabs-window {
-    height: 560px;
+    max-height: 560px;
+    padding-bottom: 44px;
+    box-sizing: border-box;
 }
 
 .doc-tabs-window :deep(.v-window-item) {
-    height: 560px;
+    max-height: calc(560px - 44px);
     overflow-y: auto;
 }
 </style>
