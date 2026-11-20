@@ -454,39 +454,28 @@
                 class="us-cell-edit us-office-btn"
                 :class="{ 'is-editable': canInlineEdit(item) }"
                 :disabled="!canInlineEdit(item) || rowBusyId === item.id"
-                :title="
-                  canInlineEdit(item) ? 'Click to change office' : cellLockReason(item)
-                "
+                :title="officeButtonTitle(item)"
                 @click.stop
               >
                 <span
-                  v-if="
-                    item.office?.name ||
-                    officeNameById.get(Number(item.office_id))
-                  "
+                  v-if="officeNameOf(item)"
                   class="us-office is-specific"
-                  :title="
-                    item.office?.name ||
-                    officeNameById.get(Number(item.office_id))
-                  "
+                  :title="officeNameOf(item)"
                 >
                   <img
                     v-if="officeIcon(userOffice(item))"
                     class="us-office-icon"
                     :src="officeIcon(userOffice(item))"
-                    :alt="`${item.office?.name || officeNameById.get(Number(item.office_id))} icon`"
+                    :alt="`${officeNameOf(item)} icon`"
                   />
                   <span
                     v-else
                     class="us-office-icon-ph"
-                    aria-label="No office icon"
+                    :aria-label="`${officeNameOf(item)} initials`"
                   >
-                    ?
+                    {{ initialsOf(userOffice(item)) }}
                   </span>
-                  <span class="us-office-text">{{
-                    item.office?.name ||
-                    officeNameById.get(Number(item.office_id))
-                  }}</span>
+                  <span class="us-office-text">{{ officeCodeOf(item) }}</span>
                 </span>
                 <span v-else class="us-dash">—</span>
                 <v-icon
@@ -1187,11 +1176,12 @@ const headers = officeMode
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
     ]
   : [
-      { title: 'Name', key: 'name', width: '17%' },
-      { title: 'Position', key: 'position', width: '12%' },
-      { title: 'Username', key: 'username', width: '12%' },
-      { title: 'Contact number', key: 'contact_number', sortable: false, width: '13%' },
-      { title: 'Roles', key: 'roles', sortable: false, width: '12%' },
+      { title: 'Name', key: 'name', width: '21%' },
+      { title: 'Position', key: 'position', width: '11%' },
+      { title: 'Username', key: 'username', width: '11%' },
+      { title: 'Contact number', key: 'contact_number', sortable: false, width: '12%' },
+      { title: 'Roles', key: 'roles', sortable: false, width: '11%' },
+      // Wide enough for the longest office codes (OCSWD, OCDRDM, LEDIPS).
       { title: 'Office', key: 'office', sortable: false, width: '14%' },
       { title: 'Status', key: 'is_active', width: '10%' },
       { title: '', key: 'actions', sortable: false, width: ACTIONS_W, align: 'end' },
@@ -1383,7 +1373,8 @@ const filtered = computed(() => {
         u.contact_number,
         u.position,
         (u.roles || []).map((r) => r.name).join(' '),
-        u.office?.name || officeNameById.value.get(Number(u.office_id)) || '',
+        officeNameOf(u),
+        officeCodeOf(u),
         u.pending_approval ? 'waiting for approval pending' : u.is_active ? 'active' : 'inactive',
       ].some((v) => String(v || '').toLowerCase().includes(q))
     )
@@ -1862,6 +1853,27 @@ const officeNameById = computed(() => {
   for (const o of (offices.value || [])) m.set(Number(o.id), o.name || o.code)
   return m
 })
+
+// Full office name for the tooltip; the cell itself shows only the short code.
+function officeNameOf(item) {
+  return String(
+    userOffice(item)?.name ||
+      officeNameById.value.get(Number(item.office_id)) ||
+      '',
+  ).trim()
+}
+
+// Code shown in the Office column, falling back to the name for legacy rows
+// that predate required office codes.
+function officeCodeOf(item) {
+  return String(userOffice(item)?.code || '').trim() || officeNameOf(item)
+}
+
+function officeButtonTitle(item) {
+  if (!canInlineEdit(item)) return cellLockReason(item) || officeNameOf(item)
+  const name = officeNameOf(item)
+  return name ? `${name} — click to change office` : 'Click to assign an office'
+}
 
 // Full office row for the icon chip (the API may embed a partial office).
 function userOffice(item) {
@@ -2603,11 +2615,24 @@ html.dark .us-page {
 .us-roles-btn .us-edit-hint {
     margin-top: 2px;
 }
+/* The pencil overlays the cell edge so it never squeezes the office code. */
+.us-office-btn {
+    position: relative;
+    padding-right: 18px;
+}
+.us-office-btn .us-edit-hint {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    margin-left: 0;
+    transform: translateY(-50%);
+}
 .us-office-btn .us-office {
     min-width: 0;
 }
 .us-office-btn .us-office-text {
     min-width: 0;
+    flex: 0 1 auto;
 }
 .us-role-menu {
     background: rgb(var(--v-theme-surface));
@@ -2745,9 +2770,9 @@ html.dark .us-page {
 .us-office {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     max-width: 100%;
-    padding: 4px 10px 4px 5px;
+    padding: 4px 8px 4px 5px;
     background: var(--us-blue-bg);
     color: var(--us-blue);
     font-size: 13px;
@@ -2756,20 +2781,20 @@ html.dark .us-page {
     vertical-align: middle;
 }
 .us-office-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     flex: none;
     object-fit: contain;
 }
 .us-office-icon-ph {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     flex: none;
     background: var(--us-panel);
     color: var(--us-blue);
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 800;
     line-height: 1;
     border-radius: 50%;

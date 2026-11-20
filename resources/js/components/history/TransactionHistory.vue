@@ -121,8 +121,47 @@
                     </thead>
                     <tbody>
                         <template v-for="(run, idx) in displayRows" :key="run.history_key">
-                            <tr v-if="run.event_type === 'assignment'"><td colspan="10" class="pa-0"><AssignmentHistoryEvent :event="run" /></td></tr>
-                            <tr v-else class="history-row" @click="toggle(run.id)">
+                            <tr v-if="run.event_type === 'assignment'" class="history-row assignment-row" @click="toggle(run.history_key)">
+                                <td>
+                                    <span class="history-assignment-icon" :title="assignmentStepTitle(run)" aria-label="Officer reassignment">
+                                        <v-icon size="20">mdi-account-switch-outline</v-icon>
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="assignment-names">
+                                        <span>{{ run.from_officer?.name || 'Officer no longer available' }}</span>
+                                        <v-icon size="14" class="assignment-arrow" aria-hidden="true">mdi-arrow-right</v-icon>
+                                        <span>{{ run.to_officer?.name || 'Officer no longer available' }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <v-chip size="small" variant="tonal" rounded="0" :color="getActionConfig(run.action_code).color" class="font-weight-medium">
+                                        {{ getActionConfig(run.action_code).label }}
+                                    </v-chip>
+                                </td>
+                                <td>
+                                    <div class="text-body-2 font-weight-medium">{{ run.assigned_by?.name || '—' }}</div>
+                                </td>
+                                <td>
+                                    <div class="text-body-2">{{ formatHistoryDateShort(run.assigned_at) }}</div>
+                                </td>
+                                <td><div class="text-medium-emphasis">—</div></td>
+                                <td><div class="text-medium-emphasis">—</div></td>
+                                <td><div class="text-medium-emphasis">—</div></td>
+                                <td><div class="text-medium-emphasis">—</div></td>
+                                <td class="text-right">
+                                    <v-btn
+                                        :icon="isOpen(run.history_key) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                                        size="small"
+                                        variant="text"
+                                        color="grey-darken-3"
+                                        :aria-expanded="isOpen(run.history_key)"
+                                        aria-label="View assignment details"
+                                        @click.stop="toggle(run.history_key)"
+                                    />
+                                </td>
+                            </tr>
+                            <tr v-else class="history-row" @click="toggle(run.history_key)">
                                 <td>
                                     <v-avatar
                                         size="32"
@@ -167,17 +206,17 @@
                                 </td>
                                 <td class="text-right">
                                     <v-btn
-                                        :icon="isOpen(run.id) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                                        :icon="isOpen(run.history_key) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
                                         size="small"
                                         variant="text"
                                         color="grey-darken-3"
-                                        :aria-expanded="isOpen(run.id)"
+                                        :aria-expanded="isOpen(run.history_key)"
                                         aria-label="View history details"
-                                        @click.stop="toggle(run.id)"
+                                        @click.stop="toggle(run.history_key)"
                                     />
                                 </td>
                             </tr>
-                            <tr v-if="run.event_type !== 'assignment' && isOpen(run.id)" :key="`d-${run.id}`" class="history-details-row">
+                            <tr v-if="run.event_type !== 'assignment' && isOpen(run.history_key)" :key="`d-${run.history_key}`" class="history-details-row">
                                 <td colspan="10" class="history-details-cell">
                                     <v-row v-if="isCreateRun(run)" dense>
                                             <v-col cols="12" sm="4">
@@ -237,6 +276,12 @@
                                         </v-row>
                                 </td>
                             </tr>
+                            <tr v-if="run.event_type === 'assignment' && isOpen(run.history_key)" :key="`d-${run.history_key}`" class="history-details-row">
+                                <td colspan="10" class="history-details-cell">
+                                    <div class="history-label">Reason</div>
+                                    <div class="history-value assignment-reason">{{ run.reason || 'No reason provided.' }}</div>
+                                </td>
+                            </tr>
                         </template>
                     </tbody>
                 </v-table>
@@ -251,8 +296,8 @@
                     rounded="0"
                     class="mb-3"
                 >
-                    <AssignmentHistoryEvent v-if="run.event_type === 'assignment'" :event="run" />
-                    <v-card-text v-else class="pa-3" @click="toggle(run.id)">
+                    <AssignmentHistoryEvent v-if="run.event_type === 'assignment'" :event="run" :visit="assignmentVisit(run)" />
+                    <v-card-text v-else class="pa-3" @click="toggle(run.history_key)">
                         <div class="d-flex align-center justify-space-between mb-2">
                             <div class="d-flex align-center ga-2">
                                 <v-avatar
@@ -268,13 +313,13 @@
                                 </v-chip>
                             </div>
                             <v-btn
-                                :icon="isOpen(run.id) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                                :icon="isOpen(run.history_key) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
                                 size="x-small"
                                 variant="text"
                                 color="grey-darken-3"
-                                :aria-expanded="isOpen(run.id)"
+                                :aria-expanded="isOpen(run.history_key)"
                                 aria-label="View history details"
-                                @click.stop="toggle(run.id)"
+                                @click.stop="toggle(run.history_key)"
                             />
                         </div>
                         <div class="font-weight-bold">{{ movementOf(run).from }}<template v-if="movementOf(run).to"> → {{ movementOf(run).to }}</template></div>
@@ -299,7 +344,7 @@
                             <span class="font-weight-medium text-body-2">{{ pendingMain(run) }}</span>
                         </div>
                         <v-expand-transition>
-                            <div v-if="isOpen(run.id)" class="mt-3 pt-3 history-mobile-details" @click.stop>
+                            <div v-if="isOpen(run.history_key)" class="mt-3 pt-3 history-mobile-details" @click.stop>
                                 <template v-if="isCreateRun(run)">
                                     <div class="history-label">Created By</div>
                                     <div class="history-value mb-2">{{ run.performed_by?.name || '—' }}<span v-if="userPositionText(run.performed_by)" class="text-medium-emphasis"> · {{ userPositionText(run.performed_by) }}</span></div>
@@ -430,6 +475,16 @@ function boundToText(run) {
 }
 
 const historyEntries = computed(() => mergeAssignmentHistory(props.runs, props.assignmentHistory));
+const visitById = computed(
+    () => new Map((props.runs || []).map((run) => [String(run.id), run])),
+);
+function assignmentVisit(event) {
+    return visitById.value.get(String(event?.step_run_id)) || null;
+}
+function assignmentStepTitle(event) {
+    const step = assignmentVisit(event)?.to_step;
+    return step ? detailStepText(step) : 'Officer reassignment';
+}
 const actionOptions = computed(() => {
     const seen = new Map();
     for (const r of historyEntries.value) {
@@ -583,6 +638,35 @@ function pendingMain(run) {
 }
 .history-row:hover {
     background: rgba(248, 250, 252, 0.7);
+}
+/* Assignment rows keep the table rhythm, with a purple transfer marker. */
+.assignment-row td {
+    vertical-align: top;
+}
+.history-assignment-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    color: #7c3aed;
+}
+.assignment-names {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 5px;
+    color: #6d28d9;
+    font-weight: 600;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+.assignment-arrow {
+    flex: none;
+    opacity: 0.55;
+}
+.assignment-reason {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 .history-step-ring {
     border: 1px solid rgba(0, 94, 237, 0.45);
