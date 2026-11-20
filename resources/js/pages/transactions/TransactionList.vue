@@ -529,15 +529,6 @@
           <template v-slot:[`item.actions`]="{ item }">
             <div class="d-flex align-center justify-end ga-2">
               <v-btn
-                v-if="!isArchive && item.can_reassign_officer"
-                prepend-icon="mdi-account-switch-outline"
-                size="small"
-                variant="tonal"
-                color="primary"
-                :aria-label="`Reassign officer for ${item.reference_number || 'transaction'}`"
-                @click.stop="openReassignment(item)"
-              >Reassign officer</v-btn>
-              <v-btn
                 v-if="isArchive"
                 icon="mdi-restore"
                 size="small"
@@ -656,13 +647,6 @@
       @confirm="confirmAction"
     />
 
-    <OfficerReassignmentDialog
-      v-model="reassignmentOpen"
-      :tx-id="reassignmentTarget?.id"
-      @saved="onOfficerReassigned"
-      @unavailable="refreshAssignments"
-    />
-
   </div>
 </template>
 
@@ -680,7 +664,6 @@ import { useEntryVeil } from '@/composables/useEntryVeil'
 import StepProgress from '@/components/StepProgress.vue'
 import NewTransactionDialog from '@/components/NewTransactionDialog.vue'
 import ArchiveActionDialog from '@/components/ArchiveActionDialog.vue'
-import OfficerReassignmentDialog from '@/components/OfficerReassignmentDialog.vue'
 import { officeIcon } from '@/utils/officeIcons'
 
 const props = defineProps({
@@ -696,23 +679,6 @@ const { items, loading, meta, fetchAll, create, archive: archiveTx, unarchive, s
 // painted, otherwise until the first fetch finishes.
 const { entering, settle } = useEntryVeil()
 const page = ref(1)
-const reassignmentOpen = ref(false)
-const reassignmentTarget = ref(null)
-
-function openReassignment(item) {
-  reassignmentTarget.value = item
-  reassignmentOpen.value = true
-}
-
-async function refreshAssignments() {
-  reassignmentOpen.value = false
-  await fetchAll(requestParams(page.value))
-}
-
-async function onOfficerReassigned() {
-  toast.success('Officer reassigned.')
-  await refreshAssignments()
-}
 const { items: types, fetchAll: fetchTypes } = useTransactionTypes()
 const { items: offices, fetchAll: fetchOffices } = useOffices()
 const auth = useAuth()
@@ -873,7 +839,7 @@ const headers = computed(() => {
     if (!isArchive.value) {
       base.push({ title: 'Access', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     }
-    base.push({ title: isArchive.value ? '' : 'Actions', key: 'actions', sortable: false, width: isArchive.value ? '64px' : '220px', align: 'end' })
+    base.push({ title: isArchive.value ? '' : 'Actions', key: 'actions', sortable: false, width: '64px', align: 'end' })
   }
   return base
 })

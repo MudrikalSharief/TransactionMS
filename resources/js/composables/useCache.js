@@ -155,7 +155,6 @@ export function slimTx(tx) {
         is_done: tx.is_done ?? false,
         is_archive: tx.is_archive ?? false,
         is_private: tx.is_private ?? false,
-        can_reassign_officer: tx.can_reassign_officer ?? false,
         created_at: tx.created_at ?? null,
         // Dashboard "waiting" column reads entered_at with created_at fallback.
         entered_at: tx.entered_at ?? null,

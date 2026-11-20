@@ -1832,7 +1832,7 @@ const passwordStrength = computed(() => {
 
 const roleOptions = computed(() =>
    (roles.value || [])
-     .filter(r => isRoleAvailableInOffice(r, officeMode ? myOffice.value?.id : form.value.office_id))
+     .filter(r => !['viewer', 'end_user'].includes(r.code) && isRoleAvailableInOffice(r, officeMode ? myOffice.value?.id : form.value.office_id))
      .map(r => ({ id: r.id, label: `${r.name}` }))
 )
 
