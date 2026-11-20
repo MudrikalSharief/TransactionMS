@@ -529,15 +529,6 @@
           <template v-slot:[`item.actions`]="{ item }">
             <div class="d-flex align-center justify-end ga-2">
               <v-btn
-                v-if="!isArchive && item.can_reassign_officer"
-                prepend-icon="mdi-account-switch-outline"
-                size="small"
-                variant="tonal"
-                color="primary"
-                :aria-label="`Reassign officer for ${item.reference_number || 'transaction'}`"
-                @click.stop="openReassignment(item)"
-              >Reassign officer</v-btn>
-              <v-btn
                 v-if="isArchive"
                 icon="mdi-restore"
                 size="small"
@@ -698,11 +689,6 @@ const { entering, settle } = useEntryVeil()
 const page = ref(1)
 const reassignmentOpen = ref(false)
 const reassignmentTarget = ref(null)
-
-function openReassignment(item) {
-  reassignmentTarget.value = item
-  reassignmentOpen.value = true
-}
 
 async function refreshAssignments() {
   reassignmentOpen.value = false
