@@ -2607,10 +2607,14 @@ async function pollDetail() {
     if (!detailStopped) detailPollTimer = setTimeout(pollDetail, 60000);
 }
 onMounted(() => {
+    // The history pane has its own scrollbar; hide the document-level one so
+    // the page shows a single scrollbar. Wheel/trackpad scrolling still works.
+    document.documentElement.classList.add('hide-page-scroll');
     load();
     detailPollTimer = setTimeout(pollDetail, 60000);
 });
 onUnmounted(() => {
+    document.documentElement.classList.remove('hide-page-scroll');
     detailStopped = true;
     clearTimeout(detailPollTimer);
     clearTimeout(copiedTimer);
