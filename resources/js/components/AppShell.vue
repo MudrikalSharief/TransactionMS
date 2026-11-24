@@ -120,6 +120,7 @@
                             prepend-inner-icon="mdi-magnify"
                             placeholder="Search transactions, steps, or offices…"
                             :no-data-text="searchNoDataText"
+                            :menu-props="{ contentClass: 'search-menu' }"
                             @update:model-value="goToResult"
                         />
                     </v-card>
@@ -1732,7 +1733,7 @@ onUnmounted(() => {
     font-size: 0.75rem;
     color: rgba(var(--v-theme-on-surface), 0.55);
 }
-/* Search: light pill (Facebook's gray field), blue ring on focus. */
+/* The search pill uses a tinted surface to indicate focus. */
 .search-pixiv :deep(.v-field) {
     min-height: 40px;
     max-height: 40px;
@@ -1746,9 +1747,9 @@ onUnmounted(() => {
     background: rgba(var(--v-theme-on-surface), 0.1);
 }
 .search-pixiv :deep(.v-field--focused) {
-    background: rgba(var(--v-theme-on-surface), 0.1);
-    border-color: #2f6feb;
-    box-shadow: 0 0 0 2px rgba(47, 111, 235, 0.25);
+    background: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)));
+    border-color: transparent;
+    box-shadow: none;
 }
 .search-pixiv :deep(.v-field__input) {
     min-height: 40px;

@@ -1321,9 +1321,8 @@ html.dark .pm-file-group.is-card.pm-group-tone-4 { --group-accent: #5eead4; }
 }
 
 .pm-pick-search:focus-within {
-    border-color: var(--pm-blue);
+    border-color: transparent;
     background: var(--pm-panel);
-    box-shadow: 0 0 0 4px var(--pm-ring);
 }
 
 .pm-pick-search-icon {

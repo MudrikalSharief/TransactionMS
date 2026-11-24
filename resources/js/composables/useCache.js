@@ -136,6 +136,8 @@ export const CacheKeys = {
     stepChecklist: 'step-checklist',
     officeSteps: 'office-steps',
     summary: 'dash-summary:v6',
+    // Transaction Status / Top Overdue Steps / Overdue by Office payloads.
+    overdueOverview: 'dash-overdue-overview:v1',
     approvalCount: 'approval-count',
     authUser: 'auth-user',
 }
@@ -153,7 +155,6 @@ export function slimTx(tx) {
         is_done: tx.is_done ?? false,
         is_archive: tx.is_archive ?? false,
         is_private: tx.is_private ?? false,
-        can_reassign_officer: tx.can_reassign_officer ?? false,
         created_at: tx.created_at ?? null,
         // Dashboard "waiting" column reads entered_at with created_at fallback.
         entered_at: tx.entered_at ?? null,

@@ -976,7 +976,7 @@ html.dark .ro-page {
     width: 100%;
     height: 46px;
     padding: 0 14px 0 42px;
-    border: 1.5px solid var(--ro-line);
+    border: 1px solid var(--ro-line);
     border-radius: 0;
     background: var(--ro-field);
     color: var(--ro-ink);
@@ -1002,9 +1002,8 @@ html.dark .ro-page {
 }
 .ro-search-input:focus {
     outline: none;
-    border-color: var(--ro-blue);
+    border-color: transparent;
     background: var(--ro-panel);
-    box-shadow: 0 0 0 4px var(--ro-ring);
 }
 .ro-search-input::-webkit-search-cancel-button {
     display: none;

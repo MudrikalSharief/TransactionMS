@@ -318,7 +318,7 @@
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center lgu-head dash-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">mdi-format-list-numbered</v-icon>
+                                <v-icon color="#005EED" size="20">mdi-format-list-bulleted</v-icon>
                             </v-avatar>
                             <span class="text-subtitle-1 font-weight-bold dash-head-title">Top Overdue Steps</span>
                             <v-spacer />
@@ -330,7 +330,7 @@
                                         class="topsteps-month"
                                         aria-label="Filter Top Overdue Steps by month"
                                     >
-                                        <v-icon size="16">mdi-calendar-range</v-icon>
+                                        <v-icon size="16">mdi-calendar-blank-outline</v-icon>
                                         <span>{{ topStepsMonthLabel }}</span>
                                         <v-icon size="16">mdi-chevron-down</v-icon>
                                     </button>
@@ -905,7 +905,9 @@ const themeMode = computed(() => (theme.global.name.value === 'pixivDark' ? 'dar
 const myOffice = computed(() => auth.user.value?.office ?? null)
 
 // ---- Transaction Status: month and multi-office filters ----
-const chartEndMonth = ref(monthValue(new Date()))
+// The three monthly cards all open on the current month.
+const initialMonth = monthValue(new Date())
+const chartEndMonth = ref(initialMonth)
 const chartMonthOptions = computed(() => monthOptions())
 
 function officeInitials(office) {
@@ -976,7 +978,7 @@ watch(chartOfficeSearch, () => {
 })
 
 // ---- Top Overdue Steps: its own month filter, independent of the chart ----
-const topStepsMonth = ref(monthValue(new Date()))
+const topStepsMonth = ref(initialMonth)
 const topStepsMonthOptions = computed(() => monthOptions())
 const topStepsData = ref(null)
 const topStepsLoading = ref(false)
@@ -995,7 +997,7 @@ let chartRequest = 0
 // The overdue-by-office pie always uses monthly data; it no longer falls back
 // to the all-time summary. It has its own month filter, independent of the
 // chart's Month/Office filters.
-const overduePieMonth = ref(monthValue(new Date()))
+const overduePieMonth = ref(initialMonth)
 const overduePieMonthOptions = computed(() => monthOptions())
 const overduePieMonthLabel = computed(
     () => overduePieMonthOptions.value.find((o) => o.value === overduePieMonth.value)?.title || overduePieMonth.value,
@@ -1005,28 +1007,68 @@ const overduePieLoading = ref(false)
 const overduePieError = ref('')
 let overduePieRequest = 0
 
-async function loadChart({ silent = false } = {}) {
-    if (!canSeeSummary.value) return
-    const mine = ++chartRequest
-    if (!silent && !chartData.value) chartLoading.value = true
-    chartError.value = ''
-    try {
-        const res = await api.get(
+// ---- Shared overdue overview fetch (chart, top steps and pie) ----
+// One payload carries all three cards (months, steps and the per-office
+// breakdown), so a month/office filter is fetched once and cached per user;
+// concurrent callers share the same in-flight request.
+const overviewCacheKey = (month, officeIds = []) =>
+    scopedKey(
+        `${CacheKeys.overdueOverview}:${month}:${officeIds.length
+            ? [...officeIds].sort((a, b) => a - b).join(',')
+            : 'all'}`,
+        auth.user.value?.id ?? storedUserId(),
+    )
+
+const overviewInFlight = new Map()
+function fetchOverdueOverview(month, officeIds = []) {
+    const key = overviewCacheKey(month, officeIds)
+    const existing = overviewInFlight.get(key)
+    if (existing) return existing
+
+    const params = { month }
+    if (isSuperadmin.value && officeIds.length) params.office_ids = officeIds
+    const promise = api
+        .get(
             isSuperadmin.value
                 ? '/api/admin/dashboard/overdue-overview'
                 : '/api/office/dashboard/overdue-overview',
-            {
-                params: {
-                    month: chartEndMonth.value,
-                    ...(isSuperadmin.value && chartOfficeIds.value.length
-                        ? { office_ids: chartOfficeIds.value }
-                        : {}),
-                },
-                timeout: 10000,
-            },
+            { params, timeout: 10000 },
         )
+        .then((res) => {
+            writeCache(key, res.data)
+            return res.data
+        })
+        .finally(() => overviewInFlight.delete(key))
+    overviewInFlight.set(key, promise)
+    return promise
+}
+
+// Paint the last overview during setup (not onMounted) so coming back to the
+// Dashboard shows the chart, steps and pie immediately; onMounted then
+// refreshes them silently.
+const cachedOverview = readCache(overviewCacheKey(initialMonth))
+if (cachedOverview != null) {
+    chartData.value = cachedOverview
+    topStepsData.value = cachedOverview
+    overduePieData.value = cachedOverview
+}
+
+async function loadChart({ silent = false } = {}) {
+    if (!canSeeSummary.value) return
+    const mine = ++chartRequest
+    const officeIds = isSuperadmin.value ? [...chartOfficeIds.value] : []
+    const cached = readCache(overviewCacheKey(chartEndMonth.value, officeIds))
+    if (cached != null) {
+        chartData.value = cached
+        chartLoading.value = false
+    } else if (!silent && !chartData.value) {
+        chartLoading.value = true
+    }
+    chartError.value = ''
+    try {
+        const data = await fetchOverdueOverview(chartEndMonth.value, officeIds)
         if (mine !== chartRequest) return
-        chartData.value = res.data
+        chartData.value = data
     } catch (e) {
         if (mine !== chartRequest) return
         chartError.value = e?.code === 'ECONNABORTED'
@@ -1046,20 +1088,18 @@ watch([chartEndMonth, chartOfficeIds], () => {
 async function loadTopSteps({ silent = false } = {}) {
     if (!canSeeSummary.value) return
     const mine = ++topStepsRequest
-    if (!silent && !topStepsData.value) topStepsLoading.value = true
+    const cached = readCache(overviewCacheKey(topStepsMonth.value))
+    if (cached != null) {
+        topStepsData.value = cached
+        topStepsLoading.value = false
+    } else if (!silent && !topStepsData.value) {
+        topStepsLoading.value = true
+    }
     topStepsError.value = ''
     try {
-        const res = await api.get(
-            isSuperadmin.value
-                ? '/api/admin/dashboard/overdue-overview'
-                : '/api/office/dashboard/overdue-overview',
-            {
-                params: { month: topStepsMonth.value },
-                timeout: 10000,
-            },
-        )
+        const data = await fetchOverdueOverview(topStepsMonth.value)
         if (mine !== topStepsRequest) return
-        topStepsData.value = res.data
+        topStepsData.value = data
     } catch (e) {
         if (mine !== topStepsRequest) return
         topStepsError.value = e?.code === 'ECONNABORTED'
@@ -1080,23 +1120,19 @@ async function loadOverduePie({ silent = false } = {}) {
     if (!canSeeSummary.value) return
 
     const mine = ++overduePieRequest
-    overduePieError.value = ''
-    if (!silent || overduePieData.value == null) {
+    const cached = readCache(overviewCacheKey(overduePieMonth.value))
+    if (cached != null) {
+        overduePieData.value = cached
+        overduePieLoading.value = false
+    } else if (!silent || overduePieData.value == null) {
         overduePieData.value = null
         overduePieLoading.value = true
     }
+    overduePieError.value = ''
     try {
-        const res = await api.get(
-            isSuperadmin.value
-                ? '/api/admin/dashboard/overdue-overview'
-                : '/api/office/dashboard/overdue-overview',
-            {
-                params: { month: overduePieMonth.value },
-                timeout: 10000,
-            },
-        )
+        const data = await fetchOverdueOverview(overduePieMonth.value)
         if (mine !== overduePieRequest) return
-        overduePieData.value = res.data
+        overduePieData.value = data
     } catch (e) {
         if (mine !== overduePieRequest) return
         overduePieData.value = null
@@ -1491,13 +1527,16 @@ onMounted(async () => {
 
     // The visible dashboard cards come first. A slow transaction list must
     // not delay their requests or cover the page with a full-screen loader.
-    const primaryCards = canSeeSummary.value ? [loadSummary(), loadChart()] : []
+    // All three monthly cards sit here too so they share one overview request.
+    const primaryCards = canSeeSummary.value
+        ? [loadSummary(), loadChart(), loadTopSteps(), loadOverduePie()]
+        : []
     if (canApproveAccounts.value) loadAccounts()
+    if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {})
     if (primaryCards.length) {
         await Promise.allSettled(primaryCards)
         markWorkspaceRefreshed()
     }
-    if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {})
 
     // Populate secondary queues after the headline metrics and chart.
     try {
@@ -1506,17 +1545,6 @@ onMounted(async () => {
 
     markWorkspaceRefreshed()
     loading.value = false
-
-    // The page is usable now. Fill the remaining cards in the background:
-    // summary first (most visible), then the chart and accounts.
-    loadSummary().catch(() => {})
-    loadChart()
-    loadTopSteps()
-    loadOverduePie()
-    if (canApproveAccounts.value) loadAccounts()
-    if (isSuperadmin.value) {
-        officeStore.fetchAll({ silent: true }).catch(() => {})
-    }
 })
 
 // Silent 20s smart-poll: recent/action/graph cards stay fresh in place.

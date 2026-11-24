@@ -524,18 +524,18 @@ useSmartPoll(() => {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 
-/* The bar: square, ruled in the app's blue, like a counter window. */
 .bar {
     display: flex;
     align-items: stretch;
     height: 64px;
     background: rgb(var(--v-theme-surface));
-    border: 2px solid rgb(var(--v-theme-primary));
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     box-shadow: 0 14px 30px -18px rgba(30, 64, 175, 0.55);
-    transition: box-shadow 0.2s ease;
+    transition: border-color 0.2s ease;
 }
 .bar:focus-within {
-    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.2), 0 14px 30px -18px rgba(30, 64, 175, 0.55);
+    border-color: transparent;
+    background: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)));
 }
 .bar-icon {
     display: grid;

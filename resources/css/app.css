@@ -318,10 +318,10 @@ html.dark .dash-panel {
 }
 
 /* ---- Pixiv-style search dropdown: blue thin scrollbar ---- */
-.search-menu {
+.v-menu > .v-overlay__content.search-menu {
     border-radius: 24px;
     overflow: hidden;
-    border: 1px solid #cbd5e1;
+    border: 0;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
 }
 
@@ -645,9 +645,24 @@ html.nav-open .row-actions {
     box-shadow: var(--tms-glow) !important;
     border-color: rgba(0, 94, 237, 0.35);
 }
-/* Glow: focused inputs and selects get a soft halo. */
-.v-main .v-field--focused {
-    box-shadow: 0 0 0 3px rgba(0, 94, 237, 0.14), 0 0 18px -4px var(--tms-glow-c);
+/* Keep focus on the field as a whole, rather than outlining its inner input. */
+.v-application .v-field--variant-outlined.v-field--focused .v-field__outline {
+    --v-field-border-width: 1px;
+}
+.v-application .v-field--focused:is(.v-field--variant-solo, .v-field--variant-solo-filled, .v-field--variant-solo-inverted, .v-field--variant-plain) {
+    box-shadow: 0 0 0 1px rgb(var(--v-theme-primary));
+}
+:where(.v-application input[type="search"]):focus-visible {
+    outline: none;
+    background-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)));
+}
+/* Search fields use a surface tint to indicate focus. */
+.v-field.v-field--focused:not(.v-field--error):has(.v-field__prepend-inner .mdi-magnify) {
+    background-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)));
+    box-shadow: none;
+}
+.v-field.v-field--focused:not(.v-field--error):has(.v-field__prepend-inner .mdi-magnify) .v-field__outline {
+    --v-field-border-opacity: 0;
 }
 /* Glow: filled primary/dark buttons on hover and keyboard focus. */
 .v-main .v-btn--variant-flat.bg-primary:hover,

@@ -1517,7 +1517,7 @@ html.dark .ofp-page {
   width: 100%;
   height: 46px;
   padding: 0 14px 0 42px;
-  border: 1.5px solid var(--ofp-line);
+  border: 1px solid var(--ofp-line);
   border-radius: 0;
   background: var(--ofp-field);
   color: var(--ofp-ink);
@@ -1543,9 +1543,8 @@ html.dark .ofp-page {
 }
 .ofp-search-input:focus {
   outline: none;
-  border-color: var(--ofp-blue);
+  border-color: transparent;
   background: var(--ofp-panel);
-  box-shadow: 0 0 0 4px var(--ofp-ring);
 }
 .ofp-search-input::-webkit-search-cancel-button {
   display: none;

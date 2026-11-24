@@ -1757,7 +1757,7 @@ html.dark .tt-page {
     width: 100%;
     height: 46px;
     padding: 0 14px 0 42px;
-    border: 1.5px solid var(--tt-line);
+    border: 1px solid var(--tt-line);
     border-radius: 0;
     background: var(--tt-field);
     color: var(--tt-ink);
@@ -1783,9 +1783,8 @@ html.dark .tt-page {
 }
 .tt-search-input:focus {
     outline: none;
-    border-color: var(--tt-blue);
+    border-color: transparent;
     background: var(--tt-panel);
-    box-shadow: 0 0 0 4px var(--tt-ring);
 }
 .tt-search-input::-webkit-search-cancel-button {
     display: none;
