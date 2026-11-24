@@ -33,6 +33,7 @@ class ActivityLogController extends Controller
     private const ACTIONS = [
         'create' => 'Created',
         'submit' => 'Forwarded',
+        'proceed' => 'Released',
         'approve' => 'Approved',
         'return' => 'Returned',
         'resend' => 'Resent',

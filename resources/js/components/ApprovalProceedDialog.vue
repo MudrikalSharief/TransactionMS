@@ -3,7 +3,7 @@
         <v-card class="pm-dialog" flat>
             <ProceedModalHeader
                 :tx="tx"
-                prefix="Proceeding to"
+                prefix="Releasing to"
                 :destination-name="headerDestinationName"
                 :destination-office="headerDestinationOffice"
                 :fallback-title="proceedModalTitle"
@@ -26,7 +26,7 @@
                     </v-alert>
 
                     <v-alert v-if="!forwardActions.length" type="info" variant="tonal" density="compact">
-                        No forward move is available from this station for you. Open the transaction for other actions.
+                        No release is available from this station for you. Open the transaction for other actions.
                     </v-alert>
 
                     <template v-else>
@@ -37,7 +37,7 @@
                             :items="forwardOptions"
                             item-title="label"
                             item-value="value"
-                            label="Proceed to"
+                            label="Release to"
                             variant="outlined"
                             density="compact"
                             class="pm-select mb-4"
@@ -97,7 +97,7 @@
                 v-if="tx && !loading"
                 :tasks="approvalTasks"
                 :busy="saving"
-                primary-label="Proceed"
+                primary-label="Release"
                 :primary-disabled="approvalBlocked"
                 :show-back="showWizardBack"
                 :show-next="showWizardNext"
@@ -187,7 +187,7 @@ function labelForAction(a) {
 }
 
 const forwardOptions = computed(() =>
-    forwardActions.value.map((a) => ({ value: a.route_id, label: `Proceed → ${labelForAction(a)}` })),
+    forwardActions.value.map((a) => ({ value: a.route_id, label: `Release → ${labelForAction(a)}` })),
 );
 
 const selectedAction = computed(() =>
@@ -213,13 +213,13 @@ function destStepForTitle() {
 
 // Single-line Proceed modal title: destination step name + assigned office.
 const proceedModalTitle = computed(() => {
-    if (!selectedRouteId.value || !selectedAction.value) return "Proceed";
+    if (!selectedRouteId.value || !selectedAction.value) return "Release";
     const dest = destStepForTitle();
     const n = dest?.order_number;
     const name = dest?.name || dest?.code || (n != null && n !== "" ? `Step ${n}` : "");
-    if (!name) return "Proceed";
+    if (!name) return "Release";
     const office = String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
-    return office ? `Proceeding to "${name}" (${office})` : `Proceeding to "${name}"`;
+    return office ? `Releasing to "${name}" (${office})` : `Releasing to "${name}"`;
 });
 
 // Header pieces: destination name and office rendered separately so the
@@ -303,7 +303,7 @@ const missingRequiredStepDataLabels = computed(() => {
 // dedupes labels; the primary button keeps the stricter gating below.
 const approvalTasks = computed(() => {
     if (tx.value && forwardActions.value.length === 0) {
-        return [{ label: 'No forward action available' }];
+        return [{ label: 'No release available' }];
     }
     const out = [];
     if (!selectedRouteId.value && forwardActions.value.length > 1) {
@@ -509,7 +509,7 @@ async function executeSelected() {
         open.value = false;
         emit("proceeded", res.tx);
     } catch (e) {
-        executeError.value = formatApiError(e, "Proceed failed.");
+        executeError.value = formatApiError(e, "Release failed.");
     } finally {
         saving.value = false;
     }

@@ -34,12 +34,12 @@ import { computed } from 'vue'
 // Detail proceed dialogs so their headers cannot drift apart.
 const props = defineProps({
     tx: { type: Object, default: null },
-    // "Proceeding to", "Returning to", "Resending to", "Completing"...
-    prefix: { type: String, default: 'Proceeding to' },
+    // "Releasing to", "Returning to", "Resending to", "Completing"...
+    prefix: { type: String, default: 'Releasing to' },
     destinationName: { type: String, default: '' },
     destinationOffice: { type: String, default: '' },
     // Shown when no destination is selected yet.
-    fallbackTitle: { type: String, default: 'Proceed' },
+    fallbackTitle: { type: String, default: 'Release' },
 })
 
 const emit = defineEmits(['close'])

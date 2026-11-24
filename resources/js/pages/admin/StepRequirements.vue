@@ -490,7 +490,7 @@
                                     <span>
                                         {{
                                             addForm.is_required
-                                                ? "Must be completed before the step can proceed"
+                                                ? "Must be completed before the step can be released"
                                                 : "Workers can skip this item"
                                         }}
                                     </span>

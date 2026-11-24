@@ -2,12 +2,12 @@
     <div
         class="stat"
         :class="[`stat--${variant}`, { 'stat--click': clickable || cta }]"
-        role="button"
-        tabindex="0"
+        :role="clickable || cta ? 'button' : undefined"
+        :tabindex="clickable || cta ? 0 : undefined"
         :aria-label="`${label}: ${value}`"
         @click="clickable && emit('activate')"
-        @keydown.enter.prevent="emit('activate')"
-        @keydown.space.prevent="emit('activate')"
+        @keydown.enter.prevent="clickable && emit('activate')"
+        @keydown.space.prevent="clickable && emit('activate')"
     >
         <!-- e.g. the hover preview menu -->
         <slot />
@@ -74,13 +74,13 @@ const emit = defineEmits(['activate'])
 .stat--click {
     cursor: pointer;
 }
-.stat:hover,
-.stat:focus-visible {
+.stat--click:hover,
+.stat--click:focus-visible {
     transform: translateY(-3px);
     box-shadow: 0 16px 28px -16px color-mix(in srgb, var(--stat-c) 90%, transparent);
     outline: none;
 }
-.stat:focus-visible {
+.stat--click:focus-visible {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--stat-c) 60%, transparent);
 }
 

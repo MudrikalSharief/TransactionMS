@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { greetingForHour } from '@/utils/greeting'
 
 // The shell header outlives page components, so the last data refresh is
 // kept outside them. Navigating between sidebar destinations must not reset
@@ -39,7 +40,7 @@ export function useWorkspaceHeader() {
             hour: 'numeric',
             hourCycle: 'h23',
         }).format(now.value))
-        return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+        return greetingForHour(hour)
     })
 
     const refreshedLabel = computed(() => refreshedAt.value

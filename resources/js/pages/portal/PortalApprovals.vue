@@ -59,7 +59,7 @@
                 <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>
 
                 <v-alert type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Transactions waiting at a step for your role and office. Open one to review and proceed.
+                    Transactions waiting at a step for your role and office. Open one to review and release.
                     <template v-if="awaitingCount">
                         Tick the ones marked <b>Not received</b> to receive several at once.
                     </template>

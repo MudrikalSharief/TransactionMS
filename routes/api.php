@@ -121,6 +121,8 @@ Route::middleware(['auth:sanctum'])->get('/transactions/version', [UserTransacti
 
 Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     Route::get('/portal/summary', [PortalController::class, 'summary']);
+    // Transaction Status chart on the staff portal, scoped to their office.
+    Route::get('/portal/transaction-status', [DashboardSummaryController::class, 'portalStatus']);
 
     Route::get('/approvals', [ApprovalController::class, 'index']);
     Route::get('/approvals/count', [ApprovalController::class, 'count']);

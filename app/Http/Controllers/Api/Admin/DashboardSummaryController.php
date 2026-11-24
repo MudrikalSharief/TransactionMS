@@ -16,8 +16,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Dashboard "Transaction Summary" card. Superadmins and office heads see
- * every office; office admins via /api/office only ever see their own
+ * Dashboard "Transaction Summary" card. Superadmins see every office; office
+ * heads see one office at a time (their own by default, switchable through
+ * the office picker); office admins via /api/office only ever see their own
  * office's scope: transactions it filed or that pass through one of its
  * steps.
  *
@@ -61,7 +62,10 @@ class DashboardSummaryController extends Controller
     private ?int $officeId = null;
     // Office admins: forced to their own office's scope (see OfficeScope).
     private ?int $scopeOfficeId = null;
-    // Superadmins and office heads read every office.
+    // Office-wide step cards: the office admin's own office, or the office
+    // head's selected office. Superadmins get none.
+    private ?int $metricsOfficeId = null;
+    // Superadmins read every office; office heads are scoped to one office.
     private bool $seesAllOffices = false;
     // People who can work a station at an office, by "office|role ids".
     private array $people = [];
@@ -72,8 +76,9 @@ class DashboardSummaryController extends Controller
 
         // Tile counts are polled silently every 20s by every open Dashboard —
         // 60s server cache cuts that to 1 query-batch per minute per filter.
-        $key = 'dash:summary:v4:'.md5(json_encode([
+        $key = 'dash:summary:v5:'.md5(json_encode([
             $this->periodMeta, $this->processes, $this->offices, $this->officeId, $this->scopeOfficeId,
+            $this->metricsOfficeId,
         ]));
 
         $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
@@ -118,6 +123,10 @@ class DashboardSummaryController extends Controller
                 $payload['returns_by_office'] = $this->topOffices($this->returnItems());
             }
 
+            if ($this->metricsOfficeId !== null) {
+                $payload['office_step_metrics'] = $this->officeStepMetrics($this->metricsOfficeId);
+            }
+
             return $payload;
         });
 
@@ -145,16 +154,27 @@ class DashboardSummaryController extends Controller
         // Do not filter transactions by originating office; the step's
         // effective office is filtered while counting visits below.
         $this->officeId = null;
-        $this->seesAllOffices = $user->isSuperadmin() || $user->isOfficeHead();
-        $this->scopeOfficeId = $this->seesAllOffices ? null : (int) $user->office_id;
-        $filterOfficeIds = [];
-        if ($this->seesAllOffices) {
-            $filterOfficeIds = array_map('intval', $data['office_ids'] ?? []);
-            if (!$filterOfficeIds && !empty($data['office_id'])) {
-                $filterOfficeIds = [(int) $data['office_id']];
+        if ($user->isOfficeHead()) {
+            // Office heads see one office at a time. Default to their own and
+            // let the picker switch offices; never fall back to all offices.
+            $selected = !empty($data['office_id'])
+                ? (int) $data['office_id']
+                : (int) ($user->office_id ?? 0);
+            $this->seesAllOffices = false;
+            $this->scopeOfficeId = $selected;
+            $filterOfficeIds = [$selected];
+        } else {
+            $this->seesAllOffices = $user->isSuperadmin();
+            $this->scopeOfficeId = $this->seesAllOffices ? null : (int) $user->office_id;
+            $filterOfficeIds = [];
+            if ($this->seesAllOffices) {
+                $filterOfficeIds = array_map('intval', $data['office_ids'] ?? []);
+                if (!$filterOfficeIds && !empty($data['office_id'])) {
+                    $filterOfficeIds = [(int) $data['office_id']];
+                }
+                $filterOfficeIds = array_values(array_unique($filterOfficeIds));
+                sort($filterOfficeIds);
             }
-            $filterOfficeIds = array_values(array_unique($filterOfficeIds));
-            sort($filterOfficeIds);
         }
 
         $month = !empty($data['month'])
@@ -179,6 +199,62 @@ class DashboardSummaryController extends Controller
                 $windowTo,
                 $filterOfficeIds,
             ),
+        );
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Transaction Status chart for the staff portal: the same three monthly
+     * buckets as the admin chart, limited to papers filed by the signed-in
+     * user's own office. The month filter picks the ending month; only the
+     * chart months are returned, not the top-step or per-office breakdowns.
+     */
+    public function portalStatus(Request $request)
+    {
+        $data = $request->validate([
+            'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+        ]);
+
+        // Filed-by-office scope only: unlike the office-admin dashboard, a
+        // paper merely passing through this office's steps does not count.
+        $officeId = (int) ($request->user()->office_id ?? 0);
+        $this->processes = [];
+        $this->offices = [];
+        $this->officeId = $officeId;
+        $this->scopeOfficeId = null;
+        $this->seesAllOffices = false;
+
+        $month = !empty($data['month'])
+            ? Carbon::createFromFormat('Y-m', $data['month'], self::TZ)
+            : now(self::TZ);
+        $monthStart = $month->copy()->startOfMonth();
+        $windowStart = $monthStart->copy()->subMonths(2);
+        $windowFrom = $windowStart->copy()->utc();
+        $windowTo = $monthStart->copy()->addMonthNoOverflow()->utc();
+
+        $key = 'dash:portal-status:v1:'.md5(json_encode([
+            $officeId, $data['month'] ?? null,
+        ]));
+
+        $payload = \Illuminate\Support\Facades\Cache::remember(
+            $key,
+            60,
+            function () use ($monthStart, $windowStart, $windowFrom, $windowTo) {
+                $data = $this->overdueOverviewData(
+                    $monthStart,
+                    $windowStart,
+                    $windowFrom,
+                    $windowTo,
+                    [],
+                );
+
+                return [
+                    'month' => $data['month'],
+                    'label' => $data['label'],
+                    'months' => $data['months'],
+                ];
+            },
         );
 
         return response()->json($payload);
@@ -226,12 +302,13 @@ class DashboardSummaryController extends Controller
     private function resolveScope(Request $request, array $extra = []): void
     {
         $data = $request->validate(array_merge([
-            'month' => ['nullable', 'regex:/^(\d{4}-(0[1-9]|1[0-2])|all)$/'],
+            'month' => ['nullable', 'regex:/^(\d{4}-(0[1-9]|1[0-2])|all|today|this_week)$/'],
             'processes' => ['nullable', 'array'],
             'processes.*' => ['integer'],
             'offices' => ['nullable', 'array'],
             'offices.*' => ['integer'],
             'office_code' => ['nullable', 'string', 'max:50'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
         ], $extra));
 
         [$this->from, $this->to, $this->periodMeta] = $this->period($data['month'] ?? null);
@@ -243,8 +320,80 @@ class DashboardSummaryController extends Controller
             : null;
 
         $user = $request->user();
-        $this->seesAllOffices = $user->isSuperadmin() || $user->isOfficeHead();
+        if ($user->isOfficeHead()) {
+            $selected = !empty($data['office_id'])
+                ? (int) $data['office_id']
+                : (int) ($user->office_id ?? 0);
+            $this->seesAllOffices = false;
+            $this->scopeOfficeId = $selected;
+            $this->metricsOfficeId = $selected;
+
+            return;
+        }
+
+        $this->seesAllOffices = $user->isSuperadmin();
         $this->scopeOfficeId = $this->seesAllOffices ? null : (int) $user->office_id;
+        // The office-wide step cards follow the office admin's scope.
+        $this->metricsOfficeId = $this->scopeOfficeId;
+    }
+
+    /**
+     * Office-wide step cards for office admins and office heads. Unlike the
+     * staff home these ignore the signed-in user's roles: every step that
+     * enters, is received by, or is released by the office counts. All four
+     * numbers follow the dashboard's selected month.
+     */
+    private function officeStepMetrics(int $officeId): array
+    {
+        $officeRuns = fn () => TransactionStepRun::query()
+            ->where('received_office_id', $officeId)
+            ->where('action_code', '<>', 'finalize')
+            ->whereHas('transaction', fn (Builder $q) => $q
+                ->withoutGlobalScope('officer_assignment')
+                ->active());
+
+        $entered = $officeRuns()
+            ->where('performed_at', '>=', $this->from)
+            ->where('performed_at', '<', $this->to)
+            ->count();
+
+        $received = $officeRuns()
+            ->whereNotNull('received_at')
+            ->where('received_at', '>=', $this->from)
+            ->where('received_at', '<', $this->to)
+            ->count();
+
+        // Still-open papers whose current step was received at this office
+        // during the selected month.
+        $inProgress = Transaction::query()
+            ->withoutGlobalScope('officer_assignment')
+            ->active()
+            ->where('is_done', false)
+            ->whereHas('state.currentRun', fn (Builder $q) => $q
+                ->where('received_office_id', $officeId)
+                ->whereNotNull('received_at')
+                ->where('received_at', '>=', $this->from)
+                ->where('received_at', '<', $this->to))
+            ->count();
+
+        // Forward actions by anyone currently assigned to the office, in the
+        // selected period. Creating, returning, resending, and finalizing are
+        // separate actions and do not count as releases.
+        $released = TransactionStepRun::query()
+            ->where('performed_at', '>=', $this->from)
+            ->where('performed_at', '<', $this->to)
+            ->whereNotIn('action_code', ['create', 'return', 'resend', 'finalize'])
+            ->whereHas('performer', fn (Builder $q) => $q->where('office_id', $officeId))
+            ->whereHas('transaction', fn (Builder $q) => $q
+                ->withoutGlobalScope('officer_assignment'))
+            ->count();
+
+        return [
+            'entered' => $entered,
+            'received' => $received,
+            'in_progress' => $inProgress,
+            'released' => $released,
+        ];
     }
 
     private function filtered(Builder $q, bool $withProcess = true, bool $withArchived = false): Builder
@@ -1063,7 +1212,21 @@ class DashboardSummaryController extends Controller
             ]];
         }
 
-        if ($month) {
+        if ($month === 'today') {
+            $start = now(self::TZ)->startOfDay();
+            $end = $start->copy()->addDay();
+
+            return [$start->copy()->utc(), $end->copy()->utc(), [
+                'key' => 'today',
+                'label' => 'Today',
+                'from' => $start->toIso8601String(),
+                'to' => $end->toIso8601String(),
+            ]];
+        }
+
+        // An explicit "this_week" and the no-filter default share the same
+        // Monday–Sunday window.
+        if ($month && $month !== 'this_week') {
             $start = Carbon::parse("{$month}-01 00:00:00", self::TZ);
             $end = $start->copy()->addMonthNoOverflow();
 

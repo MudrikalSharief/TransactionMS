@@ -62,7 +62,7 @@ const props = defineProps({
     tasks: { type: Array, default: () => [] },
     busy: { type: Boolean, default: false },
     busyLabel: { type: String, default: '' },
-    primaryLabel: { type: String, default: 'Proceed' },
+    primaryLabel: { type: String, default: 'Release' },
     // '', 'warn', 'success', 'resend'
     primaryTone: { type: String, default: '' },
     primaryDisabled: { type: Boolean, default: false },

@@ -5,12 +5,12 @@ namespace App\Support;
 use Illuminate\Support\Carbon;
 
 /**
- * The Period filter shared with the dashboards: 'all', 'this_week'
- * (Monday–Sunday) or a month 'YYYY-MM', on the Manila calendar.
+ * The Period filter shared with the dashboards: 'all', 'today',
+ * 'this_week' (Monday–Sunday) or a month 'YYYY-MM', on the Manila calendar.
  */
 final class ReportPeriod
 {
-    public const RULE = 'regex:/^(all|this_week|\d{4}-(0[1-9]|1[0-2]))$/';
+    public const RULE = 'regex:/^(all|today|this_week|\d{4}-(0[1-9]|1[0-2]))$/';
 
     /** @return array{0: ?Carbon, 1: ?Carbon, 2: string} [from, to) in UTC (null = all time) and a label. */
     public static function resolve(?string $period): array
@@ -18,7 +18,11 @@ final class ReportPeriod
         $period = $period ?: 'all';
         if ($period === 'all') return [null, null, 'All time'];
 
-        if ($period === 'this_week') {
+        if ($period === 'today') {
+            $start = now(WorkingTime::TZ)->startOfDay();
+            $end = $start->copy()->addDay();
+            $label = 'Today';
+        } elseif ($period === 'this_week') {
             $start = now(WorkingTime::TZ)->startOfWeek(Carbon::MONDAY);
             $end = $start->copy()->addWeek();
             $sunday = $end->copy()->subDay();

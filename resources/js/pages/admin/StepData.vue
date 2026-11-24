@@ -13,7 +13,7 @@
         <WorkflowPageHeader
             icon="mdi-text-box-outline"
             title="Step Data"
-            subtitle="Choose a step and manage the values collected at Proceed."
+            subtitle="Choose a step and manage the values collected at Release."
             :version="defVersion"
             :status="defStatus"
             :is-live="defIsLive"
@@ -1028,7 +1028,7 @@ const noItemText = computed(() => {
             : "This workflow doesn't have any steps yet.";
     }
     if (error.value) return "Check the error above, then try again.";
-    return "Add a field to collect a value when this step proceeds.";
+    return "Add a field to collect a value when this step is released.";
 });
 
 const noItemAction = computed(() => {

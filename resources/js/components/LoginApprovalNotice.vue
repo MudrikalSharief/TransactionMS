@@ -122,6 +122,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useApi } from "@/composables/useApi";
 import { useAuth, canUseApprovals, userKind } from "@/composables/useAuth";
 import { takeLoginNotice, approvalsSeenAt, markApprovalsSeen, trayBusy } from "@/composables/useLoginNotice";
+import { greetingForHour } from "@/utils/greeting";
 import { workingMs } from "@/utils/processColor";
 
 const route = useRoute();
@@ -194,9 +195,7 @@ const STAMP_WORD = "RECEIVED";
 const manila = (opts) => new Date(now.value).toLocaleString("en-US", { timeZone: "Asia/Manila", ...opts });
 const greeting = computed(() => {
     const h = Number(manila({ hour: "numeric", hour12: false })) % 24;
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
+    return greetingForHour(h);
 });
 
 async function loadAll() {

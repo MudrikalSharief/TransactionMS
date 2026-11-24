@@ -20,7 +20,7 @@
         <WorkflowPageHeader
             icon="mdi-view-column-outline"
             title="Step Data Overview"
-            subtitle="See what data each step collects at Proceed, and which fields carry over to the next step."
+            subtitle="See what data each step collects at Release, and which fields carry over to the next step."
             read-only
             @back="goBack"
         />

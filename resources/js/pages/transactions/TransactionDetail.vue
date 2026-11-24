@@ -138,7 +138,7 @@
                         variant="tonal"
                         class="mb-3"
                     >
-                        <div class="font-weight-bold">This step has no outgoing routes — the transaction can't move forward.</div>
+                        <div class="font-weight-bold">This step has no outgoing routes — the transaction can't be released.</div>
                         <div class="text-caption">Link the steps in Workflows (Routes), then publish. Transactions already created stay on the old version — create a new one after publishing.</div>
                         <v-btn v-if="isSuperadmin()" :to="workflowsLink" color="error" variant="outlined" rounded="0" size="small" class="mt-2">
                             <v-icon start size="small">mdi-source-branch</v-icon>
@@ -306,7 +306,7 @@
                             Required checklist items not ticked:
                             {{ missingRequiredChecklistLabels.join(", ") }}.
                         </div>
-                        You will not be able to proceed until these are done.
+                        You will not be able to release until these are done.
                     </v-alert>
 
                     <div class="d-flex flex-column" style="min-height: 510px">
@@ -533,7 +533,7 @@
                             @click="toggleWizardMode"
                         >
                             <v-icon size="14">{{ isReturnMode ? 'mdi-arrow-right' : 'mdi-arrow-left' }}</v-icon>
-                            {{ isReturnMode ? 'Proceed' : 'Return' }}
+                            {{ isReturnMode ? 'Release' : 'Return' }}
                         </button>
                     </template>
                 </ProceedModalHeader>
@@ -683,7 +683,7 @@
                                     Required before checking: {{ missingRequiredFields.join(", ") }}.
                                 </v-alert>
                                 <v-alert v-else type="info" variant="tonal" class="mt-3">
-                                    Anything entered is kept on this page and saved together when you Proceed.
+                                    Anything entered is kept on this page and saved together when you release.
                                 </v-alert>
                             </template>
                         </v-expansion-panel>
@@ -2166,9 +2166,9 @@ const unifiedRouteOptions = computed(() => [
         return {
             value: a.route_id,
             route_id: a.route_id,
-            label: `Proceed → ${labelForAction(a)}`,
+            label: `Release → ${labelForAction(a)}`,
             kind: 'proceed',
-            verb: hasStep ? `Proceed to Step ${n}` : 'Proceed',
+            verb: hasStep ? `Release to Step ${n}` : 'Release',
             detail: hasStep ? String(name) : labelForAction(a),
         };
     }),
@@ -2319,11 +2319,11 @@ const returnSubmitDisabled = computed(() =>
 // Action-bar button keeps the verb only (destination is shown in the
 // graphic above it): Proceed / Return / Resend.
 const actionButtonLabel = computed(() => {
-    if (!selectedRouteId.value) return "Proceed";
+    if (!selectedRouteId.value) return "Release";
     if (isJumpSelected.value) return isJumpForward.value ? "Resend" : "Return";
-    if (!selectedAction.value) return "Proceed";
+    if (!selectedAction.value) return "Release";
     if (isReturnSelected.value) return "Return";
-    return "Proceed";
+    return "Release";
 });
 
 // Proceed modal title: Proceeding to "stepname" (office code). Both the
@@ -2358,23 +2358,23 @@ function proceedTitle(prefix) {
     const dest = destStepForTitle();
     const n = dest?.order_number ?? selectedStepNumber.value ?? "";
     const name = dest?.name || dest?.code || (n !== "" && n != null ? `Step ${n}` : "");
-    if (!name) return "Proceed";
+    if (!name) return "Release";
     // Show the destination station's effective office, not the current
     // station's. Legacy no-origin stations add no suffix.
     const office = String(dest?.office?.code ?? dest?.office?.name ?? "").trim();
     return office ? `${prefix} "${name}" (${office})` : `${prefix} "${name}"`;
 }
 
-// Single-line Proceed modal title: destination step name + office.
+// Single-line Release modal title: destination step name + office.
 const proceedModalTitle = computed(() => {
-    if (!selectedRouteId.value) return "Proceed";
+    if (!selectedRouteId.value) return "Release";
     if (isJumpSelected.value) {
         if (!selectedJumpOption.value) return "Return";
         return proceedTitle(isJumpForward.value ? "Resend to" : "Return to");
     }
-    if (!selectedAction.value) return "Proceed";
+    if (!selectedAction.value) return "Release";
     if (isReturnSelected.value) return proceedTitle("Return to");
-    return proceedTitle("Proceeding to");
+    return proceedTitle("Releasing to");
 });
 
 // ---- Redesigned modal shell -------------------------------------------
@@ -2385,7 +2385,7 @@ const modalHeaderPrefix = computed(() => {
     if (isCompleting.value) return 'Completing step';
     if (isReturnMode.value || isReturnAction.value) return 'Returning to';
     if (isResendAction.value) return 'Resending to';
-    return 'Proceeding to';
+    return 'Releasing to';
 });
 
 const modalHeaderDestinationName = computed(() => {
@@ -2460,7 +2460,7 @@ const modalPrimaryLabel = computed(() => {
     if (isCompleting.value) return 'Complete Step';
     if (isReturnMode.value || isReturnAction.value) return 'Return';
     if (isResendAction.value) return 'Resend';
-    return 'Proceed';
+    return 'Release';
 });
 
 const modalPrimaryTone = computed(() => {

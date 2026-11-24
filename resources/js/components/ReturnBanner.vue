@@ -12,7 +12,7 @@
                 Returned{{ senderLabel }}{{ stepLabel }}
             </div>
             <div v-if="info.remarks" class="text-body-1 mt-1">"{{ info.remarks }}"</div>
-            <div class="text-body-2 text-medium-emphasis mt-1">Please fix this before you proceed.</div>
+            <div class="text-body-2 text-medium-emphasis mt-1">Please fix this before you release.</div>
         </div>
     </div>
     <v-alert

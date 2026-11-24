@@ -33,7 +33,8 @@
                             </div>
                         </div>
                         <v-spacer />
-                        <!-- Period drives the number cards and the graph. -->
+                        <!-- Period drives the number cards. The Transaction
+                             Status chart has its own Month filter. -->
                         <v-select
                             v-model="period"
                             :items="periodOptions"
@@ -73,14 +74,17 @@
         </div>
 
         <!-- Numbers for the user's office / role -->
-                <div class="portal-tiles" :class="{ 'portal-tiles--clerk': isClerk }">
-                    <template v-for="tile in topTiles" :key="tile.key">
-                    <button
+                <div class="portal-tiles">
+                    <template v-for="tile in tiles" :key="tile.key">
+                    <component
+                        :is="tile.go ? 'button' : 'div'"
                         v-if="isClerk"
-                        type="button"
+                        :type="tile.go ? 'button' : undefined"
                         class="summary-strip clerk-summary-card"
+                        :class="{ 'clerk-summary-card--static': !tile.go }"
+                        :role="tile.go ? undefined : 'group'"
                         :aria-label="`${tile.label}: ${tile.value}`"
-                        @click="tile.go"
+                        @click="tile.go && tile.go()"
                     >
                         <span class="summary-seg" :class="`summary-seg--${tile.variant}`">
                             <span class="summary-seg-icon" aria-hidden="true"><v-icon size="28">{{ tile.icon }}</v-icon></span>
@@ -93,8 +97,8 @@
                                 <span class="summary-seg-hint">{{ tile.hint }}</span>
                             </span>
                         </span>
-                        <span class="clerk-card-cta" aria-hidden="true">View list <v-icon size="16">mdi-chevron-down</v-icon></span>
-                    </button>
+                        <span v-if="tile.go" class="clerk-card-cta" aria-hidden="true">View list <v-icon size="16">mdi-chevron-down</v-icon></span>
+                    </component>
                     <StatCard
                         v-else
                         :label="tile.label"
@@ -103,9 +107,9 @@
                         :variant="tile.variant"
                         :icon="tile.icon"
                         :loading="loading"
-                        clickable
-                        cta="View list"
-                        @activate="tile.go"
+                        :clickable="Boolean(tile.go)"
+                        :cta="tile.go ? 'View list' : ''"
+                        @activate="tile.go && tile.go()"
                     />
                     </template>
                 </div>
@@ -113,7 +117,7 @@
         <v-dialog v-model="stepListOpen" max-width="720" scrollable>
             <v-card>
                 <v-card-title class="d-flex align-center flex-wrap ga-2">
-                    {{ selectedStepTitle }}
+                    Needs My Action
                     <v-spacer />
                     <v-btn icon="mdi-close" variant="text" aria-label="Close step list" @click="stepListOpen = false" />
                 </v-card-title>
@@ -123,8 +127,8 @@
                         <v-list-item v-for="step in selectedStepRows" :key="step.id">
                             <v-list-item-title>{{ step.reference_number }}</v-list-item-title>
                             <v-list-item-subtitle class="text-wrap">{{ step.step_name }}<template v-if="step.title"> · {{ step.title }}</template></v-list-item-subtitle>
-                            <v-list-item-subtitle v-if="selectedStepCard === 'needs_action'">{{ step.reason }}</v-list-item-subtitle>
-                            <template v-if="selectedStepCard !== 'overdue_completed'" #append>
+                            <v-list-item-subtitle>{{ step.reason }}</v-list-item-subtitle>
+                            <template #append>
                                 <v-btn variant="text" color="primary" @click="router.push(`/portal/transactions/${step.transaction_id}`)">Open</v-btn>
                             </template>
                         </v-list-item>
@@ -134,39 +138,41 @@
         </v-dialog>
 
         <div class="dash-grid" :class="{ 'clerk-bottom-grid': isClerk }">
-            <!-- Weekly transactions per process, limited to the account's
-                 office and role (needs an office to have anything to show). -->
-            <div v-if="user?.office" class="dash-slot" :data-card="isClerk ? 'graph' : undefined" :style="{ '--span': hasApprovals ? 8 : 12 }">
-                <ProcessGraphCard v-model:period="period" />
+            <!-- Transaction Status for the account's office: the same chart
+                 as the admin dashboard, scoped to the papers this office
+                 filed. Needs an office to have anything to show. -->
+            <div v-if="user?.office" class="dash-slot" :data-card="isClerk ? 'graph' : undefined" :style="{ '--span': isClerk ? 8 : 12 }">
+                <TransactionStatusCard />
             </div>
 
-            <!-- Waiting on my role: end users only. Clerks have the Approvals
-                 page for this, so it would be a duplicate there. -->
-            <div v-if="!hasApprovals" class="dash-slot" style="--span: 6">
+            <!-- Steps this user can act on: received work, returns, and
+                 arrivals for their role. Top three rows; View all opens the
+                 full step list. -->
+            <div class="dash-slot" style="--span: 6">
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center lgu-head dash-head">
                         <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                            <v-icon color="#005EED" size="20">mdi-tray-full</v-icon>
+                            <v-icon color="#005EED" size="20">mdi-tray-arrow-down</v-icon>
                         </v-avatar>
                         <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
                         <v-spacer />
-                        <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openList('action')">
+                        <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="stepListOpen = true">
                             View all
                         </v-btn>
                     </v-card-title>
-                    <v-card-text v-fit-body="'action'" class="pa-1 dash-body">
+                    <v-card-text class="pa-1 dash-body">
                         <TxMiniList
-                            :rows="actionRows.slice(0, rows('action', LIST_ROW_PX, SUMMARY_ROWS))"
+                            :rows="needsActionRows"
                             :loading="loading"
-                            empty="Nothing is waiting on you right now."
-                            @open="(tx) => router.push({ path: `/portal/transactions/${tx.id}`, query: { from: 'portal-action' } })"
+                            empty="No steps are waiting for your action."
+                            @open="(tx) => router.push(`/portal/transactions/${tx.id}`)"
                         />
                     </v-card-text>
                 </v-card>
             </div>
 
             <!-- In my office (oldest first); full width when it is the only list -->
-            <div v-if="!isClerk" class="dash-slot" :style="{ '--span': hasApprovals ? (user?.office ? 4 : 12) : 6 }">
+            <div v-if="!isClerk" class="dash-slot" style="--span: 6">
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center lgu-head dash-head">
                         <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
@@ -188,28 +194,6 @@
                     </v-card-text>
                 </v-card>
             </div>
-            <div v-if="isClerk" class="dash-slot clerk-action-panel">
-                <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
-                    <v-card-title class="d-flex align-center lgu-head dash-head">
-                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                            <v-icon color="#005EED" size="20">mdi-tray-arrow-down</v-icon>
-                        </v-avatar>
-                        <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
-                        <v-spacer />
-                        <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openSteps('needs_action')">
-                            View all
-                        </v-btn>
-                    </v-card-title>
-                    <v-card-text class="pa-1 dash-body">
-                        <TxMiniList
-                            :rows="clerkActionRows"
-                            :loading="loading"
-                            empty="No steps are waiting for your action."
-                            @open="(tx) => router.push(`/portal/transactions/${tx.id}`)"
-                        />
-                    </v-card-text>
-                </v-card>
-            </div>
         </div>
     </div>
 </template>
@@ -220,14 +204,14 @@ import LoadingVeil from "@/components/LoadingVeil.vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
-import { useAuth, canUseApprovals } from "@/composables/useAuth";
+import { useAuth } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import { markWorkspaceRefreshed } from "@/composables/useWorkspaceHeader";
 import { useFitScreen } from "@/composables/useFitScreen";
 import StatCard from "@/components/StatCard.vue";
 import TxMiniList from "@/components/portal/TxMiniList.vue";
-import ProcessGraphCard from "@/components/portal/ProcessGraphCard.vue";
-import { periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
+import TransactionStatusCard from "@/components/portal/TransactionStatusCard.vue";
+import { monthValue, periodOptions as dashPeriodOptions } from "@/utils/dashPeriod";
 
 const router = useRouter();
 const { api } = useApi();
@@ -237,91 +221,96 @@ const { vFitBody, rows } = useFitScreen();
 
 const loading = ref(true);
 const summary = ref(null);
-const actionTotal = ref(0);
-const actionRows = ref([]);
 const officeRows = ref([]);
 
-// Period filter (same options as the admin Dashboard): the In process,
-// Completed and Created by me cards and the graph follow it. The
-// "Needs my action" queue and the lists always show what is open now.
-const period = ref("all");
-const periodOptions = computed(() => dashPeriodOptions());
+// Period filter: every work card below follows it. The shared option list is
+// filtered so the staff portal offers Today, This week and months, without
+// All time. The "Needs my action" panel and lists always show what is open
+// now, and the Transaction Status chart keeps its own Month filter.
+const period = ref(monthValue(new Date()));
+const periodOptions = computed(() => dashPeriodOptions().filter((option) => option.value !== "all"));
+const periodPhrase = computed(() => {
+    if (period.value === "today") return "today";
+    if (period.value === "this_week") return "this week";
+    if (period.value === "all") return "across all time";
+    const label = periodOptions.value.find((option) => option.value === period.value)?.title || period.value;
+    return `in ${label}`;
+});
 
 const canCreate = computed(() => user.value?.office != null);
-// Clerks use their step cards; other approval roles retain the existing office view.
-const hasApprovals = computed(() => canUseApprovals(user.value));
+// Clerk layout puts the chart and Needs My Action side by side; other staff
+// use the full-width chart row with two list cards underneath.
 const isClerk = computed(() => user.value?.roles?.some((role) => role.code === "clerk") === true);
 const stepListOpen = ref(false);
-const selectedStepCard = ref("needs_action");
-const stepCards = [
-    { key: "overdue_completed", label: "Overdue Completed", hint: "Your completed steps that exceeded their time limit", icon: "mdi-check-circle-outline", variant: "warning" },
-    { key: "overdue_pending", label: "Overdue Steps", hint: "Your current steps past their time limit", icon: "mdi-clock-alert-outline", variant: "danger" },
-    { key: "needs_action", label: "Needs My Action", hint: "Steps awaiting receipt and returns assigned to you", icon: "mdi-tray-arrow-down", variant: "info" },
-];
-const selectedStepTitle = computed(() => stepCards.find((card) => card.key === selectedStepCard.value)?.label);
-const selectedStepRows = computed(() => summary.value?.clerk_steps?.rows?.[selectedStepCard.value] ?? []);
-function openSteps(key) {
-    selectedStepCard.value = key;
-    stepListOpen.value = true;
-}
+const selectedStepRows = computed(() => summary.value?.needs_action?.rows ?? []);
 
-const tiles = computed(() => [
-    !hasApprovals.value && {
-        key: "action",
-        label: "Needs my action",
-        value: actionTotal.value,
-        hint: "Waiting on your role at your office",
-        icon: "mdi-tray-full",
-        variant: "orange",
-        go: () => openList("action"),
-    },
-    // Life of a transaction, left to right: created, in process, completed.
-    {
-        key: "mine",
-        label: "Created by me",
-        value: summary.value?.created_by_me ?? 0,
-        hint: "Transactions you started",
-        icon: "mdi-account-edit",
-        variant: "info",
-        go: () => openList("office"),
-    },
-    {
-        key: "in_process",
-        label: "In process",
-        value: summary.value?.in_process ?? 0,
-        hint: "Office transactions still moving",
-        icon: "mdi-timer-sand",
-        variant: "warning",
-        go: () => openList("office"),
-    },
-    {
-        key: "completed",
-        label: "Completed",
-        value: summary.value?.completed ?? 0,
-        hint: "Office transactions finished",
-        icon: "mdi-check-bold",
-        variant: "success",
-        go: () => openList("office"),
-    },
-    ...(isClerk.value ? stepCards.filter((card) => card.key !== "needs_action").map((card) => ({
-        ...card,
-        value: summary.value?.clerk_steps?.[card.key] ?? "—",
-        go: () => openSteps(card.key),
-    })) : []),
-].filter(Boolean));
+// Staff work cards, in display order. Only In progress is clickable; the
+// rest are informational metrics.
+const tiles = computed(() => {
+    const m = summary.value?.step_metrics || {};
+    return [
+        {
+            key: "entered_today",
+            label: "Entered",
+            value: m.entered ?? 0,
+            hint: `Steps for your role that entered your office ${periodPhrase.value}.`,
+            icon: "mdi-door-open",
+            variant: "success",
+        },
+        {
+            key: "received_today",
+            label: "Received",
+            value: m.received ?? 0,
+            hint: `Steps you received ${periodPhrase.value}.`,
+            icon: "mdi-inbox-arrow-down",
+            variant: "info",
+        },
+        {
+            key: "in_process",
+            label: "In progress",
+            value: summary.value?.in_process ?? 0,
+            hint: `Office transactions still moving ${periodPhrase.value}.`,
+            icon: "mdi-timer-sand",
+            variant: "warning",
+            go: () => openList("office"),
+        },
+        {
+            key: "overdue_work",
+            label: "Overdue Steps",
+            value: m.overdue_work ?? 0,
+            hint: `Your open received steps ${periodPhrase.value} — overdue or in progress.`,
+            icon: "mdi-timer-alert-outline",
+            variant: "danger",
+        },
+        {
+            key: "released",
+            label: "Release",
+            value: m.released ?? 0,
+            hint: `Steps you completed ${periodPhrase.value}.`,
+            icon: "mdi-send-check-outline",
+            variant: "info",
+        },
+    ];
+});
 
-const topTiles = computed(() => isClerk.value ? [
-    ...tiles.value.filter((tile) => tile.key.startsWith("overdue_")),
-    ...tiles.value.filter((tile) => ["mine", "in_process", "completed"].includes(tile.key)),
-] : tiles.value);
-const clerkActionRows = computed(() => [...(summary.value?.clerk_steps?.rows?.needs_action ?? [])]
+const NEEDS_ACTION_META = {
+    receive: { label: "Receive", color: "primary" },
+    return: { label: "Return", color: "warning" },
+    release: { label: "Release", color: "success" },
+};
+const needsActionRows = computed(() => [...(summary.value?.needs_action?.rows ?? [])]
     .sort((a, b) => Number(b.id) - Number(a.id))
-    .slice(0, 5)
-    .map((step) => ({
-        id: step.transaction_id,
-        reference_number: step.reference_number,
-        title: [step.step_name, step.reason, step.title].filter(Boolean).join(" · "),
-    })));
+    .slice(0, 3)
+    .map((step) => {
+        const meta = NEEDS_ACTION_META[step.action];
+        return {
+            id: step.transaction_id,
+            reference_number: step.reference_number,
+            title: [step.step_name, step.reason, step.title].filter(Boolean).join(" · "),
+            action_label: meta?.label,
+            action_color: meta?.color,
+        };
+    }));
 
 function openList(tab) {
     router.push({ path: "/portal/transactions", query: { tab } });
@@ -373,18 +362,13 @@ watch(period, loadSummary);
 
 async function load() {
     const mine = ++summaryRequest;
-    const [sum, queue, office] = await Promise.allSettled([
+    const [sum, office] = await Promise.allSettled([
         fetchSummary(),
-        hasApprovals.value ? Promise.resolve({ rows: [], total: 0 }) : oldestRows("/api/transactions"),
         isClerk.value ? Promise.resolve({ rows: [] }) : oldestRows("/api/admin/transactions"),
     ]);
     if (sum.status === "fulfilled" && mine === summaryRequest) summary.value = sum.value.data;
-    if (queue.status === "fulfilled") {
-        actionRows.value = queue.value.rows;
-        actionTotal.value = queue.value.total;
-    }
     if (office.status === "fulfilled") officeRows.value = office.value.rows;
-    if (sum.status === "fulfilled" || queue.status === "fulfilled" || office.status === "fulfilled") markWorkspaceRefreshed();
+    if (sum.status === "fulfilled" || office.status === "fulfilled") markWorkspaceRefreshed();
     loading.value = false;
 }
 
@@ -397,14 +381,21 @@ useSmartPoll(load);
 <style src="../../../css/workspace-dashboard.css"></style>
 
 <style scoped>
-.workspace-dashboard--staff .portal-tiles--clerk {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+/* Cap the staff tiles at three columns so the icon + number + copy have
+   enough room. Six cards then sit as two rows of three instead of being
+   squeezed into one row where labels and hints clip. */
+.workspace-shell .workspace-dashboard--staff .portal-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-.portal-tiles--clerk > .summary-strip {
-    grid-column: span 2;
+@media (max-width: 1359px) {
+    .workspace-shell .workspace-dashboard--staff .portal-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
-.portal-tiles--clerk > .summary-strip:nth-child(-n + 2) {
-    grid-column: span 3;
+@media (max-width: 759px) {
+    .workspace-shell .workspace-dashboard--staff .portal-tiles {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 .clerk-summary-card {
     padding: 0;
@@ -418,12 +409,22 @@ useSmartPoll(load);
     transform: translateY(-3px);
     box-shadow: 0 16px 28px -16px rgba(0, 85, 237, 0.55);
 }
+.clerk-summary-card--static {
+    cursor: default;
+}
+.clerk-summary-card--static:hover,
+.clerk-summary-card--static:focus-visible {
+    transform: none;
+    box-shadow: none;
+}
 .workspace-dashboard--staff .clerk-summary-card .summary-seg {
     --clerk-icon: #005eed;
 }
-.workspace-dashboard--staff .clerk-summary-card .summary-seg--warning,
-.workspace-dashboard--staff .clerk-summary-card .summary-seg--danger {
+.workspace-dashboard--staff .clerk-summary-card .summary-seg--warning {
     --clerk-icon: #f59e0b;
+}
+.workspace-dashboard--staff .clerk-summary-card .summary-seg--danger {
+    --clerk-icon: #e5383b;
 }
 .workspace-dashboard--staff .clerk-summary-card .summary-seg--success {
     --clerk-icon: #16a34a;
@@ -438,6 +439,9 @@ useSmartPoll(load);
 }
 .clerk-summary-card:hover .summary-seg-icon {
     transform: scale(1.06) rotate(-4deg);
+}
+.clerk-summary-card--static:hover .summary-seg-icon {
+    transform: none;
 }
 .clerk-card-cta {
     position: absolute;
@@ -479,12 +483,8 @@ useSmartPoll(load);
     }
 }
 @media (max-width: 600px) {
-    .workspace-dashboard--staff .portal-tiles--clerk,
     .workspace-dashboard--staff .clerk-bottom-grid {
         grid-template-columns: minmax(0, 1fr);
-    }
-    .portal-tiles--clerk > .summary-strip:nth-child(n) {
-        grid-column: auto;
     }
     .clerk-home-header {
         flex-wrap: wrap !important;

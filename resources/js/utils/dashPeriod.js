@@ -1,7 +1,6 @@
-// The dashboards' Period filter (admin Dashboard and staff Home): All time,
-// This week (Mon–Sun) or one of the last 12 months. The stat cards send the
-// value to the server ('all' | 'this_week' | 'YYYY-MM'); the per-process
-// graphs group their rows by it here, in the browser's local calendar.
+// The dashboards' Period filter (admin Dashboard and staff Home): Today,
+// This week (Mon–Sun), All time, or one of the last 12 months. The stat cards
+// send the value to the server ('all' | 'today' | 'this_week' | 'YYYY-MM').
 
 const DAY_MS = 86400000
 // All time: one bar group per month, or per quarter past this many months.
@@ -18,7 +17,12 @@ export function monthOptions(now = new Date()) {
 }
 
 export function periodOptions(now = new Date()) {
-    return [{ title: 'All time', value: 'all' }, { title: 'This week', value: 'this_week' }, ...monthOptions(now)]
+    return [
+        { title: 'Today', value: 'today' },
+        { title: 'This week', value: 'this_week' },
+        { title: 'All time', value: 'all' },
+        ...monthOptions(now),
+    ]
 }
 
 export function periodLabel(value) {
@@ -42,18 +46,25 @@ function thisMonday(now) {
 // Start of the period (null = all time), for loading only what it needs.
 export function periodStart(value, now = new Date()) {
     if (!value || value === 'all') return null
+    if (value === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate())
     if (value === 'this_week') return thisMonday(now)
     const [y, m] = value.split('-').map(Number)
     return new Date(y, m - 1, 1)
 }
 
 // Bar groups for the period, never past today:
+//   today     -> one group for the day
 //   this week -> one per day (Mon, Tue, …)
 //   a month   -> its calendar weeks (1–7, 8–14, …)
 //   all time  -> one per month from the oldest row (per quarter when long)
 export function periodBuckets(value, { oldest = null, now = new Date() } = {}) {
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
     const out = []
+
+    if (value === 'today') {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        return [{ start, end: endOfToday, label: md(start) }]
+    }
 
     if (value === 'this_week') {
         for (let start = thisMonday(now); start < endOfToday;) {
@@ -101,7 +112,7 @@ export function bucketIndexOf(buckets, iso) {
 
 // Grouping word for chart labels ("per day", "per week", …).
 export function bucketUnit(value, buckets) {
-    if (value === 'this_week') return 'day'
+    if (value === 'today' || value === 'this_week') return 'day'
     if (value && value !== 'all') return 'week'
     const b = buckets[0]
     const span = b ? (b.end.getFullYear() - b.start.getFullYear()) * 12 + b.end.getMonth() - b.start.getMonth() : 1

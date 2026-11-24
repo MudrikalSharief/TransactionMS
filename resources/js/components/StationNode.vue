@@ -232,7 +232,7 @@ const badgeKind = computed(() => {
 const hintText = computed(() => {
     if (props.state === 'current') return 'In progress — this is where the paper sits.';
     if (props.state === 'done') return '';
-    if (props.state === 'passed') return 'This step is already complete. Continue forward, step by step, to return here.';
+    if (props.state === 'passed') return 'This step is already complete. Continue step by step to return here.';
     return 'Not reached yet.';
 });
 const showCallout = computed(() => !!hintText.value);

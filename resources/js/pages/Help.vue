@@ -425,14 +425,14 @@ const userSteps = computed(() => [
         icon: 'mdi-clipboard-check-outline',
         title: 'Finish the checklist',
         hint: 'Check every required item',
-        text: 'Check off each requirement — one tap ticks it; an optional panel lets you jot station info while checking. Required items must all be checked before you can proceed.',
+        text: 'Check off each requirement — one tap ticks it; an optional panel lets you jot station info while checking. Required items must all be checked before you can release.',
         to: null,
     },
     {
         icon: 'mdi-play-circle-outline',
-        title: 'Press Proceed',
-        hint: 'Move forward or return',
-        text: 'Pick an action and press Proceed: a window gathers the station info and remarks, then moves the request to the next step (or sends it back, if you choose a return action).',
+        title: 'Press Release',
+        hint: 'Release or return',
+        text: 'Pick an action and press Release: a window gathers the station info and remarks, then moves the request to the next step (or sends it back, if you choose a return action).',
         to: null,
     },
     {
@@ -470,7 +470,7 @@ const adminSteps = [
         icon: 'mdi-clipboard-check-outline',
         title: 'Requirements',
         hint: 'Checklist items per step',
-        text: 'Define the checklist items that steps will ask workers to complete. Required items block moving forward until checked.',
+        text: 'Define the checklist items that steps will ask workers to complete. Required items block release until checked.',
         to: '/admin/requirements',
     },
     {

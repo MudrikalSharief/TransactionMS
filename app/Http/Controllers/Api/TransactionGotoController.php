@@ -69,7 +69,7 @@ class TransactionGotoController extends Controller
             ->where('to_step_id', $toStepId)
             ->firstWhere('is_return_route', false);
         if ($directForward && $toStepId !== $returnSourceStepId) {
-            abort(422, 'Use Proceed to move forward to this station.');
+            abort(422, 'Use Release to move to this station.');
         }
 
         $tx = $engine->jumpToStep(

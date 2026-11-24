@@ -113,7 +113,7 @@
                                         append-icon="mdi-arrow-right"
                                         @click.stop="review(tx)"
                                     >
-                                        Review &amp; Proceed
+                                        Review &amp; Release
                                     </v-btn>
                                 </div>
                                 <div class="text-caption mt-1">
@@ -121,7 +121,7 @@
                                         Needs: {{ missingRequired(tx).join(", ") }}
                                     </span>
                                     <span v-else class="text-medium-emphasis">
-                                        All required items checked. Ready to proceed.
+                                        All required items checked. Ready to release.
                                     </span>
                                 </div>
                             </v-list-item>
@@ -179,8 +179,8 @@ const guideSections = [
         rows: [
             { term: "INBOX", text: "EVERY TRANSACTION WAITING AT YOUR STATION" },
             { term: "PENDING", text: "NOT CHECKED YET: A REQUIRED UPLOAD OR A PREVIOUS-STATION REQUIREMENT TO VALIDATE IS STILL MISSING" },
-            { term: "REVIEW & PROCEED", text: "OPENS THE PROCEED MODAL: UPLOAD THIS STATION'S FILES, TICK THE PREVIOUS STATION'S REQUIREMENTS, THEN PROCEED" },
-            { term: "PROCEED", text: "MOVES THE TRANSACTION TO THE NEXT STATION — IT THEN LEAVES THIS LIST" },
+            { term: "REVIEW & RELEASE", text: "OPENS THE RELEASE MODAL: UPLOAD THIS STATION'S FILES, TICK THE PREVIOUS STATION'S REQUIREMENTS, THEN RELEASE" },
+            { term: "RELEASE", text: "MOVES THE TRANSACTION TO THE NEXT STATION — IT THEN LEAVES THIS LIST" },
             { term: "OPEN TRANSACTION", text: "FOR RETURNS, JUMPS AND HISTORY, USE THE TRANSACTION PAGE" },
         ],
     },

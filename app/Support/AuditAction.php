@@ -19,6 +19,7 @@ class AuditAction
         'deactivate' => 'deactivated',
         'activate' => 'activated',
         'approve' => 'approved',
+        'proceed' => 'released',
         'reject' => 'rejected',
         'restore' => 'restored',
         'archive' => 'archived',

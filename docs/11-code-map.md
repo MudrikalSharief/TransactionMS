@@ -51,7 +51,7 @@ into `routes/api.php`, which names the controller.
 | Due count label on Transactions | `resources/js/pages/portal/PortalTransactions.vue`, `resources/js/composables/useDueCount.js` |
 | Staff home | `resources/js/pages/portal/PortalHome.vue`, `app/Http/Controllers/Api/PortalController.php` |
 | Staff task page | `resources/js/pages/portal/PortalApprovals.vue`, `app/Http/Controllers/Api/ApprovalController.php` |
-| Proceed steps on a transaction | `resources/js/components/ProceedWizard.vue` |
+| Release steps on a transaction | `resources/js/components/ProceedWizard.vue` |
 | Transaction details | `resources/js/pages/transactions/TransactionDetail.vue`, `app/Http/Controllers/Api/TransactionController.php` |
 | File upload and list | `resources/js/components/AttachmentUploader.vue`, `AttachmentList.vue`, `app/Http/Controllers/Api/TransactionAttachmentController.php` |
 | Viewer tracking | `resources/js/pages/track/`, `app/Http/Controllers/Api/ViewerTrackingController.php` |

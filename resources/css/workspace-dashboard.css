@@ -128,6 +128,39 @@
     font-size: var(--tms-text-xs);
     line-height: 1.4;
 }
+/* Office step cards lead the combined six-card grid: three tiles per row on
+   desktop, while the overdue cards keep their red treatment. */
+.workspace-shell .workspace-dashboard .summary-row--office {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 1199px) {
+    .workspace-shell .workspace-dashboard .summary-row--office {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg-label {
+    color: var(--ws-ink, #14294b);
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg-icon {
+    color: #005eed;
+    background: color-mix(in srgb, currentColor 11%, var(--ws-surface, #fff));
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg--success .summary-seg-icon {
+    color: #16a34a;
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg--info .summary-seg-icon {
+    color: #005eed;
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg--warning .summary-seg-icon {
+    color: #f59e0b;
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg--danger .summary-seg-icon {
+    color: #e34454;
+    background: #fff0f1;
+}
+.workspace-shell .workspace-dashboard .summary-row--office .summary-seg--danger .summary-seg-label {
+    color: #dc4254;
+}
 .workspace-shell .workspace-dashboard .dash-grid {
     gap: 22px;
 }
@@ -288,11 +321,11 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
 .workspace-shell .workspace-dashboard .top-steps {
     list-style: none;
     margin: 0;
-    padding: 16px 0 0;
+    padding: 12px 0 0;
     display: flex;
     flex-direction: column;
     justify-content: space-evenly;
-    gap: 24px;
+    gap: 16px;
     width: 100%;
     flex: 1 1 auto;
 }
@@ -303,8 +336,8 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 12px;
-    min-height: 65px;
-    padding: 10px 14px;
+    min-height: 56px;
+    padding: 8px 12px;
     color: var(--overdue-ink);
 }
 .workspace-shell .workspace-dashboard .top-step-row::before,
@@ -316,7 +349,7 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
 /* The tab and the left side are a single back layer behind the folder face. */
 .workspace-shell .workspace-dashboard .top-step-row::before {
     z-index: -2;
-    inset: -17px auto auto 0;
+    inset: -14px auto auto 0;
     width: 94px;
     height: 57px;
     clip-path: path("M 0 57 V 17 C 0 11 4 8 9 8 C 12 3 14 0 20 0 H 54 C 62 0 62 8 67 8 H 78 C 86 8 87 13 94 20 V 57 Z");
@@ -419,6 +452,7 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
     .workspace-shell .workspace-dashboard .top-step-row {
         gap: 6px 8px;
         grid-template-columns: 30px minmax(0, 1fr) auto;
+        min-height: 52px;
         padding: 9px;
     }
     .workspace-shell .workspace-dashboard .top-step-rank {
@@ -668,8 +702,8 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
     white-space: normal;
 }
 .workspace-shell .workspace-dashboard--staff .home-period {
-    flex: 0 1 180px;
-    min-width: 150px;
+    flex: 0 1 210px;
+    min-width: 190px;
 }
 .workspace-shell .workspace-dashboard--staff .portal-tiles {
     display: grid;
@@ -735,6 +769,28 @@ html.dark .workspace-shell .workspace-dashboard .summary-strip::after {
 }
 html.dark .workspace-shell .workspace-dashboard .summary-seg-label,
 html.dark .workspace-shell .workspace-dashboard .waiting-late {
+    color: #ff8995;
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg-label {
+    color: var(--ws-ink, #f4f7ff);
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg-icon {
+    background: color-mix(in srgb, currentColor 22%, var(--ws-surface, #101a2e));
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg--success .summary-seg-icon {
+    color: #4ade80;
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg--info .summary-seg-icon {
+    color: #7ab3ff;
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg--warning .summary-seg-icon {
+    color: #fbbf24;
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg--danger .summary-seg-icon {
+    color: #ff8995;
+    background: #452a38;
+}
+html.dark .workspace-shell .workspace-dashboard .summary-row--office .summary-seg--danger .summary-seg-label {
     color: #ff8995;
 }
 html.dark .workspace-shell .workspace-dashboard .dash-body > .v-alert--type-success {

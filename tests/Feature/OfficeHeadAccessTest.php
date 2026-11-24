@@ -111,17 +111,24 @@ class OfficeHeadAccessTest extends TestCase
         return $tx;
     }
 
-    public function test_office_head_gets_the_system_wide_read_only_dashboard(): void
+    public function test_office_head_dashboard_shows_one_office_at_a_time(): void
     {
+        $this->transaction($this->csd);
         $this->transaction($this->csd);
         $this->transaction($this->gso);
 
         Sanctum::actingAs($this->head);
 
+        // Default: the head's own office, not every office.
         $summary = $this->getJson('/api/office-head/dashboard/summary')->assertOk();
-        $this->assertSame(2, $summary->json('in_process'), 'Office head should see both offices');
+        $this->assertSame(2, $summary->json('in_process'), 'Office head should default to their own office');
+
+        // The picker can switch to another office.
+        $other = $this->getJson('/api/office-head/dashboard/summary?office_id='.$this->gso->id)->assertOk();
+        $this->assertSame(1, $other->json('in_process'), 'Office head should see the selected office only');
 
         $this->getJson('/api/office-head/dashboard/overdue-overview')->assertOk();
+        $this->getJson('/api/office-head/dashboard/overdue-overview?office_id='.$this->gso->id)->assertOk();
 
         $officeCodes = collect($this->getJson('/api/office-head/offices')->assertOk()->json('data'))
             ->pluck('code');
@@ -182,7 +189,7 @@ class OfficeHeadAccessTest extends TestCase
         $this->getJson('/api/office/users')->assertOk();
     }
 
-    public function test_office_head_without_an_office_can_still_view_the_global_dashboard(): void
+    public function test_office_head_without_an_office_sees_no_office_data(): void
     {
         $headless = User::factory()->create(['office_id' => null]);
         $headless->roles()->attach($this->headRole->id);
@@ -190,6 +197,7 @@ class OfficeHeadAccessTest extends TestCase
         $this->assertTrue($headless->isOfficeHead());
 
         Sanctum::actingAs($headless);
-        $this->getJson('/api/office-head/dashboard/summary')->assertOk();
+        $summary = $this->getJson('/api/office-head/dashboard/summary')->assertOk();
+        $this->assertSame(0, $summary->json('in_process'), 'Without an office, no office data is shown');
     }
 }

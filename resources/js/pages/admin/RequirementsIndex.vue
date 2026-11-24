@@ -221,7 +221,7 @@
                 <v-card-text class="pa-4">
                     <div class="text-caption text-medium-emphasis mb-3">
                         Tick the stations this checklist item appears on.
-                        <b>Required</b> items block moving forward until checked.
+                        <b>Required</b> items block release until checked.
                         Saves apply to running transactions immediately.
                     </div>
                     <v-autocomplete
@@ -339,7 +339,7 @@
                 <v-divider />
                 <v-card-text>
                     <div class="text-caption text-medium-emphasis mb-3">
-                        Each item becomes a tick-box on its station's Checklist. <b>Required</b> items block moving forward until checked.
+                        Each item becomes a tick-box on its station's Checklist. <b>Required</b> items block release until checked.
                     </div>
                     <v-text-field
                         v-model.number="form.order_number"

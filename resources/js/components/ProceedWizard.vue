@@ -7,7 +7,7 @@
             class="pm-tabs"
             :class="{ 'is-return': isReturnSelected }"
             role="tablist"
-            aria-label="Proceed steps"
+            aria-label="Release steps"
         >
             <button
                 type="button"
@@ -702,7 +702,7 @@ function isUploadLocked(r) {
 function reqHintText(r) {
     if (isUploadLocked(r)) return `Tick ${r.definition.name} above to enable uploads.`
     if (hasReqFiles(r)) return ''
-    if (!props.isReturnSelected) return 'Attach at least one file to unlock Proceed.'
+    if (!props.isReturnSelected) return 'Attach at least one file to unlock Release.'
     return ''
 }
 

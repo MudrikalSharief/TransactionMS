@@ -73,6 +73,7 @@ export function formatCalendarMinutes(v) {
 const ACTION_CONFIGS = {
     create: { label: 'Created', icon: 'mdi-file-plus-outline', color: 'grey-darken-1' },
     submit: { label: 'Submitted', icon: 'mdi-send-outline', color: 'blue-darken-2' },
+    proceed: { label: 'Released', icon: 'mdi-send-outline', color: 'blue-darken-2' },
     approve: { label: 'Approved', icon: 'mdi-check', color: 'green-darken-2' },
     finalize: { label: 'Finalized', icon: 'mdi-check-circle-outline', color: 'green-darken-3' },
     return: { label: 'Returned', icon: 'mdi-rotate-ccw', color: 'amber-darken-3' },

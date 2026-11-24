@@ -5,7 +5,7 @@
 ## Rule
 
 - IF a transaction is at its FINAL step (`current_step.is_end === true`), show a
-  **FINISH TRANSACTION** button beside the **PROCEED** button.
+  **FINISH TRANSACTION** button beside the **RELEASE** button.
 - Applies to both detail views: `resources/js/pages/transactions/TransactionDetail.vue`
   (superadmin) and `resources/js/pages/my/MyTransactionDetail.vue` (regular users).
 - Clicking it flags the transaction as finished. Only while unfinished, only for
@@ -40,7 +40,7 @@ Mirror the existing execute flow (same guards, same response shape):
 
 ## Frontend
 
-- Detail pages: the "PROCEED" control is the forward-action button rendered from
+- Detail pages: the "RELEASE" control is the forward-action button rendered from
   `availableActions` (`res.meta?.available_actions`, forward vs return split —
   see `MyTransactionDetail.vue:765-766`, same pattern in `TransactionDetail.vue`).
   `v-if="tx.current_step?.is_end && !tx.is_finished"` → render the

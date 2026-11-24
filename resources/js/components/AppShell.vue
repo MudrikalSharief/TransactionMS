@@ -14,7 +14,10 @@
                 <div id="workspace-header-leading" class="workspace-header-leading">
                     <div class="workspace-header-greeting">
                         <div class="workspace-greeting-line">{{ greeting }}</div>
-                        <div class="workspace-greeting-name" :title="accountName">{{ accountName }}</div>
+                        <div class="workspace-greeting-name" :title="accountName">
+                            <span class="workspace-greeting-name-text">{{ accountName }}</span>
+                            <span v-if="accountRoleLabel" class="workspace-greeting-role">{{ accountRoleLabel }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -647,6 +650,19 @@ const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
 const accountName = computed(
     () => auth.user.value?.name || auth.user.value?.username || "Account",
 );
+// One primary role label for the greeting. Higher-privilege system roles win;
+// otherwise use the first non-end-user role, then whatever is assigned.
+const ROLE_PRIORITY = ["superadmin", "admin", "office_head", "clerk", "viewer"];
+const accountRoleLabel = computed(() => {
+    const roles = auth.user.value?.roles || [];
+    if (!roles.length) return "";
+    const primary = ROLE_PRIORITY
+        .map((code) => roles.find((role) => role.code === code))
+        .find(Boolean)
+        || roles.find((role) => role.code !== "end_user")
+        || roles[0];
+    return primary?.name || primary?.code || "";
+});
 const accountEmail = computed(() => auth.user.value?.email || "");
 const accountInitial = computed(
     () => (accountName.value || "?").trim().charAt(0).toUpperCase() || "?",

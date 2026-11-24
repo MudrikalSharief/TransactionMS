@@ -1,8 +1,14 @@
 <template>
-    <div class="fit-page workspace-dashboard">
+    <div
+        class="fit-page workspace-dashboard"
+        :class="{
+            'workspace-dashboard--office-cards': hasOfficeStepCards && view === 'overview',
+            'workspace-dashboard--office-pair': (isOfficeAdmin || isOfficeHead) && view === 'overview',
+        }"
+    >
         <div class="dash-hello">
             <div class="dash-hello-actions">
-                <!-- One month filter drives both headline tiles. -->
+                <!-- One period filter drives every summary tile. -->
                 <v-menu
                     v-if="canSeeSummary && view === 'overview'"
                     location="bottom end"
@@ -14,7 +20,7 @@
                             v-bind="props"
                             type="button"
                             class="topsteps-month"
-                            aria-label="Filter the transaction summary by month"
+                            aria-label="Filter the transaction summary by period"
                         >
                             <v-icon size="16">mdi-calendar-range</v-icon>
                             <span>{{ summaryMonthLabel }}</span>
@@ -35,6 +41,14 @@
                         </v-list-item>
                     </v-list>
                 </v-menu>
+                <!-- Office heads pick one office here; it drives every card. -->
+                <OfficePicker
+                    v-if="isOfficeHead && view === 'overview'"
+                    v-model="chartOfficeIds"
+                    :offices="officeItems"
+                    single
+                    :fallback-label="myOffice?.code || 'No office assigned'"
+                />
                 <!-- Overview cards; the monitoring Reports view is still
                      reachable through existing links. Transaction Status and
                      Top Overdue Steps share their filters. -->
@@ -68,16 +82,18 @@
             <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
                 {{ summaryError }}
             </v-alert>
-            <div class="summary-row">
+            <!-- Office-wide step cards followed by the overdue cards: six
+                 tiles in one grid, three per row. -->
+            <div class="summary-row" :class="{ 'summary-row--office': hasOfficeStepCards }">
                 <div
-                    v-for="tile in summaryTiles"
+                    v-for="tile in headlineTiles"
                     :key="tile.key"
                     class="summary-strip"
                     :class="{ 'summary-stale': summaryLoading && summary }"
                 >
                     <div class="summary-seg" :class="`summary-seg--${tile.variant}`">
                         <span class="summary-seg-icon" aria-hidden="true">
-                            <v-icon size="28">{{ tile.key === 'overdue_steps' ? 'mdi-timer-alert-outline' : 'mdi-file-clock-outline' }}</v-icon>
+                            <v-icon size="28">{{ tile.icon }}</v-icon>
                         </span>
                         <span class="summary-seg-num">
                             <v-progress-circular
@@ -154,93 +170,11 @@
                                         </v-list-item>
                                     </v-list>
                                 </v-menu>
-                                <v-menu
-                                    v-if="isGlobalDashboard"
-                                    v-model="chartOfficeMenuOpen"
-                                    location="bottom end"
-                                    offset="6"
-                                    :close-on-content-click="false"
-                                >
-                                    <template #activator="{ props }">
-                                        <button
-                                            v-bind="props"
-                                            type="button"
-                                            class="topsteps-month chart-office-chip"
-                                            aria-haspopup="listbox"
-                                            :aria-expanded="chartOfficeMenuOpen ? 'true' : 'false'"
-                                            aria-controls="chart-office-panel"
-                                            :title="chartOfficeFilterSummary"
-                                        >
-                                            <span v-if="chartOfficePickerSeal" class="office-seal chart-office-seal" aria-hidden="true">
-                                                <img v-if="chartOfficePickerSeal.icon" :src="chartOfficePickerSeal.icon" alt="" />
-                                                <span v-else>{{ chartOfficePickerSeal.initials }}</span>
-                                            </span>
-                                            <v-icon v-else size="16">mdi-office-building-outline</v-icon>
-                                            <span>{{ chartOfficeFilterSummary }}</span>
-                                            <v-icon size="16">mdi-chevron-down</v-icon>
-                                        </button>
-                                    </template>
-                                    <v-card
-                                        id="chart-office-panel"
-                                        class="office-panel"
-                                        rounded="lg"
-                                        elevation="8"
-                                        role="dialog"
-                                        aria-label="Choose offices"
-                                    >
-                                        <div class="office-panel-head">
-                                            <input
-                                                ref="chartOfficeSearchEl"
-                                                v-model="chartOfficeSearch"
-                                                class="office-search"
-                                                type="search"
-                                                placeholder="Search by name or abbreviation"
-                                                aria-label="Search offices"
-                                            />
-                                            <button type="button" class="office-clear" @click="clearChartOfficeFilter">
-                                                Show all offices
-                                            </button>
-                                        </div>
-                                        <div class="office-grid" role="listbox" aria-label="Offices" aria-multiselectable="true">
-                                            <button
-                                                v-for="o in filteredChartOfficeOptions"
-                                                :key="o.value"
-                                                type="button"
-                                                class="office-card"
-                                                :class="{ 'is-selected': chartOfficeIds.includes(o.value) }"
-                                                role="option"
-                                                :aria-selected="chartOfficeIds.includes(o.value) ? 'true' : 'false'"
-                                                :aria-label="o.office?.name || o.title"
-                                                v-tooltip="o.office?.name || o.title"
-                                                @click="toggleChartOffice(o.value)"
-                                                @mouseenter="chartOfficeHover = o"
-                                                @mouseleave="chartOfficeHover = null"
-                                                @focus="chartOfficeHover = o"
-                                                @blur="chartOfficeHover = null"
-                                            >
-                                                <span class="office-seal" aria-hidden="true">
-                                                    <img v-if="o.icon" :src="o.icon" alt="" />
-                                                    <span v-else>{{ o.initials }}</span>
-                                                </span>
-                                                <span class="office-card-abbr">{{ o.code }}</span>
-                                            </button>
-                                            <div v-if="!filteredChartOfficeOptions.length" class="office-no-match">
-                                                No offices match “{{ chartOfficeSearch }}”. Try the abbreviation.
-                                            </div>
-                                        </div>
-                                        <div class="office-panel-foot">
-                                            <template v-if="chartOfficeHover">
-                                                <b>{{ chartOfficeHover.code }}</b> · {{ chartOfficeHover.office?.name || chartOfficeHover.title }}
-                                            </template>
-                                            <template v-else-if="selectedChartOffices.length">
-                                                Selected: <b>{{ selectedChartOffices.map((o) => o.code).join(', ') }}</b>
-                                            </template>
-                                            <template v-else>
-                                                Hover or focus an office to see its full name.
-                                            </template>
-                                        </div>
-                                    </v-card>
-                                </v-menu>
+                                <OfficePicker
+                                    v-if="isSuperadmin"
+                                    v-model="chartOfficeIds"
+                                    :offices="officeItems"
+                                />
                             </div>
                         </v-card-title>
                                                 <v-card-text class="pa-2 d-flex flex-column dash-body">
@@ -643,7 +577,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { useAuth, isOfficeAdminUser } from '@/composables/useAuth'
@@ -659,8 +593,8 @@ import { useSmartPoll } from '@/composables/useSmartPoll'
 import { markWorkspaceRefreshed } from '@/composables/useWorkspaceHeader'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
+import OfficePicker from '@/components/OfficePicker.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
-import { officeIcon } from '@/utils/officeIcons'
 import { monthOptions, monthValue } from '@/utils/dashPeriod'
 import { isCached, readCache, writeCache, CacheKeys, scopedKey, storedUserId } from '@/composables/useCache'
 
@@ -694,6 +628,9 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
 const isOfficeHead = computed(() => route.meta?.officeHead === true)
 const isGlobalDashboard = computed(() => isSuperadmin.value || isOfficeHead.value)
 const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value || isOfficeHead.value)
+// Office admins and office heads get the office-wide step cards above the
+// existing overdue cards.
+const hasOfficeStepCards = computed(() => isOfficeAdmin.value || isOfficeHead.value)
 
 // Standard users (role-based staff) get an action-first dashboard: no
 // analytics, queue tightened to what is actually waiting on them, and an
@@ -720,18 +657,25 @@ const myOfficeId = computed(
 
 // ---- Movable cards: press and hold a card for 2s, then drag it onto
 // another card to take its place ----
-// Default order; the staff layout swaps the graph for the queue. The
-// Transaction Summary numbers sit above the grid and don't move.
+// Default order; the staff layout swaps the graph for the queue. Office
+// admins and office heads replace the account-requests panel with Top
+// Overdue Steps, while superadmins keep all three cards.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['graph', 'action', 'topsteps']
+        return isOfficeAdmin.value || isOfficeHead.value
+            ? ['graph', 'topsteps']
+            : ['graph', 'action', 'topsteps']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
-// Width of each grid slot, out of 12 columns; two rows.
+// Width of each grid slot, out of 12 columns.
 const slotSpans = computed(() => {
-    return canSeeSummary.value ? [6, 6, 12] : [8, 4, 8, 4]
+    if (canSeeSummary.value) {
+        return isOfficeAdmin.value || isOfficeHead.value ? [6, 6] : [6, 6, 12]
+    }
+    return [8, 4, 8, 4]
 })
+const showsActionCard = computed(() => cardIds.value.includes('action'))
 function slotStyle(id) {
     return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
 }
@@ -884,72 +828,26 @@ const initialMonth = monthValue(new Date())
 const chartEndMonth = ref(initialMonth)
 const chartMonthOptions = computed(() => monthOptions())
 
-function officeInitials(office) {
-    const code = String(office?.code || '').trim()
-    if (code) return code.slice(0, 2).toUpperCase()
-    return (
-        String(office?.name || '?')
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((part) => part[0] || '')
-            .join('')
-            .toUpperCase() || '?'
-    )
-}
-
-const chartOfficeIds = ref([])
-const chartOfficeOptions = computed(() =>
-    [...(officeStore.items.value || [])]
-        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-        .map((o) => ({
-            title: o.code ? `${o.name} (${o.code})` : o.name,
-            value: o.id,
-            code: o.code || o.name,
-            office: o,
-            icon: officeIcon(o),
-            initials: officeInitials(o),
-        })),
+const chartOfficeIds = ref(
+    isOfficeHead.value && myOfficeId.value != null ? [Number(myOfficeId.value)] : [],
 )
-const selectedChartOffices = computed(() =>
-    chartOfficeOptions.value.filter((o) => chartOfficeIds.value.includes(o.value)),
-)
-const chartOfficePickerSeal = computed(() => selectedChartOffices.value[0] || null)
-const chartOfficeFilterSummary = computed(() => {
-    const codes = selectedChartOffices.value.map((o) => o.code)
-    if (!codes.length) return 'All offices'
-    return codes.length <= 2 ? codes.join(', ') : `${codes.length} offices`
+const officeItems = computed(() => officeStore.items.value || [])
+// Office heads always have exactly one office selected. If auth restores the
+// user's office after setup, select it once; superadmins keep multi-select.
+const headOfficeId = computed(() => {
+    if (!isOfficeHead.value) return null
+    const id = chartOfficeIds.value[0] ?? myOfficeId.value
+    return id != null ? Number(id) : null
 })
-const chartOfficeMenuOpen = ref(false)
-const chartOfficeSearch = ref('')
-const chartOfficeSearchEl = ref(null)
-const chartOfficeHover = ref(null)
-const filteredChartOfficeOptions = computed(() => {
-    const q = chartOfficeSearch.value.trim().toLowerCase()
-    if (!q) return chartOfficeOptions.value
-    return chartOfficeOptions.value.filter((o) =>
-        `${o.code} ${o.office?.name || ''}`.toLowerCase().includes(q),
-    )
+const officeIdsForFetch = computed(() => {
+    if (isOfficeHead.value) return headOfficeId.value != null ? [headOfficeId.value] : []
+    return isGlobalDashboard.value ? [...chartOfficeIds.value] : []
 })
-function toggleChartOffice(id) {
-    const next = new Set(chartOfficeIds.value)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    chartOfficeIds.value = [...next]
-}
-function clearChartOfficeFilter() {
-    chartOfficeIds.value = []
-}
-watch(chartOfficeMenuOpen, async (open) => {
-    chartOfficeSearch.value = ''
-    chartOfficeHover.value = null
-    if (!open) return
-    await nextTick()
-    chartOfficeSearchEl.value?.focus()
-})
-watch(chartOfficeSearch, () => {
-    chartOfficeHover.value = null
-})
+watch(myOfficeId, (id) => {
+    if (isOfficeHead.value && id != null && !chartOfficeIds.value.length) {
+        chartOfficeIds.value = [Number(id)]
+    }
+}, { immediate: true })
 
 // ---- Top Overdue Steps: its own month filter, independent of the chart ----
 const topStepsMonth = ref(initialMonth)
@@ -990,7 +888,11 @@ function fetchOverdueOverview(month, officeIds = []) {
     if (existing) return existing
 
     const params = { month }
-    if (isGlobalDashboard.value && officeIds.length) params.office_ids = officeIds
+    if (isOfficeHead.value) {
+        if (officeIds.length) params.office_id = officeIds[0]
+    } else if (isGlobalDashboard.value && officeIds.length) {
+        params.office_ids = officeIds
+    }
     const overdueUrl = isOfficeHead.value
         ? '/api/office-head/dashboard/overdue-overview'
         : isSuperadmin.value
@@ -1010,7 +912,7 @@ function fetchOverdueOverview(month, officeIds = []) {
 // Paint the last overview during setup (not onMounted) so coming back to the
 // Dashboard shows the chart and steps immediately; onMounted then refreshes
 // them silently.
-const cachedOverview = readCache(overviewCacheKey(initialMonth))
+const cachedOverview = readCache(overviewCacheKey(initialMonth, officeIdsForFetch.value))
 if (cachedOverview != null) {
     chartData.value = cachedOverview
     topStepsData.value = cachedOverview
@@ -1019,7 +921,7 @@ if (cachedOverview != null) {
 async function loadChart({ silent = false } = {}) {
     if (!canSeeSummary.value) return
     const mine = ++chartRequest
-    const officeIds = isGlobalDashboard.value ? [...chartOfficeIds.value] : []
+    const officeIds = [...officeIdsForFetch.value]
     const cached = readCache(overviewCacheKey(chartEndMonth.value, officeIds))
     if (cached != null) {
         chartData.value = cached
@@ -1042,7 +944,7 @@ async function loadChart({ silent = false } = {}) {
     }
 }
 
-watch([chartEndMonth, chartOfficeIds], () => {
+watch([chartEndMonth, officeIdsForFetch], () => {
     chartData.value = null
     chartLoading.value = true
     loadChart()
@@ -1051,7 +953,8 @@ watch([chartEndMonth, chartOfficeIds], () => {
 async function loadTopSteps({ silent = false } = {}) {
     if (!canSeeSummary.value) return
     const mine = ++topStepsRequest
-    const cached = readCache(overviewCacheKey(topStepsMonth.value))
+    const officeIds = [...officeIdsForFetch.value]
+    const cached = readCache(overviewCacheKey(topStepsMonth.value, officeIds))
     if (cached != null) {
         topStepsData.value = cached
         topStepsLoading.value = false
@@ -1060,7 +963,7 @@ async function loadTopSteps({ silent = false } = {}) {
     }
     topStepsError.value = ''
     try {
-        const data = await fetchOverdueOverview(topStepsMonth.value)
+        const data = await fetchOverdueOverview(topStepsMonth.value, officeIds)
         if (mine !== topStepsRequest) return
         topStepsData.value = data
     } catch (e) {
@@ -1073,7 +976,7 @@ async function loadTopSteps({ silent = false } = {}) {
     }
 }
 
-watch(topStepsMonth, () => {
+watch([topStepsMonth, officeIdsForFetch], () => {
     topStepsData.value = null
     topStepsLoading.value = true
     loadTopSteps()
@@ -1100,14 +1003,38 @@ const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
 const summaryMonth = ref(initialMonth)
-const summaryMonthOptions = computed(() => monthOptions())
+const summaryMonthOptions = computed(() => [
+    { title: 'Today', value: 'today' },
+    { title: 'This week', value: 'this_week' },
+    ...monthOptions(),
+])
 const summaryMonthLabel = computed(
     () => summaryMonthOptions.value.find((o) => o.value === summaryMonth.value)?.title || summaryMonth.value,
 )
+// Reads naturally inside the card hints: "today", "this week", or the month.
+const summaryPeriodPhrase = computed(() => {
+    if (summaryMonth.value === 'today') return 'today'
+    if (summaryMonth.value === 'this_week') return 'this week'
+    return `in ${summaryMonthLabel.value}`
+})
+// "your office" for an office admin or the head's own office; the selected
+// office code when an office head is viewing another office.
+const summaryOfficeLabel = computed(() => {
+    if (!isOfficeHead.value) return isOfficeAdmin.value ? 'your office' : null
+    const selected = officeItems.value.find((o) => Number(o.id) === headOfficeId.value)
+    if (selected && Number(selected.id) !== Number(myOfficeId.value)) {
+        return selected.code || selected.name || 'the selected office'
+    }
+    return 'your office'
+})
 
-// One month filter drives both summary tiles. Office admins are still scoped
-// by the server.
-const summaryQuery = computed(() => ({ month: summaryMonth.value }))
+// One period filter drives every summary tile. Office heads also send their
+// selected office, so all six cards follow the same single-office view.
+const summaryQuery = computed(() => {
+    const query = { month: summaryMonth.value }
+    if (headOfficeId.value != null) query.office_id = headOfficeId.value
+    return query
+})
 
 // One key for both the setup paint and refreshes. storedUserId() covers the
 // first render before auth.init() has restored the session.
@@ -1158,10 +1085,51 @@ async function loadSummary() {
 
 // Changing the shared month clears the tiles; cached data for that month
 // paints immediately, otherwise the spinner shows until the request lands.
-watch(summaryMonth, () => {
+watch([summaryMonth, headOfficeId], () => {
     summary.value = null
     summaryError.value = ''
     loadSummary()
+})
+
+// Office-wide cards for office admins and office heads. The backend returns
+// numbers for one office (the admin's own, or the office head's assigned
+// office); all four cards follow the selected period.
+const officeTiles = computed(() => {
+    const m = summary.value?.office_step_metrics || {}
+    return [
+        {
+            key: 'entered',
+            label: 'Entered',
+            variant: 'success',
+            value: m.entered ?? '—',
+            hint: `Steps that entered ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-door-open',
+        },
+        {
+            key: 'received',
+            label: 'Received',
+            variant: 'info',
+            value: m.received ?? '—',
+            hint: `Steps received by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-inbox-arrow-down',
+        },
+        {
+            key: 'in_progress',
+            label: 'In progress',
+            variant: 'warning',
+            value: m.in_progress ?? '—',
+            hint: `Steps received by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value} and still in progress.`,
+            icon: 'mdi-timer-sand',
+        },
+        {
+            key: 'released',
+            label: 'Release',
+            variant: 'info',
+            value: m.released ?? '—',
+            hint: `Steps completed by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-send-check-outline',
+        },
+    ]
 })
 
 // Status tiles: each card takes its color and illustration from its variant.
@@ -1173,17 +1141,27 @@ const summaryTiles = computed(() => {
             label: 'Overdue Steps',
             variant: 'danger',
             value: s.overdue_steps ?? '—',
-            hint: 'Individual steps over SLA',
+            hint: `Individual steps over SLA${summaryOfficeLabel.value ? ` at ${summaryOfficeLabel.value}` : ''} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-timer-alert-outline',
         },
         {
             key: 'overdue_transactions',
             label: 'Overdue Transactions',
             variant: 'danger',
             value: s.overdue_transactions ?? '—',
-            hint: 'Total SLA exceeded',
+            hint: `Transactions over their total SLA${summaryOfficeLabel.value ? ` at ${summaryOfficeLabel.value}` : ''} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-file-clock-outline',
         },
     ]
 })
+
+// One grid: office metrics first, then the overdue cards. Superadmins keep
+// only the two overdue tiles.
+const headlineTiles = computed(() => (
+    hasOfficeStepCards.value
+        ? [...officeTiles.value, ...summaryTiles.value]
+        : summaryTiles.value
+))
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1426,7 +1404,7 @@ onMounted(async () => {
     const primaryCards = canSeeSummary.value
         ? [loadSummary(), loadChart(), loadTopSteps()]
         : []
-    if (canViewPendingAccounts.value) loadAccounts()
+    if (canViewPendingAccounts.value && showsActionCard.value) loadAccounts()
     if (isGlobalDashboard.value) {
         officeStore.fetchAll({
             silent: true,
@@ -1471,7 +1449,7 @@ useSmartPoll(async () => {
 // Signups and approvals change independently of transaction activity.
 useSmartPoll(() => loadAccounts({ silent: true }), {
     checkVersion: false,
-    enabled: () => canViewPendingAccounts.value && accountBusyId.value == null,
+    enabled: () => showsActionCard.value && canViewPendingAccounts.value && accountBusyId.value == null,
 })
 
 </script>

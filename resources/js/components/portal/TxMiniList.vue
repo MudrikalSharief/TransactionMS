@@ -26,6 +26,16 @@
                     <span v-else-if="tx.current_step" class="mini-pill mr-2" :style="tint(tx)" :title="tx.current_step.name || tx.current_step.code">
                         {{ tx.current_step.name || tx.current_step.code }}
                     </span>
+                    <v-chip
+                        v-if="tx.action_label"
+                        size="x-small"
+                        :color="tx.action_color"
+                        variant="tonal"
+                        rounded="pill"
+                        class="mr-2 action-pill"
+                    >
+                        {{ tx.action_label }}
+                    </v-chip>
                     <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
                 </template>
             </v-list-item>
@@ -121,5 +131,8 @@ function subtitle(tx) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+.action-pill {
+    font-weight: 700;
 }
 </style>

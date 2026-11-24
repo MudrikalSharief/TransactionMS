@@ -708,6 +708,234 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('overdue_by_office.0.count', 1);
     }
 
+    public function test_office_step_cards_count_office_wide_activity(): void
+    {
+        $csd = Office::create(['code' => 'CSD', 'name' => 'Computer Service Division']);
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+        $clerk = Role::firstOrCreate(['code' => 'clerk'], ['name' => 'Clerk']);
+        $csdOfficer = User::factory()->create(['office_id' => $csd->id]);
+        $csdOfficer->roles()->attach($clerk->id);
+        $gsoOfficer = User::factory()->create(['office_id' => $gso->id]);
+        $gsoOfficer->roles()->attach($clerk->id);
+
+        $type = TransactionType::create(['code' => 'office_cards', 'name' => 'Office cards']);
+        $workflow = WorkflowDefinition::create([
+            'transaction_type_id' => $type->id,
+            'version' => 1,
+            'status' => 'published',
+        ]);
+        $csdStep = WorkflowStep::create([
+            'workflow_definition_id' => $workflow->id,
+            'order_number' => 1,
+            'code' => 'csd_step',
+            'name' => 'CSD step',
+            'office_id' => $csd->id,
+            'is_start' => true,
+            'sla_minutes' => 60,
+        ]);
+        $gsoStep = WorkflowStep::create([
+            'workflow_definition_id' => $workflow->id,
+            'order_number' => 2,
+            'code' => 'gso_step',
+            'name' => 'GSO step',
+            'office_id' => $gso->id,
+            'sla_minutes' => 60,
+        ]);
+
+        $makeTx = function (Office $office, bool $archived = false, bool $done = false) use ($type, $workflow): Transaction {
+            return Transaction::create([
+                'transaction_type_id' => $type->id,
+                'workflow_definition_id' => $workflow->id,
+                'office_id' => $office->id,
+                'reference_number' => 'TX-OC-'.uniqid(),
+                'is_archive' => $archived,
+                'is_done' => $done,
+                'created_by' => $this->admin->id,
+            ]);
+        };
+        $addRun = function (Transaction $tx, WorkflowStep $step, array $attrs = []): TransactionStepRun {
+            return TransactionStepRun::create(array_merge([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $step->id,
+                'to_step_id' => $step->id,
+                'action_code' => 'submit',
+                'performed_by' => $this->admin->id,
+                'performed_at' => now(),
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $step->office_id,
+                'sla_minutes_snapshot' => 60,
+            ], $attrs));
+        };
+        $makeCurrent = function (Transaction $tx, WorkflowStep $step, TransactionStepRun $run): void {
+            TransactionState::create([
+                'transaction_id' => $tx->id,
+                'current_step_id' => $step->id,
+                'current_run_id' => $run->id,
+                'entered_at' => $run->performed_at,
+            ]);
+        };
+
+        // Received in September at CSD: entered and received in the selected
+        // month, and still in progress at the office.
+        $arrived = $makeTx($csd);
+        $arrivedRun = $addRun($arrived, $csdStep, [
+            'performed_at' => now()->subDays(6),
+            'received_at' => now()->subDays(5),
+            'received_by' => $csdOfficer->id,
+        ]);
+        $makeCurrent($arrived, $csdStep, $arrivedRun);
+
+        // Arrived in September but not received yet: only Entered.
+        $pending = $makeTx($csd);
+        $pendingRun = $addRun($pending, $csdStep, ['performed_at' => now()->subDays(4)]);
+        $makeCurrent($pending, $csdStep, $pendingRun);
+
+        // Arrived in August, received in September: Received and In progress
+        // for September, but Entered belongs to August.
+        $lateReceipt = $makeTx($csd);
+        $lateRun = $addRun($lateReceipt, $csdStep, [
+            'performed_at' => now()->subMonthNoOverflow()->subDays(6),
+            'received_at' => now()->subDays(4),
+            'received_by' => $csdOfficer->id,
+        ]);
+        $makeCurrent($lateReceipt, $csdStep, $lateRun);
+
+        // Entirely in August: only August's cards count it.
+        $augustReceipt = $makeTx($csd);
+        $augustRun = $addRun($augustReceipt, $csdStep, [
+            'performed_at' => now()->subMonthNoOverflow()->subDays(11),
+            'received_at' => now()->subMonthNoOverflow()->subDays(10),
+            'received_by' => $csdOfficer->id,
+        ]);
+        $makeCurrent($augustReceipt, $csdStep, $augustRun);
+
+        // Received today: only today's cards count it.
+        $todayReceipt = $makeTx($csd);
+        $todayRun = $addRun($todayReceipt, $csdStep, [
+            'performed_at' => now()->subMinutes(30),
+            'received_at' => now()->subMinutes(20),
+            'received_by' => $csdOfficer->id,
+        ]);
+        $makeCurrent($todayReceipt, $csdStep, $todayRun);
+
+        // Received at another office: out of every CSD card.
+        $elsewhere = $makeTx($csd);
+        $gsoRun = $addRun($elsewhere, $gsoStep, [
+            'performed_at' => now()->subDays(6),
+            'received_at' => now()->subDays(5),
+            'received_by' => $gsoOfficer->id,
+            'received_office_id' => $gso->id,
+        ]);
+        $makeCurrent($elsewhere, $gsoStep, $gsoRun);
+
+        // Finalize visits are not entries or receipts.
+        $finalized = $makeTx($csd, done: true);
+        $addRun($finalized, $csdStep, [
+            'action_code' => 'finalize',
+            'performed_at' => now()->subDays(1),
+            'received_at' => now()->subDays(2),
+            'received_by' => $csdOfficer->id,
+        ]);
+
+        // Archived transactions are out of every card.
+        $archived = $makeTx($csd, archived: true);
+        $archivedRun = $addRun($archived, $csdStep, [
+            'performed_at' => now()->subDays(6),
+            'received_at' => now()->subDays(5),
+            'received_by' => $csdOfficer->id,
+        ]);
+        $makeCurrent($archived, $csdStep, $archivedRun);
+
+        // Releases in September: one forward action by a CSD officer. The
+        // destination is GSO, so these release runs are not CSD entries.
+        // Create, return, resend and finalize are separate actions; another
+        // office's officer and August's action do not count in September.
+        $releaseAt = now()->subDays(10);
+        $releaseForward = [
+            'to_step_id' => $gsoStep->id,
+            'received_office_id' => $gso->id,
+        ];
+        $addRun($makeTx($csd), $csdStep, [
+            ...$releaseForward,
+            'action_code' => 'approve',
+            'performed_by' => $csdOfficer->id,
+            'performed_at' => $releaseAt,
+        ]);
+        foreach (['create', 'return', 'resend', 'finalize'] as $action) {
+            $addRun($makeTx($csd), $csdStep, [
+                ...$releaseForward,
+                'action_code' => $action,
+                'performed_by' => $csdOfficer->id,
+                'performed_at' => $releaseAt,
+            ]);
+        }
+        $addRun($makeTx($gso), $gsoStep, [
+            'action_code' => 'submit',
+            'performed_by' => $gsoOfficer->id,
+            'performed_at' => $releaseAt,
+        ]);
+        $addRun($makeTx($csd), $csdStep, [
+            ...$releaseForward,
+            'action_code' => 'submit',
+            'performed_by' => $csdOfficer->id,
+            'performed_at' => now()->subMonthNoOverflow(),
+        ]);
+
+        $officeAdmin = User::factory()->create(['office_id' => $csd->id]);
+        $officeAdmin->roles()->attach(Role::firstOrCreate(['code' => 'admin'], ['name' => 'Admin'])->id);
+        Sanctum::actingAs($officeAdmin);
+
+        $this->getJson('/api/office/dashboard/summary?month=2026-09')
+            ->assertOk()
+            ->assertJsonPath('office_step_metrics.entered', 3)
+            ->assertJsonPath('office_step_metrics.received', 3)
+            ->assertJsonPath('office_step_metrics.in_progress', 3)
+            ->assertJsonPath('office_step_metrics.released', 1);
+
+        // Every card follows the selected month, not the calendar day.
+        $this->getJson('/api/office/dashboard/summary?month=2026-08')
+            ->assertOk()
+            ->assertJsonPath('office_step_metrics.entered', 2)
+            ->assertJsonPath('office_step_metrics.received', 1)
+            ->assertJsonPath('office_step_metrics.in_progress', 1)
+            ->assertJsonPath('office_step_metrics.released', 1);
+
+        // Today and this week are also accepted and drive every card.
+        $this->getJson('/api/office/dashboard/summary?month=today')
+            ->assertOk()
+            ->assertJsonPath('period.key', 'today')
+            ->assertJsonPath('office_step_metrics.entered', 1)
+            ->assertJsonPath('office_step_metrics.received', 1)
+            ->assertJsonPath('office_step_metrics.in_progress', 1)
+            ->assertJsonPath('office_step_metrics.released', 0);
+
+        $this->getJson('/api/office/dashboard/summary?month=this_week')
+            ->assertOk()
+            ->assertJsonPath('period.key', 'this_week')
+            ->assertJsonPath('office_step_metrics.entered', 2)
+            ->assertJsonPath('office_step_metrics.received', 3)
+            ->assertJsonPath('office_step_metrics.in_progress', 3)
+            ->assertJsonPath('office_step_metrics.released', 0);
+
+        // Office heads keep the system-wide summary but get their own office's
+        // step cards.
+        $headRole = Role::create(['code' => 'office_head', 'name' => 'Office Head', 'office_id' => $csd->id]);
+        $head = User::factory()->create(['office_id' => $csd->id]);
+        $head->roles()->attach($headRole->id);
+        Sanctum::actingAs($head);
+
+        $this->getJson('/api/office-head/dashboard/summary?month=2026-09')
+            ->assertOk()
+            ->assertJsonPath('office_step_metrics.entered', 3)
+            ->assertJsonPath('office_step_metrics.received', 3)
+            ->assertJsonPath('office_step_metrics.in_progress', 3)
+            ->assertJsonPath('office_step_metrics.released', 1);
+
+        // Superadmins keep only the system-wide overdue cards.
+        $this->summary()->assertJsonMissingPath('office_step_metrics');
+    }
+
     public function test_invalid_month_is_rejected(): void
     {
         Sanctum::actingAs($this->admin);

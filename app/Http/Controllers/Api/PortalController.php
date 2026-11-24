@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Office;
 use App\Models\Transaction;
+use App\Models\TransactionStepRun;
 use App\Services\RoutingEngine;
-use App\Support\WorkingTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -18,13 +18,14 @@ class PortalController extends Controller
 
     /**
      * Optional `period` (the Home page's Period filter, same values as the
-     * admin Dashboard): all (default), this_week or YYYY-MM. Like the admin
-     * summary, Completed counts by finalize date and the rest by created date.
+     * admin Dashboard): all (default), today, this_week or YYYY-MM. Like the
+     * admin summary, Completed counts by finalize date and the rest by
+     * created date.
      */
     public function summary(Request $request)
     {
         $data = $request->validate([
-            'period' => ['nullable', 'regex:/^(all|this_week|\d{4}-(0[1-9]|1[0-2]))$/'],
+            'period' => ['nullable', 'regex:/^(all|today|this_week|\d{4}-(0[1-9]|1[0-2]))$/'],
         ]);
         [$from, $to] = $this->range($data['period'] ?? 'all');
 
@@ -52,15 +53,106 @@ class PortalController extends Controller
                     ->where('performed_at', '<', $to)))
                 ->count(),
             'created_by_me' => $created(Transaction::query()->active()->where('created_by', $user->id))->count(),
-            ...($user->roles->contains('code', 'clerk') ? ['clerk_steps' => $this->clerkSteps($user, $from, $to)] : []),
+            'step_metrics' => $this->stepMetrics($user, $from, $to),
+            'needs_action' => $this->needsAction($user),
         ]);
     }
 
-    private function clerkSteps($user, $from, $to): array
+    /** Step activity, open work, and forward releases in the selected Period. */
+    private function stepMetrics($user, $from, $to): array
     {
-        $rows = ['overdue_completed' => [], 'overdue_pending' => [], 'needs_action' => []];
-        if ($user->office_id === null) return array_fill_keys(array_keys($rows), 0) + ['rows' => $rows];
+        $empty = ['received' => 0, 'entered' => 0, 'overdue_work' => 0, 'released' => 0];
+        if ($user->office_id === null) return $empty;
 
+        $received = TransactionStepRun::query()
+            ->where('received_by', $user->id)
+            ->where('action_code', '<>', 'finalize')
+            ->when($from, fn (Builder $q) => $q
+                ->where('received_at', '>=', $from)
+                ->where('received_at', '<', $to))
+            ->whereHas('transaction', fn (Builder $q) => $q
+                ->withoutGlobalScope('officer_assignment')
+                ->active())
+            ->count();
+
+        $roleIds = $user->roles->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $entered = 0;
+        if ($roleIds) {
+            $entered = TransactionStepRun::query()
+                ->when($from, fn (Builder $q) => $q
+                    ->where('performed_at', '>=', $from)
+                    ->where('performed_at', '<', $to))
+                ->where('action_code', '<>', 'finalize')
+                ->whereHas('transaction', fn (Builder $q) => $q
+                    ->withoutGlobalScope('officer_assignment')
+                    ->active())
+                ->whereHas('toStep.roles', fn (Builder $q) => $q->whereIn('roles.id', $roleIds))
+                ->with([
+                    'toStep' => fn ($q) => $q->select(['id', 'office_id', 'is_end_user']),
+                    'transaction:id,office_id,workflow_definition_id',
+                ])
+                ->get()
+                ->filter(function (TransactionStepRun $run) use ($user) {
+                    $step = $run->toStep;
+                    $tx = $run->transaction;
+                    if (!$step || !$tx) return false;
+                    $officeId = $run->received_office_id ?? $tx->effectiveStepOfficeId($step);
+
+                    return (int) $officeId === (int) $user->office_id;
+                })
+                ->count();
+        }
+
+        // Every open step the user currently holds, received inside the Period:
+        // overdue visits and visits still inside their limit both count.
+        $overdueWork = Transaction::query()
+            ->withoutGlobalScope('officer_assignment')
+            ->active()
+            ->where('is_done', false)
+            ->whereHas('state.currentRun', function (Builder $q) use ($user, $from, $to) {
+                $q->whereNotNull('received_at')
+                    ->when($from, fn (Builder $w) => $w
+                        ->where('received_at', '>=', $from)
+                        ->where('received_at', '<', $to))
+                    ->where(function (Builder $w) use ($user) {
+                        $w->where('assigned_to', $user->id)
+                            ->orWhere(fn (Builder $x) => $x
+                                ->whereNull('assigned_to')
+                                ->where('received_by', $user->id));
+                    });
+            })
+            ->count();
+
+        // Forward "Proceed" actions the user actually performed in the
+        // selected Period. Creating, returning, resending, and finalizing are
+        // separate actions and do not count as released steps.
+        $released = TransactionStepRun::query()
+            ->where('performed_by', $user->id)
+            ->whereNotIn('action_code', ['create', 'return', 'resend', 'finalize'])
+            ->when($from, fn (Builder $q) => $q
+                ->where('performed_at', '>=', $from)
+                ->where('performed_at', '<', $to))
+            ->whereHas('transaction', fn (Builder $q) => $q
+                ->withoutGlobalScope('officer_assignment'))
+            ->count();
+
+        return [
+            'received' => $received,
+            'entered' => $entered,
+            'overdue_work' => $overdueWork,
+            'released' => $released,
+        ];
+    }
+
+    /**
+     * Current steps this user can act on: received work still to release,
+     * returns assigned to them, and arrivals at their office for their role.
+     */
+    private function needsAction($user): array
+    {
+        if ($user->office_id === null) return ['count' => 0, 'rows' => []];
+
+        $rows = [];
         $routing = app(RoutingEngine::class);
         // Include past visits: completing a step does not require finalizing its transaction.
         $transactions = Transaction::query()->active()
@@ -88,28 +180,28 @@ class PortalController extends Controller
                 if ($officerId !== null && (int) $officerId !== (int) $user->id) continue;
                 $departure = $runs->first(fn ($next) => $next->id > $run->id && (int) $next->from_step_id === (int) $step->id);
                 $isCurrent = !$tx->is_done && $current?->id === $run->id && !$departure;
-                $sla = (int) ($run->sla_minutes_snapshot ?? $step->sla_minutes);
-                $overdue = $run->received_at && $sla > 0
-                    && WorkingTime::minutesBetween($run->received_at, $departure?->performed_at ?? now()) > $sla;
-                $row = [
+                if (!$isCurrent || !$routing->userCanWorkOnCurrentStep($tx, $user)) continue;
+
+                $reason = $run->action_code === 'return'
+                    ? 'Return assigned to you'
+                    : ($run->received_at === null ? 'Awaiting receipt' : 'Received — ready to release');
+                $action = $run->action_code === 'return'
+                    ? 'return'
+                    : ($run->received_at === null ? 'receive' : 'release');
+
+                $rows[] = [
                     'id' => $run->id,
                     'transaction_id' => $tx->id,
                     'reference_number' => $tx->reference_number,
                     'title' => $tx->title,
                     'step_name' => $step->name,
-                    'reason' => $run->action_code === 'return' ? 'Returned to you' : 'Awaiting receipt',
+                    'reason' => $reason,
+                    'action' => $action,
                 ];
-                if ($departure && $officerId !== null && $overdue
-                    && (!$from || ($departure->performed_at >= $from && $departure->performed_at < $to))) {
-                    $rows['overdue_completed'][] = $row;
-                }
-                if (!$isCurrent || !$routing->userCanWorkOnCurrentStep($tx, $user)) continue;
-                if ($overdue) $rows['overdue_pending'][] = $row;
-                if ($run->received_at === null || $run->action_code === 'return') $rows['needs_action'][] = $row;
             }
         }
 
-        return array_map('count', $rows) + ['rows' => $rows];
+        return ['count' => count($rows), 'rows' => $rows];
     }
 
     /** [from, to) in UTC for the period; [null, null] for all time. */
@@ -117,10 +209,16 @@ class PortalController extends Controller
     {
         if ($period === 'all') return [null, null];
 
-        $start = $period === 'this_week'
-            ? now(self::TZ)->startOfWeek(Carbon::MONDAY)
-            : Carbon::parse("{$period}-01 00:00:00", self::TZ);
-        $end = $period === 'this_week' ? $start->copy()->addWeek() : $start->copy()->addMonthNoOverflow();
+        if ($period === 'today') {
+            $start = now(self::TZ)->startOfDay();
+            $end = $start->copy()->addDay();
+        } elseif ($period === 'this_week') {
+            $start = now(self::TZ)->startOfWeek(Carbon::MONDAY);
+            $end = $start->copy()->addWeek();
+        } else {
+            $start = Carbon::parse("{$period}-01 00:00:00", self::TZ);
+            $end = $start->copy()->addMonthNoOverflow();
+        }
 
         return [$start->copy()->utc(), $end->copy()->utc()];
     }

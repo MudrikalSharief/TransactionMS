@@ -240,7 +240,7 @@ const actionChipLabel = computed(() => {
     if (!props.hasSelection || !props.direction) return 'No action selected'
     if (props.direction === 'return') return 'Return to'
     if (props.direction === 'resend') return 'Resend to'
-    return 'Proceed to'
+    return 'Release to'
 })
 
 const ariaLabel = computed(() => {
