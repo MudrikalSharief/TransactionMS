@@ -150,6 +150,22 @@ class User extends Authenticatable
 
         return !$this->isSuperadmin()
             && (int) $this->office_id > 0
-            && $this->roles->contains(fn ($r) => $r->code === 'admin');
+            && $this->roles->contains(
+                fn (Role $role) => in_array($role->code, Role::OFFICE_ADMIN_ROLE_CODES, true)
+            );
+    }
+
+    /**
+     * Dedicated office-head account: sees the system-wide read-only
+     * dashboard, but never the office-admin area. Admin and superadmin
+     * outrank it and keep their full access.
+     */
+    public function isOfficeHead(): bool
+    {
+        $this->loadMissing('roles');
+
+        return !$this->isSuperadmin()
+            && !$this->roles->contains(fn (Role $role) => $role->code === 'admin')
+            && $this->roles->contains(fn (Role $role) => $role->code === 'office_head');
     }
 }

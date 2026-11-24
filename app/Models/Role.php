@@ -13,9 +13,16 @@ class Role extends Model
 {
     use SoftDeletes;
 
+    /**
+     * Role codes that grant office-admin powers: they manage their own
+     * office only. The frontend mirrors this list in useAuth.js.
+     */
+    public const OFFICE_ADMIN_ROLE_CODES = ['admin'];
+
     public const HIERARCHY = [
         'superadmin',
         'admin',
+        'office_head',
         'clerk',
         'clerk_releasing',
         'approver',

@@ -16,7 +16,7 @@ export function useOffices() {
 
   // Instant illusion: cached offices paint with no loader flash, then the
   // network refreshes silently in the background.
-  async function fetchAll({ silent = false } = {}) {
+  async function fetchAll({ silent = false, url = '/api/admin/offices' } = {}) {
     const cached = readCache(CacheKeys.offices)
     const quiet = silent || cached != null
     if (cached != null) {
@@ -26,7 +26,7 @@ export function useOffices() {
     }
     if (!quiet) loading.value = true
     try {
-      const res = await api.get('/api/admin/offices')
+      const res = await api.get(url)
       items.value = res.data.data ?? res.data
       warmOfficeIcons(items.value)
       writeCache(CacheKeys.offices, items.value)

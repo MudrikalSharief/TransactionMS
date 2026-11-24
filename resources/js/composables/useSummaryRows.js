@@ -1,11 +1,14 @@
 import { fmtDateTime } from '@/utils/dates'
 import { readCache, writeCache, CacheKeys } from '@/composables/useCache'
-import { useAuth, isSuperadminUser } from '@/composables/useAuth'
+import { useAuth, isSuperadminUser, isOfficeHeadUser } from '@/composables/useAuth'
 
-// Superadmins read the summary from /api/admin; office admins from
-// /api/office, where the server forces their own office's scope.
+// Superadmins read the system-wide summary from /api/admin; office heads
+// from their dedicated /api/office-head; office admins from /api/office,
+// where the server forces their own office's scope.
 export function summaryApiBase() {
-    return isSuperadminUser(useAuth().user.value) ? '/api/admin/dashboard/summary' : '/api/office/dashboard/summary'
+    const u = useAuth().user.value
+    if (isOfficeHeadUser(u)) return '/api/office-head/dashboard/summary'
+    return isSuperadminUser(u) ? '/api/admin/dashboard/summary' : '/api/office/dashboard/summary'
 }
 
 // Shared by the Transaction Summary popover (compact) and full-list window:

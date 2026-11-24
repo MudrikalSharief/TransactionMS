@@ -9,7 +9,7 @@
                 <h1 class="ro-title">{{ officeMode ? 'Office Roles' : 'Roles' }}</h1>
                 <ScopeChip v-if="officeMode" class="mt-1" />
                 <p class="ro-sub">
-                    {{ officeMode ? 'Create roles for your office. Shared roles are available for assignment and managed by a superadmin.' : 'The roles your system uses for access and workflow assignments.' }}
+                    {{ officeMode ? 'Create roles for your office. Shared and reserved roles are available for assignment and managed by a superadmin.' : 'The roles your system uses for access and workflow assignments.' }}
                 </p>
             </div>
             <div class="ro-tools">
@@ -114,7 +114,7 @@
                     <span
                         v-else
                         class="ro-code ro-code-locked"
-                        :title="officeMode ? 'Shared roles are managed by a superadmin' : 'The superadmin code cannot be changed'"
+                        :title="officeMode ? 'Reserved roles are managed by a superadmin' : 'The superadmin code cannot be changed'"
                     >
                         {{ item.code }}
                         <v-icon size="14" aria-hidden="true"

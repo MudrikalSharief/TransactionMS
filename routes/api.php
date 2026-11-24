@@ -7,10 +7,12 @@ use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\BlockViewer;
 use App\Http\Middleware\EnsureOfficeAdmin;
+use App\Http\Middleware\EnsureOfficeHead;
 use App\Http\Middleware\EnsureViewer;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureTransactionOffice;
 use App\Http\Controllers\Api\Office\OfficeAdminController;
+use App\Http\Controllers\Api\OfficeHead\OfficeHeadDashboardController;
 
 use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
@@ -147,6 +149,18 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     Route::get('/transactions/{transaction}/attachments/{attachment}/view', [TransactionAttachmentController::class, 'view']);
     Route::delete('/transactions/{transaction}/attachments/{attachment}', [TransactionAttachmentController::class, 'destroy']);
 });
+
+// Office-head area: a dedicated read-only, system-wide dashboard. Admin
+// and superadmin accounts keep their full admin area instead.
+Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeHead::class])
+    ->prefix('office-head')
+    ->group(function () {
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
+        Route::get('/dashboard/overdue-overview', [DashboardSummaryController::class, 'overdueOverview']);
+        Route::get('/offices', [OfficeController::class, 'index']);
+        Route::get('/reports/monitoring', MonitoringReportController::class);
+        Route::get('/pending-accounts', [OfficeHeadDashboardController::class, 'pendingAccounts']);
+    });
 
 // Office admin area: an admin manages their own office only.
 Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class])

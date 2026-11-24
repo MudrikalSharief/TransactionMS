@@ -137,7 +137,7 @@ export const CacheKeys = {
     officeSteps: 'office-steps',
     summary: 'dash-summary:v6',
     // Transaction Status / Top Overdue Steps / Overdue by Office payloads.
-    overdueOverview: 'dash-overdue-overview:v1',
+    overdueOverview: 'dash-overdue-overview:v2',
     approvalCount: 'approval-count',
     authUser: 'auth-user',
 }

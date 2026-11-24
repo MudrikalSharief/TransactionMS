@@ -42,7 +42,7 @@ const TrackWelcome = () => import("@/pages/track/TrackWelcome.vue");
 const TrackList = () => import("@/pages/track/TrackList.vue");
 const TrackDetail = () => import("@/pages/track/TrackDetail.vue");
 
-import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind, homePathFor } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, isOfficeHeadUser, userKind, homePathFor } from "@/composables/useAuth";
 import { anyStagingDirty } from "@/composables/useWorkflowStaging";
 import { confirm } from "@/composables/useConfirm";
 import { toast } from "@/composables/useToast";
@@ -79,6 +79,22 @@ export function createRouter() {
                 name: "dashboard",
                 component: Dashboard,
                 meta: { requiresAuth: true, title: "Dashboard", kind: "admin", fit: true, noFooter: true },
+            },
+            {
+                // Dedicated read-only office-head dashboard. Same component
+                // as the superadmin dashboard, but only office_head accounts
+                // (without admin/superadmin) may enter.
+                path: "/office-head",
+                name: "office-head",
+                component: Dashboard,
+                meta: {
+                    requiresAuth: true,
+                    officeHead: true,
+                    title: "Dashboard",
+                    kind: "head",
+                    fit: true,
+                    noFooter: true,
+                },
             },
 
             {
@@ -372,12 +388,22 @@ export function createRouter() {
                         query: to.query,
                     };
                 }
-                if (to.meta.kind === "admin" || to.meta.kind === "viewer") {
+                if (to.meta.kind === "admin" || to.meta.kind === "viewer" || to.meta.kind === "head") {
                     return { name: "portal" };
                 }
-            } else if (to.meta.kind === "staff" || to.meta.kind === "viewer") {
+            } else if (kind === "head") {
+                // Office heads only get their dedicated dashboard. Direct
+                // links to every other page bounce back there.
+                if (!["office-head", "profile", "help"].includes(to.name)) {
+                    return { name: "office-head" };
+                }
+            } else if (to.meta.kind === "staff" || to.meta.kind === "viewer" || to.meta.kind === "head") {
                 // Superadmins and office admins use the admin URLs; a stale
-                // portal/track URL goes back to their dashboard.
+                // portal/track/office-head URL goes back to their dashboard.
+                return homePathFor(auth.user.value);
+            }
+            // Safety net for the dedicated office-head route.
+            if (to.meta.officeHead && !isOfficeHeadUser(auth.user.value)) {
                 return homePathFor(auth.user.value);
             }
         }

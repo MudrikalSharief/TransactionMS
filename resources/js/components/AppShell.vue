@@ -14,11 +14,7 @@
                 <div id="workspace-header-leading" class="workspace-header-leading">
                     <div class="workspace-header-greeting">
                         <div class="workspace-greeting-line">{{ greeting }}</div>
-                        <div class="workspace-greeting-name" :title="accountName">{{ accountFirstName }}</div>
-                        <div class="workspace-greeting-meta">
-                            <span v-if="refreshedLabel">Updated {{ refreshedLabel }}</span>
-                            <span v-if="scope" class="workspace-greeting-scope">{{ scope.label }}</span>
-                        </div>
+                        <div class="workspace-greeting-name" :title="accountName">{{ accountName }}</div>
                     </div>
                 </div>
             </div>
@@ -142,7 +138,7 @@
                 </div>
 
                 <!-- Bell (staff, clerks, admins): deadlines and returns. -->
-                <NotificationBell />
+                <NotificationBell v-if="kind !== 'head'" />
 
                 <!-- Viewers (tracking): Back to the previous page. On the search
                      page with nothing to go back to, it leaves tracking for the
@@ -520,7 +516,6 @@ import { useDisplay, useTheme } from "vuetify";
 import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
-import { useOfficeScope } from "@/composables/useOfficeScope";
 import { useWorkspaceHeader } from "@/composables/useWorkspaceHeader";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import AppToaster from "@/components/AppToaster.vue";
@@ -615,10 +610,13 @@ const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind
 // their marker synchronously, including transitions between account kinds.
 const workspaceMode = computed(() => showAuthUi.value && kind.value !== "viewer"
     && route.meta?.kind !== "viewer" && !/^\/(?:login|track|scan)(?:\/|$)/.test(route.path));
-const isWorkspaceOverview = computed(() => ["/", "/portal"].includes(route.path));
+const isWorkspaceOverview = computed(() => ["/", "/portal", "/office-head"].includes(route.path));
 // Work, account and setup sections use their page search instead. Activity
 // Log also has its own filters; only the overview keeps the global search.
-const showHeaderSearch = computed(() => !workspaceMode.value || ["dashboard", "portal"].includes(route.name));
+// Office heads get no global search: its results expose pages they cannot use.
+const showHeaderSearch = computed(
+    () => kind.value !== "head" && (!workspaceMode.value || ["dashboard", "portal"].includes(route.name)),
+);
 watch(workspaceMode, enabled => {
     document.documentElement.classList.toggle("workspace-active", enabled);
     if (enabled) {
@@ -653,13 +651,9 @@ const accountEmail = computed(() => auth.user.value?.email || "");
 const accountInitial = computed(
     () => (accountName.value || "?").trim().charAt(0).toUpperCase() || "?",
 );
-const accountFirstName = computed(
-    () => accountName.value.trim().split(/\s+/)[0] || "there",
-);
-const scope = useOfficeScope();
-const { greeting, refreshedLabel } = useWorkspaceHeader();
+const { greeting } = useWorkspaceHeader();
 
-const showApprovals = computed(() => canUseApprovals(auth.user.value));
+const showApprovals = computed(() => kind.value !== "head" && canUseApprovals(auth.user.value));
 
 // Sidebar, grouped by what the role does. Office admins get superadmin-style
 // tools limited to their office; setup stays superadmin only. Staff use the
@@ -667,6 +661,13 @@ const showApprovals = computed(() => canUseApprovals(auth.user.value));
 const navGroups = computed(() => {
     if (kind.value === "viewer") {
         return [{ title: "Track", items: [{ title: "Track Transactions", icon: "mdi-map-marker-path", to: "/track" }] }];
+    }
+    if (kind.value === "head") {
+        // Dedicated read-only experience: the dashboard is the only page.
+        return [{
+            title: "Overview",
+            items: [{ title: "Dashboard", icon: "mdi-view-dashboard-outline", to: "/office-head", exact: true }],
+        }];
     }
     if (kind.value === "staff") {
         const work = [{ title: "Transactions", icon: "mdi-file-document-multiple", to: "/portal/transactions" }];

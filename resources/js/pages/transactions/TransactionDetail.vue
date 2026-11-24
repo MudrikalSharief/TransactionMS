@@ -1432,10 +1432,8 @@ const canReceivePending = computed(() => {
 
     const destOfficeId = step.office_id ?? null;
     const userOfficeId = u.office?.id ?? u.office_id ?? null;
-    const isOfficeAdmin =
-        userOfficeId != null && (u.roles || []).some((r) => r.code === 'admin');
 
-    if (isOfficeAdmin && destOfficeId != null && Number(destOfficeId) === Number(userOfficeId)) {
+    if (isOfficeAdmin.value && destOfficeId != null && Number(destOfficeId) === Number(userOfficeId)) {
         return true;
     }
 

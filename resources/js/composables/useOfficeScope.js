@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { useAuth, isSuperadminUser, isOfficeAdminUser } from '@/composables/useAuth'
+import { useAuth, isSuperadminUser, isOfficeAdminUser, isOfficeHeadUser } from '@/composables/useAuth'
 
 // Whose data the signed-in user sees: every office, or their own.
 export function useOfficeScope() {
@@ -10,6 +10,9 @@ export function useOfficeScope() {
         if (!u) return null
         if (isSuperadminUser(u)) {
             return { kind: 'all', icon: 'mdi-earth', label: 'All offices', badge: 'Superadmin', tooltip: 'You see every office' }
+        }
+        if (isOfficeHeadUser(u)) {
+            return { kind: 'all', icon: 'mdi-earth', label: 'All offices', badge: 'Office head', tooltip: 'You can view every office' }
         }
         const office = u.office
         if (!office) return null

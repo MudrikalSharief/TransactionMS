@@ -470,7 +470,7 @@ class OfficeAdminTest extends TestCase
         Sanctum::actingAs($this->user(null, $this->adminRole));
         $this->getJson('/api/office/users')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Your admin account has no office assigned. Ask a superadmin to set one.');
+            ->assertJsonPath('message', 'Your account has an office-admin role but no office assigned. Ask a superadmin to set one.');
 
         Sanctum::actingAs($this->user($this->gso, $this->gsoStaff));
         $this->getJson('/api/office/users')->assertForbidden();

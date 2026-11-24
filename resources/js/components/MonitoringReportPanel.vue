@@ -39,7 +39,7 @@
                 class="report-filter"
             />
             <v-select
-                v-if="isSuperadmin"
+                v-if="canFilterOffices"
                 v-model="offices"
                 :items="officeOptions"
                 label="Offices"
@@ -92,7 +92,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { useApi } from "@/composables/useApi";
-import { isSuperadminUser, useAuth } from "@/composables/useAuth";
+import { isSuperadminUser, useAuth, userKind } from "@/composables/useAuth";
 import { useOffices } from "@/composables/useOffices";
 import { useFitScreen } from "@/composables/useFitScreen";
 import { toast } from "@/composables/useToast";
@@ -105,6 +105,14 @@ const officeStore = useOffices();
 const { vFitBody, rows } = useFitScreen();
 
 const isSuperadmin = computed(() => isSuperadminUser(user.value));
+const isOfficeHead = computed(() => userKind(user.value) === "head");
+const canFilterOffices = computed(() => isSuperadmin.value || isOfficeHead.value);
+const reportUrl = computed(() =>
+    isOfficeHead.value ? "/api/office-head/reports/monitoring" : "/api/admin/reports/monitoring",
+);
+const officesUrl = computed(() =>
+    isOfficeHead.value ? "/api/office-head/offices" : "/api/admin/offices",
+);
 const period = ref("all");
 const offices = ref([]);
 const periodOptions = computed(() => dashPeriodOptions());
@@ -133,7 +141,7 @@ async function load() {
     const mine = ++request;
     loading.value = true;
     try {
-        const res = await api.get("/api/admin/reports/monitoring", {
+        const res = await api.get(reportUrl.value, {
             params: { period: period.value, ...(offices.value.length ? { offices: offices.value } : {}) },
         });
         if (mine !== request) return;
@@ -148,11 +156,13 @@ async function load() {
 watch([period, offices], load, { deep: true, immediate: true });
 
 onMounted(() => {
-    if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {});
+    if (canFilterOffices.value) {
+        officeStore.fetchAll({ silent: true, url: officesUrl.value }).catch(() => {});
+    }
 });
 
 const officeFilterLabel = computed(() => {
-    if (!isSuperadmin.value) {
+    if (!canFilterOffices.value) {
         return user.value?.office?.code || user.value?.office?.name || "Your office";
     }
     if (!offices.value.length) return "All offices";

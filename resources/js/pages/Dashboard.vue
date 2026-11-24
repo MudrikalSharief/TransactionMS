@@ -2,9 +2,42 @@
     <div class="fit-page workspace-dashboard">
         <div class="dash-hello">
             <div class="dash-hello-actions">
-                <!-- Overview cards, or the monitoring Reports (superadmins and
-                     office admins). Transaction Status and Top Overdue Steps
-                     share their filters. -->
+                <!-- One month filter drives both headline tiles. -->
+                <v-menu
+                    v-if="canSeeSummary && view === 'overview'"
+                    location="bottom end"
+                    offset="6"
+                    :close-on-content-click="true"
+                >
+                    <template #activator="{ props }">
+                        <button
+                            v-bind="props"
+                            type="button"
+                            class="topsteps-month"
+                            aria-label="Filter the transaction summary by month"
+                        >
+                            <v-icon size="16">mdi-calendar-range</v-icon>
+                            <span>{{ summaryMonthLabel }}</span>
+                            <v-icon size="16">mdi-chevron-down</v-icon>
+                        </button>
+                    </template>
+                    <v-list density="compact" class="topsteps-month-list">
+                        <v-list-item
+                            v-for="m in summaryMonthOptions"
+                            :key="m.value"
+                            :active="summaryMonth === m.value"
+                            @click="summaryMonth = m.value"
+                        >
+                            <v-list-item-title>{{ m.title }}</v-list-item-title>
+                            <template #append>
+                                <v-icon v-if="summaryMonth === m.value" size="18">mdi-check</v-icon>
+                            </template>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+                <!-- Overview cards; the monitoring Reports view is still
+                     reachable through existing links. Transaction Status and
+                     Top Overdue Steps share their filters. -->
                 <v-btn-toggle
                     v-if="canSeeSummary"
                     v-model="view"
@@ -16,7 +49,6 @@
                     class="dash-view"
                 >
                     <v-btn value="overview" prepend-icon="mdi-view-dashboard-outline" class="text-none">Overview</v-btn>
-                    <v-btn value="reports" prepend-icon="mdi-chart-box-outline" class="text-none">Reports</v-btn>
                 </v-btn-toggle>
                 <v-btn
                     v-if="layoutChanged && view === 'overview'"
@@ -123,7 +155,7 @@
                                     </v-list>
                                 </v-menu>
                                 <v-menu
-                                    v-if="isSuperadmin"
+                                    v-if="isGlobalDashboard"
                                     v-model="chartOfficeMenuOpen"
                                     location="bottom end"
                                     offset="6"
@@ -252,64 +284,6 @@
                                     <div class="start-sub text-truncate" :title="link.subtitle">{{ link.subtitle }}</div>
                                 </div>
                                 <v-icon size="small" color="primary">mdi-chevron-right</v-icon>
-                            </div>
-                        </v-card-text>
-                    </v-card>
-                </div>
-                <div v-else-if="id === 'byprocess'" class="dash-slot" :class="cardClass(id)" :style="slotStyle(id)" :data-card="id">
-                    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
-                        <v-card-title class="d-flex align-center lgu-head dash-head">
-                            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">mdi-chart-donut</v-icon>
-                            </v-avatar>
-                            <div style="min-width: 0">
-                                <div class="text-subtitle-1 font-weight-bold">Overdue Transactions by Office</div>
-                                <div class="dash-panel-sub">Which offices hold the most late items</div>
-                            </div>
-                            <v-spacer />
-                            <v-menu location="bottom end" offset="6" :close-on-content-click="true">
-                                <template #activator="{ props }">
-                                    <button
-                                        v-bind="props"
-                                        type="button"
-                                        class="topsteps-month"
-                                        aria-label="Filter overdue transactions by month"
-                                    >
-                                        <v-icon size="16">mdi-calendar-range</v-icon>
-                                        <span>{{ overduePieMonthLabel }}</span>
-                                        <v-icon size="16">mdi-chevron-down</v-icon>
-                                    </button>
-                                </template>
-                                <v-list density="compact" class="topsteps-month-list">
-                                    <v-list-item
-                                        v-for="m in overduePieMonthOptions"
-                                        :key="m.value"
-                                        :active="overduePieMonth === m.value"
-                                        @click="overduePieMonth = m.value"
-                                    >
-                                        <v-list-item-title>{{ m.title }}</v-list-item-title>
-                                        <template #append>
-                                            <v-icon v-if="overduePieMonth === m.value" size="18">mdi-check</v-icon>
-                                        </template>
-                                    </v-list-item>
-                                </v-list>
-                            </v-menu>
-                        </v-card-title>
-                        <v-card-text v-fit-body="'transactionsPie'" class="pa-2 px-3 process-pie-body dash-body" :class="{ 'summary-stale': overduePieLoading && overduePieData }">
-                            <v-alert v-if="overduePieError" type="error" variant="tonal" density="compact" class="ma-2">
-                                {{ overduePieError }}
-                            </v-alert>
-                            <OfficeDonut
-                                v-else-if="overdueOfficeRows.length"
-                                :slices="overdueOfficeRows"
-                                :size="transactionsPieSize"
-                                aria-label="Overdue transactions by office"
-                            />
-                            <div v-else-if="overduePieLoading" class="d-flex align-center justify-center dash-loading">
-                                <v-progress-circular indeterminate color="grey-darken-3" size="40" width="3" />
-                            </div>
-                            <div v-else-if="overduePieData" class="text-caption text-medium-emphasis">
-                                No overdue transactions in {{ overduePieMonthLabel }}.
                             </div>
                         </v-card-text>
                     </v-card>
@@ -455,26 +429,29 @@
                     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
                         <v-card-title class="d-flex align-center lgu-head dash-head">
                             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                                <v-icon color="#005EED" size="20">{{ canApproveAccounts ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
+                                <v-icon color="#005EED" size="20">{{ canViewPendingAccounts ? 'mdi-account-clock-outline' : 'mdi-tray-full' }}</v-icon>
                             </v-avatar>
                             <div class="dash-head-title">
-                                <div class="text-subtitle-1 font-weight-bold">Needs My Action</div>
+                                <div class="text-subtitle-1 font-weight-bold">
+                                    {{ isOfficeHead ? 'Pending Account Requests' : 'Needs My Action' }}
+                                </div>
                                 <div v-if="actionSub" class="dash-panel-sub">{{ actionSub }}</div>
                             </div>
                             <v-spacer />
                             <v-btn
+                                v-if="canApproveAccounts"
                                 variant="text"
                                 size="small"
                                 color="primary"
                                 append-icon="mdi-arrow-right"
-                                @click="canApproveAccounts ? goToAccounts() : goToQueue()"
+                                @click="goToAccounts()"
                             >
-                                {{ canApproveAccounts ? (isSuperadmin ? 'All accounts' : 'Office users') : 'My queue' }}
+                                {{ isSuperadmin ? 'All accounts' : 'Office users' }}
                             </v-btn>
                         </v-card-title>
                         <!-- Admins: new sign-ups to approve or reject. Office
-                             admins only see people who chose their office. -->
-                        <v-card-text v-if="canApproveAccounts" v-fit-body="'action'" class="pa-0 dash-body">
+                             heads only view the requests across all offices. -->
+                        <v-card-text v-if="canViewPendingAccounts" v-fit-body="'action'" class="pa-0 dash-body">
                             <div v-if="accountsLoading && !pendingAccounts.length" class="d-flex align-center justify-center dash-loading">
                                 <v-progress-circular indeterminate color="grey-darken-3" size="48" width="4" />
                             </div>
@@ -496,7 +473,7 @@
                                         <th class="text-left">Account</th>
                                         <th class="text-left col-side">Office · Role</th>
                                         <th class="text-left col-when">Requested</th>
-                                        <th class="text-right col-acts">Action</th>
+                                        <th v-if="canApproveAccounts" class="text-right col-acts">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -515,7 +492,7 @@
                                         </td>
                                         <td class="text-body-2 col-side text-truncate" :title="accountScope(u)">{{ accountScope(u) }}</td>
                                         <td class="font-weight-bold col-when">{{ timeAgo(u.created_at) }}</td>
-                                        <td class="text-right">
+                                        <td v-if="canApproveAccounts" class="text-right">
                                             <div class="d-inline-flex ga-2">
                                                 <v-btn
                                                     icon="mdi-check"
@@ -681,7 +658,6 @@ import { confirm } from '@/composables/useConfirm'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import { markWorkspaceRefreshed } from '@/composables/useWorkspaceHeader'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
-import OfficeDonut from '@/components/OfficeDonut.vue'
 import MonitoringReportPanel from '@/components/MonitoringReportPanel.vue'
 import { processColor, processIcon, txProcessName, isPastLimit } from '@/utils/processColor'
 import { officeIcon } from '@/utils/officeIcons'
@@ -700,7 +676,7 @@ const loading = ref(false)
 
 // The page fills the screen on desktop: lists show the rows that fit (no
 // scroll, no half rows) and the pie follows its card's height.
-const { fit, sizes, vFitBody, rows } = useFitScreen()
+const { fit, vFitBody, rows } = useFitScreen()
 const LIST_ROW_PX = 46
 const TABLE_ROW_PX = 42
 const TABLE_HEAD_PX = 28
@@ -713,7 +689,11 @@ const isSuperadmin = computed(() => {
 
 // Office admins get the Transaction Summary for their own office's scope.
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value))
-const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+// The dedicated /office-head page renders this same dashboard, but with
+// the superadmin view: every office, read-only.
+const isOfficeHead = computed(() => route.meta?.officeHead === true)
+const isGlobalDashboard = computed(() => isSuperadmin.value || isOfficeHead.value)
+const canSeeSummary = computed(() => isSuperadmin.value || isOfficeAdmin.value || isOfficeHead.value)
 
 // Standard users (role-based staff) get an action-first dashboard: no
 // analytics, queue tightened to what is actually waiting on them, and an
@@ -731,8 +711,9 @@ watch(() => route.query.view, (v) => {
 })
 
 // Superadmins approve accounts from any office; office admins approve
-// sign-ups that chose their office.
+// sign-ups that chose their office. Office heads only view the requests.
 const canApproveAccounts = computed(() => isSuperadmin.value || isOfficeAdmin.value)
+const canViewPendingAccounts = computed(() => canApproveAccounts.value || isOfficeHead.value)
 const myOfficeId = computed(
     () => auth.user.value?.office_id ?? auth.user.value?.office?.id ?? null,
 )
@@ -743,13 +724,13 @@ const myOfficeId = computed(
 // Transaction Summary numbers sit above the grid and don't move.
 const cardIds = computed(() => {
     if (canSeeSummary.value) {
-        return ['graph', 'byprocess', 'action', 'topsteps']
+        return ['graph', 'action', 'topsteps']
     }
     return ['action', 'intransit', 'recent', 'start']
 })
 // Width of each grid slot, out of 12 columns; two rows.
 const slotSpans = computed(() => {
-    return canSeeSummary.value ? [6, 6, 6, 6] : [8, 4, 8, 4]
+    return canSeeSummary.value ? [6, 6, 12] : [8, 4, 8, 4]
 })
 function slotStyle(id) {
     return { '--span': slotSpans.value[cardOrder.value.indexOf(id)] ?? 4 }
@@ -882,19 +863,12 @@ onUnmounted(() => {
 // see everything while regular users see their office/role queue.
 const scopeSource = computed(() => txStore.items.value || [])
 
-// Blue/cyan office series; gray is reserved for "Other offices".
-const SERIES_PALETTE = {
-    light: ['#1E63ED', '#38AFE3', '#83B8FF', '#66CEDA', '#727DE5', '#4C8BEE'],
-    dark: ['#6399FF', '#58C2EE', '#A8CEFF', '#8ADFE6', '#A4ABF4', '#8AB6FA'],
-}
-const OTHER_OFFICES = 'Other offices'
-const OTHER_COLOR = { light: '#8B95A5', dark: '#7E8899' }
-const MAX_OFFICE_SLICES = 3
-
-// Keep completed, in-progress and overdue bars semantically distinct.
+// Keep in-progress and both completed outcomes semantically distinct:
+// yellow for work still open, red for finished late, green for finished
+// within the summed station limits.
 const STATUS_COLORS = {
-    light: { completed: '#35BD83', in_process: '#FFBD32', overdue: '#FF5262' },
-    dark: { completed: '#72D7AB', in_process: '#FFD074', overdue: '#FF8B96' },
+    light: { in_process: '#FFBD32', completed_late: '#FF5262', completed_on_time: '#35BD83' },
+    dark: { in_process: '#FFD074', completed_late: '#FF8B96', completed_on_time: '#72D7AB' },
 }
 
 const theme = useTheme()
@@ -997,20 +971,10 @@ let chartRequest = 0
 // The overdue-by-office pie always uses monthly data; it no longer falls back
 // to the all-time summary. It has its own month filter, independent of the
 // chart's Month/Office filters.
-const overduePieMonth = ref(initialMonth)
-const overduePieMonthOptions = computed(() => monthOptions())
-const overduePieMonthLabel = computed(
-    () => overduePieMonthOptions.value.find((o) => o.value === overduePieMonth.value)?.title || overduePieMonth.value,
-)
-const overduePieData = ref(null)
-const overduePieLoading = ref(false)
-const overduePieError = ref('')
-let overduePieRequest = 0
-
-// ---- Shared overdue overview fetch (chart, top steps and pie) ----
-// One payload carries all three cards (months, steps and the per-office
-// breakdown), so a month/office filter is fetched once and cached per user;
-// concurrent callers share the same in-flight request.
+// ---- Shared overdue overview fetch (chart and top steps) ----
+// One payload carries the chart and step data, so a month/office filter is
+// fetched once and cached per user; concurrent callers share the same
+// in-flight request.
 const overviewCacheKey = (month, officeIds = []) =>
     scopedKey(
         `${CacheKeys.overdueOverview}:${month}:${officeIds.length
@@ -1026,14 +990,14 @@ function fetchOverdueOverview(month, officeIds = []) {
     if (existing) return existing
 
     const params = { month }
-    if (isSuperadmin.value && officeIds.length) params.office_ids = officeIds
+    if (isGlobalDashboard.value && officeIds.length) params.office_ids = officeIds
+    const overdueUrl = isOfficeHead.value
+        ? '/api/office-head/dashboard/overdue-overview'
+        : isSuperadmin.value
+            ? '/api/admin/dashboard/overdue-overview'
+            : '/api/office/dashboard/overdue-overview'
     const promise = api
-        .get(
-            isSuperadmin.value
-                ? '/api/admin/dashboard/overdue-overview'
-                : '/api/office/dashboard/overdue-overview',
-            { params, timeout: 10000 },
-        )
+        .get(overdueUrl, { params, timeout: 10000 })
         .then((res) => {
             writeCache(key, res.data)
             return res.data
@@ -1044,19 +1008,18 @@ function fetchOverdueOverview(month, officeIds = []) {
 }
 
 // Paint the last overview during setup (not onMounted) so coming back to the
-// Dashboard shows the chart, steps and pie immediately; onMounted then
-// refreshes them silently.
+// Dashboard shows the chart and steps immediately; onMounted then refreshes
+// them silently.
 const cachedOverview = readCache(overviewCacheKey(initialMonth))
 if (cachedOverview != null) {
     chartData.value = cachedOverview
     topStepsData.value = cachedOverview
-    overduePieData.value = cachedOverview
 }
 
 async function loadChart({ silent = false } = {}) {
     if (!canSeeSummary.value) return
     const mine = ++chartRequest
-    const officeIds = isSuperadmin.value ? [...chartOfficeIds.value] : []
+    const officeIds = isGlobalDashboard.value ? [...chartOfficeIds.value] : []
     const cached = readCache(overviewCacheKey(chartEndMonth.value, officeIds))
     if (cached != null) {
         chartData.value = cached
@@ -1116,38 +1079,6 @@ watch(topStepsMonth, () => {
     loadTopSteps()
 })
 
-async function loadOverduePie({ silent = false } = {}) {
-    if (!canSeeSummary.value) return
-
-    const mine = ++overduePieRequest
-    const cached = readCache(overviewCacheKey(overduePieMonth.value))
-    if (cached != null) {
-        overduePieData.value = cached
-        overduePieLoading.value = false
-    } else if (!silent || overduePieData.value == null) {
-        overduePieData.value = null
-        overduePieLoading.value = true
-    }
-    overduePieError.value = ''
-    try {
-        const data = await fetchOverdueOverview(overduePieMonth.value)
-        if (mine !== overduePieRequest) return
-        overduePieData.value = data
-    } catch (e) {
-        if (mine !== overduePieRequest) return
-        overduePieData.value = null
-        overduePieError.value = e?.code === 'ECONNABORTED'
-            ? 'The monthly office breakdown took too long to load.'
-            : (e?.response?.data?.message || 'Failed to load the monthly office breakdown.')
-    } finally {
-        if (mine === overduePieRequest) overduePieLoading.value = false
-    }
-}
-
-watch(overduePieMonth, () => {
-    loadOverduePie()
-})
-
 const chartMonthLabel = computed(
     () => chartData.value?.label || chartMonthOptions.value.find((o) => o.value === chartEndMonth.value)?.title || chartEndMonth.value,
 )
@@ -1159,22 +1090,24 @@ const graphSeries = computed(() => {
     const rows = chartMonths.value
     const palette = STATUS_COLORS[themeMode.value]
     return [
-        { label: 'Completed', color: palette.completed, values: rows.map((r) => r.completed || 0) },
         { label: 'In progress', color: palette.in_process, values: rows.map((r) => r.in_process || 0) },
-        { label: 'Overdue', color: palette.overdue, values: rows.map((r) => r.overdue || 0) },
+        { label: 'Overdue Completed', color: palette.completed_late, values: rows.map((r) => r.completed_late || 0) },
+        { label: 'On-Time Completed', color: palette.completed_on_time, values: rows.map((r) => r.completed_on_time || 0) },
     ]
 })
-// ---- Transaction Summary cards (all-time) ----
+// ---- Transaction Summary cards (month-filtered) ----
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
+const summaryMonth = ref(initialMonth)
+const summaryMonthOptions = computed(() => monthOptions())
+const summaryMonthLabel = computed(
+    () => summaryMonthOptions.value.find((o) => o.value === summaryMonth.value)?.title || summaryMonth.value,
+)
 
-// The pie's active source: the fetched month's office breakdown.
-const overdueOfficeSource = computed(() => overduePieData.value?.overdue_by_office)
-
-// Without the global Period/Offices filters, the summary tiles show all-time
-// data. Office admins are still scoped by the server.
-const summaryQuery = computed(() => ({ month: 'all' }))
+// One month filter drives both summary tiles. Office admins are still scoped
+// by the server.
+const summaryQuery = computed(() => ({ month: summaryMonth.value }))
 
 // One key for both the setup paint and refreshes. storedUserId() covers the
 // first render before auth.init() has restored the session.
@@ -1223,6 +1156,14 @@ async function loadSummary() {
     }
 }
 
+// Changing the shared month clears the tiles; cached data for that month
+// paints immediately, otherwise the spinner shows until the request lands.
+watch(summaryMonth, () => {
+    summary.value = null
+    summaryError.value = ''
+    loadSummary()
+})
+
 // Status tiles: each card takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
     const s = summary.value || {}
@@ -1243,67 +1184,6 @@ const summaryTiles = computed(() => {
         },
     ]
 })
-
-// Stable office colours across both pies: build one sorted map from the named
-// offices shown in either pie (top 3 each, so at most six).
-function sortedOfficeRows(source) {
-    return [...(source || [])]
-        .filter((r) => r.count > 0)
-        .sort((a, b) => b.count - a.count || (a.code || a.name || '').localeCompare(b.code || b.name || ''))
-}
-
-const officeColorMap = computed(() => {
-    const seen = new Map()
-    for (const row of sortedOfficeRows(overdueOfficeSource.value).slice(0, MAX_OFFICE_SLICES)) {
-        if (row.id != null) seen.set(row.id, row)
-    }
-    const sorted = [...seen.values()].sort((a, b) =>
-        (a.code || a.name || '').localeCompare(b.code || b.name || ''),
-    )
-    return new Map(sorted.map((row, i) => [row.id, i]))
-})
-
-// Office pies: top 3 offices plus a folded "Other offices" slice. Slices are
-// display-only, so they carry no id.
-function officePieRows(source) {
-    const rows = sortedOfficeRows(source)
-    const total = rows.reduce((s, r) => s + r.count, 0)
-    if (!total) return []
-    const pct = (n) => Math.round((n / total) * 1000) / 10
-    const palette = SERIES_PALETTE[themeMode.value]
-    const slots = officeColorMap.value
-    const named = rows.slice(0, MAX_OFFICE_SLICES)
-    const rest = rows.slice(MAX_OFFICE_SLICES)
-
-    const out = named.map((r, i) => ({
-        ...r,
-        key: `o${r.id ?? r.code ?? i}`,
-        id: null,
-        label: r.code || r.name || 'No office',
-        fullName: r.name || r.code || 'No office',
-        pct: pct(r.count),
-        color: palette[(slots.get(r.id) ?? i) % palette.length],
-    }))
-
-    if (rest.length) {
-        const count = rest.reduce((s, r) => s + r.count, 0)
-        out.push({
-            key: 'other',
-            id: null,
-            code: null,
-            name: OTHER_OFFICES,
-            label: OTHER_OFFICES,
-            fullName: OTHER_OFFICES,
-            count,
-            pct: pct(count),
-            color: OTHER_COLOR[themeMode.value],
-        })
-    }
-
-    return out
-}
-
-const overdueOfficeRows = computed(() => officePieRows(overdueOfficeSource.value))
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server
@@ -1362,18 +1242,6 @@ const startLinks = computed(() => {
     ]
 })
 
-// Each donut uses its own measured body key so the two cards don't overwrite
-// each other's size calculations.
-function donutSize(key) {
-    return computed(() => {
-        const s = sizes[key]
-        if (!fit.value || !s) return 140
-        return Math.round(Math.min(156, Math.max(104, Math.min(s.h * 0.82, s.w * 0.48))))
-    })
-}
-
-const transactionsPieSize = donutSize('transactionsPie')
-
 // Tinted chip/icon in the process's color (same color on every card).
 function tintStyle(name) {
     const c = processColor(name)
@@ -1417,17 +1285,22 @@ function goToQueue() {
     router.push('/transactions')
 }
 
-// ---- Admins: accounts waiting for approval (Needs My Action) ----
+// ---- Pending accounts (Needs My Action) ----
 // Superadmins use the system-wide list; office admins use the office
-// endpoints, which only return people assigned to their own office.
+// endpoints, which only return people assigned to their own office. Office
+// heads read a dedicated, read-only system-wide list.
 const accountStore = useAdminUsers({ office: isOfficeAdmin.value })
-const accountsLoading = computed(() => accountStore.loading.value)
+const headAccounts = ref([])
+const headAccountsLoading = ref(false)
+const accountsLoading = computed(() =>
+    isOfficeHead.value ? headAccountsLoading.value : accountStore.loading.value,
+)
 const accountBusyId = ref(null)
 const accountError = ref('')
 
 // Oldest request first, same as the transaction queue.
 const pendingAccounts = computed(() =>
-    (accountStore.users.value || [])
+    (isOfficeHead.value ? headAccounts.value : (accountStore.users.value || []))
         .filter((u) => u.pending_approval)
         // The office endpoint already scopes this; keep the guard so a
         // misconfigured source can never surface another office's request.
@@ -1440,6 +1313,12 @@ const pendingAccounts = computed(() =>
 )
 // Says so when the card has more rows than fit.
 const actionSub = computed(() => {
+    if (isOfficeHead.value) {
+        const total = pendingAccounts.value.length
+        const more = total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
+        const label = 'Pending account requests across all offices'
+        return more ? `${label}: ${more.toLowerCase()}` : label
+    }
     if (canApproveAccounts.value) {
         const total = pendingAccounts.value.length
         const more = total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
@@ -1453,11 +1332,12 @@ const actionSub = computed(() => {
     return total > actionRowsFit.value ? `Showing ${actionRowsFit.value} of ${total}` : ''
 })
 
-const pendingEmptyText = computed(() =>
-    isOfficeAdmin.value
+const pendingEmptyText = computed(() => {
+    if (isOfficeHead.value) return 'No account requests are waiting for approval.'
+    return isOfficeAdmin.value
         ? 'All clear — no accounts in your office are waiting for approval.'
-        : 'All clear — no accounts waiting for approval.',
-)
+        : 'All clear — no accounts waiting for approval.'
+})
 
 function accountScope(u) {
     const office = u.office?.code || u.office?.name
@@ -1466,6 +1346,18 @@ function accountScope(u) {
 }
 
 function loadAccounts(opts = {}) {
+    if (isOfficeHead.value) {
+        headAccountsLoading.value = true
+        return api.get('/api/office-head/pending-accounts')
+            .then((res) => {
+                headAccounts.value = res.data.data ?? res.data
+                accountError.value = ''
+            })
+            .catch((e) => {
+                accountError.value = e?.response?.data?.message || 'Unable to load account requests.'
+            })
+            .finally(() => { headAccountsLoading.value = false })
+    }
     if (!canApproveAccounts.value) return
     return accountStore.fetchUsers(opts)
         .then(() => { accountError.value = '' })
@@ -1473,6 +1365,7 @@ function loadAccounts(opts = {}) {
 }
 
 async function approveAccount(u) {
+    if (!canApproveAccounts.value) return
     accountError.value = ''
     accountBusyId.value = u.id
     try {
@@ -1487,6 +1380,7 @@ async function approveAccount(u) {
 
 // Same wording as the Users page.
 async function rejectAccount(u) {
+    if (!canApproveAccounts.value) return
     const ok = await confirm({
         title: 'Reject this request?',
         message: `${u.name}${u.username ? ` (@${u.username})` : ''} will not get access, and the request will be removed. They can sign up again.`,
@@ -1520,28 +1414,36 @@ onMounted(async () => {
     // are per-user; check the current user's slot.
     const uid = auth.user.value?.id ?? storedUserId()
     const warm =
-        isCached(CacheKeys.transactionTypes) ||
-        isCached(scopedKey(CacheKeys.transactions, uid))
+        !isOfficeHead.value &&
+        (isCached(CacheKeys.transactionTypes) ||
+            isCached(scopedKey(CacheKeys.transactions, uid)))
     loading.value = !warm
     const opts = { silent: warm }
 
     // The visible dashboard cards come first. A slow transaction list must
     // not delay their requests or cover the page with a full-screen loader.
-    // All three monthly cards sit here too so they share one overview request.
+    // The monthly cards sit here too so they share one overview request.
     const primaryCards = canSeeSummary.value
-        ? [loadSummary(), loadChart(), loadTopSteps(), loadOverduePie()]
+        ? [loadSummary(), loadChart(), loadTopSteps()]
         : []
-    if (canApproveAccounts.value) loadAccounts()
-    if (isSuperadmin.value) officeStore.fetchAll({ silent: true }).catch(() => {})
+    if (canViewPendingAccounts.value) loadAccounts()
+    if (isGlobalDashboard.value) {
+        officeStore.fetchAll({
+            silent: true,
+            url: isOfficeHead.value ? '/api/office-head/offices' : '/api/admin/offices',
+        }).catch(() => {})
+    }
     if (primaryCards.length) {
         await Promise.allSettled(primaryCards)
         markWorkspaceRefreshed()
     }
 
-    // Populate secondary queues after the headline metrics and chart.
-    try {
-        await txStore.fetchAll({ ...opts, timeout: 8000 })
-    } catch { /* keep defaults */ }
+    // Office heads have no transaction list on their dashboard.
+    if (!isOfficeHead.value) {
+        try {
+            await txStore.fetchAll({ ...opts, timeout: 8000 })
+        } catch { /* keep defaults */ }
+    }
 
     markWorkspaceRefreshed()
     loading.value = false
@@ -1553,13 +1455,13 @@ onMounted(async () => {
 useSmartPoll(async () => {
     const opts = { silent: true }
     try {
-        // Everyone reads the shared Transactions list now (My Transactions
-        // was retired); the summary is for superadmins and office admins.
-        await txStore.fetchAll(opts)
+        // Everyone else reads the shared Transactions list; the summary is
+        // for superadmins, office admins and office heads. Office heads have
+        // no transaction list on their dashboard.
+        if (!isOfficeHead.value) await txStore.fetchAll(opts)
         if (canSeeSummary.value) loadSummary()
         loadChart({ silent: true })
         loadTopSteps({ silent: true })
-        loadOverduePie({ silent: true })
         markWorkspaceRefreshed()
     } catch {
         /* next tick retries */
@@ -1569,7 +1471,7 @@ useSmartPoll(async () => {
 // Signups and approvals change independently of transaction activity.
 useSmartPoll(() => loadAccounts({ silent: true }), {
     checkVersion: false,
-    enabled: () => canApproveAccounts.value && accountBusyId.value == null,
+    enabled: () => canViewPendingAccounts.value && accountBusyId.value == null,
 })
 
 </script>

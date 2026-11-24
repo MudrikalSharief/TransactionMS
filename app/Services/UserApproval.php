@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class UserApproval
 {
     /** Privileged roles cannot be requested through public signup. */
-    public const PROTECTED_ROLES = ['superadmin', 'admin'];
+    public const PROTECTED_ROLES = ['superadmin', 'admin', 'office_head'];
 
     public function approve(User $user, User $approver): User
     {

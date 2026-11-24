@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Role;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,8 +22,11 @@ class EnsureOfficeAdmin
         }
 
         if (!$user->isSuperadmin() && !$user->isOfficeAdmin()) {
-            $message = $user->hasRole('admin')
-                ? 'Your admin account has no office assigned. Ask a superadmin to set one.'
+            $hasOfficeAdminRole = $user->roles->contains(
+                fn ($role) => in_array($role->code, Role::OFFICE_ADMIN_ROLE_CODES, true)
+            );
+            $message = $hasOfficeAdminRole
+                ? 'Your account has an office-admin role but no office assigned. Ask a superadmin to set one.'
                 : 'Forbidden.';
 
             return response()->json(['message' => $message], 403);
