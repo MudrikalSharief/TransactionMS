@@ -369,28 +369,67 @@ class DashboardSummaryTest extends TestCase
             'entered_at' => now()->subMinutes(30),
         ]);
 
-        // Step visits: 2 from the first + 1 from the second = 3.
-        // Transactions: only the first one's total actual time exceeds its total SLA.
+        // Completed paper: its step visit ran for a full day against a
+        // 60-minute SLA, so its total exceeds the limit even though it is
+        // finalized (the helper adds the finalize run one day ago).
+        $doneOver = $this->tx($this->payroll, 3, ['office' => $this->chrmo->id, 'finalizedDaysAgo' => 1, 'manualRuns' => true]);
+        $addRun($doneOver, $this->payrollStep->id, $this->payrollStep->id, 2 * 24 * 60, 'create');
+
+        // Step visits: 2 from the first + 1 from the second + 1 from the
+        // completed paper = 4. Transactions: the first open paper and the
+        // completed paper both exceed their total SLA.
         $this->summary()
-            ->assertJsonPath('overdue_steps', 3)
-            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonPath('overdue_steps', 4)
+            ->assertJsonPath('overdue_transactions', 2)
             ->assertJsonCount(2, 'overdue_steps_by_office')
             ->assertJsonPath('overdue_steps_by_office.0.code', 'CHRMO')
-            ->assertJsonPath('overdue_steps_by_office.0.count', 2)
+            ->assertJsonPath('overdue_steps_by_office.0.count', 3)
             ->assertJsonPath('overdue_steps_by_office.1.code', 'GSO')
             ->assertJsonPath('overdue_steps_by_office.1.count', 1);
 
         $this->summary(['month' => '2026-09'])
-            ->assertJsonPath('overdue_steps', 3)
-            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonPath('overdue_steps', 4)
+            ->assertJsonPath('overdue_transactions', 2)
             ->assertJsonCount(2, 'overdue_steps_by_office');
 
-        // August has no step visits, but the open transactions still count
-        // in the all-current transaction metric.
+        // August has no step visits and no transactions created/finalized in
+        // that month, so both metrics are empty for that period.
         $this->summary(['month' => '2026-08'])
             ->assertJsonPath('overdue_steps', 0)
-            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonPath('overdue_transactions', 0)
             ->assertJsonCount(0, 'overdue_steps_by_office');
+    }
+
+    public function test_completed_overdue_transactions_follow_their_finalize_month(): void
+    {
+        // Created Aug 7, finalized Aug 27: 10 days at the station against a
+        // one-day SLA, so the completed paper is overdue in August.
+        $tx = $this->tx($this->payroll, 50, [
+            'office' => $this->chrmo->id,
+            'finalizedDaysAgo' => 30,
+            'manualRuns' => true,
+        ]);
+        TransactionStepRun::create([
+            'transaction_id' => $tx->id,
+            'from_step_id' => $this->payrollStep->id,
+            'to_step_id' => $this->payrollStep->id,
+            'action_code' => 'create',
+            'performed_by' => $this->admin->id,
+            'performed_at' => now()->subDays(40),
+            'received_at' => now()->subDays(40),
+            'received_by' => $this->admin->id,
+            'sla_minutes_snapshot' => 60,
+        ]);
+
+        $this->summary(['month' => '2026-08'])
+            ->assertJsonPath('overdue_transactions', 1)
+            ->assertJsonPath('overdue_steps', 1);
+
+        $this->summary(['month' => '2026-09'])
+            ->assertJsonPath('overdue_transactions', 0)
+            ->assertJsonPath('overdue_steps', 0);
+
+        $this->summary(['month' => 'all'])->assertJsonPath('overdue_transactions', 1);
     }
 
     public function test_top_overdue_steps_rank_step_office_pairs_for_the_month(): void

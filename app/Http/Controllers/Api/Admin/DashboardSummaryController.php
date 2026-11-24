@@ -25,7 +25,9 @@ use Illuminate\Support\Collection;
  * Completed counts by finalize date; everything else by created date.
  * The monthly status series always covers the last two months plus the
  * current one, independent of the Period filter. overdue_steps follows the
- * selected Period; overdue_transactions is always all-current.
+ * selected Period; overdue_transactions follows it too (open papers by
+ * created date, completed papers by finalize date) and only counts those
+ * whose total SLA was exceeded. The overdue-by-office pie remains open-only.
  * Process/office filters narrow every count, except by_process, which
  * ignores the process filter so the card can fade unpicked processes.
  * office_code limits everything to one office by its code (the dashboard
@@ -68,7 +70,7 @@ class DashboardSummaryController extends Controller
 
         // Tile counts are polled silently every 20s by every open Dashboard —
         // 60s server cache cuts that to 1 query-batch per minute per filter.
-        $key = 'dash:summary:v2:'.md5(json_encode([
+        $key = 'dash:summary:v4:'.md5(json_encode([
             $this->periodMeta, $this->processes, $this->offices, $this->officeId, $this->scopeOfficeId,
         ]));
 
@@ -723,19 +725,19 @@ class DashboardSummaryController extends Controller
      * selected Period when it overlaps that period, grouped by the office
      * responsible for that step.
      *
-     * overdue_transactions: open transactions only, always all-current.
-     * A transaction counts when the total working time spent at its visited
-     * steps exceeds the sum of those steps' SLA limits. Revisits count each
-     * time; steps with no SLA are ignored. The same transactions are grouped
-     * by originating office for the dashboard pie.
+     * overdue_transactions: transactions whose total working time spent at
+     * their visited steps exceeds the sum of those steps' SLA limits. Open
+     * transactions follow the Period by created date; completed ones follow
+     * it by finalize date. Revisits count each time; steps with no SLA are
+     * ignored. The dashboard pie is separate and remains open-only.
      */
     private function slaCounts(): array
     {
         $now = now();
 
         // Open papers are always needed for the all-current transaction
-        // view; finished papers are needed when one of their runs (a step
-        // visit ending) falls in the selected Period.
+        // view; finished papers are included when created in the selected
+        // Period or when one of their runs falls inside it.
         $txs = $this->filtered(Transaction::query())
             ->when($this->from, fn ($q) => $q->where(fn ($w) => $w
                 ->where('is_done', false)
@@ -747,7 +749,7 @@ class DashboardSummaryController extends Controller
                     ->reorder()
                     ->orderBy('performed_at')
                     ->orderBy('id')
-                    ->select(['id', 'transaction_id', 'to_step_id', 'performed_at', 'received_at', 'sla_minutes_snapshot'])
+                    ->select(['id', 'transaction_id', 'to_step_id', 'action_code', 'performed_at', 'received_at', 'sla_minutes_snapshot'])
                     ->with([
                         'toStep:id,sla_minutes,office_id,is_end_user',
                         'toStep.office:id,code,name',
@@ -769,9 +771,16 @@ class DashboardSummaryController extends Controller
             $runs = $tx->runs->values();
             $actual = 0;
             $allowed = 0;
+            $finalizedInPeriod = false;
 
             foreach ($runs as $i => $run) {
                 if (!$run->performed_at) continue;
+
+                // Completed papers belong to the Period they were finalized in.
+                if ($tx->is_done && $run->action_code === 'finalize'
+                    && $run->performed_at >= $this->from && $run->performed_at < $this->to) {
+                    $finalizedInPeriod = true;
+                }
 
                 $next = $runs->get($i + 1);
                 // A finished transaction's finalize run has no visit to
@@ -802,13 +811,15 @@ class DashboardSummaryController extends Controller
                     $byStepOffice[$officeId]['count']++;
                 }
 
-                if (!$tx->is_done) {
-                    $actual += $wait;
-                    $allowed += $sla;
-                }
+                $actual += $wait;
+                $allowed += $sla;
             }
 
-            if (!$tx->is_done && $allowed > 0 && $actual > $allowed) {
+            $inPeriod = $tx->is_done
+                ? $finalizedInPeriod
+                : ($tx->created_at !== null && $tx->created_at >= $this->from && $tx->created_at < $this->to);
+
+            if ($inPeriod && $allowed > 0 && $actual > $allowed) {
                 $overdueTransactions++;
             }
 

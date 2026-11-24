@@ -2,6 +2,39 @@
     <div class="fit-page workspace-dashboard">
         <div class="dash-hello">
             <div class="dash-hello-actions">
+                <!-- One month filter drives both headline tiles. -->
+                <v-menu
+                    v-if="canSeeSummary && view === 'overview'"
+                    location="bottom end"
+                    offset="6"
+                    :close-on-content-click="true"
+                >
+                    <template #activator="{ props }">
+                        <button
+                            v-bind="props"
+                            type="button"
+                            class="topsteps-month"
+                            aria-label="Filter the transaction summary by month"
+                        >
+                            <v-icon size="16">mdi-calendar-range</v-icon>
+                            <span>{{ summaryMonthLabel }}</span>
+                            <v-icon size="16">mdi-chevron-down</v-icon>
+                        </button>
+                    </template>
+                    <v-list density="compact" class="topsteps-month-list">
+                        <v-list-item
+                            v-for="m in summaryMonthOptions"
+                            :key="m.value"
+                            :active="summaryMonth === m.value"
+                            @click="summaryMonth = m.value"
+                        >
+                            <v-list-item-title>{{ m.title }}</v-list-item-title>
+                            <template #append>
+                                <v-icon v-if="summaryMonth === m.value" size="18">mdi-check</v-icon>
+                            </template>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
                 <!-- Overview cards, or the monitoring Reports (superadmins and
                      office admins). Transaction Status and Top Overdue Steps
                      share their filters. -->
@@ -1164,17 +1197,22 @@ const graphSeries = computed(() => {
         { label: 'Overdue', color: palette.overdue, values: rows.map((r) => r.overdue || 0) },
     ]
 })
-// ---- Transaction Summary cards (all-time) ----
+// ---- Transaction Summary cards (month-filtered) ----
 const summary = ref(null)
 const summaryLoading = ref(false)
 const summaryError = ref('')
+const summaryMonth = ref(initialMonth)
+const summaryMonthOptions = computed(() => monthOptions())
+const summaryMonthLabel = computed(
+    () => summaryMonthOptions.value.find((o) => o.value === summaryMonth.value)?.title || summaryMonth.value,
+)
 
 // The pie's active source: the fetched month's office breakdown.
 const overdueOfficeSource = computed(() => overduePieData.value?.overdue_by_office)
 
-// Without the global Period/Offices filters, the summary tiles show all-time
-// data. Office admins are still scoped by the server.
-const summaryQuery = computed(() => ({ month: 'all' }))
+// One month filter drives both summary tiles. Office admins are still scoped
+// by the server.
+const summaryQuery = computed(() => ({ month: summaryMonth.value }))
 
 // One key for both the setup paint and refreshes. storedUserId() covers the
 // first render before auth.init() has restored the session.
@@ -1222,6 +1260,14 @@ async function loadSummary() {
         if (mine === summaryRequest) summaryLoading.value = false
     }
 }
+
+// Changing the shared month clears the tiles; cached data for that month
+// paints immediately, otherwise the spinner shows until the request lands.
+watch(summaryMonth, () => {
+    summary.value = null
+    summaryError.value = ''
+    loadSummary()
+})
 
 // Status tiles: each card takes its color and illustration from its variant.
 const summaryTiles = computed(() => {
