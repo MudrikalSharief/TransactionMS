@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Office;
+use App\Models\Role;
 use App\Models\Transaction;
 use App\Models\WorkflowStep;
 use App\Services\RoutingEngine;
@@ -29,7 +30,11 @@ class TransactionReceivingOfficerController extends Controller
         abort_unless((int) $step->workflow_definition_id === (int) $transaction->workflow_definition_id, 404);
 
         $user = $request->user();
-        $showHistory = $user->hasRole('superadmin') || $user->hasRole('admin');
+        $user->loadMissing('roles');
+        $showHistory = $user->hasRole('superadmin')
+            || $user->roles->contains(
+                fn ($role) => in_array($role->code, Role::OFFICE_ADMIN_ROLE_CODES, true)
+            );
         $query = $transaction->runs()
             ->where('to_step_id', $step->id)
             ->whereNotNull('received_at')

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Role;
 use App\Models\Transaction;
 use App\Models\TransactionAttachment;
 use App\Models\TransactionStepRun;
@@ -20,11 +21,11 @@ use Illuminate\Support\Facades\DB;
  * reuse uses) and, when it differs, the step the transaction was actually
  * sent from (e.g. after a return).
  *
- * Superadmin and admins keep access to every step for oversight.
+ * Superadmin and office admins keep access to every step for oversight.
  */
 class StepFileAccess
 {
-    private const UNRESTRICTED_ROLES = ['superadmin', 'admin'];
+    private const UNRESTRICTED_ROLES = [...Role::OFFICE_ADMIN_ROLE_CODES, 'superadmin'];
 
     /** @return int[]|null step ids the user may open files from; null = all. */
     public function allowedStepIds(Transaction $tx, ?User $user): ?array

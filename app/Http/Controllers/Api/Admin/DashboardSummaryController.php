@@ -16,9 +16,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Dashboard "Transaction Summary" card (superadmin, and office admins via
- * /api/office, who only ever see their own office's scope: transactions it
- * filed or that pass through one of its steps).
+ * Dashboard "Transaction Summary" card. Superadmins and office heads see
+ * every office; office admins via /api/office only ever see their own
+ * office's scope: transactions it filed or that pass through one of its
+ * steps.
  *
  * Period: this week (default: the current Mon–Sun calendar week), a
  * calendar month, or all time, all in Manila time.
@@ -48,8 +49,8 @@ class DashboardSummaryController extends Controller
 {
     private const TZ = 'Asia/Manila';
     private const CATEGORIES = ['completed', 'in_process', 'overdue', 'deleted', 'process', 'on_time', 'returns'];
-    // Lists only superadmins see (the per-office charts on their dashboard).
-    private const SUPERADMIN_CATEGORIES = ['on_time', 'returns'];
+    // Lists only system-wide dashboard viewers see (the per-office charts).
+    private const GLOBAL_CATEGORIES = ['on_time', 'returns'];
     private const SAMPLES = 3;
 
     private Carbon $from;
@@ -60,7 +61,8 @@ class DashboardSummaryController extends Controller
     private ?int $officeId = null;
     // Office admins: forced to their own office's scope (see OfficeScope).
     private ?int $scopeOfficeId = null;
-    private bool $isSuperadmin = false;
+    // Superadmins and office heads read every office.
+    private bool $seesAllOffices = false;
     // People who can work a station at an office, by "office|role ids".
     private array $people = [];
 
@@ -111,7 +113,7 @@ class DashboardSummaryController extends Controller
                 'monthly' => $this->monthlyStatuses(),
             ];
 
-            if ($this->isSuperadmin) {
+            if ($this->seesAllOffices) {
                 $payload['on_time_by_office'] = $this->topOffices($this->onTimeItems());
                 $payload['returns_by_office'] = $this->topOffices($this->returnItems());
             }
@@ -143,9 +145,10 @@ class DashboardSummaryController extends Controller
         // Do not filter transactions by originating office; the step's
         // effective office is filtered while counting visits below.
         $this->officeId = null;
-        $this->scopeOfficeId = $user->isSuperadmin() ? null : (int) $user->office_id;
+        $this->seesAllOffices = $user->isSuperadmin() || $user->isOfficeHead();
+        $this->scopeOfficeId = $this->seesAllOffices ? null : (int) $user->office_id;
         $filterOfficeIds = [];
-        if ($user->isSuperadmin()) {
+        if ($this->seesAllOffices) {
             $filterOfficeIds = array_map('intval', $data['office_ids'] ?? []);
             if (!$filterOfficeIds && !empty($data['office_id'])) {
                 $filterOfficeIds = [(int) $data['office_id']];
@@ -162,7 +165,7 @@ class DashboardSummaryController extends Controller
         $windowFrom = $windowStart->copy()->utc();
         $windowTo = $monthStart->copy()->addMonthNoOverflow()->utc();
 
-        $key = 'dash:overdue-overview:'.md5(json_encode([
+        $key = 'dash:overdue-overview:v2:'.md5(json_encode([
             $data['month'] ?? null, $filterOfficeIds, $this->scopeOfficeId,
         ]));
 
@@ -193,7 +196,7 @@ class DashboardSummaryController extends Controller
             // finished on-time papers, or the office that made the returns.
             'at_office' => ['nullable', 'integer'],
         ]);
-        abort_if(in_array($category, self::SUPERADMIN_CATEGORIES, true) && !$this->isSuperadmin, 403);
+        abort_if(in_array($category, self::GLOBAL_CATEGORIES, true) && !$this->seesAllOffices, 403);
         $atOffice = $request->filled('at_office') ? (int) $request->input('at_office') : null;
 
         $rows = match ($category) {
@@ -240,8 +243,8 @@ class DashboardSummaryController extends Controller
             : null;
 
         $user = $request->user();
-        $this->isSuperadmin = $user->isSuperadmin();
-        $this->scopeOfficeId = $this->isSuperadmin ? null : (int) $user->office_id;
+        $this->seesAllOffices = $user->isSuperadmin() || $user->isOfficeHead();
+        $this->scopeOfficeId = $this->seesAllOffices ? null : (int) $user->office_id;
     }
 
     private function filtered(Builder $q, bool $withProcess = true, bool $withArchived = false): Builder
@@ -860,11 +863,12 @@ class DashboardSummaryController extends Controller
     }
 
     /**
-     * Three months of status counts, the selected month's top overdue step +
-     * office pairs, and the open papers with a late step that month grouped
-     * by filing office (the month view of the dashboard pie). The ending month
-     * is the card's Month filter; the office filters narrow by the office
-     * handling the step.
+     * Three months of status counts — still-open papers, and finished papers
+     * split into over-SLA and on-time — plus the selected month's top overdue
+     * step + office pairs, and the open papers with a late step that month
+     * grouped by filing office (the month view of the dashboard pie). The
+     * ending month is the card's Month filter; the office filters narrow by
+     * the office handling the step.
      */
     private function overdueOverviewData(
         Carbon $selectedStart,
@@ -880,9 +884,9 @@ class DashboardSummaryController extends Controller
             $buckets[$key] = [
                 'month' => $key,
                 'label' => $cursor->format('M Y'),
-                'completed' => 0,
                 'in_process' => 0,
-                'overdue' => 0,
+                'completed_late' => 0,
+                'completed_on_time' => 0,
             ];
             $bucketList[] = [
                 'key' => $key,
@@ -902,6 +906,7 @@ class DashboardSummaryController extends Controller
                 'state.currentRun',
                 'office:id,code,name',
                 'type:id,name',
+                'workflow.steps:id,workflow_definition_id,sla_minutes',
                 'runs' => fn ($r) => $r
                     ->reorder()
                     ->orderBy('performed_at')
@@ -984,8 +989,17 @@ class DashboardSummaryController extends Controller
                 || isset($officeVisitMonths[$monthKey]);
 
             if ($tx->is_done) {
-                foreach (array_keys($finalizedMonths) as $monthKey) {
-                    if ($officeMatches($monthKey)) $buckets[$monthKey]['completed']++;
+                // Split finished papers by whether their total working time
+                // stayed within the summed station limits. Papers with no
+                // limit at all cannot be judged and are left out.
+                [$spent, $deadline] = $this->deadlineUse($tx);
+                $series = $deadline > 0
+                    ? ($spent <= $deadline ? 'completed_on_time' : 'completed_late')
+                    : null;
+                if ($series !== null) {
+                    foreach (array_keys($finalizedMonths) as $monthKey) {
+                        if ($officeMatches($monthKey)) $buckets[$monthKey][$series]++;
+                    }
                 }
                 continue;
             }
@@ -1007,7 +1021,10 @@ class DashboardSummaryController extends Controller
 
             $createdKey = $tx->created_at?->copy()->setTimezone(self::TZ)->format('Y-m');
             if ($createdKey && isset($buckets[$createdKey]) && $officeMatches($createdKey)) {
-                $buckets[$createdKey][$this->overdueMinutes($tx) > 0 ? 'overdue' : 'in_process']++;
+                // The chart has one open bucket. Still-open papers that are
+                // already past a station limit stay in it too; the old
+                // standalone "Overdue" series was removed.
+                $buckets[$createdKey]['in_process']++;
             }
         }
 

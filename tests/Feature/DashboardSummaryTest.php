@@ -499,9 +499,9 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('months.0.month', '2026-06')
             ->assertJsonPath('months.1.month', '2026-07')
             ->assertJsonPath('months.2.month', '2026-08')
-            ->assertJsonPath('months.2.completed', 0)
-            ->assertJsonPath('months.2.in_process', 0)
-            ->assertJsonPath('months.2.overdue', 3)
+            ->assertJsonPath('months.2.completed_late', 0)
+            ->assertJsonPath('months.2.completed_on_time', 0)
+            ->assertJsonPath('months.2.in_process', 3)
             ->assertJsonCount(3, 'steps')
             ->assertJsonPath('steps.0.step', 'Payroll start')
             ->assertJsonPath('steps.0.order_number', 1)
@@ -523,7 +523,7 @@ class DashboardSummaryTest extends TestCase
         // transactions with a GSO step count, and the same two rows rank.
         $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08&office_id='.$gso->id)
             ->assertOk()
-            ->assertJsonPath('months.2.overdue', 2)
+            ->assertJsonPath('months.2.in_process', 2)
             ->assertJsonCount(1, 'steps')
             ->assertJsonPath('steps.0.office.code', 'GSO')
             ->assertJsonPath('steps.0.count', 2);
@@ -531,7 +531,7 @@ class DashboardSummaryTest extends TestCase
         // Several offices include every visit handled by any of them.
         $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-08&office_ids[]='.$this->chrmo->id.'&office_ids[]='.$gso->id)
             ->assertOk()
-            ->assertJsonPath('months.2.overdue', 3)
+            ->assertJsonPath('months.2.in_process', 3)
             ->assertJsonCount(2, 'steps')
             ->assertJsonPath('steps.0.office.code', 'CHRMO')
             ->assertJsonPath('steps.0.count', 3)
@@ -542,7 +542,7 @@ class DashboardSummaryTest extends TestCase
         $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-07')
             ->assertOk()
             ->assertJsonCount(3, 'months')
-            ->assertJsonPath('months.2.overdue', 0)
+            ->assertJsonPath('months.2.in_process', 0)
             ->assertJsonCount(0, 'steps')
             ->assertJsonCount(0, 'overdue_by_office');
 
@@ -586,6 +586,44 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonCount(1, 'overdue_by_office')
             ->assertJsonPath('overdue_by_office.0.code', 'CHRMO')
             ->assertJsonPath('overdue_by_office.0.count', 1);
+    }
+
+    public function test_monthly_completed_series_splits_on_time_and_overdue(): void
+    {
+        // Finalized within its 480-minute total SLA.
+        $this->tx($this->payroll, 0, [
+            'office' => $this->chrmo->id,
+            'finalizedDaysAgo' => 0,
+        ]);
+
+        // About 1,980 working minutes between creation and finalize against
+        // the same 480-minute total SLA.
+        $this->tx($this->payroll, 5, [
+            'office' => $this->chrmo->id,
+            'finalizedDaysAgo' => 1,
+        ]);
+
+        // A paper whose stations have no time limit cannot be classified.
+        $this->payrollStep->update(['sla_minutes' => 0]);
+        $this->tx($this->payroll, 0, [
+            'office' => $this->chrmo->id,
+            'finalizedDaysAgo' => 0,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-09')
+            ->assertOk()
+            ->assertJsonPath('months.2.month', '2026-09')
+            ->assertJsonPath('months.2.in_process', 0)
+            ->assertJsonPath('months.2.completed_late', 1)
+            ->assertJsonPath('months.2.completed_on_time', 1);
+
+        // The office filter keeps both completed series.
+        $this->getJson('/api/admin/dashboard/overdue-overview?month=2026-09&office_ids[]='.$this->chrmo->id)
+            ->assertOk()
+            ->assertJsonPath('months.2.completed_late', 1)
+            ->assertJsonPath('months.2.completed_on_time', 1);
     }
 
     public function test_top_overdue_steps_office_admin_scope_cannot_be_overridden(): void
@@ -661,7 +699,7 @@ class DashboardSummaryTest extends TestCase
         // to CHRMO.
         $this->getJson('/api/office/dashboard/overdue-overview?month=2026-08&office_id='.$gso->id)
             ->assertOk()
-            ->assertJsonPath('months.2.overdue', 1)
+            ->assertJsonPath('months.2.in_process', 1)
             ->assertJsonCount(1, 'steps')
             ->assertJsonPath('steps.0.office.code', 'CHRMO')
             ->assertJsonPath('steps.0.count', 1)

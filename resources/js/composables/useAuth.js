@@ -7,15 +7,24 @@ import { markLoginNotice, clearLoginNotice } from "@/composables/useLoginNotice"
 const user = ref(null);
 const initialized = ref(false);
 
+// Role codes that grant office-admin powers. Mirrors
+// Role::OFFICE_ADMIN_ROLE_CODES on the backend.
+export const OFFICE_ADMIN_ROLE_CODES = ["admin"];
+
 // Which experience a user gets:
-//   admin  - superadmin or admin role: the full admin pages
+//   admin  - superadmin, admin, or an office-admin role with an office:
+//            the full admin pages
+//   head   - office_head without admin/superadmin: the read-only,
+//            system-wide office-head dashboard only
 //   viewer - viewer role only: read-only tracking of their own transactions
 //            (no files, no actions)
 //   staff  - every other role: the office/role user portal
-// Mirrors User::isViewerOnly() on the backend.
+// Mirrors User::isViewerOnly(), User::isOfficeAdmin() and
+// User::isOfficeHead() on the backend.
 export function userKind(u) {
     const codes = (u?.roles ?? []).map((r) => r.code);
     if (codes.includes("superadmin") || codes.includes("admin")) return "admin";
+    if (isOfficeHeadUser(u)) return "head";
     if (codes.length && codes.every((c) => c === "viewer")) return "viewer";
     return "staff";
 }
@@ -23,6 +32,7 @@ export function userKind(u) {
 export function homePathFor(u) {
     const kind = userKind(u);
     if (kind === "viewer") return "/track";
+    if (kind === "head") return "/office-head";
     if (kind === "staff") return "/portal";
     return "/";
 }
@@ -33,7 +43,8 @@ export function homePathFor(u) {
 export function canUseApprovals(u) {
     const codes = (u?.roles ?? []).map((r) => r.code);
     if (!codes.length) return false;
-    if (userKind(u) === "viewer") return false;
+    const kind = userKind(u);
+    if (kind === "viewer" || kind === "head") return false;
     return codes.includes("superadmin") || !codes.includes("end_user");
 }
 
@@ -47,7 +58,15 @@ export function isSuperadminUser(u) {
 export function isOfficeAdminUser(u) {
     if (!u || isSuperadminUser(u)) return false;
     if (u.office_id == null && !u.office?.id) return false;
-    return (u.roles ?? []).some((r) => r.code === "admin");
+    return (u.roles ?? []).some((r) => OFFICE_ADMIN_ROLE_CODES.includes(r.code));
+}
+
+// Dedicated office-head account: office_head without admin/superadmin.
+// Mirrors User::isOfficeHead() on the backend.
+export function isOfficeHeadUser(u) {
+    const codes = (u?.roles ?? []).map((r) => r.code);
+    if (codes.includes("superadmin") || codes.includes("admin")) return false;
+    return codes.includes("office_head");
 }
 
 export function useAuth() {

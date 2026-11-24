@@ -12,9 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
- * Monitoring report (superadmin, or an office admin for their office's
- * scope): read-only figures worked out from the existing transactions
- * and step runs. Nothing is written.
+ * Monitoring report (superadmin or office head for every office, an office
+ * admin for their office's scope): read-only figures worked out from the
+ * existing transactions and step runs. Nothing is written.
  *
  *   by_office / by_process  filed, completed, in process, overdue, average
  *                           completion time (working minutes)
@@ -32,7 +32,8 @@ class MonitoringReportController extends Controller
         $in = fn ($at) => ReportPeriod::contains($from, $to, $at);
 
         $user = $request->user();
-        $scopeOfficeId = $user->isSuperadmin() ? null : (int) $user->office_id;
+        $seesAllOffices = $user->isSuperadmin() || $user->isOfficeHead();
+        $scopeOfficeId = $seesAllOffices ? null : (int) $user->office_id;
         $offices = array_map('intval', $data['offices'] ?? []);
 
         $txs = Transaction::query()
