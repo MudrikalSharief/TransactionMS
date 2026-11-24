@@ -5,7 +5,7 @@
         <!-- Welcome: who you are, which office, which roles -->
         <div>
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel">
-                    <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 lgu-head">
+                    <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 lgu-head" :class="{ 'clerk-home-header': isClerk }">
                         <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                             <v-icon color="#005EED" size="20">mdi-home-city-outline</v-icon>
                         </v-avatar>
@@ -65,17 +65,37 @@
                         rounded="0"
                         class="ma-4"
                     >
-                        Your account has no office assigned yet, so you will only see transactions waiting on your
-                        role. Ask an administrator to assign your office.
+                        <template v-if="isClerk">Your account needs an assigned office before step counts can be shown.</template>
+                        <template v-else>Your account has no office assigned yet, so you will only see transactions waiting on your role.</template>
+                        Ask an administrator to assign your office.
                     </v-alert>
                 </v-card>
         </div>
 
         <!-- Numbers for the user's office / role -->
-                <div class="portal-tiles">
+                <div class="portal-tiles" :class="{ 'portal-tiles--clerk': isClerk }">
+                    <template v-for="tile in topTiles" :key="tile.key">
+                    <button
+                        v-if="isClerk"
+                        type="button"
+                        class="summary-strip clerk-summary-card"
+                        :aria-label="`${tile.label}: ${tile.value}`"
+                        @click="tile.go"
+                    >
+                        <span class="summary-seg" :class="`summary-seg--${tile.variant}`">
+                            <span class="summary-seg-icon" aria-hidden="true"><v-icon size="28">{{ tile.icon }}</v-icon></span>
+                            <span class="summary-seg-num">
+                                <v-progress-circular v-if="loading" indeterminate tag="span" size="22" width="3" color="grey-darken-1" />
+                                <template v-else>{{ tile.value }}</template>
+                            </span>
+                            <span class="summary-seg-copy">
+                                <span class="summary-seg-label">{{ tile.label }}</span>
+                                <span class="summary-seg-hint">{{ tile.hint }}</span>
+                            </span>
+                        </span>
+                    </button>
                     <StatCard
-                        v-for="tile in tiles"
-                        :key="tile.key"
+                        v-else
                         :label="tile.label"
                         :value="tile.value"
                         :hint="tile.hint"
@@ -86,13 +106,37 @@
                         cta="View list"
                         @activate="tile.go"
                     />
+                    </template>
                 </div>
 
-        <div class="dash-grid">
+        <v-dialog v-model="stepListOpen" max-width="720" scrollable>
+            <v-card>
+                <v-card-title class="d-flex align-center flex-wrap ga-2">
+                    {{ selectedStepTitle }}
+                    <v-spacer />
+                    <v-btn icon="mdi-close" variant="text" aria-label="Close step list" @click="stepListOpen = false" />
+                </v-card-title>
+                <v-card-text>
+                    <v-alert v-if="!selectedStepRows.length" type="info" variant="tonal">No matching steps.</v-alert>
+                    <v-list v-else lines="three">
+                        <v-list-item v-for="step in selectedStepRows" :key="step.id">
+                            <v-list-item-title>{{ step.reference_number }}</v-list-item-title>
+                            <v-list-item-subtitle class="text-wrap">{{ step.step_name }}<template v-if="step.title"> · {{ step.title }}</template></v-list-item-subtitle>
+                            <v-list-item-subtitle v-if="selectedStepCard === 'needs_action'">{{ step.reason }}</v-list-item-subtitle>
+                            <template v-if="selectedStepCard !== 'overdue_completed'" #append>
+                                <v-btn variant="text" color="primary" @click="router.push(`/portal/transactions/${step.transaction_id}`)">Open</v-btn>
+                            </template>
+                        </v-list-item>
+                    </v-list>
+                </v-card-text>
+            </v-card>
+        </v-dialog>
+
+        <div class="dash-grid" :class="{ 'clerk-bottom-grid': isClerk }">
             <!-- Weekly transactions per process, limited to the account's
                  office and role (needs an office to have anything to show). -->
-            <div v-if="user?.office" class="dash-slot" :style="{ '--span': hasApprovals ? 8 : 12 }">
-                <ProcessGraphCard :period="period" />
+            <div v-if="user?.office" class="dash-slot" :data-card="isClerk ? 'graph' : undefined" :style="{ '--span': hasApprovals ? 8 : 12 }">
+                <ProcessGraphCard v-model:period="period" />
             </div>
 
             <!-- Waiting on my role: end users only. Clerks have the Approvals
@@ -121,7 +165,7 @@
             </div>
 
             <!-- In my office (oldest first); full width when it is the only list -->
-            <div class="dash-slot" :style="{ '--span': hasApprovals ? (user?.office ? 4 : 12) : 6 }">
+            <div v-if="!isClerk" class="dash-slot" :style="{ '--span': hasApprovals ? (user?.office ? 4 : 12) : 6 }">
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
                     <v-card-title class="d-flex align-center lgu-head dash-head">
                         <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
@@ -139,6 +183,28 @@
                             :loading="loading"
                             empty="No transactions in your office yet."
                             @open="(tx) => router.push({ path: `/portal/transactions/${tx.id}`, query: { from: 'portal' } })"
+                        />
+                    </v-card-text>
+                </v-card>
+            </div>
+            <div v-if="isClerk" class="dash-slot clerk-action-panel">
+                <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
+                    <v-card-title class="d-flex align-center lgu-head dash-head">
+                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
+                            <v-icon color="#005EED" size="20">mdi-tray-arrow-down</v-icon>
+                        </v-avatar>
+                        <span class="text-subtitle-1 font-weight-bold">Needs My Action</span>
+                        <v-spacer />
+                        <v-btn variant="text" size="small" color="primary" append-icon="mdi-arrow-right" @click="openSteps('needs_action')">
+                            View all
+                        </v-btn>
+                    </v-card-title>
+                    <v-card-text class="pa-1 dash-body">
+                        <TxMiniList
+                            :rows="clerkActionRows"
+                            :loading="loading"
+                            empty="No steps are waiting for your action."
+                            @open="(tx) => router.push(`/portal/transactions/${tx.id}`)"
                         />
                     </v-card-text>
                 </v-card>
@@ -181,9 +247,22 @@ const period = ref("all");
 const periodOptions = computed(() => dashPeriodOptions());
 
 const canCreate = computed(() => user.value?.office != null);
-// Clerks (anyone who may approve) work from the Approvals page, so the
-// "Needs my action" tile and list are left out for them.
+// Clerks use their step cards; other approval roles retain the existing office view.
 const hasApprovals = computed(() => canUseApprovals(user.value));
+const isClerk = computed(() => user.value?.roles?.some((role) => role.code === "clerk") === true);
+const stepListOpen = ref(false);
+const selectedStepCard = ref("needs_action");
+const stepCards = [
+    { key: "overdue_completed", label: "Overdue Completed", hint: "Your completed steps that exceeded their time limit", icon: "mdi-check-circle-outline", variant: "warning" },
+    { key: "overdue_pending", label: "Overdue Pending", hint: "Your current steps past their time limit", icon: "mdi-clock-alert-outline", variant: "danger" },
+    { key: "needs_action", label: "Needs My Action", hint: "Steps awaiting receipt and returns assigned to you", icon: "mdi-tray-arrow-down", variant: "info" },
+];
+const selectedStepTitle = computed(() => stepCards.find((card) => card.key === selectedStepCard.value)?.label);
+const selectedStepRows = computed(() => summary.value?.clerk_steps?.rows?.[selectedStepCard.value] ?? []);
+function openSteps(key) {
+    selectedStepCard.value = key;
+    stepListOpen.value = true;
+}
 
 const tiles = computed(() => [
     !hasApprovals.value && {
@@ -223,7 +302,25 @@ const tiles = computed(() => [
         variant: "success",
         go: () => openList("office"),
     },
+    ...(isClerk.value ? stepCards.filter((card) => card.key !== "needs_action").map((card) => ({
+        ...card,
+        value: summary.value?.clerk_steps?.[card.key] ?? "—",
+        go: () => openSteps(card.key),
+    })) : []),
 ].filter(Boolean));
+
+const topTiles = computed(() => isClerk.value ? [
+    ...tiles.value.filter((tile) => tile.key.startsWith("overdue_")),
+    ...tiles.value.filter((tile) => ["mine", "in_process", "completed"].includes(tile.key)),
+] : tiles.value);
+const clerkActionRows = computed(() => [...(summary.value?.clerk_steps?.rows?.needs_action ?? [])]
+    .sort((a, b) => Number(b.id) - Number(a.id))
+    .slice(0, 5)
+    .map((step) => ({
+        id: step.transaction_id,
+        reference_number: step.reference_number,
+        title: [step.step_name, step.reason, step.title].filter(Boolean).join(" · "),
+    })));
 
 function openList(tab) {
     router.push({ path: "/portal/transactions", query: { tab } });
@@ -278,7 +375,7 @@ async function load() {
     const [sum, queue, office] = await Promise.allSettled([
         fetchSummary(),
         hasApprovals.value ? Promise.resolve({ rows: [], total: 0 }) : oldestRows("/api/transactions"),
-        oldestRows("/api/admin/transactions"),
+        isClerk.value ? Promise.resolve({ rows: [] }) : oldestRows("/api/admin/transactions"),
     ]);
     if (sum.status === "fulfilled" && mine === summaryRequest) summary.value = sum.value.data;
     if (queue.status === "fulfilled") {
@@ -297,3 +394,53 @@ useSmartPoll(load);
 </script>
 
 <style src="../../../css/workspace-dashboard.css"></style>
+
+<style scoped>
+.workspace-dashboard--staff .portal-tiles--clerk {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.portal-tiles--clerk > .summary-strip {
+    grid-column: span 2;
+}
+.portal-tiles--clerk > .summary-strip:nth-child(-n + 2) {
+    grid-column: span 3;
+}
+.clerk-summary-card {
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.clerk-summary-card:focus-visible {
+    outline: 2px solid var(--ws-blue, #0055ed);
+    outline-offset: 3px;
+}
+.workspace-dashboard--staff .clerk-bottom-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.clerk-bottom-grid > .dash-slot {
+    grid-column: auto !important;
+}
+@media (max-width: 600px) {
+    .workspace-dashboard--staff .portal-tiles--clerk,
+    .workspace-dashboard--staff .clerk-bottom-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .portal-tiles--clerk > .summary-strip:nth-child(n) {
+        grid-column: auto;
+    }
+    .clerk-home-header {
+        flex-wrap: wrap !important;
+    }
+    .clerk-home-header .head-text {
+        flex: 1 1 calc(100% - 60px);
+    }
+    .clerk-home-header .v-spacer {
+        display: none;
+    }
+    .clerk-home-header .home-period {
+        flex: 1 1 180px !important;
+        min-width: 150px !important;
+    }
+}
+</style>

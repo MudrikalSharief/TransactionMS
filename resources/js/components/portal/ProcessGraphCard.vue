@@ -1,36 +1,45 @@
 <template>
-    <!-- Same weekly per-process graph as the admin dashboard, limited to what
-         the server lets this account see: its office's transactions plus
-         rows waiting on one of its roles at its office. -->
-    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
-        <v-card-title class="d-flex align-center ga-2 lgu-head dash-head">
-            <v-avatar color="white" rounded="0" size="34" class="lgu-head-avatar">
+    <!-- Shared dashboard chart presentation with the account's scoped process data. -->
+    <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
+        <v-card-title class="d-flex align-center lgu-head dash-head chart-head">
+            <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
                 <v-icon color="#005EED" size="20">mdi-chart-bar</v-icon>
             </v-avatar>
             <span class="text-subtitle-1 font-weight-bold dash-head-title">{{ title }}</span>
             <v-spacer />
-            <!-- The period comes from the Home page's Period filter. -->
-            <v-select
-                v-model="processFilter"
-                :items="processOptions"
-                label="Process"
-                placeholder="All processes"
-                persistent-placeholder
-                prepend-inner-icon="mdi-swap-horizontal"
-                variant="outlined"
-                density="compact"
-                rounded="lg"
-                hide-details
-                multiple
-                clearable
-                class="graph-filter"
-            >
-                <template v-slot:selection="{ item, index }">
-                    <span v-if="index === 0" class="text-truncate">
-                        {{ processFilter.length === 1 ? item.raw.value : `${processFilter.length} processes` }}
-                    </span>
-                </template>
-            </v-select>
+            <div class="chart-filters">
+                <v-menu location="bottom end" offset="6">
+                    <template #activator="{ props: menuProps }">
+                        <button v-bind="menuProps" type="button" class="topsteps-month" aria-label="Filter transactions by period">
+                            <v-icon size="16">mdi-calendar-range</v-icon>
+                            <span>{{ periodLabel }}</span>
+                            <v-icon size="16">mdi-chevron-down</v-icon>
+                        </button>
+                    </template>
+                    <v-list density="compact" class="topsteps-month-list">
+                        <v-list-item v-for="option in periodOptions" :key="option.value" :active="period === option.value" @click="emit('update:period', option.value)">
+                            <v-list-item-title>{{ option.title }}</v-list-item-title>
+                            <template #append><v-icon v-if="period === option.value" size="18">mdi-check</v-icon></template>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+                <v-menu location="bottom end" offset="6" :close-on-content-click="false">
+                    <template #activator="{ props: menuProps }">
+                        <button v-bind="menuProps" type="button" class="topsteps-month" aria-label="Filter transactions by process">
+                            <v-icon size="16">mdi-swap-horizontal</v-icon>
+                            <span>{{ processFilter.length ? `${processFilter.length} processes` : 'All processes' }}</span>
+                            <v-icon size="16">mdi-chevron-down</v-icon>
+                        </button>
+                    </template>
+                    <v-list density="compact" class="topsteps-month-list">
+                        <v-list-item :active="!processFilter.length" @click="processFilter = []"><v-list-item-title>All processes</v-list-item-title></v-list-item>
+                        <v-list-item v-for="option in processOptions" :key="option.value" :active="processFilter.includes(option.value)" @click="toggleProcess(option.value)">
+                            <v-list-item-title>{{ option.title }}</v-list-item-title>
+                            <template #append><v-icon v-if="processFilter.includes(option.value)" size="18">mdi-check</v-icon></template>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+            </div>
         </v-card-title>
         <v-card-text class="pa-2 d-flex flex-column dash-body">
             <GroupedBarChart
@@ -53,12 +62,14 @@ import { useAuth } from '@/composables/useAuth'
 import { useSmartPoll } from '@/composables/useSmartPoll'
 import { useFitScreen } from '@/composables/useFitScreen'
 import GroupedBarChart from '@/components/GroupedBarChart.vue'
-import { periodBuckets, periodLabel as labelOf, periodStart, bucketIndexOf, bucketUnit } from '@/utils/dashPeriod'
+import { periodBuckets, periodLabel as labelOf, periodStart, bucketIndexOf, bucketUnit, periodOptions as dashboardPeriods } from '@/utils/dashPeriod'
 
 // 'all' | 'this_week' | 'YYYY-MM' (the Home page's Period filter).
 const props = defineProps({
     period: { type: String, default: 'all' },
 })
+const emit = defineEmits(['update:period'])
+const periodOptions = computed(() => dashboardPeriods())
 
 const { api } = useApi()
 const { user } = useAuth()
@@ -141,6 +152,11 @@ const ranking = computed(() => {
 })
 
 const processFilter = ref([])
+function toggleProcess(name) {
+    processFilter.value = processFilter.value.includes(name)
+        ? processFilter.value.filter((value) => value !== name)
+        : [...processFilter.value, name]
+}
 const processOptions = computed(() =>
     ranking.value.map((p) => ({ title: `${p.label} (${p.total})`, value: p.label })),
 )
@@ -184,19 +200,3 @@ const ariaLabel = computed(() =>
     `${officeCode.value ? officeCode.value + ' t' : 'T'}ransactions per process per ${unit.value}, ${periodLabel.value}`,
 )
 </script>
-
-<style scoped>
-/* The filters give up width before the title does. */
-.graph-filter {
-    flex: 0 20 224px;
-    min-width: 120px;
-}
-.graph-filter :deep(.v-field__input) {
-    font-size: 0.875rem;
-}
-@container (max-width: 720px) {
-    .graph-filter :deep(.v-field__prepend-inner) {
-        display: none;
-    }
-}
-</style>
