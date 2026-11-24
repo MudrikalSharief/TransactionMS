@@ -93,6 +93,7 @@
                                 <span class="summary-seg-hint">{{ tile.hint }}</span>
                             </span>
                         </span>
+                        <span class="clerk-card-cta" aria-hidden="true">View list <v-icon size="16">mdi-chevron-down</v-icon></span>
                     </button>
                     <StatCard
                         v-else
@@ -254,7 +255,7 @@ const stepListOpen = ref(false);
 const selectedStepCard = ref("needs_action");
 const stepCards = [
     { key: "overdue_completed", label: "Overdue Completed", hint: "Your completed steps that exceeded their time limit", icon: "mdi-check-circle-outline", variant: "warning" },
-    { key: "overdue_pending", label: "Overdue Pending", hint: "Your current steps past their time limit", icon: "mdi-clock-alert-outline", variant: "danger" },
+    { key: "overdue_pending", label: "Overdue Steps", hint: "Your current steps past their time limit", icon: "mdi-clock-alert-outline", variant: "danger" },
     { key: "needs_action", label: "Needs My Action", hint: "Steps awaiting receipt and returns assigned to you", icon: "mdi-tray-arrow-down", variant: "info" },
 ];
 const selectedStepTitle = computed(() => stepCards.find((card) => card.key === selectedStepCard.value)?.label);
@@ -410,6 +411,50 @@ useSmartPoll(load);
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.clerk-summary-card:hover,
+.clerk-summary-card:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 28px -16px rgba(0, 85, 237, 0.55);
+}
+.workspace-dashboard--staff .clerk-summary-card .summary-seg {
+    --clerk-icon: #005eed;
+}
+.workspace-dashboard--staff .clerk-summary-card .summary-seg--warning,
+.workspace-dashboard--staff .clerk-summary-card .summary-seg--danger {
+    --clerk-icon: #f59e0b;
+}
+.workspace-dashboard--staff .clerk-summary-card .summary-seg--success {
+    --clerk-icon: #16a34a;
+}
+.workspace-dashboard--staff .clerk-summary-card.summary-strip .summary-seg-label {
+    color: #000;
+}
+.workspace-dashboard--staff .clerk-summary-card.summary-strip .summary-seg-icon {
+    color: var(--clerk-icon);
+    background: color-mix(in srgb, var(--clerk-icon) 11%, var(--ws-surface, #fff));
+    transition: transform 0.3s ease;
+}
+.clerk-summary-card:hover .summary-seg-icon {
+    transform: scale(1.06) rotate(-4deg);
+}
+.clerk-card-cta {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    color: var(--ws-blue, #0055ed);
+    font-size: var(--tms-text-xs);
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.clerk-summary-card:hover .clerk-card-cta,
+.clerk-summary-card:focus-visible .clerk-card-cta {
+    opacity: 1;
+}
+:global(html.dark .workspace-dashboard--staff .clerk-summary-card.summary-strip .summary-seg-label) {
+    color: var(--ws-ink, #f4f7ff);
 }
 .clerk-summary-card:focus-visible {
     outline: 2px solid var(--ws-blue, #0055ed);
@@ -420,6 +465,18 @@ useSmartPoll(load);
 }
 .clerk-bottom-grid > .dash-slot {
     grid-column: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .clerk-summary-card,
+    .clerk-summary-card .summary-seg-icon,
+    .clerk-card-cta {
+        transition: none;
+    }
+    .clerk-summary-card:hover,
+    .clerk-summary-card:focus-visible,
+    .clerk-summary-card:hover .summary-seg-icon {
+        transform: none;
+    }
 }
 @media (max-width: 600px) {
     .workspace-dashboard--staff .portal-tiles--clerk,
