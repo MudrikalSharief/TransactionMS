@@ -17,8 +17,8 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Staff-portal Transaction Status chart. It uses the admin chart's status
- * rules but counts only papers filed by the signed-in user's own office.
+ * Staff-portal Transaction Status chart. Personal view keeps the filed-by-
+ * office scope; Office view uses the office-admin scope.
  */
 class PortalTransactionStatusTest extends TestCase
 {
@@ -153,6 +153,14 @@ class PortalTransactionStatusTest extends TestCase
             ->assertJsonPath('months.0.in_process', 0)
             ->assertJsonPath('months.0.completed_late', 0)
             ->assertJsonPath('months.0.completed_on_time', 0);
+
+        // Office view uses the office-admin scope: the other office's paper
+        // passing through this office's step is included.
+        $this->getJson('/api/portal/transaction-status?month=2026-09&view=office')
+            ->assertOk()
+            ->assertJsonPath('months.2.in_process', 1)
+            ->assertJsonPath('months.2.completed_late', 1)
+            ->assertJsonPath('months.2.completed_on_time', 2);
     }
 
     public function test_user_without_an_office_gets_empty_months(): void

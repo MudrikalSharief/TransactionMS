@@ -31,12 +31,13 @@ class PortalController extends Controller
 
         $user = $request->user();
         $user->loadMissing(['roles', 'office:id,code,name,icon_path']);
+        $officeId = $user->office_id !== null ? (int) $user->office_id : 0;
 
         $office = Transaction::query()
             ->active()
             ->when(
-                $user->office_id !== null,
-                fn ($q) => $q->where('office_id', $user->office_id),
+                $officeId > 0,
+                fn ($q) => $q->where('office_id', $officeId),
                 fn ($q) => $q->whereRaw('1 = 0')
             );
         $created = fn (Builder $q) => $from ? $q->where('created_at', '>=', $from)->where('created_at', '<', $to) : $q;
@@ -53,13 +54,13 @@ class PortalController extends Controller
                     ->where('performed_at', '<', $to)))
                 ->count(),
             'created_by_me' => $created(Transaction::query()->active()->where('created_by', $user->id))->count(),
-            'step_metrics' => $this->stepMetrics($user, $from, $to),
+            'step_metrics' => $this->personalStepMetrics($user, $from, $to),
             'needs_action' => $this->needsAction($user),
         ]);
     }
 
-    /** Step activity, open work, and forward releases in the selected Period. */
-    private function stepMetrics($user, $from, $to): array
+    /** Step activity, open work, and forward releases for one user. */
+    private function personalStepMetrics($user, $from, $to): array
     {
         $empty = ['received' => 0, 'entered' => 0, 'overdue_work' => 0, 'released' => 0];
         if ($user->office_id === null) return $empty;

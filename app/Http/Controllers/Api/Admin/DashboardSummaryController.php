@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Models\TransactionStepRun;
 use App\Models\User;
 use App\Services\OfficeScope;
+use App\Support\ReportPeriod;
 use App\Support\WorkingTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -206,23 +207,23 @@ class DashboardSummaryController extends Controller
 
     /**
      * Transaction Status chart for the staff portal: the same three monthly
-     * buckets as the admin chart, limited to papers filed by the signed-in
-     * user's own office. The month filter picks the ending month; only the
-     * chart months are returned, not the top-step or per-office breakdowns.
+     * buckets as the admin chart. Personal view keeps the filed-by-office
+     * scope; Office view uses the office-admin scope (filed by or passing
+     * through the office). Only the chart months are returned.
      */
     public function portalStatus(Request $request)
     {
         $data = $request->validate([
             'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'view' => ['nullable', 'in:personal,office'],
         ]);
 
-        // Filed-by-office scope only: unlike the office-admin dashboard, a
-        // paper merely passing through this office's steps does not count.
+        $view = $data['view'] ?? 'personal';
         $officeId = (int) ($request->user()->office_id ?? 0);
         $this->processes = [];
         $this->offices = [];
-        $this->officeId = $officeId;
-        $this->scopeOfficeId = null;
+        $this->officeId = $view === 'office' ? null : $officeId;
+        $this->scopeOfficeId = $view === 'office' ? $officeId : null;
         $this->seesAllOffices = false;
 
         $month = !empty($data['month'])
@@ -233,8 +234,8 @@ class DashboardSummaryController extends Controller
         $windowFrom = $windowStart->copy()->utc();
         $windowTo = $monthStart->copy()->addMonthNoOverflow()->utc();
 
-        $key = 'dash:portal-status:v1:'.md5(json_encode([
-            $officeId, $data['month'] ?? null,
+        $key = 'dash:portal-status:v2:'.md5(json_encode([
+            $officeId, $view, $data['month'] ?? null,
         ]));
 
         $payload = \Illuminate\Support\Facades\Cache::remember(
@@ -256,6 +257,49 @@ class DashboardSummaryController extends Controller
                 ];
             },
         );
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Office-wide card data for the staff portal's Office view. It uses the
+     * same calculations as the office-admin dashboard so both screens agree.
+     */
+    public function portalOfficeSummary(Request $request)
+    {
+        $data = $request->validate([
+            'period' => ['nullable', ReportPeriod::RULE],
+        ]);
+        $period = $data['period'] ?? 'all';
+
+        if ($period === 'all') {
+            $from = Carbon::parse('1970-01-01 00:00:00', 'UTC');
+            $to = Carbon::parse('9999-12-31 23:59:59', 'UTC');
+        } else {
+            [$from, $to] = ReportPeriod::resolve($period);
+        }
+
+        $officeId = (int) ($request->user()->office_id ?? 0);
+        $this->from = $from;
+        $this->to = $to;
+        $this->processes = [];
+        $this->offices = [];
+        $this->officeId = null;
+        $this->scopeOfficeId = $officeId;
+        $this->metricsOfficeId = $officeId;
+        $this->seesAllOffices = false;
+
+        $key = 'dash:portal-office-summary:v1:'.md5(json_encode([$officeId, $period]));
+
+        $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () use ($officeId) {
+            $sla = $this->slaCounts();
+
+            return [
+                'office_step_metrics' => $this->officeStepMetrics($officeId),
+                'overdue_steps' => $sla['overdue_steps'],
+                'overdue_transactions' => $sla['overdue_transactions'],
+            ];
+        });
 
         return response()->json($payload);
     }

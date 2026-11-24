@@ -84,7 +84,7 @@ class PortalStepMetricsTest extends TestCase
         return Transaction::create([
             'transaction_type_id' => $this->type->id,
             'workflow_definition_id' => $this->startStep->workflow_definition_id,
-            'office_id' => $this->office->id,
+            'office_id' => $opts['office'] ?? $this->office->id,
             'reference_number' => 'TX-' . uniqid(),
             'is_done' => (bool) ($opts['done'] ?? false),
             'is_archive' => (bool) ($opts['archived'] ?? false),

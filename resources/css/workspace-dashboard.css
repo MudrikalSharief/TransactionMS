@@ -687,20 +687,6 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
 .workspace-shell .workspace-dashboard .only-narrow {
     display: none;
 }
-.workspace-shell .workspace-dashboard--staff .head-text {
-    flex: 1 1 160px;
-    min-width: 0;
-}
-.workspace-shell .workspace-dashboard--staff .head-name {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.workspace-shell .workspace-dashboard--staff .head-office {
-    margin-top: 5px;
-    white-space: normal;
-}
 .workspace-shell .workspace-dashboard--staff .home-period {
     flex: 0 1 210px;
     min-width: 190px;
@@ -987,12 +973,6 @@ html.dark .workspace-shell .workspace-dashboard .dash-body > .v-alert--type-succ
     }
     .workspace-shell .workspace-dashboard--staff .home-period {
         flex: 1 1 150px;
-    }
-    .workspace-shell .workspace-dashboard--staff .head-text {
-        flex-basis: calc(100% - 50px);
-    }
-    .workspace-shell .workspace-dashboard--staff .head-text ~ .v-spacer {
-        display: none;
     }
 }
 @media (prefers-reduced-motion: reduce) {

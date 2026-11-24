@@ -1,6 +1,6 @@
 <template>
     <!-- Staff-portal copy of the admin Transaction Status chart: the same
-         three monthly series, but scoped by the server to this user's office. -->
+         three monthly series, switched between Personal and Office scope. -->
     <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="height: 100%; width: 100%">
         <v-card-title class="d-flex align-center lgu-head dash-head chart-head">
             <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
@@ -69,6 +69,10 @@ const STATUS_COLORS = {
     dark: { in_process: '#FFD074', completed_late: '#FF8B96', completed_on_time: '#72D7AB' },
 }
 
+const props = defineProps({
+    view: { type: String, default: 'personal' }, // personal | office
+})
+
 const { api } = useApi()
 const { fit } = useFitScreen()
 const theme = useTheme()
@@ -105,7 +109,7 @@ async function load({ silent = false } = {}) {
     error.value = ''
     try {
         const res = await api.get('/api/portal/transaction-status', {
-            params: { month: selectedMonth.value },
+            params: { month: selectedMonth.value, view: props.view },
             timeout: 10000,
         })
         if (mine !== request) return
@@ -121,6 +125,12 @@ async function load({ silent = false } = {}) {
 }
 
 watch(selectedMonth, () => {
+    data.value = null
+    loading.value = true
+    load()
+})
+
+watch(() => props.view, () => {
     data.value = null
     loading.value = true
     load()

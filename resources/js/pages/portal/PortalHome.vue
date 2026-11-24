@@ -2,76 +2,44 @@
     <div class="fit-page workspace-dashboard workspace-dashboard--staff">
         <!-- Full-page loader on every visit; later polls refresh quietly. -->
         <LoadingVeil :show="loading" label="home" icon="mdi-home-city-outline" />
-        <!-- Welcome: who you are, which office, which roles -->
-        <div>
-                <v-card rounded="0" elevation="1" class="lgu-card dash-panel">
-                    <v-card-title class="d-flex align-center flex-wrap ga-2 pa-4 lgu-head" :class="{ 'clerk-home-header': isClerk }">
-                        <v-avatar color="white" rounded="0" size="34" class="mr-2 lgu-head-avatar">
-                            <v-icon color="#005EED" size="20">mdi-home-city-outline</v-icon>
-                        </v-avatar>
-                        <!-- The header stays one line: on phones the name and office
-                             shorten with "…", role chips hide and the button
-                             keeps only its icon. -->
-                        <div class="head-text">
-                            <!-- Role chips sit right after the name. -->
-                            <div class="head-name">
-                                <span class="text-subtitle-1 font-weight-bold head-name-text">Your workspace</span>
-                                <v-chip
-                                    v-for="r in user?.roles || []"
-                                    :key="r.code"
-                                    size="small"
-                                    variant="tonal"
-                                    color="primary"
-                                    rounded="pill"
-                                    class="font-weight-bold d-none d-sm-inline-flex head-role"
-                                >
-                                    {{ r.name || r.code }}
-                                </v-chip>
-                            </div>
-                            <div class="text-caption text-medium-emphasis head-office">
-                                {{ summary?.office?.name || 'No office assigned' }}
-                            </div>
-                        </div>
-                        <v-spacer />
-                        <!-- Period drives the number cards. The Transaction
-                             Status chart has its own Month filter. -->
-                        <v-select
-                            v-model="period"
-                            :items="periodOptions"
-                            label="Period"
-                            prepend-inner-icon="mdi-calendar-range"
-                            variant="outlined"
-                            density="compact"
-                            rounded="lg"
-                            hide-details
-                            class="home-period"
-                        />
-                        <v-btn
-                            v-if="canCreate"
-                            color="primary"
-                            rounded="pill"
-                            :icon="xs"
-                            :prepend-icon="xs ? undefined : 'mdi-plus'"
-                            aria-label="New Transaction"
-                            @click="router.push({ path: '/portal/transactions', query: { new: '1' } })"
-                        >
-                            <v-icon v-if="xs">mdi-plus</v-icon>
-                            <template v-else>New Transaction</template>
-                        </v-btn>
-                    </v-card-title>
-                    <v-alert
-                        v-if="user && !user.office"
-                        type="warning"
-                        variant="tonal"
-                        rounded="0"
-                        class="ma-4"
-                    >
-                        <template v-if="isClerk">Your account needs an assigned office before step counts can be shown.</template>
-                        <template v-else>Your account has no office assigned yet, so you will only see transactions waiting on your role.</template>
-                        Ask an administrator to assign your office.
-                    </v-alert>
-                </v-card>
+
+        <!-- View + Period filters above the work cards. -->
+        <div class="portal-toolbar">
+            <v-select
+                v-model="view"
+                :items="viewOptions"
+                label="View"
+                prepend-inner-icon="mdi-account-switch-outline"
+                variant="outlined"
+                density="compact"
+                rounded="lg"
+                hide-details
+                class="home-period home-view"
+            />
+            <v-select
+                v-model="period"
+                :items="periodOptions"
+                label="Period"
+                prepend-inner-icon="mdi-calendar-range"
+                variant="outlined"
+                density="compact"
+                rounded="lg"
+                hide-details
+                class="home-period"
+            />
         </div>
+
+        <v-alert
+            v-if="user && !user.office"
+            type="warning"
+            variant="tonal"
+            rounded="lg"
+            class="portal-office-warning"
+        >
+            <template v-if="isClerk">Your account needs an assigned office before step counts can be shown.</template>
+            <template v-else>Your account has no office assigned yet, so you will only see transactions waiting on your role.</template>
+            Ask an administrator to assign your office.
+        </v-alert>
 
         <!-- Numbers for the user's office / role -->
                 <div class="portal-tiles">
@@ -142,7 +110,7 @@
                  as the admin dashboard, scoped to the papers this office
                  filed. Needs an office to have anything to show. -->
             <div v-if="user?.office" class="dash-slot" :data-card="isClerk ? 'graph' : undefined" :style="{ '--span': isClerk ? 8 : 12 }">
-                <TransactionStatusCard />
+                <TransactionStatusCard :view="view" />
             </div>
 
             <!-- Steps this user can act on: received work, returns, and
@@ -202,7 +170,6 @@
 import { computed, onMounted, ref, watch } from "vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 import { useApi } from "@/composables/useApi";
 import { useAuth } from "@/composables/useAuth";
 import { useSmartPoll } from "@/composables/useSmartPoll";
@@ -216,19 +183,25 @@ import { monthValue, periodOptions as dashPeriodOptions } from "@/utils/dashPeri
 const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
-const { xs } = useDisplay();
 const { vFitBody, rows } = useFitScreen();
 
 const loading = ref(true);
 const summary = ref(null);
+const officeSummary = ref(null);
 const officeRows = ref([]);
 
 // Period filter: every work card below follows it. The shared option list is
 // filtered so the staff portal offers Today, This week and months, without
-// All time. The "Needs my action" panel and lists always show what is open
-// now, and the Transaction Status chart keeps its own Month filter.
+// All time. View switches the five cards and the chart between Personal and
+// whole-office scope; Needs My Action always stays personal.
 const period = ref(monthValue(new Date()));
 const periodOptions = computed(() => dashPeriodOptions().filter((option) => option.value !== "all"));
+const view = ref("personal");
+const viewOptions = [
+    { title: "Personal", value: "personal" },
+    { title: "Office", value: "office" },
+];
+const isOfficeView = computed(() => view.value === "office");
 const periodPhrase = computed(() => {
     if (period.value === "today") return "today";
     if (period.value === "this_week") return "this week";
@@ -237,16 +210,14 @@ const periodPhrase = computed(() => {
     return `in ${label}`;
 });
 
-const canCreate = computed(() => user.value?.office != null);
 // Clerk layout puts the chart and Needs My Action side by side; other staff
 // use the full-width chart row with two list cards underneath.
 const isClerk = computed(() => user.value?.roles?.some((role) => role.code === "clerk") === true);
 const stepListOpen = ref(false);
 const selectedStepRows = computed(() => summary.value?.needs_action?.rows ?? []);
 
-// Staff work cards, in display order. Only In progress is clickable; the
-// rest are informational metrics.
-const tiles = computed(() => {
+// Personal step cards, in the order requested for the staff home.
+const personalTiles = computed(() => {
     const m = summary.value?.step_metrics || {};
     return [
         {
@@ -292,6 +263,64 @@ const tiles = computed(() => {
         },
     ];
 });
+
+// Office view mirrors the office-admin dashboard cards and their order.
+const officeTiles = computed(() => {
+    const m = officeSummary.value?.office_step_metrics || {};
+    const s = officeSummary.value || {};
+    return [
+        {
+            key: "office_entered",
+            label: "Entered",
+            value: m.entered ?? 0,
+            hint: `Steps that entered your office ${periodPhrase.value}.`,
+            icon: "mdi-door-open",
+            variant: "success",
+        },
+        {
+            key: "office_received",
+            label: "Received",
+            value: m.received ?? 0,
+            hint: `Steps received by your office ${periodPhrase.value}.`,
+            icon: "mdi-inbox-arrow-down",
+            variant: "info",
+        },
+        {
+            key: "office_in_progress",
+            label: "In progress",
+            value: m.in_progress ?? 0,
+            hint: `Steps received by your office ${periodPhrase.value} and still in progress.`,
+            icon: "mdi-timer-sand",
+            variant: "warning",
+        },
+        {
+            key: "office_released",
+            label: "Release",
+            value: m.released ?? 0,
+            hint: `Steps completed by your office ${periodPhrase.value}.`,
+            icon: "mdi-send-check-outline",
+            variant: "info",
+        },
+        {
+            key: "office_overdue_steps",
+            label: "Overdue Steps",
+            value: s.overdue_steps ?? 0,
+            hint: `Individual steps over SLA at your office ${periodPhrase.value}.`,
+            icon: "mdi-timer-alert-outline",
+            variant: "danger",
+        },
+        {
+            key: "office_overdue_transactions",
+            label: "Overdue Transactions",
+            value: s.overdue_transactions ?? 0,
+            hint: `Transactions over their total SLA at your office ${periodPhrase.value}.`,
+            icon: "mdi-file-clock-outline",
+            variant: "danger",
+        },
+    ];
+});
+
+const tiles = computed(() => (isOfficeView.value ? officeTiles.value : personalTiles.value));
 
 const NEEDS_ACTION_META = {
     receive: { label: "Receive", color: "primary" },
@@ -342,33 +371,38 @@ async function oldestRows(url) {
     return { rows: [...rows].sort(byCreatedAsc).slice(0, FETCH_ROWS), total };
 }
 
-// Latest request wins, so a quick period switch never shows older numbers.
+// Latest request wins, so a quick filter switch never shows older numbers.
 let summaryRequest = 0;
-const fetchSummary = () => api.get("/api/portal/summary", { params: { period: period.value } });
+const fetchSummary = () => api.get("/api/portal/summary", {
+    params: { period: period.value },
+});
+const fetchOfficeSummary = () => api.get("/api/portal/office-summary", {
+    params: { period: period.value },
+});
 
-async function loadSummary() {
-    const mine = ++summaryRequest;
-    try {
-        const res = await fetchSummary();
-        if (mine === summaryRequest) {
-            summary.value = res.data;
-            markWorkspaceRefreshed();
-        }
-    } catch {
-        /* keep the last numbers; the next poll retries */
-    }
-}
-watch(period, loadSummary);
-
-async function load() {
+async function loadMetrics() {
     const mine = ++summaryRequest;
     const [sum, office] = await Promise.allSettled([
         fetchSummary(),
-        isClerk.value ? Promise.resolve({ rows: [] }) : oldestRows("/api/admin/transactions"),
+        isOfficeView.value ? fetchOfficeSummary() : Promise.resolve(null),
     ]);
-    if (sum.status === "fulfilled" && mine === summaryRequest) summary.value = sum.value.data;
-    if (office.status === "fulfilled") officeRows.value = office.value.rows;
-    if (sum.status === "fulfilled" || office.status === "fulfilled") markWorkspaceRefreshed();
+    if (mine !== summaryRequest) return;
+    if (sum.status === "fulfilled") summary.value = sum.value.data;
+    if (office.status === "fulfilled" && office.value) officeSummary.value = office.value.data;
+    if (sum.status === "fulfilled" || (office.status === "fulfilled" && office.value)) {
+        markWorkspaceRefreshed();
+    }
+}
+watch([period, view], loadMetrics);
+
+async function load() {
+    const officeRowsPromise = isClerk.value
+        ? Promise.resolve({ rows: [] })
+        : oldestRows("/api/admin/transactions");
+    await Promise.all([
+        loadMetrics(),
+        officeRowsPromise.then((result) => { officeRows.value = result.rows; }).catch(() => {}),
+    ]);
     loading.value = false;
 }
 
@@ -381,6 +415,25 @@ useSmartPoll(load);
 <style src="../../../css/workspace-dashboard.css"></style>
 
 <style scoped>
+.portal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.portal-office-warning {
+    margin-bottom: 14px;
+}
+@media (max-width: 600px) {
+    .portal-toolbar {
+        justify-content: stretch;
+    }
+    .portal-toolbar .home-period {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+}
 /* Cap the staff tiles at three columns so the icon + number + copy have
    enough room. Six cards then sit as two rows of three instead of being
    squeezed into one row where labels and hints clip. */
@@ -485,19 +538,6 @@ useSmartPoll(load);
 @media (max-width: 600px) {
     .workspace-dashboard--staff .clerk-bottom-grid {
         grid-template-columns: minmax(0, 1fr);
-    }
-    .clerk-home-header {
-        flex-wrap: wrap !important;
-    }
-    .clerk-home-header .head-text {
-        flex: 1 1 calc(100% - 60px);
-    }
-    .clerk-home-header .v-spacer {
-        display: none;
-    }
-    .clerk-home-header .home-period {
-        flex: 1 1 180px !important;
-        min-width: 150px !important;
     }
 }
 </style>

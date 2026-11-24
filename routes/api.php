@@ -123,6 +123,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
     Route::get('/portal/summary', [PortalController::class, 'summary']);
     // Transaction Status chart on the staff portal, scoped to their office.
     Route::get('/portal/transaction-status', [DashboardSummaryController::class, 'portalStatus']);
+    // Office-wide card data, using the same calculations as the office admin.
+    Route::get('/portal/office-summary', [DashboardSummaryController::class, 'portalOfficeSummary']);
 
     Route::get('/approvals', [ApprovalController::class, 'index']);
     Route::get('/approvals/count', [ApprovalController::class, 'count']);
