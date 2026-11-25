@@ -1,116 +1,51 @@
 <template>
-    <!-- After a clerk signs in: how many tasks wait at their office. A navy
-         folder tab (seal, office code, count) on a rounded card; the summary
-         and its tally on the left, the office's RECEIVED stamp on the right
-         (pressed on as it opens), actions below. -->
     <v-dialog
         v-model="open"
-        max-width="780"
-        transition="tray-pull"
-        scrim="#1A1F2B"
-        class="tray-dialog"
+        max-width="520"
+        scrim="#14213d"
+        class="task-notice-dialog"
         @after-leave="markSeen"
     >
-        <div class="tray" role="document" aria-labelledby="tray-greet" aria-describedby="tray-summary">
-            <div class="tray-top">
-                <div class="tray-tab">
-                    <!-- Folder tab: rounded on the left, curving down into
-                         the card's navy top edge on the right. -->
-                    <svg class="tray-tab-shape" viewBox="0 0 360 64" preserveAspectRatio="none" aria-hidden="true">
-                        <defs>
-                            <linearGradient id="tray-tab-fill" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0" stop-color="#1f3f7e" />
-                                <stop offset="1" stop-color="#0f2a5c" />
-                            </linearGradient>
-                        </defs>
-                        <path d="M0 64 V30 Q0 0 30 0 H262 C292 0 300 18 312 36 C322 54 332 64 360 64 Z" fill="url(#tray-tab-fill)" />
-                    </svg>
-                    <img class="tray-tab-seal" :src="'/zamboanga-seal.png'" alt="" width="34" height="34" />
-                    <span class="tray-tab-code">{{ officeCode }}</span>
-                    <span class="tray-tab-sep" aria-hidden="true"></span>
-                    <span class="tray-tab-count" :aria-label="`${total} waiting`">{{ total }}</span>
-                </div>
-                <button type="button" class="tray-close" aria-label="Close" @click="open = false">
-                    <v-icon size="26">mdi-close</v-icon>
-                </button>
+        <div class="task-notice" role="document" aria-labelledby="task-notice-title" aria-describedby="task-notice-intro">
+            <button type="button" class="task-notice__close" aria-label="Close pending tasks notice" @click="open = false">
+                <v-icon size="22" aria-hidden="true">mdi-close</v-icon>
+            </button>
+
+            <div class="task-notice__icon" aria-hidden="true">
+                <v-icon size="34">mdi-clipboard-check-outline</v-icon>
+            </div>
+            <h2 id="task-notice-title" class="task-notice__title">
+                {{ total }} {{ total === 1 ? "pending task" : "pending tasks" }}
+            </h2>
+            <p id="task-notice-intro" class="task-notice__intro">
+                {{ greeting }}, {{ user?.name }}. Here is what needs attention in your office.
+            </p>
+
+            <div class="task-notice__office">
+                <v-icon size="20" aria-hidden="true">mdi-domain</v-icon>
+                <span>{{ officeName }}</span>
+                <strong>{{ officeCode }}</strong>
             </div>
 
-            <div class="tray-card">
-                <div class="tray-body">
-                    <!-- Summary only: how many are pending at the office, and a
-                         tally of what needs attention (no per-document list). -->
-                    <div class="tray-info">
-                        <p id="tray-greet" class="tray-greet">
-                            <v-icon size="24" aria-hidden="true">mdi-account-outline</v-icon>
-                            {{ greeting }}, {{ user?.name }}.
-                        </p>
-                        <div class="tray-headline">
-                            <span class="tray-icon" aria-hidden="true">
-                                <v-icon size="40">mdi-clipboard-check-outline</v-icon>
-                            </span>
-                            <div>
-                                <h2 id="tray-summary" class="tray-summary">
-                                    {{ total }} {{ total === 1 ? "Pending Task" : "Pending Tasks" }} in office {{ officeCode }}.
-                                </h2>
-                                <span class="tray-rule" aria-hidden="true"></span>
-                            </div>
-                        </div>
-                        <p class="tray-office">
-                            <v-icon size="24" aria-hidden="true">mdi-sitemap-outline</v-icon>
-                            {{ officeName }}
-                        </p>
-                        <ul v-if="tally.length" class="tally">
-                            <li v-for="t in tally" :key="t.key" :class="{ 'is-zero': !t.n }">
-                                <span class="tally-pill" :class="`tally-pill--${t.key}`">
-                                    <v-icon size="20" aria-hidden="true">{{ t.icon }}</v-icon>
-                                    {{ t.mark }}
-                                </span>
-                                <span class="tally-n">{{ t.n }}</span>
-                                <span class="tally-label">{{ t.label }}</span>
-                            </li>
-                        </ul>
-                    </div>
+            <ul v-if="tally.length" class="task-notice__tally" aria-label="Task status summary">
+                <li v-for="t in tally" :key="t.key">
+                    <span class="task-notice__status" :class="'task-notice__status--' + t.key">
+                        <v-icon size="18" aria-hidden="true">{{ t.icon }}</v-icon>
+                        {{ t.mark }}
+                    </span>
+                    <strong>{{ t.n }}</strong>
+                    <span class="task-notice__detail">{{ t.label }}</span>
+                </li>
+            </ul>
 
-                    <!-- Round RECEIVED rubber stamp: a double outer ring, the word
-                         curving round the top and again round the bottom, an
-                         inner ring, and a double-outlined band across the middle
-                         with the word in tall condensed capitals. -->
-                    <div class="rcv" aria-hidden="true">
-                        <div class="rcv-ink">
-                            <svg class="rcv-svg" viewBox="0 0 240 240" width="240" height="240">
-                                <defs>
-                                    <path id="rcv-arc-top" d="M 42 120 A 78 78 0 0 1 198 120" />
-                                    <path id="rcv-arc-bottom" d="M 22 120 A 98 98 0 0 0 218 120" />
-                                </defs>
-                                <circle cx="120" cy="120" r="113" class="rcv-stroke" stroke-width="4.5" />
-                                <circle cx="120" cy="120" r="106" class="rcv-stroke" stroke-width="1.5" />
-                                <circle cx="120" cy="120" r="74" class="rcv-stroke" stroke-width="2.5" />
-                                <text class="rcv-arc">
-                                    <textPath href="#rcv-arc-top" startOffset="50%" text-anchor="middle">{{ STAMP_WORD }}</textPath>
-                                </text>
-                                <text class="rcv-arc">
-                                    <textPath href="#rcv-arc-bottom" startOffset="50%" text-anchor="middle">{{ STAMP_WORD }}</textPath>
-                                </text>
-                                <!-- The band covers the inner ring across the middle -->
-                                <rect x="4" y="90" width="232" height="60" rx="12" fill="#fff" />
-                                <rect x="4" y="90" width="232" height="60" rx="12" class="rcv-stroke" stroke-width="4.5" />
-                                <rect x="11" y="97" width="218" height="46" rx="8" class="rcv-stroke" stroke-width="1.5" />
-                                <text x="120" y="135" text-anchor="middle" class="rcv-word">{{ STAMP_WORD }}</text>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tray-foot">
-                    <button type="button" class="tray-btn tray-btn--later" @click="open = false">
-                        <v-icon size="24" aria-hidden="true">mdi-clock-outline</v-icon>
-                        Remind me later
-                    </button>
-                    <button type="button" class="tray-btn tray-btn--open" @click="openApprovals">
-                        <v-icon size="24" aria-hidden="true">mdi-open-in-new</v-icon>
-                        Open tasks
-                    </button>
-                </div>
+            <div class="task-notice__actions">
+                <button type="button" class="task-notice__primary" @click="openApprovals">
+                    Open tasks
+                    <v-icon size="19" aria-hidden="true">mdi-arrow-right</v-icon>
+                </button>
+                <button type="button" class="task-notice__later" @click="open = false">
+                    Remind me later
+                </button>
             </div>
         </div>
     </v-dialog>
@@ -189,9 +124,6 @@ const tally = computed(() => {
 const officeCode = computed(() => user.value?.office?.code || "In-tray");
 const officeName = computed(() => user.value?.office?.name || "Receiving");
 
-// The stamp's word: round the top, round the bottom and across the band.
-const STAMP_WORD = "RECEIVED";
-
 const manila = (opts) => new Date(now.value).toLocaleString("en-US", { timeZone: "Asia/Manila", ...opts });
 const greeting = computed(() => {
     const h = Number(manila({ hour: "numeric", hour12: false })) % 24;
@@ -250,541 +182,143 @@ function openApprovals() {
 </script>
 
 <style>
-/* Teleported dialog: global styles, prefixed "tray" / "tally" / "rcv".
-   Palette: deep navy tab and actions, seal gold, light blue-grey panels. */
-@property --ink-r {
-    syntax: "<percentage>";
-    inherits: false;
-    initial-value: 160%;
-}
-
-.tray-dialog .v-overlay__scrim {
-    opacity: 0.6;
-}
-.tray {
-    --navy: #0f2a5c;
-    --navy-2: #1f3f7e;
-    --blue: #1d56c4;
-    --gold: #f2b33d;
-    --ink: #0f2a6b;
-    --red: #c62828;
-    --text: #13213f;
-    --muted: #4a5672;
-    --panel: #eef3fa;
+.task-notice-dialog .v-overlay__scrim { opacity: 0.62; }
+.task-notice-dialog .v-overlay__content { max-height: calc(100dvh - 32px); }
+.task-notice {
     position: relative;
-    font-family: "Inter", "Public Sans", system-ui, "Segoe UI", Roboto, sans-serif;
-    color: var(--text);
-}
-
-/* ---- Folder tab and close button ---- */
-.tray-top {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    height: 64px;
-}
-.tray-tab {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    width: 360px;
-    max-width: 82%;
-    height: 64px;
-    padding: 0 0 4px 24px;
-    color: #fff;
-}
-.tray-tab-shape {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-}
-.tray-tab > :not(.tray-tab-shape) {
-    position: relative;
-}
-.tray-tab-seal {
-    border-radius: 50%;
+    overflow-y: auto;
+    max-height: calc(100dvh - 32px);
+    padding: 36px 38px 28px;
+    border: 1px solid #e5ebf5;
+    border-radius: 20px;
     background: #fff;
-    padding: 1px;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+    box-shadow: 0 24px 70px rgba(13, 31, 65, 0.28);
+    color: #14223e;
+    text-align: center;
 }
-.tray-tab-code {
-    font-family: "Montserrat", "Inter", sans-serif;
-    font-weight: 800;
-    font-size: 1.45rem;
-    letter-spacing: 0.02em;
-}
-.tray-tab-sep {
-    width: 2px;
-    height: 30px;
-    background: rgba(255, 255, 255, 0.55);
-}
-.tray-tab-count {
-    display: grid;
-    place-items: center;
-    min-width: 38px;
-    height: 38px;
-    padding: 0 8px;
-    border-radius: 8px;
-    background: linear-gradient(180deg, #f7c255, var(--gold));
-    color: #fff;
-    font-family: "Montserrat", "Inter", sans-serif;
-    font-weight: 800;
-    font-size: 1.3rem;
-    font-variant-numeric: tabular-nums;
-    text-shadow: 0 1px 1px rgba(120, 70, 0, 0.35);
-}
-.tray-close {
+.task-notice__close {
     position: absolute;
-    right: 0;
-    top: 0;
-    z-index: 2;
+    top: 16px;
+    right: 16px;
     display: grid;
     place-items: center;
-    width: 54px;
-    height: 54px;
-    border: 2px solid rgba(255, 255, 255, 0.85);
+    width: 44px;
+    height: 44px;
+    border: 0;
     border-radius: 12px;
-    background: linear-gradient(180deg, #2b3a58, #1a2540);
-    color: #fff;
+    background: transparent;
+    color: #53627d;
     cursor: pointer;
-    box-shadow: 0 8px 18px -8px rgba(8, 18, 52, 0.8);
-    transition: filter 0.15s ease;
 }
-.tray-close:hover,
-.tray-close:focus-visible {
-    filter: brightness(1.2);
-    outline: none;
-}
-
-/* ---- The card: navy top edge joining the tab, rounded corners ---- */
-.tray-card {
-    position: relative;
-    overflow: hidden;
-    border-top: 12px solid var(--navy);
-    border-radius: 0 28px 28px 28px;
-    background: #fff;
-    box-shadow: 0 30px 70px -20px rgba(8, 18, 52, 0.6);
-}
-
-.tray-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 1px 270px;
-    gap: 0 26px;
-    padding: 26px 30px 22px 30px;
-}
-/* Thin divider between the summary and the stamp. */
-.tray-body::before {
-    content: "";
-    grid-column: 2;
-    grid-row: 1;
-    width: 1px;
-    background: #dde4ef;
-}
-.tray-info {
-    grid-column: 1;
-    grid-row: 1;
-    min-width: 0;
-}
-.tray-greet {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 0 18px;
-    padding-left: 12px;
-    border-left: 3px solid var(--gold);
-    font-size: 1.05rem;
-    color: var(--text);
-}
-.tray-greet .v-icon {
-    color: var(--navy);
-}
-.tray-headline {
-    display: flex;
-    align-items: flex-start;
-    gap: 18px;
-}
-.tray-icon {
-    flex: none;
+.task-notice__close:hover,
+.task-notice__close:focus-visible { background: #edf3fc; color: #0f2a5c; }
+.task-notice__icon {
     display: grid;
     place-items: center;
-    width: 72px;
-    height: 72px;
-    border-radius: 16px;
-    background: #e3ecfb;
-    color: var(--navy);
+    width: 66px;
+    height: 66px;
+    margin: 0 auto 20px;
+    border: 7px solid #e5f0ff;
+    border-radius: 50%;
+    background: #1768e8;
+    color: #fff;
+    box-shadow: 0 0 0 1px #c8dcff;
 }
-.tray-summary {
+.task-notice__title {
     margin: 0;
     font-family: "Montserrat", "Inter", sans-serif;
-    font-size: 1.85rem;
+    font-size: clamp(1.4rem, 4vw, 1.75rem);
     font-weight: 800;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
-    color: var(--text);
-    max-width: 15ch;
+    line-height: 1.25;
 }
-.tray-rule {
-    display: block;
-    width: 72%;
-    height: 3px;
-    margin-top: 12px;
-    border-radius: 2px;
-    background: var(--gold);
+.task-notice__intro {
+    max-width: 38ch;
+    margin: 10px auto 20px;
+    color: #53627d;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
 }
-.tray-office {
+.task-notice__office {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin: 16px 0 0 90px;
-    font-size: 1.12rem;
-    font-weight: 700;
-    color: var(--blue);
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 0 0 20px;
+    color: #1458c7;
+    font-size: 0.93rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
-.tally {
-    margin: 18px 0 0 18px;
-    padding: 0;
+.task-notice__office strong {
+    padding: 3px 7px;
+    border-radius: 5px;
+    background: #eaf2ff;
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+}
+.task-notice__tally {
+    margin: 0;
+    padding: 12px 16px;
+    border: 1px solid #e7edf6;
+    border-radius: 12px;
+    background: #f8faff;
     list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    text-align: left;
 }
-.tally li {
-    display: flex;
+.task-notice__tally li {
+    display: grid;
+    grid-template-columns: 112px 26px minmax(0, 1fr);
     align-items: center;
-    gap: 14px;
-    font-size: 1.02rem;
-    color: var(--text);
+    gap: 8px;
+    min-height: 39px;
+    font-size: 0.87rem;
 }
-.tally-pill {
+.task-notice__tally li + li { border-top: 1px solid #e7edf6; }
+.task-notice__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #173e82;
+    font-weight: 700;
+}
+.task-notice__status--past { color: #b42329; }
+.task-notice__status--new { color: #1263bd; }
+.task-notice__tally strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.task-notice__detail { color: #53627d; line-height: 1.35; }
+.task-notice__actions { display: grid; gap: 8px; margin-top: 22px; }
+.task-notice__primary,
+.task-notice__later {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-width: 150px;
-    padding: 8px 16px;
-    border-radius: 12px;
-    font-family: "Montserrat", "Inter", sans-serif;
-    font-size: 0.92rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-.tally-pill--past {
-    background: #fde3e1;
-    color: var(--red);
-}
-.tally-pill--due {
-    background: #dde8fb;
-    color: var(--navy);
-}
-.tally-pill--new {
-    background: #e3ecfb;
-    color: var(--blue);
-}
-.tally li.is-zero .tally-pill--past {
-    background: #f1f3f7;
-    color: #7a8396;
-}
-.tally-n {
-    min-width: 22px;
-    font-family: "Montserrat", "Inter", sans-serif;
-    font-size: 1.35rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-}
-.tally-label {
-    color: var(--text);
-}
-
-/* ---- Receiving stamp ---------------------------------------------------- */
-.rcv {
-    grid-column: 3;
-    grid-row: 1;
-    position: relative;
-    align-self: center;
-    width: 270px;
-    height: 270px;
-    transform: rotate(-6deg);
-}
-/* The stamp's shadow coming down before contact. */
-.rcv::before {
-    content: "";
-    position: absolute;
-    left: 30px;
-    top: 30px;
-    width: 210px;
-    height: 210px;
-    border-radius: 50%;
-    background: rgba(8, 18, 52, 0.5);
-    filter: blur(16px);
-    opacity: 0;
-    animation: rcv-shadow 0.32s ease-in 0.3s both;
-    pointer-events: none;
-}
-.rcv-ink {
-    position: relative;
-    width: 270px;
-    height: 270px;
-    color: var(--ink);
-    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 var(--ink-r), transparent calc(var(--ink-r) + 18%));
-    mask-image: radial-gradient(circle at 50% 50%, #000 var(--ink-r), transparent calc(var(--ink-r) + 18%));
-    animation: rcv-press 0.5s cubic-bezier(0.3, 0.7, 0.2, 1) 0.58s both;
-}
-.rcv-svg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-}
-.rcv-stroke {
-    fill: none;
-    stroke: currentColor;
-}
-.rcv-fill {
-    fill: currentColor;
-}
-/* Tall condensed capitals, like a rubber stamp's letters. */
-.rcv-arc {
-    fill: currentColor;
-    font-family: "Oswald", "Arial Narrow", "Montserrat", sans-serif;
-    font-size: 21px;
-    font-weight: 700;
-    letter-spacing: 0.2em;
-}
-.rcv-word {
-    fill: currentColor;
-    font-family: "Oswald", "Arial Narrow", "Montserrat", sans-serif;
-    font-size: 41px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-}
-
-/* ---- Actions: light panel with the city hall faintly at the left ---- */
-.tray-foot {
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
-    gap: 16px;
-    padding: 20px 26px 22px;
-    background: var(--panel);
-}
-.tray-foot::before {
-    content: "";
-    position: absolute;
-    left: -10px;
-    bottom: -6px;
-    width: 300px;
-    height: 120px;
-    background: url("/footer-hall.webp") left bottom / auto 92% no-repeat;
-    opacity: 0.13;
-    pointer-events: none;
-}
-.tray-foot::after {
-    content: "";
-    position: absolute;
-    left: -40px;
-    bottom: -38px;
-    width: 420px;
-    height: 70px;
-    border-radius: 50%;
-    background: rgba(29, 86, 196, 0.08);
-    pointer-events: none;
-}
-.tray-btn {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    min-width: 230px;
-    height: 58px;
-    padding: 0 24px;
+    min-height: 48px;
     border: 0;
-    border-radius: 12px;
-    font-family: "Montserrat", "Inter", sans-serif;
-    font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.94rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: filter 0.15s ease, transform 0.15s ease;
 }
-.tray-btn:hover {
-    filter: brightness(1.05);
-    transform: translateY(-1px);
-}
-.tray-btn:focus-visible {
-    outline: 3px solid rgba(29, 86, 196, 0.45);
-    outline-offset: 3px;
-}
-.tray-btn--later {
-    background: linear-gradient(180deg, #f3f6fb, #dfe7f3);
-    color: var(--navy);
-    box-shadow: inset 0 0 0 1px #cfd9ea, 0 6px 14px -10px rgba(15, 42, 92, 0.6);
-}
-.tray-btn--open {
-    background: linear-gradient(180deg, #1f3f7e, var(--navy));
+.task-notice__primary {
+    background: #1768e8;
     color: #fff;
-    box-shadow: 0 12px 22px -12px rgba(15, 42, 92, 0.9);
+    box-shadow: 0 5px 12px rgba(23, 104, 232, 0.18);
 }
-
-/* ---- Entrance: pulled up, then the stamp is pressed ---------- */
-.tray-pull-enter-active {
-    animation: tray-pull 0.34s cubic-bezier(0.2, 0.8, 0.25, 1) both;
-}
-.tray-pull-enter-active .tray-card {
-    animation: paper-jolt 0.16s ease-out 0.62s;
-}
-.tray-pull-leave-active {
-    transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.tray-pull-leave-to {
-    opacity: 0;
-    transform: translateY(14px);
-}
-@keyframes tray-pull {
-    from {
-        opacity: 0;
-        transform: translateY(46px);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
-}
-@keyframes rcv-shadow {
-    0% {
-        opacity: 0;
-        transform: scale(1.35) translate(10px, -14px);
-    }
-    85% {
-        opacity: 0.55;
-    }
-    100% {
-        opacity: 0;
-        transform: scale(1) translate(0, 0);
-    }
-}
-@keyframes rcv-press {
-    0% {
-        --ink-r: 0%;
-        opacity: 0;
-        transform: rotate(-6deg) scale(1.07);
-    }
-    12% {
-        opacity: 1;
-    }
-    55% {
-        transform: rotate(0.6deg) scale(0.985);
-    }
-    100% {
-        --ink-r: 160%;
-        opacity: 1;
-        transform: rotate(0) scale(1);
-    }
-}
-@keyframes paper-jolt {
-    0%,
-    100% {
-        transform: none;
-    }
-    45% {
-        transform: translateY(2px);
-    }
-}
-
-/* ---- Narrow screens: the stamp sits under the summary ---- */
-@media (max-width: 760px) {
-    .tray-tab {
-        width: 280px;
-        gap: 10px;
-        padding-left: 16px;
-    }
-    .tray-tab-code {
-        font-size: 1.15rem;
-    }
-    .tray-close {
-        width: 44px;
-        height: 44px;
-    }
-    .tray-body {
-        grid-template-columns: minmax(0, 1fr);
-        padding: 20px 18px 14px;
-    }
-    .tray-body::before {
-        display: none;
-    }
-    .rcv {
-        grid-column: 1;
-        grid-row: 2;
-        justify-self: center;
-        margin-top: 4px;
-        width: 160px;
-        height: 160px;
-    }
-    .rcv::before {
-        left: 18px;
-        top: 18px;
-        width: 124px;
-        height: 124px;
-    }
-    .rcv-ink {
-        transform-origin: top left;
-        scale: 0.5926;
-    }
-    .tray-summary {
-        font-size: 1.45rem;
-    }
-    .tray-icon {
-        width: 56px;
-        height: 56px;
-    }
-    .tray-office {
-        margin-left: 74px;
-        font-size: 1rem;
-    }
-    .tally {
-        margin-left: 0;
-    }
-    .tally-pill {
-        min-width: 128px;
-        padding: 7px 12px;
-    }
-    .tray-foot {
-        flex-direction: column-reverse;
-        padding: 16px 18px 18px;
-    }
-    .tray-btn {
-        width: 100%;
-        min-width: 0;
-    }
-}
-
-/* The notice never scrolls: on short phones the stamp steps aside so the
-   summary and both buttons stay on screen. */
-@media (max-width: 760px) and (max-height: 800px) {
-    .rcv {
-        display: none;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .tray-pull-enter-active,
-    .tray-pull-enter-active .tray-card,
-    .rcv::before,
-    .rcv-ink {
-        animation: none !important;
-    }
-    .rcv-ink {
-        -webkit-mask-image: none;
-        mask-image: none;
+.task-notice__primary:hover { background: #0f55c6; }
+.task-notice__later { background: transparent; color: #173e82; }
+.task-notice__later:hover { background: #edf3fc; }
+.task-notice button:focus-visible { outline: 3px solid #f2b33d; outline-offset: 2px; }
+@media (max-width: 560px) {
+    .task-notice { padding: 30px 20px 20px; border-radius: 16px; }
+    .task-notice__icon { width: 58px; height: 58px; margin-bottom: 16px; }
+    .task-notice__tally { padding: 9px 10px; }
+    .task-notice__tally li {
+        grid-template-columns: 98px 20px minmax(0, 1fr);
+        gap: 6px;
+        font-size: 0.78rem;
     }
 }
 </style>
