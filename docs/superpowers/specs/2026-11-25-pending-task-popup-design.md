@@ -9,8 +9,8 @@ Use the second supplied image's compact, centered white card as the visual forma
 - Show the notice once after a staff user signs in, when they have at least one pending task. Keep the existing trigger, task data, count calculations, seen state, and navigation to `/portal/approvals`.
 - Show the signed-in user's greeting, assigned office, total pending tasks, and the existing status tally (waiting to be received, past due, on time, and new when applicable).
 - Keep **Open tasks**, **Remind me later**, and a close control. Use clear focus states and preserve keyboard dismissal.
-- Use a compact check or task icon above the heading, centered copy, a restrained summary section, and a full-width primary action in the style of the second reference. Keep the system's navy and blue palette and accessible contrast.
-- On narrow screens, stack summary details and actions; allow vertical scrolling when the viewport is short.
+- Use a centered heading and copy, three small icon summaries for waiting to receive, past due, and on time, and a full-width primary action in the style of the approved reference. Omit the large badge above the heading. Show new arrivals and almost-due counts as short notes when present. Keep the system's blue palette and accessible contrast.
+- Keep the dashboard visible behind a translucent, blurred backdrop. On narrow screens, stack summary details and actions; allow vertical scrolling when the viewport is short.
 
 ## Approaches
 

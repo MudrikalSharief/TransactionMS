@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Present the once-after-login pending task notice as a compact card based on the second reference image.
+**Goal:** Present the once-after-login pending task notice as a compact card based on the approved reference image, including three small status icons.
 
 **Architecture:** Keep the existing Vue component and its data, trigger, and navigation logic. Replace its template and local dialog styling in place; remove all folder-tab and stamp styles made unused by the redesign.
 
@@ -37,7 +37,7 @@
 - Consumes: existing computed values `greeting`, `user`, `officeCode`, `officeName`, `total`, `tally` and handlers `markSeen`, `openApprovals`.
 - Produces: the same notice behavior and actions with a compact card presentation.
 
-- [x] Replace the old folder, stamp, and illustrated footer template with a centered icon, heading, summary, tally, and two actions.
+- [x] Replace the old folder, stamp, and illustrated footer template with a centered heading, summary, three status icons, and two actions; omit the large badge above the heading.
 - [x] Replace obsolete dialog styles with compact responsive styles and clear focus states.
 - [x] Run the frontend build and full verification; frontend passed, PHPUnit reported the same 2 errors and 3 failures as before this UI change.
 - [x] Review a browser preview at desktop and 360px/320px phone widths; the 320px card scrolls to keep actions reachable. The live popup requires a signed-in staff session.

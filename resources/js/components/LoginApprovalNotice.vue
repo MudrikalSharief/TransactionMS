@@ -1,8 +1,8 @@
 <template>
     <v-dialog
         v-model="open"
-        max-width="520"
-        scrim="#14213d"
+        max-width="560"
+        scrim="#cbd6e6"
         class="task-notice-dialog"
         @after-leave="markSeen"
     >
@@ -11,37 +11,33 @@
                 <v-icon size="22" aria-hidden="true">mdi-close</v-icon>
             </button>
 
-            <div class="task-notice__icon" aria-hidden="true">
-                <v-icon size="34">mdi-clipboard-check-outline</v-icon>
-            </div>
             <h2 id="task-notice-title" class="task-notice__title">
                 {{ total }} {{ total === 1 ? "pending task" : "pending tasks" }}
             </h2>
             <p id="task-notice-intro" class="task-notice__intro">
-                {{ greeting }}, {{ user?.name }}. Here is what needs attention in your office.
+                {{ greeting }}, {{ user?.name }}. Here is what needs attention in
+                <strong>{{ officeName }} ({{ officeCode }})</strong>.
             </p>
 
-            <div class="task-notice__office">
-                <v-icon size="20" aria-hidden="true">mdi-domain</v-icon>
-                <span>{{ officeName }}</span>
-                <strong>{{ officeCode }}</strong>
-            </div>
-
-            <ul v-if="tally.length" class="task-notice__tally" aria-label="Task status summary">
-                <li v-for="t in tally" :key="t.key">
-                    <span class="task-notice__status" :class="'task-notice__status--' + t.key">
-                        <v-icon size="18" aria-hidden="true">{{ t.icon }}</v-icon>
-                        {{ t.mark }}
+            <ul class="task-notice__metrics" aria-label="Task status summary">
+                <li v-for="t in tally" :key="t.key" :class="'task-notice__metric--' + t.key">
+                    <span class="task-notice__metric-icon" aria-hidden="true">
+                        <v-icon size="19">{{ t.icon }}</v-icon>
                     </span>
-                    <strong>{{ t.n }}</strong>
-                    <span class="task-notice__detail">{{ t.label }}</span>
+                    <span class="task-notice__metric-copy">
+                        <span>{{ t.label }}</span>
+                        <strong>{{ t.n }}</strong>
+                    </span>
                 </li>
             </ul>
+            <p v-if="fresh.length || almostDue.length" class="task-notice__hint">
+                <span v-if="fresh.length">{{ fresh.length }} new since your last sign-in</span>
+                <span v-if="almostDue.length">{{ almostDue.length }} almost due</span>
+            </p>
 
             <div class="task-notice__actions">
                 <button type="button" class="task-notice__primary" @click="openApprovals">
                     Open tasks
-                    <v-icon size="19" aria-hidden="true">mdi-arrow-right</v-icon>
                 </button>
                 <button type="button" class="task-notice__later" @click="open = false">
                     Remind me later
@@ -103,22 +99,13 @@ const fresh = computed(() => {
 
 const total = computed(() => rows.value.length);
 
-// Tally under the summary; only the kinds that apply.
+// Three task states in the compact summary; new arrivals are noted below.
 const tally = computed(() => {
-    const almost = almostDue.value.length;
     return [
-        { key: "pending", mark: "Pending", icon: "mdi-tray-arrow-down", n: pending.value.length, label: "waiting to be received" },
-        { key: "past", mark: "Past due", icon: "mdi-alert", n: pastDue.value.length, label: "past the time limit", always: true },
-        {
-            key: "due",
-            mark: "On time",
-            icon: "mdi-check-circle-outline",
-            n: dueNow.value.length,
-            label: almost ? `on time, ${almost} almost due` : "on time",
-            always: true,
-        },
-        { key: "new", mark: "New", icon: "mdi-bell-ring-outline", n: fresh.value.length, label: "since your last sign-in" },
-    ].filter((t) => t.always || t.n > 0);
+        { key: "pending", icon: "mdi-tray-arrow-down", n: pending.value.length, label: "Waiting to receive" },
+        { key: "past", icon: "mdi-alert-circle-outline", n: pastDue.value.length, label: "Past due" },
+        { key: "due", icon: "mdi-check-circle-outline", n: dueNow.value.length, label: "On time" },
+    ];
 });
 
 const officeCode = computed(() => user.value?.office?.code || "In-tray");
@@ -182,143 +169,211 @@ function openApprovals() {
 </script>
 
 <style>
-.task-notice-dialog .v-overlay__scrim { opacity: 0.62; }
-.task-notice-dialog .v-overlay__content { max-height: calc(100dvh - 32px); }
+.task-notice-dialog .v-overlay__scrim {
+    background-color: rgba(203, 214, 230, 0.45) !important;
+    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(7px);
+    opacity: 1;
+}
+
+.task-notice-dialog .v-overlay__content {
+    max-height: calc(100dvh - 24px);
+}
+
 .task-notice {
     position: relative;
     overflow-y: auto;
-    max-height: calc(100dvh - 32px);
-    padding: 36px 38px 28px;
-    border: 1px solid #e5ebf5;
-    border-radius: 20px;
+    max-height: calc(100dvh - 24px);
+    padding: 66px 36px 26px;
+    border: 1px solid #e7edf5;
+    border-radius: 16px;
     background: #fff;
-    box-shadow: 0 24px 70px rgba(13, 31, 65, 0.28);
-    color: #14223e;
+    box-shadow: 0 25px 64px rgba(39, 62, 100, 0.18);
+    color: #17233b;
+    font-family: "Inter", "Public Sans", system-ui, sans-serif;
     text-align: center;
 }
+
 .task-notice__close {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 12px;
+    right: 12px;
     display: grid;
     place-items: center;
     width: 44px;
     height: 44px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 9px;
     background: transparent;
-    color: #53627d;
+    color: #60708b;
     cursor: pointer;
 }
-.task-notice__close:hover,
-.task-notice__close:focus-visible { background: #edf3fc; color: #0f2a5c; }
-.task-notice__icon {
-    display: grid;
-    place-items: center;
-    width: 66px;
-    height: 66px;
-    margin: 0 auto 20px;
-    border: 7px solid #e5f0ff;
-    border-radius: 50%;
-    background: #1768e8;
-    color: #fff;
-    box-shadow: 0 0 0 1px #c8dcff;
+
+.task-notice__close:hover {
+    background: #eef3fb;
+    color: #163a79;
 }
+
 .task-notice__title {
     margin: 0;
-    font-family: "Montserrat", "Inter", sans-serif;
     font-size: clamp(1.4rem, 4vw, 1.75rem);
     font-weight: 800;
-    line-height: 1.25;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
 }
+
 .task-notice__intro {
-    max-width: 38ch;
-    margin: 10px auto 20px;
-    color: #53627d;
-    font-size: 0.95rem;
+    max-width: 46ch;
+    margin: 10px auto 26px;
+    color: #59677d;
+    font-size: 0.9rem;
     line-height: 1.55;
     overflow-wrap: anywhere;
 }
-.task-notice__office {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin: 0 0 20px;
-    color: #1458c7;
-    font-size: 0.93rem;
-    font-weight: 600;
-    overflow-wrap: anywhere;
+
+.task-notice__intro strong {
+    color: #233f70;
+    font-weight: 700;
 }
-.task-notice__office strong {
-    padding: 3px 7px;
-    border-radius: 5px;
-    background: #eaf2ff;
-    font-size: 0.76rem;
-    letter-spacing: 0.03em;
-}
-.task-notice__tally {
+
+.task-notice__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
     margin: 0;
-    padding: 12px 16px;
-    border: 1px solid #e7edf6;
-    border-radius: 12px;
-    background: #f8faff;
+    padding: 0;
     list-style: none;
     text-align: left;
 }
-.task-notice__tally li {
+
+.task-notice__metrics li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    min-width: 0;
+    padding: 10px 7px;
+    text-align: center;
+}
+
+.task-notice__metric-icon {
     display: grid;
-    grid-template-columns: 112px 26px minmax(0, 1fr);
-    align-items: center;
+    flex: none;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #e4faf2;
+    color: #078755;
+}
+
+.task-notice__metric--past .task-notice__metric-icon {
+    background: #fff0eb;
+    color: #b4342d;
+}
+
+.task-notice__metric--due .task-notice__metric-icon {
+    background: #e8f2ff;
+    color: #145ab3;
+}
+
+.task-notice__metric-copy {
+    display: grid;
+    justify-items: center;
+    min-width: 0;
+    gap: 2px;
+    color: #5c6a7e;
+    font-size: 0.73rem;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.task-notice__metric-copy strong {
+    color: #17233b;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.task-notice__hint {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 12px 0 0;
+    color: #53647d;
+    font-size: 0.77rem;
+}
+
+.task-notice__hint span::before {
+    content: "•";
+    margin-right: 6px;
+    color: #1768e8;
+}
+
+.task-notice__actions {
+    display: grid;
     gap: 8px;
-    min-height: 39px;
-    font-size: 0.87rem;
+    margin-top: 24px;
 }
-.task-notice__tally li + li { border-top: 1px solid #e7edf6; }
-.task-notice__status {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: #173e82;
-    font-weight: 700;
-}
-.task-notice__status--past { color: #b42329; }
-.task-notice__status--new { color: #1263bd; }
-.task-notice__tally strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
-.task-notice__detail { color: #53627d; line-height: 1.35; }
-.task-notice__actions { display: grid; gap: 8px; margin-top: 22px; }
+
 .task-notice__primary,
 .task-notice__later {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 48px;
+    display: grid;
+    place-items: center;
+    min-height: 44px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 7px;
     font-family: inherit;
-    font-size: 0.94rem;
+    font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
 }
+
 .task-notice__primary {
     background: #1768e8;
     color: #fff;
-    box-shadow: 0 5px 12px rgba(23, 104, 232, 0.18);
+    box-shadow: 0 5px 12px rgba(23, 104, 232, 0.16);
 }
-.task-notice__primary:hover { background: #0f55c6; }
-.task-notice__later { background: transparent; color: #173e82; }
-.task-notice__later:hover { background: #edf3fc; }
-.task-notice button:focus-visible { outline: 3px solid #f2b33d; outline-offset: 2px; }
+
+.task-notice__primary:hover {
+    background: #0e56c7;
+}
+
+.task-notice__later {
+    background: transparent;
+    color: #22539a;
+}
+
+.task-notice__later:hover {
+    background: #eef3fb;
+}
+
+.task-notice button:focus-visible {
+    outline: 3px solid #f2b33d;
+    outline-offset: 2px;
+}
+
 @media (max-width: 560px) {
-    .task-notice { padding: 30px 20px 20px; border-radius: 16px; }
-    .task-notice__icon { width: 58px; height: 58px; margin-bottom: 16px; }
-    .task-notice__tally { padding: 9px 10px; }
-    .task-notice__tally li {
-        grid-template-columns: 98px 20px minmax(0, 1fr);
-        gap: 6px;
-        font-size: 0.78rem;
+    .task-notice {
+        padding: 64px 16px 18px;
+        border-radius: 14px;
+    }
+
+    .task-notice__intro {
+        margin-bottom: 17px;
+    }
+
+    .task-notice__metrics {
+        gap: 2px;
+    }
+
+    .task-notice__metrics li {
+        padding: 8px 5px;
+    }
+
+    .task-notice__metric-copy {
+        font-size: 0.69rem;
     }
 }
 </style>
