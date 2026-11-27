@@ -46,6 +46,14 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // Deactivated accounts must not authenticate, even with a correct
+        // password. Keep the response generic so it does not confirm status.
+        if (!$user || $user->is_active === false) {
+            return response()->json([
+                'message' => 'Invalid credentials.',
+            ], 422);
+        }
+
         Auth::guard('web')->login($user, $remember);
 
         $request->session()->regenerate();

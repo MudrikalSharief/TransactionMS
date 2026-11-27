@@ -384,10 +384,21 @@ class RoutingEngine
         $step = $tx->workflow?->steps?->firstWhere('id', $stepId);
         $assignedOfficeId = $step ? $tx->effectiveStepOfficeId($step) : null;
 
+        $allowedRoleIds = $tx->workflow->stepRoles
+            ->where('workflow_step_id', $stepId)
+            ->pluck('role_id')
+            ->unique()
+            ->values();
+        $userRoleIds = $user->roles->pluck('id')->values();
+        $holdsStepRole = $allowedRoleIds->intersect($userRoleIds)->isNotEmpty();
+
         // Office admins can view and reassign stations parked at their
-        // office, but only work one while it is unassigned or assigned to
-        // them. The owner is the assigned officer, else whoever received it.
+        // office, but they no longer bypass the step's roles. They still
+        // work one only while it is unassigned or assigned to them, and a
+        // role-less step remains manageable at their office.
         if ($this->isOfficeAdminFor($assignedOfficeId, $user)) {
+            if ($allowedRoleIds->isNotEmpty() && !$holdsStepRole) return false;
+
             $current = $tx->state?->currentVisit();
             if (!$current) return true;
 
@@ -396,17 +407,8 @@ class RoutingEngine
             return $ownerId === null || (int) $ownerId === (int) $user->id;
         }
 
-        $allowedRoleIds = $tx->workflow->stepRoles
-            ->where('workflow_step_id', $stepId)
-            ->pluck('role_id')
-            ->unique()
-            ->values();
-
         if ($allowedRoleIds->isEmpty()) return false;
-
-        $userRoleIds = $user->roles->pluck('id')->values();
-
-        if ($allowedRoleIds->intersect($userRoleIds)->isEmpty()) return false;
+        if (!$holdsStepRole) return false;
 
         return $this->stepOfficeMatchesUser($assignedOfficeId, $user);
     }

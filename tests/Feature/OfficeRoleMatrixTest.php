@@ -228,7 +228,7 @@ class OfficeRoleMatrixTest extends TestCase
         $this->assertMatrix('receive GSO@CBO', [
             'superadmin' => 200,
             'cbo_clerk' => 200,      // destination role + office
-            'cbo_admin' => 200,      // destination office admin
+            'cbo_admin' => 403,      // office admin, but lacks the station role
             'gso_admin' => 403,      // own paper, but OCT-style: not their station
             'gso_clerk' => 403,      // role match, but wrong office
             'cbo_approver' => 403,
@@ -248,7 +248,7 @@ class OfficeRoleMatrixTest extends TestCase
         $this->assertMatrix('receive GSO@GSO', [
             'superadmin' => 200,
             'gso_clerk' => 200,
-            'gso_admin' => 200,
+            'gso_admin' => 403,      // office admin, but lacks the station role
             'cbo_clerk' => 403,
             'cbo_admin' => 403,
             'hr_clerk' => 403,
@@ -266,7 +266,7 @@ class OfficeRoleMatrixTest extends TestCase
         $this->assertMatrix('proceed GSO@GSO', [
             'superadmin' => 200,
             'gso_clerk' => 200,
-            'gso_admin' => 200,
+            'gso_admin' => 403,      // office admin, but lacks the station role
             'cbo_clerk' => 403,
             'cbo_admin' => 403,
             'hr_clerk' => 403,
@@ -331,7 +331,7 @@ class OfficeRoleMatrixTest extends TestCase
         $this->assertMatrix('receive GSO@free', [
             'superadmin' => 200,
             'gso_clerk' => 200,
-            'gso_admin' => 200,      // office admin at the effective office
+            'gso_admin' => 403,      // office admin, but lacks the station role
             'cbo_clerk' => 403,
             'hr_clerk' => 403,
             'no_office_clerk' => 403,
@@ -351,7 +351,7 @@ class OfficeRoleMatrixTest extends TestCase
         $expectations = [
             'superadmin' => 1,
             'gso_clerk' => 1,
-            'gso_admin' => 1,
+            'gso_admin' => 0,
             'cbo_clerk' => 0,
             'cbo_admin' => 0,
             'hr_clerk' => 0,
@@ -392,7 +392,7 @@ class OfficeRoleMatrixTest extends TestCase
             $badge = $this->getJson('/api/approvals/count');
             $this->assertSame($status, $badge->getStatusCode(), "[approvals badge] {$key}");
 
-            $sees = in_array($key, ['superadmin', 'cbo_clerk', 'cbo_admin'], true);
+            $sees = in_array($key, ['superadmin', 'cbo_clerk'], true);
             $this->assertSame(
                 $sees ? 1 : 0,
                 count($inbox->json('data')),

@@ -1,268 +1,222 @@
 <template>
     <div>
         <LoadingVeil :show="entering" :label="isHistory ? 'transaction archive' : 'transactions'" :icon="isHistory ? 'mdi-archive-outline' : 'mdi-file-document-multiple'" />
-        <v-card rounded="0" elevation="1" class="lgu-card">
-            <!-- Same header as the admin pages (outlined navy badge, outlined
-                 buttons). On phones the buttons drop their labels so the
-                 one-line card header still fits. -->
-            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head page-head">
-                <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
-                    <v-icon color="#005EED">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">{{ isHistory ? "Archive" : "Transactions" }}</span>
-                <!-- Lit label: how many of the clerk's transactions are due. Red
-                     glow when any is past its time limit, amber when some are
-                     almost due, unlit when none. Opens the Task page. -->
-                <button
-                    v-if="showDue"
-                    type="button"
-                    class="due-lamp"
-                    :class="dueTone"
-                    :title="dueTitle"
-                    :aria-label="dueTitle"
-                    @click="router.push('/portal/approvals')"
-                >
-                    <span class="due-dot" aria-hidden="true"></span>
-                    <b>{{ dueCount }}</b>
-                    <span v-if="!xs" class="due-text">{{ dueCount === 1 ? "due transaction" : "due transactions" }}</span>
-                </button>
-                <!-- After the sign-in overdue notice: shows only the overdue
-                     and due rows (click again to show all). -->
-                <v-btn
-                    v-if="showLateButton"
-                    :variant="filters.late ? 'flat' : 'tonal'"
-                    color="error"
-                    rounded="0"
-                    height="40"
-                    :icon="xs"
-                    :prepend-icon="xs ? undefined : 'mdi-alarm'"
-                    class="late-btn"
-                    :aria-label="`Pending overdue transactions: ${lateCount}`"
-                    :aria-pressed="filters.late"
-                    @click="toggleLate"
-                >
-                    <v-icon v-if="xs">mdi-alarm</v-icon>
-                    <template v-else>
-                        Pending overdue transactions
-                        <span class="late-count">{{ lateCount }}</span>
-                    </template>
-                </v-btn>
-                <v-spacer />
-                <!-- Kept together on the right, also when they wrap. -->
-                <div class="head-actions">
-                    <v-btn
-                        variant="outlined"
-                        color="grey-darken-3"
-                        rounded="0"
-                        height="40"
-                        :loading="loading"
-                        :icon="xs"
-                        :prepend-icon="xs ? undefined : 'mdi-refresh'"
-                        aria-label="Refresh"
-                        @click="load"
-                    >
-                        <v-icon v-if="xs">mdi-refresh</v-icon>
-                        <template v-else>Refresh</template>
-                    </v-btn>
-                    <v-btn
+        <v-card rounded="0" elevation="0" class="pw-card">
+            <header class="pw-head">
+                <div class="pw-icon" aria-hidden="true">
+                    <v-icon size="28">{{ isHistory ? "mdi-archive-outline" : "mdi-file-document-multiple" }}</v-icon>
+                </div>
+                <div class="pw-head-main">
+                    <div class="pw-title-row">
+                        <h1 class="pw-title">{{ isHistory ? "Archive" : "Transactions" }}</h1>
+                        <span class="pw-count">{{ shown.length }} {{ shown.length === 1 ? "record" : "records" }}</span>
+                        <button
+                            v-if="showDue"
+                            type="button"
+                            class="pw-btn"
+                            :class="{ 'pw-btn--danger': dueCount > 0 }"
+                            :title="dueTitle"
+                            :aria-label="dueTitle"
+                            @click="router.push('/portal/approvals')"
+                        >
+                            <v-icon size="17">mdi-alert-circle-outline</v-icon>
+                            {{ dueCount }} due
+                        </button>
+                    </div>
+                    <p class="pw-sub">{{ listSubtitle }}</p>
+                </div>
+                <div class="pw-tools">
+                    <button type="button" class="pw-btn" :disabled="loading" @click="load">
+                        <v-icon size="17">mdi-refresh</v-icon>
+                        Refresh
+                    </button>
+                    <button
                         v-if="canCreate && !isHistory"
-                        variant="outlined"
-                        color="primary"
-                        rounded="0"
-                        height="40"
-                        :icon="xs"
-                        :prepend-icon="xs ? undefined : 'mdi-plus'"
-                        aria-label="New Transaction"
+                        type="button"
+                        class="pw-btn pw-btn--primary"
                         @click="openCreate"
                     >
-                        <v-icon v-if="xs">mdi-plus</v-icon>
-                        <template v-else>New Transaction</template>
-                    </v-btn>
+                        <v-icon size="18">mdi-plus</v-icon>
+                        New Transaction
+                    </button>
                 </div>
-            </v-card-title>
+            </header>
 
-            <v-divider />
+            <WorklistSummary :tiles="summaryTiles" />
 
-            <!-- Clerks only see My office: what waits on them is on Approvals.
-                 History has no tabs: archived rows never need action. -->
-            <v-tabs v-if="!isHistory" v-model="tab" color="primary" density="comfortable" @update:model-value="onTab">
-                <v-tab v-if="!hasApprovals" value="action" class="font-weight-bold">
-                    <v-icon start>mdi-tray-full</v-icon>
-                    Needs my action
-                </v-tab>
-                <v-tab value="office" class="font-weight-bold">
-                    <v-icon start>mdi-office-building-outline</v-icon>
-                    My office
-                </v-tab>
-            </v-tabs>
-            <v-divider v-if="!isHistory" />
+            <div v-if="!isHistory && !hasApprovals" class="pw-filterbar pw-tabbar">
+                <div class="pw-tabs" role="tablist" aria-label="Transaction view">
+                    <button
+                        type="button"
+                        class="pw-tab"
+                        :class="{ 'is-active': tab === 'action' }"
+                        role="tab"
+                        :aria-selected="tab === 'action' ? 'true' : 'false'"
+                        @click="setTab('action')"
+                    >
+                        <v-icon size="16">mdi-tray-full</v-icon>
+                        Needs my action
+                    </button>
+                    <button
+                        type="button"
+                        class="pw-tab"
+                        :class="{ 'is-active': tab === 'office' }"
+                        role="tab"
+                        :aria-selected="tab === 'office' ? 'true' : 'false'"
+                        @click="setTab('office')"
+                    >
+                        <v-icon size="16">mdi-office-building-outline</v-icon>
+                        My office
+                    </button>
+                </div>
+            </div>
 
-            <v-card-text class="pa-4 page-body">
-                <v-alert v-if="error" type="error" variant="tonal" class="mb-3">{{ error }}</v-alert>
-
-                <v-alert v-if="isHistory" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Archived transactions visible to your office. This page is read-only.
-                </v-alert>
-                <v-alert v-else-if="tab === 'action'" type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Transactions currently on a step assigned to your role at your office. Open one to work on it.
-                </v-alert>
-                <v-alert v-else type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Every active transaction that belongs to your office, plus any waiting on your role.
-                    Archived ones move to Archive.
-                </v-alert>
-
+            <div class="pw-filterbar">
                 <v-text-field
                     v-model="search"
                     prepend-inner-icon="mdi-magnify"
-                    placeholder="Search transactions"
+                    placeholder="Search reference, title, type or office"
                     aria-label="Search transactions by reference, title, type or office"
                     variant="outlined"
                     density="compact"
                     rounded="0"
                     hide-details
                     clearable
-                    class="mb-3"
-                    style="max-width: 420px"
+                    class="pw-search"
                 />
-
-                <!-- Filters: type, order, and (Archive only) a From–To range
-                     on the created date, both days included. -->
-                <div class="filter-bar mb-3">
-                    <v-select
-                        v-model="filters.type"
-                        :items="typeFilterOptions"
-                        label="Transaction type"
+                <v-select
+                    v-model="filters.type"
+                    :items="typeFilterOptions"
+                    label="Transaction type"
+                    variant="outlined"
+                    density="compact"
+                    rounded="0"
+                    hide-details
+                    clearable
+                    class="pw-filter-select"
+                />
+                <template v-if="isHistory">
+                    <v-text-field
+                        v-model="filters.from"
+                        type="date"
+                        label="From"
+                        :max="filters.to || undefined"
                         variant="outlined"
                         density="compact"
                         rounded="0"
                         hide-details
                         clearable
-                        class="fb-type"
+                        class="pw-filter-date"
                     />
-                    <template v-if="isHistory">
-                        <v-text-field
-                            v-model="filters.from"
-                            type="date"
-                            label="From"
-                            :max="filters.to || undefined"
-                            variant="outlined"
-                            density="compact"
-                            rounded="0"
-                            hide-details
-                            clearable
-                            class="fb-date"
-                        />
-                        <v-text-field
-                            v-model="filters.to"
-                            type="date"
-                            label="To"
-                            :min="filters.from || undefined"
-                            variant="outlined"
-                            density="compact"
-                            rounded="0"
-                            hide-details
-                            clearable
-                            class="fb-date"
-                        />
-                    </template>
-                    <!-- One box: click to switch between newest and oldest first. -->
-                    <v-btn
-                        variant="tonal"
+                    <v-text-field
+                        v-model="filters.to"
+                        type="date"
+                        label="To"
+                        :min="filters.from || undefined"
+                        variant="outlined"
+                        density="compact"
                         rounded="0"
-                        color="primary"
-                        height="40"
-                        class="fb-order"
-                        :prepend-icon="filters.order === 'asc' ? 'mdi-sort-calendar-ascending' : 'mdi-sort-calendar-descending'"
+                        hide-details
+                        clearable
+                        class="pw-filter-date"
+                    />
+                </template>
+                <div class="pw-filter-actions">
+                    <button
+                        v-if="showLateButton"
+                        type="button"
+                        class="pw-btn"
+                        :class="{ 'pw-btn--danger': filters.late }"
+                        :aria-pressed="filters.late"
+                        @click="toggleLate"
+                    >
+                        <v-icon size="16">mdi-alarm</v-icon>
+                        Due / overdue
+                        <span class="pw-count">{{ lateCount }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="pw-btn pw-sort"
                         :aria-label="`Sorted ${filters.order === 'asc' ? 'oldest' : 'newest'} first. Click to switch`"
-                        v-tooltip="'Click to switch the order'"
                         @click="filters.order = filters.order === 'asc' ? 'desc' : 'asc'"
                     >
+                        <v-icon size="16">{{ filters.order === 'asc' ? 'mdi-sort-calendar-ascending' : 'mdi-sort-calendar-descending' }}</v-icon>
                         {{ filters.order === 'asc' ? 'Oldest first' : 'Newest first' }}
-                    </v-btn>
-                    <v-btn v-if="filtersActive" variant="text" rounded="0" color="grey-darken-3" prepend-icon="mdi-filter-remove-outline" @click="clearFilters">
+                    </button>
+                    <button v-if="filtersActive" type="button" class="pw-btn" @click="clearFilters">
+                        <v-icon size="16">mdi-filter-remove-outline</v-icon>
                         Clear
-                    </v-btn>
+                    </button>
                 </div>
+            </div>
 
-                <div class="d-flex flex-column" style="min-height: 458px">
+            <v-card-text class="pw-body">
+                <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+
+                <div v-if="lgAndUp" class="pw-table-wrap">
                     <v-data-table
-                        v-show="!loading"
+                        v-show="!loading || items.length"
                         v-model:page="page"
                         :items="shown"
                         :headers="headers"
                         item-key="id"
                         density="compact"
-                        height="398"
+                        height="476"
                         fixed-header
                         :items-per-page="PER_PAGE"
                         hide-default-footer
                         hover
-                        class="lgu-table table-search"
+                        class="pw-table"
                         @click:row="(_, row) => open(row.item)"
                     >
                         <template #no-data>
-                            <div class="pa-6 text-medium-emphasis">
-                                {{
-                                    scoped.length && (filtersActive || search)
-                                        ? "No transactions match your search or filters."
-                                        : isHistory
-                                          ? "No archived transactions yet."
-                                          : tab === "action" ? "Nothing is waiting on your role right now." : "No active transactions in your office."
-                                }}
+                            <div class="pw-empty" style="min-height: 220px">
+                                <v-icon size="34">mdi-file-search-outline</v-icon>
+                                <span>{{ emptyText }}</span>
                             </div>
                         </template>
                         <template v-slot:[`item.reference_number`]="{ item }">
-                            <v-chip color="grey-darken-3" variant="tonal" rounded="0" size="small" class="font-weight-bold">
-                                {{ item.reference_number || `#${item.id}` }}
-                            </v-chip>
+                            <span class="pw-ref">{{ item.reference_number || `#${item.id}` }}</span>
                         </template>
                         <template v-slot:[`item.title`]="{ item }">
-                            <span class="font-weight-bold">{{ item.title || "N/A" }}</span>
+                            <span class="pw-title-cell" :title="item.title">{{ item.title || "N/A" }}</span>
                         </template>
                         <template v-slot:[`item.type`]="{ item }">
-                            <v-chip color="info" variant="tonal" rounded="0" size="small">
-                                <v-icon start size="small">mdi-tag-outline</v-icon>
+                            <span class="pw-chip pw-chip--violet">
+                                <v-icon size="13">mdi-tag-outline</v-icon>
                                 {{ item.transaction_type?.name || item.transaction_type_name || "N/A" }}
-                            </v-chip>
+                            </span>
                         </template>
                         <template v-slot:[`item.office`]="{ item }">
-                            <span class="text-medium-emphasis">{{ item.office?.name || "—" }}</span>
+                            <span class="pw-chip pw-chip--blue">
+                                <v-icon size="13">mdi-office-building-outline</v-icon>
+                                {{ item.office?.name || "—" }}
+                            </span>
                         </template>
                         <template v-slot:[`item.current_step`]="{ item }">
                             <v-menu open-on-hover location="end" open-delay="250">
                                 <template #activator="{ props }">
-                                    <v-chip
-                                        :color="stepColor(item.current_step)"
-                                        variant="tonal"
-                                        rounded="0"
-                                        size="small"
-                                        v-bind="props"
-                                    >
-                                        <v-icon start size="small">{{ stepIcon(item.current_step) }}</v-icon>
-                                        {{ item.current_step?.name || item.current_step?.code || "Unassigned" }}
-                                    </v-chip>
-                                    <v-chip
-                                        v-if="dueState(item)"
-                                        :color="dueState(item) === 'overdue' ? 'error' : 'warning'"
-                                        variant="flat"
-                                        rounded="0"
-                                        size="small"
-                                        class="ml-1"
-                                    >
-                                        <v-icon start size="small">{{ dueState(item) === 'overdue' ? 'mdi-alert-circle' : 'mdi-clock-alert-outline' }}</v-icon>
-                                        {{ dueState(item) === 'overdue' ? 'Overdue' : 'Due' }}
-                                    </v-chip>
-                                    <v-chip
-                                        v-if="item.is_done"
-                                        color="success"
-                                        variant="flat"
-                                        rounded="0"
-                                        size="small"
-                                        class="ml-1"
-                                    >
-                                        <v-icon start size="small">mdi-flag-checkered</v-icon>
-                                        Done
-                                    </v-chip>
+                                    <span class="pw-chips" v-bind="props">
+                                        <span
+                                            class="pw-chip"
+                                            :class="item.current_step?.is_end ? 'pw-chip--green' : 'pw-chip--blue'"
+                                        >
+                                            <v-icon size="13">{{ stepIcon(item.current_step) }}</v-icon>
+                                            {{ item.current_step?.name || item.current_step?.code || "Unassigned" }}
+                                        </span>
+                                        <span
+                                            v-if="dueState(item)"
+                                            class="pw-chip"
+                                            :class="dueState(item) === 'overdue' ? 'pw-chip--red' : 'pw-chip--amber'"
+                                        >
+                                            <v-icon size="13">{{ dueState(item) === 'overdue' ? 'mdi-alert-circle' : 'mdi-clock-alert-outline' }}</v-icon>
+                                            {{ dueState(item) === 'overdue' ? 'Overdue' : 'Due' }}
+                                        </span>
+                                        <span v-if="item.is_done" class="pw-chip pw-chip--green">
+                                            <v-icon size="13">mdi-flag-checkered</v-icon>
+                                            Done
+                                        </span>
+                                    </span>
                                 </template>
                                 <StepProgress
                                     :steps="item.workflow_steps"
@@ -273,29 +227,98 @@
                             </v-menu>
                         </template>
                         <template v-slot:[`item.created_at`]="{ item }">
-                            <div class="font-weight-bold text-no-wrap">{{ fmtDate(item.created_at) }}</div>
-                            <div class="text-caption text-medium-emphasis">{{ fmtTime(item.created_at) }} ({{ timeAgo(item.created_at) }})</div>
+                            <div class="pw-meta-date">
+                                <b>{{ fmtDate(item.created_at) }}</b>
+                                <span>{{ fmtTime(item.created_at) }} · {{ timeAgo(item.created_at) }}</span>
+                            </div>
+                        </template>
+                        <template v-slot:[`item.actions`]>
+                            <span class="pw-row-open" aria-hidden="true">
+                                <v-icon size="18">mdi-chevron-right</v-icon>
+                            </span>
                         </template>
                     </v-data-table>
-                    <div v-if="pageCount > 1 && !loading" class="d-flex justify-center py-3">
-                        <v-pagination v-model="page" :length="pageCount" :total-visible="5" density="compact" />
-                    </div>
-                    <TableLoader v-if="loading" label="transactions" icon="mdi-file-document-multiple" style="flex: 1 1 auto" />
                 </div>
+
+                <div v-else class="pw-cards">
+                    <button
+                        v-for="item in pagedShown"
+                        :key="item.id"
+                        type="button"
+                        class="pw-mcard"
+                        @click="open(item)"
+                    >
+                        <div class="pw-mcard-top">
+                            <div class="pw-mcard-main">
+                                <span class="pw-ref">{{ item.reference_number || `#${item.id}` }}</span>
+                                <span class="pw-mcard-title" :title="item.title">{{ item.title || "N/A" }}</span>
+                            </div>
+                            <span class="pw-mcard-next" aria-hidden="true">
+                                <v-icon size="18">mdi-chevron-right</v-icon>
+                            </span>
+                        </div>
+                        <div class="pw-chips">
+                            <span class="pw-chip pw-chip--violet">
+                                <v-icon size="13">mdi-tag-outline</v-icon>
+                                {{ item.transaction_type?.name || item.transaction_type_name || "N/A" }}
+                            </span>
+                            <span
+                                class="pw-chip"
+                                :class="item.current_step?.is_end ? 'pw-chip--green' : 'pw-chip--blue'"
+                            >
+                                <v-icon size="13">{{ stepIcon(item.current_step) }}</v-icon>
+                                {{ item.current_step?.name || item.current_step?.code || "Unassigned" }}
+                            </span>
+                            <span
+                                v-if="dueState(item)"
+                                class="pw-chip"
+                                :class="dueState(item) === 'overdue' ? 'pw-chip--red' : 'pw-chip--amber'"
+                            >
+                                <v-icon size="13">{{ dueState(item) === 'overdue' ? 'mdi-alert-circle' : 'mdi-clock-alert-outline' }}</v-icon>
+                                {{ dueState(item) === 'overdue' ? 'Overdue' : 'Due' }}
+                            </span>
+                            <span v-if="item.is_done" class="pw-chip pw-chip--green">
+                                <v-icon size="13">mdi-flag-checkered</v-icon>
+                                Done
+                            </span>
+                        </div>
+                        <div class="pw-mcard-foot">
+                            <span class="pw-mcard-meta">
+                                <v-icon size="14">mdi-office-building-outline</v-icon>
+                                {{ item.office?.name || "—" }}
+                            </span>
+                            <span>{{ fmtDate(item.created_at) }} · {{ timeAgo(item.created_at) }}</span>
+                        </div>
+                    </button>
+                    <div v-if="!pagedShown.length && !loading" class="pw-empty">
+                        <v-icon size="34">mdi-file-search-outline</v-icon>
+                        <span>{{ emptyText }}</span>
+                    </div>
+                </div>
+
+                <div v-if="pageCount > 1 && !loading" class="pw-pager">
+                    <v-pagination v-model="page" :length="pageCount" :total-visible="5" density="compact" rounded="circle" />
+                </div>
+                <TableLoader v-if="loading && !items.length" label="transactions" icon="mdi-file-document-multiple" />
             </v-card-text>
         </v-card>
 
         <!-- New transaction: created under the user's own office -->
         <v-dialog v-model="dialog" max-width="700">
-            <v-card rounded="0">
-                <v-card-title class="d-flex align-center pa-5 lgu-head">
-                    <v-avatar color="white" rounded="0" size="40" class="mr-3 lgu-head-avatar">
-                        <v-icon color="#005EED">mdi-plus</v-icon>
-                    </v-avatar>
-                    <span class="text-h6 font-weight-bold">New Transaction</span>
-                </v-card-title>
-                <v-card-text class="pa-5">
-                    <v-alert v-if="createError" type="error" variant="tonal" rounded="0" class="mb-3">
+            <v-card rounded="0" elevation="0" class="pw-card">
+                <header class="pw-head">
+                    <div class="pw-icon" aria-hidden="true">
+                        <v-icon size="26">mdi-plus</v-icon>
+                    </div>
+                    <div class="pw-head-main">
+                        <div class="pw-title-row">
+                            <h2 class="pw-title">New Transaction</h2>
+                        </div>
+                        <p class="pw-sub">Start a new paper for {{ user?.office?.name || "your office" }}.</p>
+                    </div>
+                </header>
+                <v-card-text class="pw-body">
+                    <v-alert v-if="createError" type="error" variant="tonal" class="mb-3">
                         {{ createError }}
                     </v-alert>
                     <v-select
@@ -305,19 +328,18 @@
                         item-value="id"
                         label="Transaction Type"
                         variant="outlined"
-                        rounded="0"
+                        class="mb-3"
                     />
-                    <v-text-field v-model="form.title" label="Title (optional)" variant="outlined" rounded="0" />
-                    <v-alert type="info" variant="tonal" rounded="0">
-                        It starts at your office ({{ user?.office?.name }}) and follows the current steps of the chosen type.
+                    <v-text-field v-model="form.title" label="Title (optional)" variant="outlined" />
+                    <v-alert type="info" variant="tonal" class="mt-3">
+                        It starts at your office and follows the current steps of the chosen type.
                     </v-alert>
                 </v-card-text>
-                <v-divider />
                 <v-card-actions class="justify-end pa-4">
-                    <v-btn variant="text" rounded="0" @click="dialog = false">Cancel</v-btn>
+                    <v-btn variant="text" rounded="pill" @click="dialog = false">Cancel</v-btn>
                     <v-btn
                         color="primary"
-                        rounded="0"
+                        rounded="pill"
                         :loading="saving"
                         :disabled="!form.transaction_type_id"
                         @click="createTx"
@@ -344,13 +366,14 @@ import { dueState } from "@/utils/processColor";
 import TableLoader from "@/components/TableLoader.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
 import StepProgress from "@/components/StepProgress.vue";
+import WorklistSummary from "@/components/portal/WorklistSummary.vue";
 
 const route = useRoute();
 const router = useRouter();
 const { api } = useApi();
 const { user } = useAuth();
 const typeStore = useTransactionTypes();
-const { xs } = useDisplay();
+const { lgAndUp } = useDisplay();
 
 // 7 rows per page, like the admin tables. The whole list is loaded once so
 // search, filters and ordering cover every row, then paged here.
@@ -369,7 +392,6 @@ const isHistory = computed(() => !!route.meta.history);
 const showDue = computed(() => hasApprovals.value && !isHistory.value);
 const { pastDue, almostDue } = useDueCount({ enabled: showDue });
 const dueCount = computed(() => pastDue.value + almostDue.value);
-const dueTone = computed(() => (pastDue.value ? "is-past" : almostDue.value ? "is-almost" : "is-none"));
 const dueTitle = computed(() =>
     dueCount.value
         ? `${pastDue.value} past due, ${almostDue.value} almost due. Open Task.`
@@ -408,6 +430,47 @@ const scoped = computed(() => {
         : items.value;
 });
 const typeFilterOptions = computed(() => [...new Set(scoped.value.map(typeName).filter(Boolean))].sort());
+
+const listSubtitle = computed(() => {
+    if (isHistory.value) return "Archived papers visible to your office. This view is read-only.";
+    if (tab.value === "action") return "Steps currently assigned to your role and office. Open one to work on it.";
+    return "Your office’s active papers, plus anything waiting on your role.";
+});
+
+const summaryTiles = computed(() => {
+    const list = scoped.value;
+    if (isHistory.value) {
+        const month = new Date().toLocaleDateString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "numeric" });
+        const thisMonth = list.filter((t) => t.created_at && new Date(t.created_at).toLocaleDateString("en-PH", {
+            timeZone: "Asia/Manila", year: "numeric", month: "numeric",
+        }) === month).length;
+        return [
+            { key: "archived", label: "Archived", value: list.length, icon: "mdi-archive-outline", tone: "info" },
+            { key: "month", label: "This month", value: thisMonth, icon: "mdi-calendar-month-outline", tone: "success" },
+            { key: "types", label: "Transaction types", value: new Set(list.map(typeName).filter(Boolean)).size, icon: "mdi-tag-multiple-outline", tone: "violet" },
+            { key: "offices", label: "Offices", value: new Set(list.map((t) => t.office?.name).filter(Boolean)).size, icon: "mdi-office-building-outline", tone: "warning" },
+        ];
+    }
+    const open = list.filter((t) => !t.is_done);
+    const today = new Date().toLocaleDateString("en-PH", { timeZone: "Asia/Manila" });
+    const lastTile = tab.value === "action"
+        ? {
+            key: "today",
+            label: "Created today",
+            value: list.filter((t) => t.created_at && new Date(t.created_at).toLocaleDateString("en-PH", {
+                timeZone: "Asia/Manila",
+            }) === today).length,
+            icon: "mdi-calendar-today",
+            tone: "success",
+        }
+        : { key: "completed", label: "Completed", value: list.filter((t) => t.is_done).length, icon: "mdi-check-circle-outline", tone: "success" };
+    return [
+        { key: "open", label: "Open", value: open.length, icon: "mdi-file-document-outline", tone: "info" },
+        { key: "due", label: "Due soon", value: open.filter((t) => dueState(t) === "due").length, icon: "mdi-clock-alert-outline", tone: "warning" },
+        { key: "overdue", label: "Overdue", value: open.filter((t) => dueState(t) === "overdue").length, icon: "mdi-alert-circle-outline", tone: "danger" },
+        lastTile,
+    ];
+});
 
 // The header button appears once the sign-in overdue notice has been shown.
 const lateCount = computed(() => scoped.value.filter((t) => dueState(t)).length);
@@ -462,6 +525,16 @@ const shown = computed(() => {
         .sort((a, b) => dir * (new Date(a.created_at) - new Date(b.created_at) || a.id - b.id));
 });
 const pageCount = computed(() => Math.max(1, Math.ceil(shown.value.length / PER_PAGE)));
+const pagedShown = computed(() => shown.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE));
+const emptyText = computed(() => (
+    scoped.value.length && (filtersActive.value || search.value)
+        ? "No transactions match your search or filters."
+        : isHistory.value
+            ? "No archived transactions yet."
+            : tab.value === "action"
+                ? "Nothing is waiting on your role right now."
+                : "No active transactions in your office."
+));
 watch([search, filters], () => { page.value = 1; }, { deep: true });
 watch(pageCount, (n) => { if (page.value > n) page.value = n; });
 
@@ -474,6 +547,7 @@ const headers = [
     { title: "Office", key: "office", sortable: false },
     { title: "Current Step", key: "current_step", sortable: false },
     { title: "Created", key: "created_at", sortable: false, width: 170 },
+    { title: "", key: "actions", sortable: false, align: "end", width: 56 },
 ];
 
 const endpoint = () => {
@@ -504,6 +578,13 @@ async function fetchRows({ silent = false } = {}) {
 
 const load = () => fetchRows();
 
+function setTab(next) {
+    if (isHistory.value || next === tab.value) return;
+    if (next === "action" && hasApprovals.value) return;
+    tab.value = next;
+    onTab();
+}
+
 function onTab() {
     page.value = 1;
     router.replace({ query: { ...route.query, tab: tab.value, new: undefined } });
@@ -517,13 +598,6 @@ function open(tx) {
           ? "portal-action"
           : "portal";
     router.push({ path: `/portal/transactions/${tx.id}`, query: { from } });
-}
-
-function stepColor(step) {
-    if (!step) return "grey";
-    if (step.is_end) return "success";
-    if (step.is_start) return "teal";
-    return "primary";
 }
 
 function stepIcon(step) {
@@ -616,114 +690,4 @@ useSmartPoll(() => {
 });
 </script>
 
-<style scoped>
-/* Filter bar: wraps onto more lines on small screens. */
-.filter-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-}
-.fb-type {
-    flex: 1 1 200px;
-    max-width: 260px;
-}
-.fb-date {
-    flex: 1 1 160px;
-    max-width: 190px;
-}
-.late-btn {
-    text-transform: none;
-    font-weight: 700;
-}
-.late-count {
-    min-width: 22px;
-    margin-left: 8px;
-    padding: 0 6px;
-    background: rgb(var(--v-theme-error));
-    color: #fff;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-}
-.v-btn--variant-flat .late-count {
-    background: #fff;
-    color: rgb(var(--v-theme-error));
-}
-.fb-order {
-    text-transform: none;
-    font-weight: 600;
-    min-width: 150px;
-}
-/* Boxed table header: dark-blue fill, white text (same as the admin tables). */
-.lgu-table :deep(thead tr th.v-data-table__th) {
-    background-color: #1A1F2B !important;
-    color: #ffffff !important;
-    border-top: 2px solid #1A1F2B !important;
-    border-bottom: 3px solid #1A1F2B !important;
-    border-left: none !important;
-    border-right: none !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-    border-left: 2px solid #1A1F2B !important;
-    padding-left: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-    border-right: 2px solid #1A1F2B !important;
-    padding-right: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
-.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
-    color: #ffffff !important;
-}
-
-/* Lit "due" label in the header: glows red when something is past due. */
-.due-lamp {
-    --lamp: #8a94a6;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 32px;
-    padding: 0 14px 0 12px;
-    border: 1px solid color-mix(in srgb, var(--lamp) 55%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--lamp) 12%, rgb(var(--v-theme-surface)));
-    color: var(--lamp);
-    font-size: 0.82rem;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
-}
-.due-lamp b {
-    font-size: 1rem;
-}
-.due-lamp.is-past {
-    --lamp: #e5322d;
-}
-.due-lamp.is-almost {
-    --lamp: #d97a00;
-}
-.due-lamp.is-past,
-.due-lamp.is-almost {
-    box-shadow: 0 0 14px color-mix(in srgb, var(--lamp) 45%, transparent);
-    animation: due-glow 2.2s ease-in-out infinite;
-}
-.due-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--lamp);
-}
-.due-lamp.is-past .due-dot,
-.due-lamp.is-almost .due-dot {
-    box-shadow: 0 0 9px 2px var(--lamp);
-}
-.due-lamp:focus-visible {
-    outline: 2px solid var(--lamp);
-    outline-offset: 2px;
-}
-@keyframes due-glow {
-    50% {
-        box-shadow: 0 0 24px 3px color-mix(in srgb, var(--lamp) 55%, transparent);
-    }
-}
-</style>
+<style src="../../../css/portal-worklist.css"></style>

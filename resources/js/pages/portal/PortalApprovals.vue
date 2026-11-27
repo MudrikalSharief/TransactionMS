@@ -1,70 +1,43 @@
 <template>
     <div>
         <LoadingVeil :show="entering" label="tasks" icon="mdi-clipboard-check-multiple-outline" />
-        <v-card rounded="0" elevation="1" class="lgu-card">
-            <!-- Same header as Portal Transactions; on phones the buttons keep
-                 only their icons so the one-line header still fits. -->
-            <v-card-title class="d-flex align-center ga-2 pa-5 lgu-head page-head">
-                <v-avatar color="white" rounded="0" size="40" class="mr-1 mr-sm-3 lgu-head-avatar">
-                    <v-icon color="#005EED">mdi-clipboard-check-multiple-outline</v-icon>
-                </v-avatar>
-                <span class="text-h6 font-weight-bold">Task</span>
-                <v-chip
-                    v-if="!loading"
-                    size="small"
-                    rounded="0"
-                    variant="flat"
-                    :color="rows.length ? 'error' : 'success'"
-                    class="font-weight-bold"
-                >
-                    {{ rows.length }} pending {{ rows.length === 1 ? "task" : "tasks" }}
-                </v-chip>
-                <v-spacer />
-                <!-- Bulk receive: ticks the rows still waiting to be received
-                     (same Receive action as on a transaction's page). -->
-                <v-btn
-                    v-if="selected.length"
-                    variant="flat"
-                    color="primary"
-                    rounded="0"
-                    height="40"
-                    :loading="receiving"
-                    :icon="xs"
-                    :prepend-icon="xs ? undefined : 'mdi-inbox-arrow-down'"
-                    :aria-label="`Receive ${selected.length} selected`"
-                    @click="receiveSelected"
-                >
-                    <v-icon v-if="xs">mdi-inbox-arrow-down</v-icon>
-                    <template v-else>Receive selected ({{ selected.length }})</template>
-                </v-btn>
-                <v-btn
-                    variant="outlined"
-                    color="grey-darken-3"
-                    rounded="0"
-                    height="40"
-                    :loading="loading"
-                    :icon="xs"
-                    :prepend-icon="xs ? undefined : 'mdi-refresh'"
-                    aria-label="Refresh"
-                    @click="load"
-                >
-                    <v-icon v-if="xs">mdi-refresh</v-icon>
-                    <template v-else>Refresh</template>
-                </v-btn>
-            </v-card-title>
+        <v-card rounded="0" elevation="0" class="pw-card">
+            <header class="pw-head">
+                <div class="pw-icon" aria-hidden="true">
+                    <v-icon size="28">mdi-clipboard-check-multiple-outline</v-icon>
+                </div>
+                <div class="pw-head-main">
+                    <div class="pw-title-row">
+                        <h1 class="pw-title">Task</h1>
+                        <span class="pw-count">{{ rows.length }} pending {{ rows.length === 1 ? "task" : "tasks" }}</span>
+                    </div>
+                    <p class="pw-sub">
+                        Steps waiting for your role and office. Receive and release them here.
+                        <template v-if="awaitingCount"> Tick the rows marked “Not received” to receive several at once.</template>
+                    </p>
+                </div>
+                <div class="pw-tools">
+                    <button
+                        v-if="selected.length"
+                        type="button"
+                        class="pw-btn pw-btn--primary"
+                        :disabled="receiving"
+                        @click="receiveSelected"
+                    >
+                        <v-progress-circular v-if="receiving" indeterminate size="16" width="2" color="white" />
+                        <v-icon v-else size="17">mdi-inbox-arrow-down</v-icon>
+                        Receive selected ({{ selected.length }})
+                    </button>
+                    <button type="button" class="pw-btn" :disabled="loading" @click="load">
+                        <v-icon size="17">mdi-refresh</v-icon>
+                        Refresh
+                    </button>
+                </div>
+            </header>
 
-            <v-divider />
+            <WorklistSummary :tiles="summaryTiles" />
 
-            <v-card-text class="pa-4 page-body">
-                <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>
-
-                <v-alert type="info" variant="tonal" density="compact" rounded="0" class="mb-3">
-                    Transactions waiting at a step for your role and office. Open one to review and release.
-                    <template v-if="awaitingCount">
-                        Tick the ones marked <b>Not received</b> to receive several at once.
-                    </template>
-                </v-alert>
-
+            <div class="pw-filterbar">
                 <v-text-field
                     v-model="search"
                     prepend-inner-icon="mdi-magnify"
@@ -75,11 +48,14 @@
                     rounded="0"
                     hide-details
                     clearable
-                    class="mb-3"
-                    style="max-width: 420px"
+                    class="pw-search"
                 />
+            </div>
 
-                <div class="d-flex flex-column" style="min-height: 458px">
+            <v-card-text class="pw-body">
+                <v-alert v-if="error" type="error" variant="tonal" rounded="0" class="mb-3">{{ error }}</v-alert>
+
+                <div v-if="lgAndUp" class="pw-table-wrap">
                     <v-data-table
                         v-show="!loading || rows.length"
                         v-model:page="page"
@@ -90,68 +66,124 @@
                         :show-select="awaitingCount > 0"
                         :item-selectable="(item) => !!item.awaiting_receipt"
                         density="compact"
-                        height="398"
+                        height="476"
                         fixed-header
                         :items-per-page="PER_PAGE"
                         hide-default-footer
                         :sort-by="[{ key: 'created_at', order: 'asc' }]"
                         hover
-                        class="lgu-table table-search"
+                        class="pw-table"
                         @click:row="(_, row) => open(row.item)"
                     >
                         <template #no-data>
-                            <div class="pa-6 text-medium-emphasis">
-                                {{ search ? "No tasks match your search." : "You have no pending tasks." }}
+                            <div class="pw-empty" style="min-height: 220px">
+                                <v-icon size="34">mdi-clipboard-check-outline</v-icon>
+                                <span>{{ search ? "No tasks match your search." : "You have no pending tasks." }}</span>
                             </div>
                         </template>
                         <template v-slot:[`item.reference_number`]="{ item }">
-                            <v-chip color="grey-darken-3" variant="tonal" rounded="0" size="small" class="font-weight-bold">
-                                {{ item.reference_number || `#${item.id}` }}
-                            </v-chip>
+                            <span class="pw-ref">{{ item.reference_number || `#${item.id}` }}</span>
                         </template>
                         <template v-slot:[`item.title`]="{ item }">
-                            <span class="font-weight-bold">{{ item.title || "N/A" }}</span>
+                            <span class="pw-title-cell" :title="item.title">{{ item.title || "N/A" }}</span>
                         </template>
                         <template v-slot:[`item.type`]="{ item }">
-                            <v-chip color="info" variant="tonal" rounded="0" size="small">
-                                <v-icon start size="small">mdi-tag-outline</v-icon>
+                            <span class="pw-chip pw-chip--violet">
+                                <v-icon size="13">mdi-tag-outline</v-icon>
                                 {{ item.transaction_type?.name || "N/A" }}
-                            </v-chip>
+                            </span>
                         </template>
                         <template v-slot:[`item.current_step`]="{ item }">
-                            <v-chip color="primary" variant="tonal" rounded="0" size="small">
-                                <v-icon start size="small">mdi-map-marker-radius-outline</v-icon>
-                                {{ item.current_step?.name || item.current_step?.code || "—" }}
-                            </v-chip>
-                            <v-chip v-if="item.awaiting_receipt" color="warning" variant="flat" rounded="0" size="small" class="ml-1">
-                                <v-icon start size="small">mdi-inbox-arrow-down</v-icon>
-                                Not received
-                            </v-chip>
+                            <span class="pw-chips">
+                                <span class="pw-chip pw-chip--blue">
+                                    <v-icon size="13">mdi-map-marker-radius-outline</v-icon>
+                                    {{ item.current_step?.name || item.current_step?.code || "—" }}
+                                </span>
+                                <span v-if="item.awaiting_receipt" class="pw-chip pw-chip--amber">
+                                    <v-icon size="13">mdi-inbox-arrow-down</v-icon>
+                                    Not received
+                                </span>
+                            </span>
                         </template>
                         <template v-slot:[`item.entered_at`]="{ item }">
-                            <span class="text-medium-emphasis">{{ waited(item.entered_at) }}</span>
+                            <span class="pw-chip pw-chip--amber">
+                                <v-icon size="13">mdi-timer-outline</v-icon>
+                                {{ waited(item.entered_at) }}
+                            </span>
                         </template>
                         <template v-slot:[`item.created_at`]="{ item }">
-                            <div class="font-weight-bold">{{ fmtDate(item.created_at) }}</div>
-                            <div class="text-caption text-medium-emphasis">{{ timeAgo(item.created_at) }}</div>
+                            <div class="pw-meta-date">
+                                <b>{{ fmtDate(item.created_at) }}</b>
+                                <span>{{ timeAgo(item.created_at) }}</span>
+                            </div>
                         </template>
-                        <template v-slot:[`item.actions`]="{ item }">
-                            <v-btn
-                                color="primary"
-                                rounded="0"
-                                size="small"
-                                append-icon="mdi-arrow-right"
-                                @click.stop="open(item)"
-                            >
-                                Open
-                            </v-btn>
+                        <template v-slot:[`item.actions`]>
+                            <span class="pw-row-open" aria-hidden="true">
+                                <v-icon size="18">mdi-chevron-right</v-icon>
+                            </span>
                         </template>
                     </v-data-table>
-                    <div v-if="pageCount > 1" class="d-flex justify-center py-3">
-                        <v-pagination v-model="page" :length="pageCount" :total-visible="5" density="compact" />
-                    </div>
-                    <TableLoader v-if="loading && !rows.length" label="tasks" icon="mdi-clipboard-check-multiple-outline" style="flex: 1 1 auto" />
                 </div>
+
+                <div v-else class="pw-cards">
+                    <div
+                        v-for="item in pagedRows"
+                        :key="item.id"
+                        class="pw-mcard"
+                        role="button"
+                        tabindex="0"
+                        @click="open(item)"
+                        @keydown.enter.prevent="open(item)"
+                        @keydown.space.prevent="open(item)"
+                    >
+                        <div class="pw-mcard-top">
+                            <div v-if="item.awaiting_receipt" class="pw-mcard-checkbox" @click.stop @keydown.stop>
+                                <v-checkbox-btn
+                                    :model-value="selected.includes(item.id)"
+                                    :aria-label="`Select ${item.reference_number || 'task'} for bulk receive`"
+                                    @update:model-value="toggleSelect(item.id)"
+                                />
+                            </div>
+                            <div class="pw-mcard-main">
+                                <span class="pw-ref">{{ item.reference_number || `#${item.id}` }}</span>
+                                <span class="pw-mcard-title" :title="item.title">{{ item.title || "N/A" }}</span>
+                            </div>
+                            <span class="pw-mcard-next" aria-hidden="true">
+                                <v-icon size="18">mdi-chevron-right</v-icon>
+                            </span>
+                        </div>
+                        <div class="pw-chips">
+                            <span class="pw-chip pw-chip--violet">
+                                <v-icon size="13">mdi-tag-outline</v-icon>
+                                {{ item.transaction_type?.name || "N/A" }}
+                            </span>
+                            <span class="pw-chip pw-chip--blue">
+                                <v-icon size="13">mdi-map-marker-radius-outline</v-icon>
+                                {{ item.current_step?.name || item.current_step?.code || "—" }}
+                            </span>
+                            <span v-if="item.awaiting_receipt" class="pw-chip pw-chip--amber">
+                                <v-icon size="13">mdi-inbox-arrow-down</v-icon>
+                                Not received
+                            </span>
+                        </div>
+                        <div class="pw-mcard-foot">
+                            <span class="pw-chip pw-chip--amber">
+                                <v-icon size="13">mdi-timer-outline</v-icon>
+                                Waiting {{ waited(item.entered_at) }}
+                            </span>
+                            <span>{{ fmtDate(item.created_at) }} · {{ timeAgo(item.created_at) }}</span>
+                        </div>
+                    </div>
+                    <div v-if="!pagedRows.length && !loading" class="pw-empty">
+                        <v-icon size="34">mdi-clipboard-check-outline</v-icon>
+                        <span>{{ search ? "No tasks match your search." : "You have no pending tasks." }}</span>
+                    </div>
+                </div>
+
+                <div v-if="pageCount > 1 && !loading" class="pw-pager">
+                    <v-pagination v-model="page" :length="pageCount" :total-visible="5" density="compact" rounded="circle" />
+                </div>
+                <TableLoader v-if="loading && !rows.length" label="tasks" icon="mdi-clipboard-check-multiple-outline" />
             </v-card-text>
         </v-card>
     </div>
@@ -165,14 +197,16 @@ import { useApi } from "@/composables/useApi";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import { useSmartPoll } from "@/composables/useSmartPoll";
 import { toast } from "@/composables/useToast";
+import { dueState } from "@/utils/processColor";
 import TableLoader from "@/components/TableLoader.vue";
 import LoadingVeil from "@/components/LoadingVeil.vue";
+import WorklistSummary from "@/components/portal/WorklistSummary.vue";
 
 // Clerk approvals: every transaction waiting at a step the clerk may work
 // (their role + their office; the server applies the same rule as Proceed).
 const router = useRouter();
 const { api } = useApi();
-const { xs } = useDisplay();
+const { lgAndUp } = useDisplay();
 const approvalBadge = useApprovalBadge();
 
 const PER_PAGE = 7;
@@ -196,13 +230,16 @@ const headers = [
 
 const filtered = computed(() => {
     const q = String(search.value || "").trim().toLowerCase();
-    if (!q) return rows.value;
-    return rows.value.filter((t) =>
+    const base = !q ? rows.value : rows.value.filter((t) =>
         [t.reference_number, t.title, t.transaction_type?.name, t.current_step?.name]
             .some((v) => String(v || "").toLowerCase().includes(q)),
     );
+    return [...base].sort((a, b) => (
+        new Date(a.created_at || 0) - new Date(b.created_at || 0) || a.id - b.id
+    ));
 });
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / PER_PAGE)));
+const pagedRows = computed(() => filtered.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE));
 watch(search, () => { page.value = 1; });
 watch(pageCount, (n) => { if (page.value > n) page.value = n; });
 
@@ -240,10 +277,26 @@ const load = () => fetchAll();
 const selected = ref([]);
 const receiving = ref(false);
 const awaitingCount = computed(() => rows.value.filter((t) => t.awaiting_receipt).length);
+const summaryTiles = computed(() => {
+    const list = rows.value;
+    return [
+        { key: "pending", label: "Pending tasks", value: list.length, icon: "mdi-clipboard-check-outline", tone: "info" },
+        { key: "not_received", label: "Not received", value: awaitingCount.value, icon: "mdi-inbox-arrow-down", tone: "warning" },
+        { key: "due", label: "Due soon", value: list.filter((t) => dueState(t) === "due").length, icon: "mdi-clock-alert-outline", tone: "warning" },
+        { key: "overdue", label: "Overdue", value: list.filter((t) => dueState(t) === "overdue").length, icon: "mdi-alert-circle-outline", tone: "danger" },
+    ];
+});
 watch(rows, (list) => {
     const open = new Set(list.filter((t) => t.awaiting_receipt).map((t) => t.id));
     selected.value = selected.value.filter((id) => open.has(id));
 });
+
+function toggleSelect(id) {
+    const index = selected.value.indexOf(id);
+    selected.value = index >= 0
+        ? selected.value.filter((value) => value !== id)
+        : [...selected.value, id];
+}
 
 async function receiveSelected() {
     const ids = [...selected.value];
@@ -306,26 +359,4 @@ onMounted(async () => {
 useSmartPoll(() => fetchAll({ silent: true }));
 </script>
 
-<style scoped>
-/* Boxed table header: dark-blue fill, white text (same as the admin tables). */
-.lgu-table :deep(thead tr th.v-data-table__th) {
-    background-color: #1A1F2B !important;
-    color: #ffffff !important;
-    border-top: 2px solid #1A1F2B !important;
-    border-bottom: 3px solid #1A1F2B !important;
-    border-left: none !important;
-    border-right: none !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:first-child) {
-    border-left: 2px solid #1A1F2B !important;
-    padding-left: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th:last-child) {
-    border-right: 2px solid #1A1F2B !important;
-    padding-right: 20px !important;
-}
-.lgu-table :deep(thead tr th.v-data-table__th .v-data-table-header__content),
-.lgu-table :deep(thead tr th.v-data-table__th .v-icon) {
-    color: #ffffff !important;
-}
-</style>
+<style src="../../../css/portal-worklist.css"></style>

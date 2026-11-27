@@ -24,19 +24,35 @@ class RegistrationController extends Controller
      *  (viewers use the passwordless "Track your Document Process" button). */
     private const NOT_OFFERED = [...UserApproval::PROTECTED_ROLES, 'end_user', 'viewer'];
 
-    /** What the sign-up form offers: every office, and the roles one may ask for. */
-    public function options(): JsonResponse
+    /** What the sign-up form offers: every office, and roles for one office. */
+    public function options(Request $request): JsonResponse
     {
+        $data = $request->validate([
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+        ]);
+        $officeId = $data['office_id'] ?? null;
+
+        $roles = Role::query()
+            ->whereNotIn('code', self::NOT_OFFERED)
+            // Only global roles until an office is chosen, then that office's
+            // own roles as well. Never expose another office's custom roles.
+            ->when(
+                $officeId !== null,
+                fn ($query) => $query->where(fn ($scope) => $scope
+                    ->whereNull('office_id')
+                    ->orWhere('office_id', (int) $officeId)),
+                fn ($query) => $query->whereNull('office_id'),
+            )
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'office_id']);
+
         return response()->json([
             'offices' => Office::query()
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Office $office) => Office::mini($office))
                 ->values(),
-            'roles' => Role::query()
-                ->whereNotIn('code', self::NOT_OFFERED)
-                ->orderBy('name')
-                ->get(['id', 'code', 'name', 'office_id']),
+            'roles' => $roles,
         ]);
     }
 

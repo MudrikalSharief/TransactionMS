@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowStep;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -339,5 +340,28 @@ class ViewerTrackingPrivacyTest extends TestCase
                 'id' => $tx->id,
                 'is_private' => true,
             ]);
+    }
+
+    public function test_new_transactions_are_public_by_default(): void
+    {
+        $creator = User::factory()->create();
+
+        $tx = Transaction::create([
+            'transaction_type_id' => $this->type->id,
+            'workflow_definition_id' => $this->workflow->id,
+            'office_id' => $this->office->id,
+            'reference_number' => 'PUBLIC-DEFAULT-1',
+            'title' => 'Default privacy',
+            'is_done' => false,
+            'created_by' => $creator->id,
+        ]);
+
+        $this->assertFalse((bool) $tx->fresh()->is_private);
+
+        $column = collect(Schema::getColumns('transactions'))->firstWhere('name', 'is_private');
+        $this->assertNotNull($column);
+        $this->assertNotNull($column['default']);
+        // SQLite reports the default as "'0'"; MySQL reports 0 or '0'.
+        $this->assertFalse((bool) trim((string) $column['default'], "'"));
     }
 }

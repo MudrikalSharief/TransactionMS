@@ -12,6 +12,7 @@ use App\Services\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Office admin area: manage the people in the admin's own office and look
@@ -20,7 +21,9 @@ use Illuminate\Support\Facades\Hash;
  */
 class OfficeAdminController extends Controller
 {
-    private const PROTECTED_ROLES = ['superadmin'];
+    // Superadmins and office heads are privileged accounts; office admins
+    // must never assign either role or change those accounts.
+    private const PROTECTED_ROLES = ['superadmin', 'office_head'];
 
     private const CONTACT_RULE = ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9\s\-()]{6,18}$/'];
 
@@ -135,6 +138,10 @@ class OfficeAdminController extends Controller
             }
             $user->save();
 
+            if (!$user->is_active) {
+                $this->revokeAccess($user);
+            }
+
             if (array_key_exists('role_ids', $data)) {
                 $user->roles()->sync($data['role_ids'] ?? []);
             }
@@ -166,6 +173,7 @@ class OfficeAdminController extends Controller
             $before = ['is_active' => (bool) $user->is_active];
             $user->is_active = false;
             $user->save();
+            $this->revokeAccess($user);
 
             $audit->log($request, 'office.users.deactivate', $user, [
                 'before' => $before,
@@ -223,7 +231,8 @@ class OfficeAdminController extends Controller
 
     /**
      * Office admins manage other members and admins of their own office:
-     * never themselves, another office's users or any superadmin account.
+     * never themselves, another office's users, or any superadmin/office-head
+     * account.
      */
     private function assertManageable(Request $request, User $target): void
     {
@@ -236,12 +245,23 @@ class OfficeAdminController extends Controller
         abort_if(
             $target->roles->contains(fn ($r) => in_array($r->code, self::PROTECTED_ROLES, true)),
             403,
-            'Superadmins can only be changed by a superadmin.'
+            'Superadmin and office-head accounts can only be changed by a superadmin.'
         );
     }
 
     private function assignableRoleRule(Request $request)
     {
         return Role::assignmentRule((int) $request->user()->office_id)->whereNotIn('code', self::PROTECTED_ROLES);
+    }
+
+    /** Drop any live sessions and API tokens for a deactivated account. */
+    private function revokeAccess(User $user): void
+    {
+        if (Schema::hasTable('personal_access_tokens')) {
+            $user->tokens()->delete();
+        }
+        if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
     }
 }

@@ -458,7 +458,6 @@
 
           <template v-slot:[`item.created_at`]="{ item }">
             <div class="tl-date">{{ fmtDate(item.created_at) }}</div>
-            <div class="tl-ago">{{ timeAgo(item.created_at) }}</div>
           </template>
 
           <template v-slot:[`header.is_private`]="{ column }">
@@ -1009,16 +1008,6 @@ function fmtDate(iso) {
     day: 'numeric',
     year: 'numeric',
   })
-}
-
-function timeAgo(iso) {
-  if (!iso) return ''
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
-  if (s < 60) return 'just now'
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
-  if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`
-  return fmtDate(iso)
 }
 
 function openCreate() {
@@ -1623,10 +1612,6 @@ html.dark .tl-page {
 }
 .tl-date {
     font-weight: 700;
-}
-.tl-ago {
-    color: var(--tl-muted);
-    font-size: 12px;
 }
 .tx-chip {
     height: auto !important;

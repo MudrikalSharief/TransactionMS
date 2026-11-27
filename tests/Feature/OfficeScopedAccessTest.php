@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\StepRole;
 use App\Models\Transaction;
 use App\Models\TransactionState;
+use App\Models\TransactionStepRun;
 use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowDefinition;
@@ -131,9 +132,10 @@ class OfficeScopedAccessTest extends TestCase
         $this->assertEqualsCanonicalizing([$gsoTx->id, $incomingTx->id, $movedOnTx->id, $cboTx->id], $ids);
     }
 
-    public function test_office_admin_can_act_while_parked_at_their_office(): void
+    public function test_office_admin_with_the_step_role_can_act_while_parked_at_their_office(): void
     {
         $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        $ramon->roles()->attach($this->clerkRole->id);
         $tx = $this->makeTransaction($this->gso, $this->gsoStep);
 
         Sanctum::actingAs($ramon);
@@ -151,6 +153,50 @@ class OfficeScopedAccessTest extends TestCase
         $this->getJson("/api/transactions/{$tx->id}")->assertOk();
         $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
             ->assertForbidden();
+    }
+
+    public function test_office_admin_without_the_step_role_cannot_act_at_their_office(): void
+    {
+        $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        $tx = $this->makeTransaction($this->gso, $this->gsoStep);
+
+        Sanctum::actingAs($ramon);
+
+        $this->getJson("/api/transactions/{$tx->id}")
+            ->assertOk()
+            ->assertJsonCount(0, 'meta.available_actions');
+
+        $this->postJson("/api/transactions/{$tx->id}/execute", ['route_id' => $this->route->id])
+            ->assertForbidden();
+    }
+
+    public function test_office_admin_cannot_receive_a_step_whose_role_they_lack(): void
+    {
+        $tx = $this->makeTransaction($this->gso, $this->gsoStep);
+        $run = TransactionStepRun::create([
+            'transaction_id' => $tx->id,
+            'from_step_id' => $this->cboStep->id,
+            'to_step_id' => $this->gsoStep->id,
+            'action_code' => 'submit',
+            'performed_by' => $this->creator->id,
+            'performed_at' => now(),
+            'received_at' => null,
+            'received_office_id' => $this->gso->id,
+            'sla_minutes_snapshot' => 0,
+        ]);
+        TransactionState::where('transaction_id', $tx->id)->update(['current_run_id' => $run->id]);
+
+        $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        Sanctum::actingAs($ramon);
+
+        $this->postJson("/api/transactions/{$tx->id}/receive")->assertForbidden();
+
+        // Holding one of the step's roles restores the office admin's
+        // ability to receive at their own office.
+        $clerkAdmin = $this->userWithRole($this->adminRole, $this->gso);
+        $clerkAdmin->roles()->attach($this->clerkRole->id);
+        Sanctum::actingAs($clerkAdmin);
+        $this->postJson("/api/transactions/{$tx->id}/receive")->assertOk();
     }
 
     public function test_office_admin_cannot_act_at_other_offices_stations(): void
@@ -232,6 +278,7 @@ class OfficeScopedAccessTest extends TestCase
         StepRole::create(['workflow_step_id' => $freeStep->id, 'role_id' => $this->clerkRole->id]);
 
         $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        $ramon->roles()->attach($this->clerkRole->id);
         $cboAdmin = $this->userWithRole($this->adminRole, $this->cbo);
         $tx = $this->makeTransaction($this->gso, $freeStep);
 
@@ -243,8 +290,13 @@ class OfficeScopedAccessTest extends TestCase
         $this->getJson("/api/transactions/{$tx->id}")->assertOk();
 
         Sanctum::actingAs($cboAdmin);
-        $this->getJson('/api/transactions')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson("/api/transactions/{$tx->id}")->assertForbidden();
+        // CBO can follow papers that route through its workflow, but the
+        // blank step itself follows GSO's transaction office.
+        $this->getJson('/api/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
+        $this->getJson("/api/transactions/{$tx->id}")->assertOk();
     }
 
     public function test_user_without_office_cannot_work_an_assigned_step(): void
@@ -372,6 +424,7 @@ class OfficeScopedAccessTest extends TestCase
     public function test_approval_inbox_follows_the_same_office_scoping(): void
     {
         $ramon = $this->userWithRole($this->adminRole, $this->gso);
+        $ramon->roles()->attach($this->clerkRole->id);
         $gsoTx = $this->makeTransaction($this->gso, $this->gsoStep);
         $this->makeTransaction($this->gso, $this->cboStep);
         $this->makeTransaction($this->cbo, $this->cboStep);

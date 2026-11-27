@@ -6,11 +6,13 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\BlockViewer;
+use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureOfficeAdmin;
 use App\Http\Middleware\EnsureOfficeHead;
 use App\Http\Middleware\EnsureViewer;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureTransactionOffice;
+use App\Http\Middleware\EnsureTransactionScope;
 use App\Http\Controllers\Api\Office\OfficeAdminController;
 use App\Http\Controllers\Api\OfficeHead\OfficeHeadDashboardController;
 
@@ -51,17 +53,17 @@ use App\Http\Controllers\Api\ViewerTrackingController;
 use App\Http\Controllers\Api\OfficerReassignmentController;
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
+    Route::post('/login', [AuthController::class, 'login'])->middleware(['guest', 'throttle:10,1']);
     Route::post('/guest', [AuthController::class, 'guest'])->middleware(['guest', 'throttle:20,1']);
     // "Create an account": the account waits for an admin's approval.
     Route::get('/register/options', [RegistrationController::class, 'options'])->middleware('guest');
     Route::post('/register', [RegistrationController::class, 'register'])->middleware(['guest', 'throttle:6,1']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-    Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+    Route::get('/me', [AuthController::class, 'me'])->middleware(['auth:sanctum', EnsureActiveAccount::class]);
 });
 
 // "My Profile" for every signed-in account (the shared guest viewer is refused).
-Route::middleware(['auth:sanctum', BlockViewer::class])->prefix('profile')->group(function () {
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class, BlockViewer::class])->prefix('profile')->group(function () {
     Route::get('/', [ProfileController::class, 'show']);
     Route::put('/', [ProfileController::class, 'update'])->middleware('throttle:20,1');
     Route::put('/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:10,1');
@@ -108,7 +110,7 @@ Route::get('/weather', function () {
 
 // Viewer accounts: read-only tracking of the transactions they created.
 // No files, no workflow actions (every other transaction route blocks them).
-Route::middleware(['auth:sanctum', EnsureViewer::class])
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class, EnsureViewer::class])
     ->prefix('viewer')
     ->group(function () {
         Route::get('/transactions', [ViewerTrackingController::class, 'index']);
@@ -117,9 +119,9 @@ Route::middleware(['auth:sanctum', EnsureViewer::class])
 
 // Static path must precede {transaction} or "version" binds as a model id.
 // Aggregate stamps only (no rows), so viewers may poll it too.
-Route::middleware(['auth:sanctum'])->get('/transactions/version', [UserTransactionController::class, 'version']);
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class])->get('/transactions/version', [UserTransactionController::class, 'version']);
 
-Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class, BlockViewer::class])->group(function () {
     Route::get('/portal/summary', [PortalController::class, 'summary']);
     // Transaction Status chart on the staff portal, scoped to their office.
     Route::get('/portal/transaction-status', [DashboardSummaryController::class, 'portalStatus']);
@@ -156,7 +158,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class])->group(function () {
 
 // Office-head area: a dedicated read-only, system-wide dashboard. Admin
 // and superadmin accounts keep their full admin area instead.
-Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeHead::class])
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class, BlockViewer::class, EnsureOfficeHead::class])
     ->prefix('office-head')
     ->group(function () {
         Route::get('/dashboard/summary', DashboardSummaryController::class);
@@ -167,7 +169,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeHead::class])
     });
 
 // Office admin area: an admin manages their own office only.
-Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class])
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class, BlockViewer::class, EnsureOfficeAdmin::class])
     ->prefix('office')
     ->group(function () {
         Route::get('/users', [OfficeAdminController::class, 'users']);
@@ -189,7 +191,7 @@ Route::middleware(['auth:sanctum', BlockViewer::class, EnsureOfficeAdmin::class]
             ->whereIn('category', ['completed', 'in_process', 'overdue', 'deleted', 'process']);
     });
 
-Route::middleware(['auth:sanctum', BlockViewer::class])
+Route::middleware(['auth:sanctum', EnsureActiveAccount::class, BlockViewer::class])
     ->prefix('admin')
     ->group(function () {
         Route::get('transactions/{transaction}/officer-assignment', [OfficerReassignmentController::class, 'show']);
@@ -305,11 +307,11 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         Route::get('/transactions/{transaction}/steps/{step}/receivers', [\App\Http\Controllers\Api\TransactionReceivingOfficerController::class, 'showAdmin'])
             ->middleware(EnsureTransactionOffice::class);
         Route::post('/transactions/{transaction}/archive', [TransactionArchiveController::class, 'store'])
-            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionScope::class]);
         Route::post('/transactions/{transaction}/unarchive', [TransactionArchiveController::class, 'unarchive'])
-            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionScope::class]);
         Route::patch('/transactions/{transaction}/privacy', [TransactionController::class, 'updatePrivacy'])
-            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionOffice::class]);
+            ->middleware([EnsureOfficeAdmin::class, EnsureTransactionScope::class]);
         Route::put('/transactions/{transaction}/office', [TransactionController::class, 'updateOffice'])
             ->middleware(EnsureRole::class.':superadmin');
         Route::post('/transactions/{transaction}/execute', [TransactionController::class, 'executeAction'])

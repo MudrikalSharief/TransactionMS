@@ -631,6 +631,7 @@ const emptyReg = () => ({
 });
 const reg = ref(emptyReg());
 const options = ref({ offices: [], roles: [] });
+let rolesRequest = 0;
 const registering = ref(false);
 const regError = ref("");
 const fieldErrors = ref({});
@@ -683,11 +684,24 @@ function officeInitials(office) {
     );
 }
 
-function chooseOffice(id) {
+async function chooseOffice(id) {
     reg.value.office_id = id;
     officeMenuOpen.value = false;
     if (fieldErrors.value.office_id) {
         fieldErrors.value = { ...fieldErrors.value, office_id: "" };
+    }
+
+    // Roles are office-scoped: fetch this office's list so the public
+    // options endpoint never exposes another office's custom roles.
+    const mine = ++rolesRequest;
+    try {
+        const res = await api.get("/api/auth/register/options", { params: { office_id: id } });
+        if (mine !== rolesRequest) return;
+        options.value = { offices: options.value.offices, roles: res.data.roles ?? [] };
+    } catch {
+        if (mine !== rolesRequest) return;
+        regError.value = "Could not load roles for this office. Check your connection and try again.";
+        errorKey.value += 1;
     }
 }
 
@@ -765,6 +779,7 @@ async function openRegister() {
     contactTouched.value = false;
     officeMenuOpen.value = false;
     regStep.value = 0;
+    rolesRequest += 1;
     if (options.value.offices.length) return;
     try {
         const res = await api.get("/api/auth/register/options");

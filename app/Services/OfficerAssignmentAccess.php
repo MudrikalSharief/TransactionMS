@@ -196,8 +196,21 @@ class OfficerAssignmentAccess
     public function canReassign(Transaction $tx, User $user, ?TransactionStepRun $run = null): bool
     {
         if ($tx->is_done || $tx->is_archive) return false;
-        return $this->officeVisits($tx, $user)->contains(fn ($visit) => ($run === null || $visit->id === $run->id)
-            && $this->visitCanBeAssigned($tx, $visit));
+
+        $current = $this->currentRun($tx);
+
+        return $this->officeVisits($tx, $user)->contains(function ($visit) use ($tx, $user, $run, $current) {
+            if ($run !== null && $visit->id !== $run->id) return false;
+
+            // Office admins manage only work currently parked at their
+            // office; a visit that already moved on cannot be reassigned.
+            // Superadmins may still transfer a past visit.
+            if (!$user->isSuperadmin() && ($current === null || $visit->id !== $current->id)) {
+                return false;
+            }
+
+            return $this->visitCanBeAssigned($tx, $visit);
+        });
     }
 
     /** Active regular officers whose step role and effective office both match. */
@@ -256,10 +269,15 @@ class OfficerAssignmentAccess
     {
         $visits = $user ? $this->officeVisits($tx, $user) : collect();
         $current = $this->currentRun($tx);
-        $run = $runId !== null ? $visits->firstWhere('id', $runId)
-            : ($visits->first(fn ($visit) => $visit->id === $current?->id && $this->canReassign($tx, $user, $visit))
-                ?? $visits->first(fn ($visit) => $this->canReassign($tx, $user, $visit))
-                ?? $visits->first() ?? $current);
+        $run = $runId !== null
+            ? $visits->firstWhere('id', $runId)
+            : ($user?->isOfficeAdmin()
+                // Office admins always see the paper's actual current visit,
+                // never a departed visit from their own office.
+                ? ($visits->firstWhere('id', $current?->id) ?? $current ?? $visits->first())
+                : ($visits->first(fn ($visit) => $visit->id === $current?->id && $this->canReassign($tx, $user, $visit))
+                    ?? $visits->first(fn ($visit) => $this->canReassign($tx, $user, $visit))
+                    ?? $visits->first() ?? $current));
         $data = [
             'can_reassign' => $user !== null && $run !== null && $this->canReassign($tx, $user, $run),
             'run_id' => $run?->id,

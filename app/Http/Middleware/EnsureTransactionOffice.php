@@ -39,7 +39,12 @@ class EnsureTransactionOffice
                 $allowed = $ownsTransaction
                     || $this->routing->userCanWorkOnCurrentStep($transaction, $user);
                 if (!$allowed && $request->isMethodSafe()) {
-                    $allowed = app(OfficerAssignmentAccess::class)->canManage($transaction, $user)
+                    // Read access follows the same visibility as the
+                    // Transactions list: own office, current station, or a
+                    // visit already received by their office.
+                    $visible = \App\Models\Transaction::query()->whereKey($transaction->id);
+                    $allowed = app(\App\Services\TransactionVisibility::class)->apply($visible, $user)->exists()
+                        || app(OfficerAssignmentAccess::class)->canManage($transaction, $user)
                         || app(OfficerAssignmentAccess::class)->hasOfficeAssignment($transaction, $user);
                 }
             }

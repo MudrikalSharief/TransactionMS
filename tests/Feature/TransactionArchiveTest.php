@@ -148,6 +148,32 @@ class TransactionArchiveTest extends TestCase
         ]);
     }
 
+    public function test_office_admin_can_archive_incoming_paper_parked_at_their_office_without_the_step_role(): void
+    {
+        $otherOffice = Office::create(['code' => 'CBO', 'name' => 'City Budget Office']);
+        $officeAdmin = $this->userWithRole('admin', $this->office);
+        $tx = Transaction::create([
+            'transaction_type_id' => $this->type->id,
+            'workflow_definition_id' => $this->workflow->id,
+            'office_id' => $otherOffice->id,
+            'reference_number' => 'TX-INCOMING-'.uniqid(),
+            'title' => 'Incoming request',
+            'is_done' => false,
+            'created_by' => $this->creator->id,
+        ]);
+        TransactionState::create([
+            'transaction_id' => $tx->id,
+            'current_step_id' => $this->step->id,
+            'entered_at' => now(),
+        ]);
+
+        Sanctum::actingAs($officeAdmin);
+
+        $this->postJson("/api/admin/transactions/{$tx->id}/archive")
+            ->assertOk()
+            ->assertJsonPath('data.is_archive', true);
+    }
+
     public function test_office_admin_cannot_archive_another_offices_transaction(): void
     {
         $otherOffice = Office::create([

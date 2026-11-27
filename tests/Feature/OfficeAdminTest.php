@@ -13,6 +13,7 @@ use App\Models\WorkflowDefinition;
 use App\Models\WorkflowRoute;
 use App\Models\WorkflowStep;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -173,10 +174,10 @@ class OfficeAdminTest extends TestCase
 
     public function test_office_admin_acts_only_at_their_own_office_steps(): void
     {
-        $gsoAdmin = $this->user($this->gso, $this->adminRole);
+        $gsoAdmin = $this->user($this->gso, $this->adminRole, $this->gsoStaff);
         Sanctum::actingAs($gsoAdmin);
 
-        // At GSO's canvass step: may act without holding the gso role.
+        // At GSO's canvass step: the admin holds its role and may act.
         $atGso = $this->tx($this->canvass, $this->csd);
         $this->getJson("/api/transactions/{$atGso->id}")
             ->assertOk()
@@ -198,7 +199,7 @@ class OfficeAdminTest extends TestCase
         $csdRequest = $this->tx($this->prepare, $this->csd);
         $gsoRequest = $this->tx($this->prepare, $this->gso);
 
-        Sanctum::actingAs($this->user($this->csd, $this->adminRole));
+        Sanctum::actingAs($this->user($this->csd, $this->adminRole, $this->clerk));
         $this->getJson("/api/transactions/{$csdRequest->id}")
             ->assertOk()
             ->assertJsonPath('meta.available_actions.0.route_id', $this->toCanvass->id);
@@ -206,7 +207,7 @@ class OfficeAdminTest extends TestCase
         $this->getJson("/api/transactions/{$gsoRequest->id}")->assertForbidden();
 
         // GSO admin sees the CSD request (it passes through GSO) but step 1 isn't theirs.
-        Sanctum::actingAs($this->user($this->gso, $this->adminRole));
+        Sanctum::actingAs($this->user($this->gso, $this->adminRole, $this->clerk));
         $this->getJson("/api/transactions/{$csdRequest->id}")
             ->assertOk()
             ->assertJsonPath('meta.available_actions', []);
@@ -364,6 +365,61 @@ class OfficeAdminTest extends TestCase
         $this->assertSame($super->name, $super->fresh()->name);
     }
 
+    public function test_office_admin_cannot_assign_or_manage_office_head_accounts(): void
+    {
+        $headRole = Role::firstOrCreate(['code' => 'office_head'], ['name' => 'Office Head']);
+        $admin = $this->user($this->gso, $this->adminRole);
+        $head = $this->user($this->gso, $headRole);
+        $clerk = $this->user($this->gso, $this->clerk);
+        $headName = $head->name;
+        $headPassword = $head->password;
+        Sanctum::actingAs($admin);
+
+        $codes = collect($this->getJson('/api/office/roles')->assertOk()->json('data'))->pluck('code');
+        $this->assertFalse($codes->contains('office_head'));
+
+        $this->postJson('/api/office/users', [
+            'name' => 'Escalated Head', 'username' => 'escalated.head', 'password' => 'secret123',
+            'role_ids' => [$this->clerk->id, $headRole->id],
+        ])->assertUnprocessable()->assertJsonValidationErrors('role_ids.1');
+        $this->assertDatabaseMissing('users', ['username' => 'escalated.head']);
+
+        $this->putJson("/api/office/users/{$clerk->id}", [
+            'name' => 'Escalated Clerk',
+            'role_ids' => [$this->clerk->id, $headRole->id],
+        ])->assertUnprocessable()->assertJsonValidationErrors('role_ids.1');
+        $this->assertFalse($clerk->fresh()->hasRole('office_head'));
+
+        $this->putJson("/api/office/users/{$head->id}", [
+            'name' => 'Hijacked Head', 'password' => 'newpassword',
+        ])->assertForbidden();
+        $this->deleteJson("/api/office/users/{$head->id}")->assertForbidden();
+
+        $head->refresh();
+        $this->assertSame($headName, $head->name);
+        $this->assertTrue($head->is_active);
+        $this->assertTrue($head->hasRole('office_head'));
+        $this->assertSame($headPassword, $head->password);
+    }
+
+    public function test_deactivated_account_cannot_login_or_use_authenticated_routes(): void
+    {
+        $clerk = $this->user($this->gso, $this->clerk);
+        $clerk->update(['password' => Hash::make('secret123'), 'approved_at' => now(), 'is_active' => false]);
+
+        $this->withHeader('Referer', 'http://localhost');
+        $this->postJson('/api/auth/login', [
+            'login' => $clerk->username,
+            'password' => 'secret123',
+        ])->assertStatus(422);
+
+        Sanctum::actingAs($clerk->fresh());
+        $this->getJson('/api/profile')->assertUnauthorized();
+        $this->getJson('/api/transactions')->assertUnauthorized();
+        $this->getJson('/api/transactions/version')->assertUnauthorized();
+        $this->getJson('/api/office/users')->assertUnauthorized();
+    }
+
     public function test_office_admin_cannot_manage_admins_in_another_office(): void
     {
         $admin = $this->user($this->gso, $this->adminRole);
@@ -382,6 +438,21 @@ class OfficeAdminTest extends TestCase
         $this->assertTrue($other->fresh()->hasRole('admin'));
 
         $this->putJson("/api/admin/users/{$other->id}", ['name' => 'Bypass'])->assertForbidden();
+    }
+
+    public function test_public_signup_options_only_expose_roles_for_the_selected_office(): void
+    {
+        $ownRole = Role::create(['code' => 'gso_custom', 'name' => 'GSO Custom', 'office_id' => $this->gso->id]);
+        $otherRole = Role::create(['code' => 'csd_custom', 'name' => 'CSD Custom', 'office_id' => $this->csd->id]);
+
+        $global = collect($this->getJson('/api/auth/register/options')->assertOk()->json('roles'))->pluck('code');
+        $this->assertFalse($global->contains($ownRole->code));
+        $this->assertFalse($global->contains($otherRole->code));
+        $this->assertTrue($global->contains('clerk'));
+
+        $own = collect($this->getJson('/api/auth/register/options?office_id='.$this->gso->id)->assertOk()->json('roles'))->pluck('code');
+        $this->assertTrue($own->contains($ownRole->code));
+        $this->assertFalse($own->contains($otherRole->code));
     }
 
     public function test_regular_staff_cannot_create_or_manage_office_admins(): void

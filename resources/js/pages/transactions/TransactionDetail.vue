@@ -117,7 +117,9 @@
                     >
                         <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
                         <div class="text-caption" v-if="canReceivePending">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
-                        <div class="text-caption" v-else-if="!canAct">Waiting at {{ pendingReceiptStation }} — assigned to {{ tx?.officer_assignment?.current_officer?.name || 'another officer' }}.</div>
+                        <div class="text-caption" v-else-if="!canAct">
+                            Waiting at {{ pendingReceiptStation }}<template v-if="currentStepIsMine"> — assigned to {{ tx?.officer_assignment?.current_officer?.name || 'another officer' }}</template>.
+                        </div>
                         <div class="text-caption" v-else>Waiting at {{ pendingReceiptStation }} — only its staff can receive it.</div>
                         <v-btn v-if="canReceivePending" color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
                             <v-icon start>mdi-inbox-arrow-down</v-icon>
@@ -152,10 +154,17 @@
                         variant="tonal"
                         class="mb-3"
                     >
-                        This step is assigned to
-                        <b>{{ tx?.officer_assignment?.current_officer?.name || 'another officer' }}</b>.
-                        You can view it, but only its assigned officer can act.
-                        <template v-if="tx?.officer_assignment?.can_reassign"> Use Reassign if you need to take over the work.</template>
+                        <template v-if="currentStepIsMine">
+                            This step is assigned to
+                            <b>{{ tx?.officer_assignment?.current_officer?.name || 'another officer' }}</b>.
+                            You can view it, but only its assigned officer can act.
+                            <template v-if="tx?.officer_assignment?.can_reassign"> Use Reassign if you need to take over the work.</template>
+                        </template>
+                        <template v-else>
+                            This step is now at
+                            <b>{{ tx?.current_step?.office?.name || 'another office' }}</b>.
+                            You can view it, but only that office can act.
+                        </template>
                     </v-alert>
                     <v-alert
                         v-else-if="!hasActionOptions && !showFinalize && !showCompleteStep"
@@ -1304,6 +1313,13 @@ const auth = useAuth();
 
 const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 const canManageArchive = computed(() => isSuperadmin() || isOfficeAdmin.value);
+// The current step is parked at the signed-in user's office.
+const currentStepIsMine = computed(() => {
+    const u = auth.user.value;
+    const stepOfficeId = tx.value?.current_step?.office_id ?? null;
+    const mine = u?.office?.id ?? u?.office_id ?? null;
+    return stepOfficeId != null && mine != null && Number(stepOfficeId) === Number(mine);
+});
 
 const savingChecklist = ref(false);
 const savingChecklistItemId = ref(null);
@@ -1450,12 +1466,17 @@ const canReceivePending = computed(() => {
     const destOfficeId = step.office_id ?? null;
     const userOfficeId = u.office?.id ?? u.office_id ?? null;
 
-    if (isOfficeAdmin.value && destOfficeId != null && Number(destOfficeId) === Number(userOfficeId)) {
-        return true;
-    }
-
     const stepRoleCodes = new Set((step.roles || []).map((r) => r.code));
     const hasRole = [...myRoleCodes.value].some((c) => stepRoleCodes.has(c));
+    // Office admins still manage a role-less step at their own office.
+    if (
+        isOfficeAdmin.value
+        && destOfficeId != null
+        && Number(destOfficeId) === Number(userOfficeId)
+        && stepRoleCodes.size === 0
+    ) {
+        return true;
+    }
     if (!hasRole) return false;
     // No resolved office means a legacy transaction with no Originating
     // Office; keep its blank/end-user stations role-only.

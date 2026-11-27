@@ -187,9 +187,15 @@ class OfficeRoleManagementTest extends TestCase
     {
         $own = $this->ownedRole($this->csd);
         $foreign = $this->ownedRole($this->gso, 'gso_records');
-        $roles = collect($this->getJson('/api/auth/register/options')->assertOk()->json('roles'))->keyBy('id');
+        $global = collect($this->getJson('/api/auth/register/options')->assertOk()->json('roles'))->keyBy('id');
+        $this->assertFalse($global->has($own->id));
+        $this->assertFalse($global->has($foreign->id));
+        $this->assertNull($global[$this->clerk->id]['office_id']);
+        $this->assertFalse($global->has($this->adminRole->id));
+
+        $roles = collect($this->getJson('/api/auth/register/options?office_id='.$this->csd->id)->assertOk()->json('roles'))->keyBy('id');
         $this->assertSame($this->csd->id, $roles[$own->id]['office_id']);
-        $this->assertSame($this->gso->id, $roles[$foreign->id]['office_id']);
+        $this->assertFalse($roles->has($foreign->id));
         $this->assertNull($roles[$this->clerk->id]['office_id']);
         $this->assertFalse($roles->has($this->adminRole->id));
         $payload = ['name' => 'Applicant', 'username' => 'records.applicant', 'contact_number' => '09171234567',

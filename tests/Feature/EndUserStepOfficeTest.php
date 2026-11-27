@@ -177,6 +177,7 @@ class EndUserStepOfficeTest extends TestCase
         $gsoEndUser = $this->userWithRole($this->endUserRole, $this->gso);
         $gsoAdmin = $this->userWithRole($this->adminRole, $this->gso);
         $csdAdmin = $this->userWithRole($this->adminRole, $this->csd);
+        $csdAdmin->roles()->attach($this->endUserRole->id);
         $tx = $this->makeTransaction($this->csd, $this->endUserStep);
 
         // The GSO template office does not grant GSO users the end-user station.

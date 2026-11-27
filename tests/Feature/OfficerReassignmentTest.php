@@ -33,6 +33,7 @@ class OfficerReassignmentTest extends TestCase
         $this->step = WorkflowStep::create(['workflow_definition_id' => $workflow->id, 'code' => 'TEST', 'name' => 'Test step', 'order_number' => 1, 'office_id' => $this->office->id, 'is_start' => true]);
         StepRole::create(['workflow_step_id' => $this->step->id, 'role_id' => Role::where('code', 'clerk')->value('id')]);
         $this->admin = $this->actor('admin');
+        $this->admin->roles()->attach(Role::where('code', 'clerk')->value('id'));
         $this->receiver = $this->actor('clerk');
         $this->officer = $this->actor('clerk');
         $this->tx = Transaction::create(['transaction_type_id' => $type->id, 'workflow_definition_id' => $workflow->id, 'office_id' => $this->office->id, 'reference_number' => 'TEST-1', 'title' => 'Reassign me', 'created_by' => $this->receiver->id, 'is_done' => false]);
@@ -182,32 +183,36 @@ class OfficerReassignmentTest extends TestCase
         return ['office' => $office, 'step' => $step, 'receiver' => $receiver, 'run' => $run];
     }
 
-    public function test_departed_office_can_reassign_and_replacement_can_view_but_not_process_other_office_work(): void
+    public function test_departed_office_can_view_but_not_reassign_other_office_work(): void
     {
         $next = $this->forwardToOtherOffice();
         $this->tx->update(['office_id' => $next['office']->id]);
+
         Sanctum::actingAs($this->admin);
-        $this->getJson($this->url())->assertOk()->assertJsonPath('data.run_id', $this->run->id)->assertJsonPath('data.can_reassign', true);
-        $this->getJson('/api/admin/transactions?q=TEST-1')->assertOk()->assertJsonPath('data.0.can_reassign_officer', true);
+        $this->getJson($this->url())
+            ->assertOk()
+            ->assertJsonPath('data.run_id', $next['run']->id)
+            ->assertJsonPath('data.office.id', $next['office']->id)
+            ->assertJsonPath('data.current_officer.id', $next['receiver']->id)
+            ->assertJsonPath('data.is_current', true)
+            ->assertJsonPath('data.can_reassign', false);
+        $this->getJson('/api/admin/transactions?q=TEST-1')
+            ->assertOk()
+            ->assertJsonPath('data.0.can_reassign_officer', false);
         $this->getJson("/api/admin/transactions/{$this->tx->id}")->assertOk();
-        $this->assign()->assertOk()->assertJsonPath('data.office.id', $this->office->id)->assertJsonPath('data.history.0.office.id', $this->office->id)->assertJsonPath('data.history.0.step.id', $this->step->id);
-        $this->assertNull($next['run']->fresh()->assigned_to);
+
+        // A visit that already moved on to another office cannot be
+        // reassigned by the office that used to own it.
+        $this->assign()->assertUnprocessable();
+        $this->assertNull($this->run->fresh()->assigned_to);
         $this->assertSame($next['step']->id, $this->tx->state()->value('current_step_id'));
         $this->assertSame($this->receiver->id, $this->run->fresh()->received_by);
 
-        Sanctum::actingAs($this->officer);
+        // The current office keeps working the paper normally.
+        Sanctum::actingAs($next['receiver']);
         $this->getJson("/api/transactions/{$this->tx->id}")->assertOk();
         $this->getJson("/api/admin/transactions/{$this->tx->id}")->assertOk();
         $this->getJson("/api/admin/transactions/{$this->tx->id}/attachments")->assertOk();
-        foreach (['/api/transactions', '/api/admin/transactions'] as $list) {
-            $this->getJson($list.'?q=TEST-1')->assertOk()->assertJsonCount(1, 'data');
-        }
-        $this->postJson("/api/transactions/{$this->tx->id}/receive")->assertForbidden();
-        $this->postJson("/api/transactions/{$this->tx->id}/execute", ['route_id' => 1])->assertForbidden();
-        Sanctum::actingAs($this->receiver);
-        $this->assertContains($this->getJson("/api/transactions/{$this->tx->id}")->status(), [403, 404]);
-        Sanctum::actingAs($next['receiver']);
-        $this->getJson("/api/transactions/{$this->tx->id}")->assertOk();
     }
 
     public function test_other_office_admin_cannot_select_or_reassign_departed_offices_visit(): void
@@ -286,8 +291,10 @@ class OfficerReassignmentTest extends TestCase
 
     public function test_backward_jump_restores_reassigned_officer_instead_of_original_receiver(): void
     {
-        $next = $this->forwardToOtherOffice();
+        // Reassign while the visit is still the current one at this office;
+        // after forwarding it is no longer reassignable by an office admin.
         $this->assign()->assertOk();
+        $next = $this->forwardToOtherOffice();
         $this->sendBack($next, true)->assertOk();
         $returned = $this->tx->runs()->latest('id')->first();
         $this->assertSame($this->officer->id, $returned->assigned_to);

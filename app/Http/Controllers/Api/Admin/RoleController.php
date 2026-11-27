@@ -17,7 +17,8 @@ class RoleController extends Controller
     {
         $query = Role::query()->with('office')->ordered();
         if ($request->user()->isOfficeAdmin()) {
-            $query->availableToOffice((int) $request->user()->office_id)->where('code', '!=', 'superadmin');
+            $query->availableToOffice((int) $request->user()->office_id)
+                ->whereNotIn('code', ['superadmin', 'office_head']);
         }
 
         return RoleResource::collection(
