@@ -142,7 +142,9 @@ class EndUserStepOfficeTest extends TestCase
             'performed_by' => $this->creator->id,
             'performed_at' => now(),
             'received_at' => now(),
-            'received_by' => $this->creator->id,
+            // Leave the visit unassigned so the office/role checks, not
+            // officer ownership, decide who can act.
+            'received_by' => null,
             'received_office_id' => $tx->effectiveStepOfficeId($step),
             'sla_minutes_snapshot' => 0,
         ]);

@@ -77,7 +77,7 @@ class DashboardSummaryController extends Controller
 
         // Tile counts are polled silently every 20s by every open Dashboard —
         // 60s server cache cuts that to 1 query-batch per minute per filter.
-        $key = 'dash:summary:v5:'.md5(json_encode([
+        $key = 'dash:summary:v7:'.md5(json_encode([
             $this->periodMeta, $this->processes, $this->offices, $this->officeId, $this->scopeOfficeId,
             $this->metricsOfficeId,
         ]));
@@ -289,7 +289,7 @@ class DashboardSummaryController extends Controller
         $this->metricsOfficeId = $officeId;
         $this->seesAllOffices = false;
 
-        $key = 'dash:portal-office-summary:v1:'.md5(json_encode([$officeId, $period]));
+        $key = 'dash:portal-office-summary:v3:'.md5(json_encode([$officeId, $period]));
 
         $payload = \Illuminate\Support\Facades\Cache::remember($key, 60, function () use ($officeId) {
             $sla = $this->slaCounts();
@@ -384,8 +384,9 @@ class DashboardSummaryController extends Controller
     /**
      * Office-wide step cards for office admins and office heads. Unlike the
      * staff home these ignore the signed-in user's roles: every step that
-     * enters, is received by, or is released by the office counts. All four
-     * numbers follow the dashboard's selected month.
+     * enters, is received by, is returned to, or is released by the office
+     * counts, while overdue_steps only counts work still open past its SLA.
+     * Every number follows the dashboard's selected month.
      */
     private function officeStepMetrics(int $officeId): array
     {
@@ -420,6 +421,32 @@ class DashboardSummaryController extends Controller
                 ->where('received_at', '<', $this->to))
             ->count();
 
+        // Currently open work past its station SLA, matching the staff
+        // Personal Overdue Steps definition office-wide. Released, finalized,
+        // pending, and archived steps drop out.
+        $overdueSteps = Transaction::query()
+            ->withoutGlobalScope('officer_assignment')
+            ->active()
+            ->where('is_done', false)
+            ->whereHas('state.currentRun', fn (Builder $q) => $q
+                ->where('received_office_id', $officeId)
+                ->whereNotNull('received_at')
+                ->where('received_at', '>=', $this->from)
+                ->where('received_at', '<', $this->to))
+            ->with(['state.currentRun', 'state.currentStep'])
+            ->get()
+            ->filter(function (Transaction $tx) {
+                $run = $tx->state?->currentRun;
+                $step = $tx->state?->currentStep;
+                if (!$run?->received_at || !$step) return false;
+
+                $sla = (int) ($run->sla_minutes_snapshot ?: $step->sla_minutes ?: 0);
+                if ($sla <= 0) return false;
+
+                return WorkingTime::minutesBetween($run->received_at, now()) > $sla;
+            })
+            ->count();
+
         // Forward actions by anyone currently assigned to the office, in the
         // selected period. Creating, returning, resending, and finalizing are
         // separate actions and do not count as releases.
@@ -432,10 +459,21 @@ class DashboardSummaryController extends Controller
                 ->withoutGlobalScope('officer_assignment'))
             ->count();
 
+        // Steps sent back to this office in the selected period. This is
+        // incoming work ("returned to"), separate from the outgoing Returns
+        // report.
+        $returned = $officeRuns()
+            ->where('action_code', 'return')
+            ->where('performed_at', '>=', $this->from)
+            ->where('performed_at', '<', $this->to)
+            ->count();
+
         return [
             'entered' => $entered,
             'received' => $received,
             'in_progress' => $inProgress,
+            'overdue_steps' => $overdueSteps,
+            'returned' => $returned,
             'released' => $released,
         ];
     }
@@ -1161,6 +1199,13 @@ class DashboardSummaryController extends Controller
                     if (!($startedAt->lt($bucket['end']) && $leftAt->gt($bucket['start']))) continue;
 
                     $lateInSelectedMonth = true;
+
+                    // Single-office viewers rank only steps handled by their
+                    // own office, not every office in the transaction's scope.
+                    if ($this->scopeOfficeId !== null
+                        && (int) ($office?->id ?? 0) !== (int) $this->scopeOfficeId) {
+                        continue;
+                    }
 
                     $key = $step->id.'|'.($office?->id ?? 0).'|'.$bucket['key'];
                     $groups[$key] ??= [

@@ -49,6 +49,7 @@
                 :height="fit ? 80 : 190"
                 :empty-text="emptyText"
                 :aria-label="ariaLabel"
+                show-zero-series
             />
         </v-card-text>
     </v-card>

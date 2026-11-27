@@ -384,8 +384,17 @@ class RoutingEngine
         $step = $tx->workflow?->steps?->firstWhere('id', $stepId);
         $assignedOfficeId = $step ? $tx->effectiveStepOfficeId($step) : null;
 
-        // Office admins act on any station assigned to their office, role aside.
-        if ($this->isOfficeAdminFor($assignedOfficeId, $user)) return true;
+        // Office admins can view and reassign stations parked at their
+        // office, but only work one while it is unassigned or assigned to
+        // them. The owner is the assigned officer, else whoever received it.
+        if ($this->isOfficeAdminFor($assignedOfficeId, $user)) {
+            $current = $tx->state?->currentVisit();
+            if (!$current) return true;
+
+            $ownerId = $current->assigned_to ?? $current->received_by;
+
+            return $ownerId === null || (int) $ownerId === (int) $user->id;
+        }
 
         $allowedRoleIds = $tx->workflow->stepRoles
             ->where('workflow_step_id', $stepId)

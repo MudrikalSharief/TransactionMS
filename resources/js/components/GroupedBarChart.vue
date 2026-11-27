@@ -120,6 +120,8 @@ const props = defineProps({
     height: { type: Number, default: 190 },
     emptyText: { type: String, default: 'No data yet' },
     ariaLabel: { type: String, default: 'Bar chart' },
+    // Keep zero-value series in the legend instead of dropping them.
+    showZeroSeries: { type: Boolean, default: false },
 })
 
 const plotRef = ref(null)
@@ -142,8 +144,14 @@ const plotH = computed(() => viewH.value - topPad - xLabelH)
 
 const stageHeight = computed(() => props.height + 8)
 
-// Series with nothing to draw are dropped; the rest keep their given order.
-const layers = computed(() => (props.series || []).filter((s) => (s.values || []).some((v) => v > 0)))
+// Series with nothing to draw are dropped unless every legend entry should
+// stay visible; the rest keep their given order.
+const layers = computed(() => {
+    const series = props.series || []
+    return props.showZeroSeries
+        ? series
+        : series.filter((s) => (s.values || []).some((v) => v > 0))
+})
 
 const groupTotals = computed(() =>
     props.groupLabels.map((_, i) => layers.value.reduce((sum, layer) => sum + (layer.values[i] || 0), 0)),

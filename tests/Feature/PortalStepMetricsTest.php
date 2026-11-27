@@ -106,7 +106,7 @@ class PortalStepMetricsTest extends TestCase
             'received_by' => $opts['received_by'] ?? null,
             'assigned_to' => $opts['assigned_to'] ?? null,
             'received_office_id' => $opts['received_office_id'] ?? $step->office_id,
-            'sla_minutes_snapshot' => 480,
+            'sla_minutes_snapshot' => $opts['sla'] ?? 480,
         ]);
 
         if (!empty($opts['current'])) {
@@ -135,14 +135,15 @@ class PortalStepMetricsTest extends TestCase
             'assigned_to' => $this->user->id,
         ]);
 
-        // Received/entered yesterday, still open: Overdue Work also counts it
-        // for November.
+        // Received/entered yesterday, still open, and now past its one-hour
+        // SLA: Working contains it and Overdue Steps includes it.
         $this->addRun($this->tx(), $this->startStep, [
             'current' => true,
             'performed_at' => $yesterday,
             'received_at' => $yesterday,
             'received_by' => $this->user->id,
             'assigned_to' => $this->user->id,
+            'sla' => 60,
         ]);
 
         // Colleague received it today; it still entered the office for the
@@ -218,31 +219,36 @@ class PortalStepMetricsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('step_metrics.received', 5)
             ->assertJsonPath('step_metrics.entered', 7)
-            ->assertJsonPath('step_metrics.overdue_work', 3);
+            ->assertJsonPath('step_metrics.working', 3)
+            ->assertJsonPath('step_metrics.overdue_steps', 1);
 
         $this->getJson('/api/portal/summary?period=today')
             ->assertOk()
             ->assertJsonPath('step_metrics.received', 2)
             ->assertJsonPath('step_metrics.entered', 4)
-            ->assertJsonPath('step_metrics.overdue_work', 2);
+            ->assertJsonPath('step_metrics.working', 2)
+            ->assertJsonPath('step_metrics.overdue_steps', 0);
 
         $this->getJson('/api/portal/summary?period=this_week')
             ->assertOk()
             ->assertJsonPath('step_metrics.received', 5)
             ->assertJsonPath('step_metrics.entered', 7)
-            ->assertJsonPath('step_metrics.overdue_work', 3);
+            ->assertJsonPath('step_metrics.working', 3)
+            ->assertJsonPath('step_metrics.overdue_steps', 1);
 
         $this->getJson('/api/portal/summary?period=2026-10')
             ->assertOk()
             ->assertJsonPath('step_metrics.received', 1)
             ->assertJsonPath('step_metrics.entered', 1)
-            ->assertJsonPath('step_metrics.overdue_work', 1);
+            ->assertJsonPath('step_metrics.working', 1)
+            ->assertJsonPath('step_metrics.overdue_steps', 1);
 
         $this->getJson('/api/portal/summary?period=all')
             ->assertOk()
             ->assertJsonPath('step_metrics.received', 6)
             ->assertJsonPath('step_metrics.entered', 8)
-            ->assertJsonPath('step_metrics.overdue_work', 4);
+            ->assertJsonPath('step_metrics.working', 4)
+            ->assertJsonPath('step_metrics.overdue_steps', 2);
     }
 
     public function test_release_counts_only_forward_actions_in_the_selected_period(): void
@@ -283,6 +289,69 @@ class PortalStepMetricsTest extends TestCase
             ->assertJsonPath('step_metrics.released', 4);
     }
 
+    public function test_return_counts_steps_returned_to_the_user_in_the_selected_period(): void
+    {
+        $october = Carbon::parse('2026-10-15 03:00:00', 'UTC');
+        $november = Carbon::parse('2026-11-10 03:00:00', 'UTC');
+        $colleague = User::factory()->create(['office_id' => $this->office->id]);
+
+        // Assigned back to the signed-in user in October.
+        $this->addRun($this->tx(), $this->startStep, [
+            'action' => 'return',
+            'performed_at' => $october,
+            'assigned_to' => $this->user->id,
+        ]);
+
+        // Unassigned, but received by the user: counts for them.
+        $this->addRun($this->tx(), $this->startStep, [
+            'action' => 'return',
+            'performed_at' => $october,
+            'received_by' => $this->user->id,
+        ]);
+
+        // Assigned to a colleague: not this user's personal return.
+        $this->addRun($this->tx(), $this->startStep, [
+            'action' => 'return',
+            'performed_at' => $october,
+            'assigned_to' => $colleague->id,
+        ]);
+
+        // Resends are forward moves, not returns.
+        $this->addRun($this->tx(), $this->startStep, [
+            'action' => 'resend',
+            'performed_at' => $october,
+            'assigned_to' => $this->user->id,
+        ]);
+
+        // Archived transactions stay out of every card.
+        $this->addRun($this->tx(['archived' => true]), $this->startStep, [
+            'action' => 'return',
+            'performed_at' => $october,
+            'assigned_to' => $this->user->id,
+        ]);
+
+        // A November return only counts for November and all-time.
+        $this->addRun($this->tx(), $this->startStep, [
+            'action' => 'return',
+            'performed_at' => $november,
+            'assigned_to' => $this->user->id,
+        ]);
+
+        Sanctum::actingAs($this->user);
+
+        $this->getJson('/api/portal/summary?period=2026-10')
+            ->assertOk()
+            ->assertJsonPath('step_metrics.returned', 2);
+
+        $this->getJson('/api/portal/summary?period=2026-11')
+            ->assertOk()
+            ->assertJsonPath('step_metrics.returned', 1);
+
+        $this->getJson('/api/portal/summary?period=all')
+            ->assertOk()
+            ->assertJsonPath('step_metrics.returned', 3);
+    }
+
     public function test_step_cards_are_empty_without_an_office(): void
     {
         $this->user->update(['office_id' => null]);
@@ -292,7 +361,9 @@ class PortalStepMetricsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('step_metrics.received', 0)
             ->assertJsonPath('step_metrics.entered', 0)
-            ->assertJsonPath('step_metrics.overdue_work', 0)
+            ->assertJsonPath('step_metrics.working', 0)
+            ->assertJsonPath('step_metrics.overdue_steps', 0)
+            ->assertJsonPath('step_metrics.returned', 0)
             ->assertJsonPath('step_metrics.released', 0);
     }
 }

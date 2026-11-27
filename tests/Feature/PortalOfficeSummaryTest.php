@@ -72,6 +72,30 @@ class PortalOfficeSummaryTest extends TestCase
             'entered_at' => $run->performed_at,
         ]);
 
+        // One step sent back to the office in November: counts as an entry
+        // and a Return, but adds no receipt or current work.
+        $returnedTx = Transaction::create([
+            'transaction_type_id' => $type->id,
+            'workflow_definition_id' => $workflow->id,
+            'office_id' => $office->id,
+            'reference_number' => 'TX-OFFICE-RETURN',
+            'created_by' => $staff->id,
+            'is_done' => false,
+        ]);
+        TransactionStepRun::create([
+            'transaction_id' => $returnedTx->id,
+            'from_step_id' => $step->id,
+            'to_step_id' => $step->id,
+            'action_code' => 'return',
+            'performed_by' => $staff->id,
+            'performed_at' => now()->subHour(),
+            'received_at' => null,
+            'received_by' => null,
+            'assigned_to' => $staff->id,
+            'received_office_id' => $office->id,
+            'sla_minutes_snapshot' => 60,
+        ]);
+
         Sanctum::actingAs($admin);
         $adminJson = $this->getJson('/api/office/dashboard/summary?month=2026-11')
             ->assertOk()
@@ -87,9 +111,11 @@ class PortalOfficeSummaryTest extends TestCase
         $this->assertSame($adminJson['overdue_transactions'], $staffJson['overdue_transactions']);
 
         // Prove the fixture exercised every card, not just two empty payloads.
-        $this->assertSame(1, $staffJson['office_step_metrics']['entered']);
+        $this->assertSame(2, $staffJson['office_step_metrics']['entered']);
         $this->assertSame(1, $staffJson['office_step_metrics']['received']);
         $this->assertSame(1, $staffJson['office_step_metrics']['in_progress']);
+        $this->assertSame(1, $staffJson['office_step_metrics']['overdue_steps']);
+        $this->assertSame(1, $staffJson['office_step_metrics']['returned']);
         $this->assertSame(1, $staffJson['office_step_metrics']['released']);
         $this->assertSame(1, $staffJson['overdue_steps']);
         $this->assertSame(1, $staffJson['overdue_transactions']);

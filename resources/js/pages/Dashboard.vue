@@ -82,8 +82,8 @@
             <v-alert v-if="summaryError" type="error" variant="tonal" density="compact" class="mb-3">
                 {{ summaryError }}
             </v-alert>
-            <!-- Office-wide step cards followed by the overdue cards: six
-                 tiles in one grid, three per row. -->
+            <!-- Office-wide step cards, then Overdue Steps, Release, and
+                 Overdue Transactions: six tiles, three per row on desktop. -->
             <div class="summary-row" :class="{ 'summary-row--office': hasOfficeStepCards }">
                 <div
                     v-for="tile in headlineTiles"
@@ -188,6 +188,7 @@
                                 :height="fit ? 80 : 190"
                                 :empty-text="graphEmptyText"
                                 :aria-label="graphAriaLabel"
+                                show-zero-series
                             />
                         </v-card-text>
                     </v-card>
@@ -1093,18 +1094,10 @@ watch([summaryMonth, headOfficeId], () => {
 
 // Office-wide cards for office admins and office heads. The backend returns
 // numbers for one office (the admin's own, or the office head's assigned
-// office); all four cards follow the selected period.
+// office); every card follows the selected period.
 const officeTiles = computed(() => {
     const m = summary.value?.office_step_metrics || {}
     return [
-        {
-            key: 'entered',
-            label: 'Entered',
-            variant: 'success',
-            value: m.entered ?? '—',
-            hint: `Steps that entered ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
-            icon: 'mdi-door-open',
-        },
         {
             key: 'received',
             label: 'Received',
@@ -1115,21 +1108,42 @@ const officeTiles = computed(() => {
         },
         {
             key: 'in_progress',
-            label: 'In progress',
+            label: 'Working',
             variant: 'warning',
             value: m.in_progress ?? '—',
-            hint: `Steps received by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value} and still in progress.`,
+            hint: `Steps received by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value} and still being worked on.`,
             icon: 'mdi-timer-sand',
         },
         {
-            key: 'released',
-            label: 'Release',
-            variant: 'info',
-            value: m.released ?? '—',
-            hint: `Steps completed by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
-            icon: 'mdi-send-check-outline',
+            key: 'returned',
+            label: 'Return',
+            variant: 'warning',
+            value: m.returned ?? '—',
+            hint: `Steps returned to ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-undo-variant',
+        },
+        {
+            key: 'office_overdue_steps',
+            label: 'Overdue Steps',
+            variant: 'danger',
+            value: m.overdue_steps ?? '—',
+            hint: `Currently open steps past their SLA at ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
+            icon: 'mdi-timer-alert-outline',
         },
     ]
+})
+
+// Release sits between the two overdue cards in the combined row.
+const releaseTile = computed(() => {
+    const m = summary.value?.office_step_metrics || {}
+    return {
+        key: 'released',
+        label: 'Release',
+        variant: 'info',
+        value: m.released ?? '—',
+        hint: `Steps completed by ${summaryOfficeLabel.value} ${summaryPeriodPhrase.value}.`,
+        icon: 'mdi-send-check-outline',
+    }
 })
 
 // Status tiles: each card takes its color and illustration from its variant.
@@ -1155,13 +1169,14 @@ const summaryTiles = computed(() => {
     ]
 })
 
-// One grid: office metrics first, then the overdue cards. Superadmins keep
-// only the two overdue tiles.
-const headlineTiles = computed(() => (
-    hasOfficeStepCards.value
-        ? [...officeTiles.value, ...summaryTiles.value]
-        : summaryTiles.value
-))
+// One grid: office metrics (including the open-only Overdue Steps), then
+// Release and Overdue Transactions. Superadmins keep only the two
+// system-wide overdue tiles.
+const headlineTiles = computed(() => {
+    if (!hasOfficeStepCards.value) return summaryTiles.value
+    const [, overdueTransactions] = summaryTiles.value
+    return [...officeTiles.value, releaseTile.value, overdueTransactions]
+})
 
 // Oldest first: longest-waiting items the user can act on.
 // Admins keep the office/system queue; staff only see rows the server

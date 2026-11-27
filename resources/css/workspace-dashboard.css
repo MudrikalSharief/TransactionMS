@@ -693,8 +693,13 @@ html.dark .workspace-shell .workspace-dashboard [data-card="topsteps"] {
 }
 .workspace-shell .workspace-dashboard--staff .portal-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20px;
+}
+@media (max-width: 1199px) {
+    .workspace-shell .workspace-dashboard--staff .portal-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 .workspace-shell .workspace-dashboard--staff .stat {
     min-height: 116px;
@@ -1094,7 +1099,7 @@ html.dark .workspace-shell .workspace-dashboard .dash-body > .v-alert--type-succ
     box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.25);
 }
 .office-card.is-selected::after {
-    content: "Γ£ô";
+    content: "\2713";
     position: absolute;
     top: 6px;
     right: 6px;

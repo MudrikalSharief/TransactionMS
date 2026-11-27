@@ -228,4 +228,28 @@ class OfficerAssignmentAccessTest extends TestCase
         Sanctum::actingAs($this->old);
         $this->denied("/api/transactions/{$this->tx->id}");
     }
+
+    public function test_office_admin_can_view_and_reassign_but_not_work_another_officers_step(): void
+    {
+        $this->assign(); // current visit now belongs to $this->next
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson("/api/transactions/{$this->tx->id}")
+            ->assertOk()
+            ->assertJsonPath('data.officer_assignment.can_act', false);
+        $this->getJson('/api/transactions?q=EXCLUSIVE-1')->assertOk()->assertJsonCount(1, 'data');
+
+        // Receive and release are blocked on someone else's assigned step.
+        $this->postJson("/api/transactions/{$this->tx->id}/receive")->assertForbidden();
+        $this->postJson("/api/transactions/{$this->tx->id}/execute", ['route_id' => 1])->assertForbidden();
+
+        // Reassignment stays available: hand the visit to another officer.
+        $this->assign($this->old, null, 1);
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson("/api/transactions/{$this->tx->id}")
+            ->assertOk()
+            ->assertJsonPath('data.officer_assignment.can_act', false);
+        $this->postJson("/api/transactions/{$this->tx->id}/execute", ['route_id' => 1])->assertForbidden();
+    }
 }

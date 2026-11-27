@@ -117,6 +117,7 @@
                     >
                         <div class="font-weight-bold">Waiting to be received — sent by {{ pendingReceipt.performed_by?.name || 'Unknown' }} at {{ fmtDateTime(pendingReceipt.released_at || pendingReceipt.performed_at) }}.</div>
                         <div class="text-caption" v-if="canReceivePending">Click Receive to claim this step. The first user with this role to receive is recorded as the receiver.</div>
+                        <div class="text-caption" v-else-if="!canAct">Waiting at {{ pendingReceiptStation }} — assigned to {{ tx?.officer_assignment?.current_officer?.name || 'another officer' }}.</div>
                         <div class="text-caption" v-else>Waiting at {{ pendingReceiptStation }} — only its staff can receive it.</div>
                         <v-btn v-if="canReceivePending" color="warning" rounded="0" class="mt-2" :loading="receiving" @click="receiveStep">
                             <v-icon start>mdi-inbox-arrow-down</v-icon>
@@ -144,6 +145,17 @@
                             <v-icon start size="small">mdi-source-branch</v-icon>
                             Open Workflows
                         </v-btn>
+                    </v-alert>
+                    <v-alert
+                        v-else-if="!canAct"
+                        type="info"
+                        variant="tonal"
+                        class="mb-3"
+                    >
+                        This step is assigned to
+                        <b>{{ tx?.officer_assignment?.current_officer?.name || 'another officer' }}</b>.
+                        You can view it, but only its assigned officer can act.
+                        <template v-if="tx?.officer_assignment?.can_reassign"> Use Reassign if you need to take over the work.</template>
                     </v-alert>
                     <v-alert
                         v-else-if="!hasActionOptions && !showFinalize && !showCompleteStep"
@@ -928,20 +940,24 @@ const isDone = computed(() => !!(tx.value?.is_done));
 const isArchived = computed(() => !!(tx.value?.is_archive));
 const archiveMode = computed(() => (tx.value?.is_archive ? 'unarchive' : 'archive'));
 const isEndStep = computed(() => !!(tx.value?.current_step?.is_end));
-const showFinalize = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value && !returnSourceStepId.value);
+// Office admins can view and reassign any station at their office, but the
+// server only exposes step actions while the current visit is unassigned or
+// theirs.
+const canAct = computed(() => tx.value?.officer_assignment?.can_act !== false);
+const showFinalize = computed(() => canAct.value && isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value && !returnSourceStepId.value);
 // Complete Step replaces Finalize on the last station: green button that
 // opens the checklist modal, then finalizes. No outgoing routes needed.
 const isCompleting = ref(false);
-const showCompleteStep = computed(() => isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value && !returnSourceStepId.value);
+const showCompleteStep = computed(() => canAct.value && isEndStep.value && !isDone.value && !isArchived.value && !pendingReceipt.value && !returnSourceStepId.value);
 const completeModalTitle = computed(() => {
     const cur = tx.value?.current_step;
     const n = cur?.order_number ?? '';
     const name = cur?.name || cur?.code || '';
     return (n !== '' || name) ? `Complete Step ${n} · ${name}`.trim() : 'Complete Step';
 });
-const hasActionOptions = computed(() =>
-    (availableActions.value || []).length > 0 || (jumpRouteOptions.value || []).length > 0,
-);
+const hasActionOptions = computed(() => canAct.value && (
+    (availableActions.value || []).length > 0 || (jumpRouteOptions.value || []).length > 0
+));
 const finalizeDialog = ref(false);
 // Jump selections are strings ("jump:<stepId>"); route ids stay numbers.
 const isJumpSelected = computed(() =>
@@ -1423,6 +1439,7 @@ const canReceivePending = computed(() => {
     const u = auth.user.value;
     if (!u) return false;
     if (isSuperadmin()) return true;
+    if (!canAct.value) return false;
 
     const entry = (tx.value?.station_checklist || []).find(
         (s) => String(s?.step?.id) === String(tx.value?.current_step?.id),

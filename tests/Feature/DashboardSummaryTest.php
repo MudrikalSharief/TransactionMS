@@ -708,6 +708,66 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('overdue_by_office.0.count', 1);
     }
 
+    public function test_top_overdue_steps_office_admin_ranks_only_own_office_steps(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-20 04:00:00', 'UTC'));
+
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+        $this->payrollStep->update(['office_id' => $this->chrmo->id, 'sla_minutes' => 60]);
+        $gsoStep = WorkflowStep::create([
+            'workflow_definition_id' => $this->payrollStep->workflow_definition_id,
+            'order_number' => 2,
+            'code' => 'gso_review',
+            'name' => 'GSO review',
+            'office_id' => $gso->id,
+            'sla_minutes' => 60,
+        ]);
+
+        // Filed by CHRMO, with an overdue CHRMO visit followed by an overdue
+        // GSO visit. Only the CHRMO step belongs on the CHRMO admin's card.
+        $tx = $this->tx($this->payroll, 1, ['office' => $this->chrmo->id, 'manualRuns' => true]);
+
+        TransactionStepRun::create([
+            'transaction_id' => $tx->id,
+            'from_step_id' => $this->payrollStep->id,
+            'to_step_id' => $this->payrollStep->id,
+            'action_code' => 'create',
+            'performed_by' => $this->admin->id,
+            'performed_at' => now()->subHours(48),
+            'received_at' => now()->subHours(48),
+            'received_office_id' => $this->chrmo->id,
+            'sla_minutes_snapshot' => 60,
+        ]);
+
+        $gsoRun = TransactionStepRun::create([
+            'transaction_id' => $tx->id,
+            'from_step_id' => $this->payrollStep->id,
+            'to_step_id' => $gsoStep->id,
+            'action_code' => 'approve',
+            'performed_by' => $this->admin->id,
+            'performed_at' => now()->subHours(24),
+            'received_at' => now()->subHours(24),
+            'received_office_id' => $gso->id,
+            'sla_minutes_snapshot' => 60,
+        ]);
+
+        TransactionState::where('transaction_id', $tx->id)->update([
+            'current_step_id' => $gsoStep->id,
+            'current_run_id' => $gsoRun->id,
+            'entered_at' => $gsoRun->performed_at,
+        ]);
+
+        $officeAdmin = User::factory()->create(['office_id' => $this->chrmo->id]);
+        $officeAdmin->roles()->attach(Role::firstOrCreate(['code' => 'admin'], ['name' => 'Admin'])->id);
+        Sanctum::actingAs($officeAdmin);
+
+        $this->getJson('/api/office/dashboard/overdue-overview?month=2026-08')
+            ->assertOk()
+            ->assertJsonCount(1, 'steps')
+            ->assertJsonPath('steps.0.office.code', 'CHRMO')
+            ->assertJsonPath('steps.0.count', 1);
+    }
+
     public function test_office_step_cards_count_office_wide_activity(): void
     {
         $csd = Office::create(['code' => 'CSD', 'name' => 'Computer Service Division']);
@@ -891,6 +951,7 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('office_step_metrics.entered', 3)
             ->assertJsonPath('office_step_metrics.received', 3)
             ->assertJsonPath('office_step_metrics.in_progress', 3)
+            ->assertJsonPath('office_step_metrics.overdue_steps', 2)
             ->assertJsonPath('office_step_metrics.released', 1);
 
         // Every card follows the selected month, not the calendar day.
@@ -899,6 +960,7 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('office_step_metrics.entered', 2)
             ->assertJsonPath('office_step_metrics.received', 1)
             ->assertJsonPath('office_step_metrics.in_progress', 1)
+            ->assertJsonPath('office_step_metrics.overdue_steps', 1)
             ->assertJsonPath('office_step_metrics.released', 1);
 
         // Today and this week are also accepted and drive every card.
@@ -908,6 +970,7 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('office_step_metrics.entered', 1)
             ->assertJsonPath('office_step_metrics.received', 1)
             ->assertJsonPath('office_step_metrics.in_progress', 1)
+            ->assertJsonPath('office_step_metrics.overdue_steps', 0)
             ->assertJsonPath('office_step_metrics.released', 0);
 
         $this->getJson('/api/office/dashboard/summary?month=this_week')
@@ -916,6 +979,7 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('office_step_metrics.entered', 2)
             ->assertJsonPath('office_step_metrics.received', 3)
             ->assertJsonPath('office_step_metrics.in_progress', 3)
+            ->assertJsonPath('office_step_metrics.overdue_steps', 2)
             ->assertJsonPath('office_step_metrics.released', 0);
 
         // Office heads keep the system-wide summary but get their own office's
@@ -930,10 +994,181 @@ class DashboardSummaryTest extends TestCase
             ->assertJsonPath('office_step_metrics.entered', 3)
             ->assertJsonPath('office_step_metrics.received', 3)
             ->assertJsonPath('office_step_metrics.in_progress', 3)
+            ->assertJsonPath('office_step_metrics.overdue_steps', 2)
             ->assertJsonPath('office_step_metrics.released', 1);
 
         // Superadmins keep only the system-wide overdue cards.
         $this->summary()->assertJsonMissingPath('office_step_metrics');
+    }
+
+    public function test_office_step_cards_count_steps_returned_to_the_office(): void
+    {
+        $csd = Office::create(['code' => 'CSD', 'name' => 'Computer Service Division']);
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+
+        $type = TransactionType::create(['code' => 'returns_card', 'name' => 'Returns card']);
+        $workflow = WorkflowDefinition::create([
+            'transaction_type_id' => $type->id,
+            'version' => 1,
+            'status' => 'published',
+        ]);
+        $csdStep = WorkflowStep::create([
+            'workflow_definition_id' => $workflow->id,
+            'order_number' => 1,
+            'code' => 'csd_returns',
+            'name' => 'CSD returns',
+            'office_id' => $csd->id,
+            'is_start' => true,
+            'sla_minutes' => 60,
+        ]);
+        $gsoStep = WorkflowStep::create([
+            'workflow_definition_id' => $workflow->id,
+            'order_number' => 2,
+            'code' => 'gso_returns',
+            'name' => 'GSO returns',
+            'office_id' => $gso->id,
+            'sla_minutes' => 60,
+        ]);
+
+        $makeTx = function (Office $office, bool $archived = false) use ($type, $workflow): Transaction {
+            return Transaction::create([
+                'transaction_type_id' => $type->id,
+                'workflow_definition_id' => $workflow->id,
+                'office_id' => $office->id,
+                'reference_number' => 'TX-RET-'.uniqid(),
+                'is_archive' => $archived,
+                'created_by' => $this->admin->id,
+            ]);
+        };
+        $addReturn = function (Transaction $tx, WorkflowStep $step, Office $office, \DateTimeInterface $at): TransactionStepRun {
+            return TransactionStepRun::create([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $step->id,
+                'to_step_id' => $step->id,
+                'action_code' => 'return',
+                'performed_by' => $this->admin->id,
+                'performed_at' => $at,
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $office->id,
+                'sla_minutes_snapshot' => 60,
+            ]);
+        };
+
+        // September: one return to CSD counts, one to GSO does not.
+        $addReturn($makeTx($csd), $csdStep, $csd, now()->subDays(6));
+        $addReturn($makeTx($gso), $gsoStep, $gso, now()->subDays(6));
+
+        // August: counts only in August.
+        $addReturn($makeTx($csd), $csdStep, $csd, now()->subMonthNoOverflow()->subDays(2));
+
+        // Archived transactions stay out of every card.
+        $addReturn($makeTx($csd, true), $csdStep, $csd, now()->subDays(6));
+
+        $officeAdmin = User::factory()->create(['office_id' => $csd->id]);
+        $officeAdmin->roles()->attach(Role::firstOrCreate(['code' => 'admin'], ['name' => 'Admin'])->id);
+        Sanctum::actingAs($officeAdmin);
+
+        $this->getJson('/api/office/dashboard/summary?month=2026-09')
+            ->assertOk()
+            ->assertJsonPath('office_step_metrics.returned', 1);
+
+        $this->getJson('/api/office/dashboard/summary?month=2026-08')
+            ->assertOk()
+            ->assertJsonPath('office_step_metrics.returned', 1);
+    }
+
+    public function test_office_overdue_steps_exclude_steps_already_released(): void
+    {
+        $csd = Office::create(['code' => 'CSD', 'name' => 'Computer Service Division']);
+        $gso = Office::create(['code' => 'GSO', 'name' => 'General Services Office']);
+
+        $type = TransactionType::create(['code' => 'open_overdue', 'name' => 'Open overdue']);
+        $workflow = WorkflowDefinition::create([
+            'transaction_type_id' => $type->id,
+            'version' => 1,
+            'status' => 'published',
+        ]);
+        $csdStep = WorkflowStep::create([
+            'workflow_definition_id' => $workflow->id,
+            'order_number' => 1,
+            'code' => 'open_csd',
+            'name' => 'CSD step',
+            'office_id' => $csd->id,
+            'is_start' => true,
+            'sla_minutes' => 60,
+        ]);
+        $gsoStep = WorkflowStep::create([
+            'workflow_definition_id' => $workflow->id,
+            'order_number' => 2,
+            'code' => 'open_gso',
+            'name' => 'GSO step',
+            'office_id' => $gso->id,
+            'sla_minutes' => 60,
+        ]);
+
+        $makeTx = function (Office $office) use ($type, $workflow): Transaction {
+            return Transaction::create([
+                'transaction_type_id' => $type->id,
+                'workflow_definition_id' => $workflow->id,
+                'office_id' => $office->id,
+                'reference_number' => 'TX-OPEN-'.uniqid(),
+                'created_by' => $this->admin->id,
+            ]);
+        };
+        $addRun = function (Transaction $tx, WorkflowStep $from, WorkflowStep $to, array $attrs = []): TransactionStepRun {
+            return TransactionStepRun::create(array_merge([
+                'transaction_id' => $tx->id,
+                'from_step_id' => $from->id,
+                'to_step_id' => $to->id,
+                'action_code' => 'submit',
+                'performed_by' => $this->admin->id,
+                'performed_at' => now(),
+                'received_at' => null,
+                'received_by' => null,
+                'received_office_id' => $to->office_id,
+                'sla_minutes_snapshot' => 60,
+            ], $attrs));
+        };
+        $makeCurrent = function (Transaction $tx, WorkflowStep $step, TransactionStepRun $run): void {
+            TransactionState::create([
+                'transaction_id' => $tx->id,
+                'current_step_id' => $step->id,
+                'current_run_id' => $run->id,
+                'entered_at' => $run->performed_at,
+            ]);
+        };
+
+        // Still at CSD, received three days ago: overdue and counts.
+        $open = $makeTx($csd);
+        $openRun = $addRun($open, $csdStep, $csdStep, [
+            'performed_at' => now()->subDays(3),
+            'received_at' => now()->subDays(3),
+        ]);
+        $makeCurrent($open, $csdStep, $openRun);
+
+        // Was at CSD long enough to be overdue, then released to GSO. It is
+        // no longer work waiting at CSD, so the office card drops it.
+        $released = $makeTx($csd);
+        $addRun($released, $csdStep, $csdStep, [
+            'performed_at' => now()->subDays(5),
+            'received_at' => now()->subDays(5),
+        ]);
+        $gsoVisit = $addRun($released, $csdStep, $gsoStep, [
+            'action_code' => 'approve',
+            'performed_at' => now()->subDays(4),
+            'received_at' => now()->subDays(4),
+        ]);
+        $makeCurrent($released, $gsoStep, $gsoVisit);
+
+        $officeAdmin = User::factory()->create(['office_id' => $csd->id]);
+        $officeAdmin->roles()->attach(Role::firstOrCreate(['code' => 'admin'], ['name' => 'Admin'])->id);
+        Sanctum::actingAs($officeAdmin);
+
+        $this->getJson('/api/office/dashboard/summary?month=2026-09')
+            ->assertOk()
+            ->assertJsonPath('office_step_metrics.in_progress', 1)
+            ->assertJsonPath('office_step_metrics.overdue_steps', 1);
     }
 
     public function test_invalid_month_is_rejected(): void

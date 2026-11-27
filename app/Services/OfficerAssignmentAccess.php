@@ -270,6 +270,24 @@ class OfficerAssignmentAccess
             'is_pending' => $run !== null && $run->received_at === null,
             'is_current' => $run !== null && $run->id === $current?->id,
         ];
+        // Office admins may view and reassign other officers' work, but the
+        // action UI stays hidden unless the current visit is unassigned or
+        // theirs. Other roles keep their existing action gates.
+        $data['can_act'] = true;
+        if ($user?->isOfficeAdmin()) {
+            $step = $tx->state?->currentStep;
+            $stepOfficeId = $step ? $tx->effectiveStepOfficeId($step) : null;
+            $ownerId = $run?->assigned_to ?? $run?->received_by;
+
+            $data['can_act'] = !$tx->is_done
+                && !$tx->is_archive
+                && $run !== null
+                && $data['is_current']
+                && $stepOfficeId !== null
+                && (int) $stepOfficeId === (int) $user->office_id
+                && ($ownerId === null || (int) $ownerId === (int) $user->id);
+        }
+
         $data['requires_reassignment'] = $data['is_pending'] && $data['version'] > 0 && $run->assigned_to === null;
         if ($includeDetails) {
             $offices = \App\Models\Office::whereIn('id', $visits->map(fn ($visit) => $this->officeId($tx, $visit))->filter())->get()->keyBy('id');

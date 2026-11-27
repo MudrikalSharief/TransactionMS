@@ -114,7 +114,7 @@
             </div>
 
             <!-- Steps this user can act on: received work, returns, and
-                 arrivals for their role. Top three rows; View all opens the
+                 arrivals for their role. Top four rows; View all opens the
                  full step list. -->
             <div class="dash-slot" style="--span: 6">
                 <v-card rounded="0" elevation="1" class="lgu-card dash-panel d-flex flex-column" style="width: 100%">
@@ -192,7 +192,7 @@ const officeRows = ref([]);
 
 // Period filter: every work card below follows it. The shared option list is
 // filtered so the staff portal offers Today, This week and months, without
-// All time. View switches the five cards and the chart between Personal and
+// All time. View switches the six cards and the chart between Personal and
 // whole-office scope; Needs My Action always stays personal.
 const period = ref(monthValue(new Date()));
 const periodOptions = computed(() => dashPeriodOptions().filter((option) => option.value !== "all"));
@@ -221,14 +221,6 @@ const personalTiles = computed(() => {
     const m = summary.value?.step_metrics || {};
     return [
         {
-            key: "entered_today",
-            label: "Entered",
-            value: m.entered ?? 0,
-            hint: `Steps for your role that entered your office ${periodPhrase.value}.`,
-            icon: "mdi-door-open",
-            variant: "success",
-        },
-        {
             key: "received_today",
             label: "Received",
             value: m.received ?? 0,
@@ -237,19 +229,26 @@ const personalTiles = computed(() => {
             variant: "info",
         },
         {
-            key: "in_process",
-            label: "In progress",
-            value: summary.value?.in_process ?? 0,
-            hint: `Office transactions still moving ${periodPhrase.value}.`,
+            key: "working",
+            label: "Working",
+            value: m.working ?? 0,
+            hint: `Steps you received ${periodPhrase.value} and are still being worked on.`,
             icon: "mdi-timer-sand",
             variant: "warning",
-            go: () => openList("office"),
         },
         {
-            key: "overdue_work",
+            key: "returned",
+            label: "Return",
+            value: m.returned ?? 0,
+            hint: `Steps returned to you ${periodPhrase.value}.`,
+            icon: "mdi-undo-variant",
+            variant: "warning",
+        },
+        {
+            key: "overdue_steps",
             label: "Overdue Steps",
-            value: m.overdue_work ?? 0,
-            hint: `Your open received steps ${periodPhrase.value} — overdue or in progress.`,
+            value: m.overdue_steps ?? 0,
+            hint: `Your currently open steps past their SLA ${periodPhrase.value}.`,
             icon: "mdi-timer-alert-outline",
             variant: "danger",
         },
@@ -261,6 +260,14 @@ const personalTiles = computed(() => {
             icon: "mdi-send-check-outline",
             variant: "info",
         },
+        {
+            key: "overdue_transactions",
+            label: "Overdue Transactions",
+            value: officeSummary.value?.overdue_transactions ?? 0,
+            hint: `Transactions over their total SLA at your office ${periodPhrase.value}.`,
+            icon: "mdi-file-clock-outline",
+            variant: "danger",
+        },
     ];
 });
 
@@ -270,14 +277,6 @@ const officeTiles = computed(() => {
     const s = officeSummary.value || {};
     return [
         {
-            key: "office_entered",
-            label: "Entered",
-            value: m.entered ?? 0,
-            hint: `Steps that entered your office ${periodPhrase.value}.`,
-            icon: "mdi-door-open",
-            variant: "success",
-        },
-        {
             key: "office_received",
             label: "Received",
             value: m.received ?? 0,
@@ -286,12 +285,28 @@ const officeTiles = computed(() => {
             variant: "info",
         },
         {
-            key: "office_in_progress",
-            label: "In progress",
+            key: "office_working",
+            label: "Working",
             value: m.in_progress ?? 0,
-            hint: `Steps received by your office ${periodPhrase.value} and still in progress.`,
+            hint: `Steps received by your office ${periodPhrase.value} and still being worked on.`,
             icon: "mdi-timer-sand",
             variant: "warning",
+        },
+        {
+            key: "office_returned",
+            label: "Return",
+            value: m.returned ?? 0,
+            hint: `Steps returned to your office ${periodPhrase.value}.`,
+            icon: "mdi-undo-variant",
+            variant: "warning",
+        },
+        {
+            key: "office_overdue_steps",
+            label: "Overdue Steps",
+            value: m.overdue_steps ?? 0,
+            hint: `Your office's currently open steps past their SLA ${periodPhrase.value}.`,
+            icon: "mdi-timer-alert-outline",
+            variant: "danger",
         },
         {
             key: "office_released",
@@ -300,14 +315,6 @@ const officeTiles = computed(() => {
             hint: `Steps completed by your office ${periodPhrase.value}.`,
             icon: "mdi-send-check-outline",
             variant: "info",
-        },
-        {
-            key: "office_overdue_steps",
-            label: "Overdue Steps",
-            value: s.overdue_steps ?? 0,
-            hint: `Individual steps over SLA at your office ${periodPhrase.value}.`,
-            icon: "mdi-timer-alert-outline",
-            variant: "danger",
         },
         {
             key: "office_overdue_transactions",
@@ -329,7 +336,7 @@ const NEEDS_ACTION_META = {
 };
 const needsActionRows = computed(() => [...(summary.value?.needs_action?.rows ?? [])]
     .sort((a, b) => Number(b.id) - Number(a.id))
-    .slice(0, 3)
+    .slice(0, 4)
     .map((step) => {
         const meta = NEEDS_ACTION_META[step.action];
         return {
@@ -384,12 +391,12 @@ async function loadMetrics() {
     const mine = ++summaryRequest;
     const [sum, office] = await Promise.allSettled([
         fetchSummary(),
-        isOfficeView.value ? fetchOfficeSummary() : Promise.resolve(null),
+        fetchOfficeSummary(),
     ]);
     if (mine !== summaryRequest) return;
     if (sum.status === "fulfilled") summary.value = sum.value.data;
-    if (office.status === "fulfilled" && office.value) officeSummary.value = office.value.data;
-    if (sum.status === "fulfilled" || (office.status === "fulfilled" && office.value)) {
+    if (office.status === "fulfilled") officeSummary.value = office.value.data;
+    if (sum.status === "fulfilled" || office.status === "fulfilled") {
         markWorkspaceRefreshed();
     }
 }
@@ -432,22 +439,6 @@ useSmartPoll(load);
     .portal-toolbar .home-period {
         flex: 1 1 100%;
         min-width: 0;
-    }
-}
-/* Cap the staff tiles at three columns so the icon + number + copy have
-   enough room. Six cards then sit as two rows of three instead of being
-   squeezed into one row where labels and hints clip. */
-.workspace-shell .workspace-dashboard--staff .portal-tiles {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-@media (max-width: 1359px) {
-    .workspace-shell .workspace-dashboard--staff .portal-tiles {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-@media (max-width: 759px) {
-    .workspace-shell .workspace-dashboard--staff .portal-tiles {
-        grid-template-columns: minmax(0, 1fr);
     }
 }
 .clerk-summary-card {

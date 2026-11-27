@@ -180,7 +180,9 @@ class OfficeRoleMatrixTest extends TestCase
                 'performed_by' => $this->creator->id,
                 'performed_at' => now(),
                 'received_at' => now(),
-                'received_by' => $this->creator->id,
+                // Leave the visit unassigned so this matrix keeps testing
+                // office/role scope, not officer ownership.
+                'received_by' => null,
                 'received_office_id' => $current->office_id,
                 'sla_minutes_snapshot' => 0,
             ]);
@@ -411,8 +413,8 @@ class OfficeRoleMatrixTest extends TestCase
 
     public function test_my_transactions_endpoint_stays_station_scoped(): void
     {
-        // The legacy /api/transactions routes (ApprovalProceedDialog) never
-        // widened with the admin list: only users who can work the station.
+        // The legacy /api/transactions routes stay station-scoped for
+        // non-admins; office admins keep their office-scope view.
         $tx = $this->makeTx($this->gso, $this->cboStep);
 
         $this->assertMatrix('user detail GSO@CBO', [
@@ -420,7 +422,7 @@ class OfficeRoleMatrixTest extends TestCase
             'cbo_clerk' => 200,
             'cbo_admin' => 200,
             'gso_clerk' => 403,
-            'gso_admin' => 403,
+            'gso_admin' => 200,      // own office's paper, wherever it sits
             'hr_clerk' => 403,
             'gso_end_user' => 403,
         ], fn () => $this->getJson("/api/transactions/{$tx->id}"));

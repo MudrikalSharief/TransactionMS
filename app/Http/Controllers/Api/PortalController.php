@@ -7,6 +7,7 @@ use App\Models\Office;
 use App\Models\Transaction;
 use App\Models\TransactionStepRun;
 use App\Services\RoutingEngine;
+use App\Support\WorkingTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -62,7 +63,7 @@ class PortalController extends Controller
     /** Step activity, open work, and forward releases for one user. */
     private function personalStepMetrics($user, $from, $to): array
     {
-        $empty = ['received' => 0, 'entered' => 0, 'overdue_work' => 0, 'released' => 0];
+        $empty = ['received' => 0, 'entered' => 0, 'working' => 0, 'overdue_steps' => 0, 'returned' => 0, 'released' => 0];
         if ($user->office_id === null) return $empty;
 
         $received = TransactionStepRun::query()
@@ -104,9 +105,8 @@ class PortalController extends Controller
                 ->count();
         }
 
-        // Every open step the user currently holds, received inside the Period:
-        // overdue visits and visits still inside their limit both count.
-        $overdueWork = Transaction::query()
+        // Active stepwork the user currently holds, received inside the Period.
+        $workingSteps = Transaction::query()
             ->withoutGlobalScope('officer_assignment')
             ->active()
             ->where('is_done', false)
@@ -122,7 +122,21 @@ class PortalController extends Controller
                                 ->where('received_by', $user->id));
                     });
             })
-            ->count();
+            ->with(['state.currentRun', 'state.currentStep'])
+            ->get()
+            ->filter(fn (Transaction $tx) => $tx->state?->currentStep !== null);
+
+        $working = $workingSteps->count();
+        $overdueSteps = $workingSteps->filter(function (Transaction $tx) {
+            $run = $tx->state?->currentRun;
+            $step = $tx->state?->currentStep;
+            if (!$run?->received_at || !$step) return false;
+
+            $sla = (int) ($run->sla_minutes_snapshot ?: $step->sla_minutes ?: 0);
+            if ($sla <= 0) return false;
+
+            return WorkingTime::minutesBetween($run->received_at, now()) > $sla;
+        })->count();
 
         // Forward "Proceed" actions the user actually performed in the
         // selected Period. Creating, returning, resending, and finalizing are
@@ -137,10 +151,32 @@ class PortalController extends Controller
                 ->withoutGlobalScope('officer_assignment'))
             ->count();
 
+        // Steps sent back to this user within the selected Period. The
+        // automatic restore on return assigns the previous officer; an
+        // unassigned return counts for whoever receives it. This is
+        // incoming work, unlike the outgoing Returns report.
+        $returned = TransactionStepRun::query()
+            ->where('action_code', 'return')
+            ->when($from, fn (Builder $q) => $q
+                ->where('performed_at', '>=', $from)
+                ->where('performed_at', '<', $to))
+            ->where(function (Builder $q) use ($user) {
+                $q->where('assigned_to', $user->id)
+                    ->orWhere(fn (Builder $x) => $x
+                        ->whereNull('assigned_to')
+                        ->where('received_by', $user->id));
+            })
+            ->whereHas('transaction', fn (Builder $q) => $q
+                ->withoutGlobalScope('officer_assignment')
+                ->active())
+            ->count();
+
         return [
             'received' => $received,
             'entered' => $entered,
-            'overdue_work' => $overdueWork,
+            'working' => $working,
+            'overdue_steps' => $overdueSteps,
+            'returned' => $returned,
             'released' => $released,
         ];
     }
