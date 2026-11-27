@@ -42,7 +42,7 @@
         </v-alert>
 
         <!-- Numbers for the user's office / role -->
-                <div class="portal-tiles">
+                <div class="portal-tiles" :class="{ 'clerk-personal-tiles': isClerk && !isOfficeView }">
                     <template v-for="tile in tiles" :key="tile.key">
                     <component
                         :is="tile.go ? 'button' : 'div'"
@@ -448,6 +448,17 @@ useSmartPoll(load);
 @media (max-width: 759px) {
     .workspace-shell .workspace-dashboard--staff .portal-tiles {
         grid-template-columns: minmax(0, 1fr);
+    }
+}
+@media (min-width: 1100px) {
+    .workspace-shell .workspace-dashboard--staff .portal-tiles.clerk-personal-tiles {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .clerk-personal-tiles > :nth-child(-n + 2) {
+        grid-column: span 3;
+    }
+    .clerk-personal-tiles > :nth-child(n + 3) {
+        grid-column: span 2;
     }
 }
 .clerk-summary-card {

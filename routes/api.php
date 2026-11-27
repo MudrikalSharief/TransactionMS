@@ -58,6 +58,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [RegistrationController::class, 'register'])->middleware(['guest', 'throttle:6,1']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+    Route::put('/role', [AuthController::class, 'switchRole'])->middleware('auth:sanctum');
 });
 
 // "My Profile" for every signed-in account (the shared guest viewer is refused).

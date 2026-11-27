@@ -147,7 +147,7 @@
                      page with nothing to go back to, it leaves tracking for the
                      login page. -->
                 <button
-                    v-if="auth.user.value && kind === 'viewer'"
+                    v-if="auth.user.value && kind === 'viewer' && !canSwitchRoles"
                     type="button"
                     class="nav-back"
                     :disabled="loggingOut"
@@ -162,7 +162,9 @@
                      with the profile header, settings and log out. Hidden for
                      the shared viewer account. -->
                 <v-menu
-                    v-if="auth.user.value && kind !== 'viewer'"
+                    v-if="auth.user.value && (kind !== 'viewer' || canSwitchRoles)"
+                    v-model="accountMenuOpen"
+                    :close-on-content-click="false"
                     location="bottom end"
                     :location-strategy="workspaceMode ? workspaceMenuLocation : 'connected'"
                     offset="10"
@@ -193,19 +195,40 @@
                         </div>
                         <v-divider class="account-menu-divider" />
                         <v-list density="compact" class="account-menu-list">
-                            <v-list-item v-if="hasProfile" @click="router.push('/profile')">
+                            <v-list-item v-if="hasProfile" @click="accountMenuOpen = false; router.push('/profile')">
                                 <template #prepend>
                                     <span class="account-menu-icon"><v-icon size="18">mdi-account-outline</v-icon></span>
                                 </template>
                                 <v-list-item-title>My Profile</v-list-item-title>
                             </v-list-item>
-                            <v-list-item @click="settingsOpen = true">
+                            <v-list-group v-if="canSwitchRoles" value="switch-role">
+                                <template #activator="{ props }">
+                                    <v-list-item v-bind="props" :disabled="switchingRole">
+                                        <template #prepend>
+                                            <span class="account-menu-icon"><v-icon size="18">mdi-account-switch-outline</v-icon></span>
+                                        </template>
+                                        <v-list-item-title>Switch Role</v-list-item-title>
+                                    </v-list-item>
+                                </template>
+                                <v-list-item
+                                    v-for="role in availableRoles"
+                                    :key="role.id"
+                                    :disabled="switchingRole || role.id === auth.user.value.active_role_id"
+                                    @click="onSwitchRole(role.id)"
+                                >
+                                    <template #prepend>
+                                        <span class="account-menu-icon"><v-icon size="18">{{ role.id === auth.user.value.active_role_id ? 'mdi-check' : 'mdi-account-outline' }}</v-icon></span>
+                                    </template>
+                                    <v-list-item-title>{{ role.name || role.code }}</v-list-item-title>
+                                </v-list-item>
+                            </v-list-group>
+                            <v-list-item @click="accountMenuOpen = false; settingsOpen = true">
                                 <template #prepend>
                                     <span class="account-menu-icon"><v-icon size="18">mdi-cog-outline</v-icon></span>
                                 </template>
                                 <v-list-item-title>Settings &amp; Preferences</v-list-item-title>
                             </v-list-item>
-                            <v-list-item @click="router.push('/help')">
+                            <v-list-item @click="accountMenuOpen = false; router.push('/help')">
                                 <template #prepend>
                                     <span class="account-menu-icon"><v-icon size="18">mdi-help-circle-outline</v-icon></span>
                                 </template>
@@ -224,7 +247,7 @@
                                 </template>
                                 <v-list-item-title>Back to login</v-list-item-title>
                             </v-list-item>
-                            <v-list-item v-else class="account-menu-logout" @click="confirmLogout = true">
+                            <v-list-item v-else class="account-menu-logout" @click="accountMenuOpen = false; confirmLogout = true">
                                 <template #prepend>
                                     <span class="account-menu-icon account-menu-icon--danger">
                                         <v-icon size="18">mdi-logout-variant</v-icon>
@@ -516,7 +539,8 @@
 import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useAuth, canUseApprovals, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
+import { useAuth, canUseApprovals, homePathFor, isSuperadminUser, isOfficeAdminUser, userKind } from "@/composables/useAuth";
+import { toast } from "@/composables/useToast";
 import { useTransactions } from "@/composables/useTransactions";
 import { useApprovalBadge } from "@/composables/useApprovalBadge";
 import { useWorkspaceHeader } from "@/composables/useWorkspaceHeader";
@@ -559,6 +583,7 @@ const toggleNav = () => {
 // Settings dialog: profile line plus the theme / motion controls that used to
 // sit at the foot of the sidebar.
 const settingsOpen = ref(false);
+const accountMenuOpen = ref(false);
 
 // Labels appear as soon as the pointer comes close to the collapsed rail:
 // the rows are spaced like the open menu, so waiting for a direct hover leaves
@@ -608,7 +633,7 @@ const isOfficeAdmin = computed(() => isOfficeAdminUser(auth.user.value));
 // admin (superadmin/admin) | staff (user portal) | viewer (read-only tracking)
 const kind = computed(() => userKind(auth.user.value));
 // Guest tracker pages show only a standalone Login action.
-const isTrackerView = computed(() => kind.value === "viewer" && route.meta?.kind === "viewer");
+const isTrackerView = computed(() => kind.value === "viewer" && !canSwitchRoles.value && route.meta?.kind === "viewer");
 // Shared and teleported surfaces use the same boundary. Excluded routes lose
 // their marker synchronously, including transitions between account kinds.
 const workspaceMode = computed(() => showAuthUi.value && kind.value !== "viewer"
@@ -644,25 +669,26 @@ watch(() => route.path, () => {
     if (mobile.value) drawer.value = false;
 });
 // My Profile: every signed-in account except the shared guest viewer.
-const hasProfile = computed(() => !!auth.user.value && kind.value !== "viewer");
+const availableRoles = computed(() => auth.user.value?.available_roles || auth.user.value?.roles || []);
+const canSwitchRoles = computed(() => availableRoles.value.length >= 2);
+const hasProfile = computed(() => !!auth.user.value && (kind.value !== "viewer" || canSwitchRoles.value));
+const switchingRole = ref(false);
+async function onSwitchRole(roleId) {
+    switchingRole.value = true;
+    try {
+        const user = await auth.switchRole(roleId);
+        window.location.assign(homePathFor(user));
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Could not switch roles. Please try again.');
+        switchingRole.value = false;
+    }
+}
 
 // Account menu header.
 const accountName = computed(
     () => auth.user.value?.name || auth.user.value?.username || "Account",
 );
-// One primary role label for the greeting. Higher-privilege system roles win;
-// otherwise use the first non-end-user role, then whatever is assigned.
-const ROLE_PRIORITY = ["superadmin", "admin", "office_head", "clerk", "viewer"];
-const accountRoleLabel = computed(() => {
-    const roles = auth.user.value?.roles || [];
-    if (!roles.length) return "";
-    const primary = ROLE_PRIORITY
-        .map((code) => roles.find((role) => role.code === code))
-        .find(Boolean)
-        || roles.find((role) => role.code !== "end_user")
-        || roles[0];
-    return primary?.name || primary?.code || "";
-});
+const accountRoleLabel = computed(() => auth.user.value?.roles?.[0]?.name || auth.user.value?.roles?.[0]?.code || "");
 const accountEmail = computed(() => auth.user.value?.email || "");
 const accountInitial = computed(
     () => (accountName.value || "?").trim().charAt(0).toUpperCase() || "?",

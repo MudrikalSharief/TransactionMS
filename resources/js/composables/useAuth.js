@@ -142,6 +142,14 @@ export function useAuth() {
         return user.value;
     }
 
+    async function switchRole(roleId) {
+        const res = await api.put('/api/auth/role', { role_id: roleId });
+        for (const key of Object.values(CacheKeys)) invalidatePrefix(key);
+        user.value = res.data.user;
+        writeCache(CacheKeys.authUser, res.data.user);
+        return user.value;
+    }
+
     async function logout() {
         try {
             await api.post("/api/auth/logout");
@@ -161,5 +169,5 @@ export function useAuth() {
         }
     }
 
-    return { user, initialized, init, login, loginAsGuest, logout };
+    return { user, initialized, init, login, loginAsGuest, switchRole, logout };
 }

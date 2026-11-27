@@ -375,7 +375,8 @@ export function createRouter() {
                 // welcome animation. Otherwise read-only: tracking pages and
                 // Help only.
                 if (to.name === "dashboard") return "/track/welcome";
-                if (to.meta.kind !== "viewer" && to.name !== "help") return "/track";
+                if (to.meta.kind !== "viewer" && to.name !== "help"
+                    && !(to.name === "profile" && (auth.user.value.available_roles?.length ?? 0) > 1)) return "/track";
             } else if (kind === "staff") {
                 // Staff must never land on an admin URL. Send them to the
                 // matching portal page instead.

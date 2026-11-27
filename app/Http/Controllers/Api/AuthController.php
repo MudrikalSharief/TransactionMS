@@ -49,6 +49,7 @@ class AuthController extends Controller
         Auth::guard('web')->login($user, $remember);
 
         $request->session()->regenerate();
+        $request->session()->forget('active_role_id');
 
         return response()->json([
             'message' => 'Logged in.',
@@ -85,6 +86,7 @@ class AuthController extends Controller
         Auth::guard('web')->login($guest);
 
         $request->session()->regenerate();
+        $request->session()->forget('active_role_id');
 
         return response()->json([
             'message' => 'Logged in as guest.',
@@ -144,6 +146,17 @@ class AuthController extends Controller
         }
 
         $user->load(['roles', 'office']);
+        $roles = $user->roles->sortBy('pivot.created_at')->map(fn ($r) => [
+            'id' => $r->id,
+            'code' => $r->code,
+            'name' => $r->name,
+        ])->values();
+        $selectedId = $request->hasSession() ? $request->session()->get('active_role_id') : null;
+        $active = $roles->firstWhere('id', $selectedId);
+        if (!$active) {
+            $active = $roles->first();
+            if ($request->hasSession()) $request->session()->forget('active_role_id');
+        }
 
             return response()->json([
                 'user' => [
@@ -152,13 +165,28 @@ class AuthController extends Controller
                     'username' => $user->username,
                     'email' => $user->email,
                     'office' => Office::mini($user->office),
-                    'roles' => $user->roles->map(fn($r) => [
-                        'id' => $r->id,
-                        'code' => $r->code,
-                        'name' => $r->name,
-                    ])->values(),
+                    'roles' => $active ? [$active] : [],
+                    'available_roles' => $roles,
+                    'active_role_id' => $active['id'] ?? null,
                 ],
             ]);
+    }
+
+    public function switchRole(Request $request): JsonResponse
+    {
+        if (!$request->hasSession()) {
+            return $this->sessionMissingResponse();
+        }
+
+        $data = $request->validate(['role_id' => ['required', 'integer']]);
+        $roles = $request->user()->roles()->pluck('roles.id');
+        if ($roles->count() < 2 || !$roles->contains((int) $data['role_id'])) {
+            return response()->json(['message' => 'That role is not available for this account.'], 422);
+        }
+
+        $request->session()->put('active_role_id', (int) $data['role_id']);
+
+        return $this->me($request);
     }
 
     public function logout(Request $request): JsonResponse
