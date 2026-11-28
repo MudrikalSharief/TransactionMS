@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\EnsureTransactionOffice;
 use App\Http\Requests\Transactions\CreateTransactionRequest;
 use App\Http\Requests\Transactions\ExecuteActionRequest;
 use App\Http\Resources\TransactionListResource;
@@ -18,6 +19,67 @@ use Illuminate\Support\Facades\DB;
 
 class TransactionController extends Controller
 {
+    public function bulkUpdate(Request $request, AuditService $audit, EnsureTransactionOffice $officeAccess)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:2', 'max:100'],
+            'ids.*' => ['required', 'integer', 'distinct', 'min:1'],
+            'action' => ['required', 'in:privacy,archive,unarchive'],
+            'is_private' => ['required_if:action,privacy', 'boolean'],
+        ]);
+
+        $transactions = Transaction::query()->whereIn('id', $data['ids'])->get();
+        if ($transactions->count() !== count($data['ids'])) {
+            abort(404);
+        }
+
+        foreach ($transactions as $transaction) {
+            if (!$officeAccess->canWrite($request->user(), $transaction)) {
+                abort(403);
+            }
+        }
+
+        DB::transaction(function () use ($request, $data, $transactions, $audit) {
+            foreach ($transactions as $transaction) {
+                if ($data['action'] === 'privacy') {
+                    $before = (bool) $transaction->is_private;
+                    $transaction->is_private = (bool) $data['is_private'];
+                    if (!$transaction->isDirty('is_private')) continue;
+                    $transaction->save();
+                    $audit->log($request, 'transactions.privacy', $transaction, [
+                        'before' => ['is_private' => $before],
+                        'after' => ['is_private' => (bool) $transaction->is_private],
+                    ]);
+                } else {
+                    $before = (bool) $transaction->is_archive;
+                    $transaction->is_archive = $data['action'] === 'archive';
+                    if (!$transaction->isDirty('is_archive')) continue;
+                    $transaction->save();
+                    $audit->log($request, 'transactions.'.$data['action'], $transaction, [
+                        'before' => ['is_archive' => $before],
+                        'after' => ['is_archive' => (bool) $transaction->is_archive],
+                        'note' => $transaction->is_archive
+                            ? 'Archived instead of deleted; record and history kept.'
+                            : 'Restored to the active transaction lists; record and history unchanged.',
+                    ]);
+                }
+            }
+        });
+
+        return response()->json([
+            'message' => match ($data['action']) {
+                'archive' => 'Selected transactions archived.',
+                'unarchive' => 'Selected transactions unarchived.',
+                default => 'Selected transaction access updated.',
+            },
+            'data' => [match ($data['action']) {
+                'archive' => 'archived',
+                'unarchive' => 'unarchived',
+                default => 'updated',
+            } => $transactions->count()],
+        ]);
+    }
+
     public function index(Request $request, TransactionVisibility $visibility)
     {
         $data = $request->validate([

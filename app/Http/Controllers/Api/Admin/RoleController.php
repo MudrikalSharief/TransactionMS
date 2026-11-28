@@ -64,6 +64,9 @@ class RoleController extends Controller
     public function update(UpdateRoleRequest $request, Role $role, AuditService $audit)
     {
         $this->assertManageable($request, $role);
+        if ($role->code === 'viewer' && $request->validated('code') !== 'viewer') {
+            return response()->json(['message' => 'Cannot change the viewer role code used by tracking.'], 422);
+        }
         return DB::transaction(function () use ($request, $role, $audit) {
             $before = $role->only(['code', 'name', 'description']);
 
@@ -83,6 +86,9 @@ class RoleController extends Controller
         $this->assertManageable($request, $role);
         if ($role->code === 'superadmin') {
             return response()->json(['message' => 'Cannot delete superadmin role.'], 422);
+        }
+        if ($role->code === 'viewer') {
+            return response()->json(['message' => 'Cannot delete the viewer role used by tracking.'], 422);
         }
 
         return DB::transaction(function () use ($request, $role, $audit) {

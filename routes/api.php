@@ -301,6 +301,8 @@ Route::middleware(['auth:sanctum', BlockViewer::class])
         // Read-only for staff: visibility is scoped by TransactionVisibility.
         Route::get('/transactions/archive', [TransactionArchiveController::class, 'index']);
         Route::post('/transactions', [TransactionController::class, 'store']);
+        Route::post('/transactions/bulk', [TransactionController::class, 'bulkUpdate'])
+            ->middleware(EnsureOfficeAdmin::class);
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
             ->middleware(EnsureTransactionOffice::class);
         Route::get('/transactions/{transaction}/steps/{step}/receivers', [\App\Http\Controllers\Api\TransactionReceivingOfficerController::class, 'showAdmin'])

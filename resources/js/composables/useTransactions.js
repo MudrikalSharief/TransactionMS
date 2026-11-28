@@ -119,6 +119,16 @@ export function useTransactions({ archived = false } = {}) {
     return res.data
   }
 
+  async function bulkUpdate(ids, action, isPrivate) {
+    const res = await api.post('/api/admin/transactions/bulk', {
+      ids,
+      action,
+      ...(action === 'privacy' ? { is_private: isPrivate } : {}),
+    })
+    invalidatePrefix(userScope())
+    return res.data
+  }
+
   async function getOne(id) {
     const res = await api.get(`/api/admin/transactions/${id}`)
     return {
@@ -186,5 +196,5 @@ export function useTransactions({ archived = false } = {}) {
     return res.data.data ?? res.data
   }
 
-  return { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, uploadAttachment }
+  return { items, loading, meta, fetchAll, create, archive, unarchive, setPrivacy, bulkUpdate, getOne, updateOffice, execute, receive, gotoStation, finalize, checkRequirement, uploadAttachment }
 }

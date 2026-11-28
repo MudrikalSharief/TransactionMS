@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class GuestLoginTest extends TestCase
@@ -61,5 +62,20 @@ class GuestLoginTest extends TestCase
         $this->postJson('/api/auth/guest')->assertStatus(503);
         $this->assertGuest('web');
         $this->assertSame(['admin', 'viewer'], $guest->roles()->orderBy('code')->pluck('code')->all());
+    }
+
+    public function test_tracking_viewer_role_cannot_be_deleted_or_renamed(): void
+    {
+        $viewer = Role::create(['code' => 'viewer', 'name' => 'Viewer']);
+        $superadmin = Role::firstOrCreate(['code' => 'superadmin'], ['name' => 'Super Admin']);
+        $actor = User::factory()->create();
+        $actor->roles()->attach($superadmin);
+        Sanctum::actingAs($actor);
+
+        $this->deleteJson("/api/admin/roles/{$viewer->id}")->assertUnprocessable();
+        $this->putJson("/api/admin/roles/{$viewer->id}", [
+            'code' => 'former_viewer', 'name' => 'Viewer',
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('roles', ['id' => $viewer->id, 'code' => 'viewer', 'deleted_at' => null]);
     }
 }

@@ -204,7 +204,7 @@ class ViewerTrackingPrivacyTest extends TestCase
         ]);
     }
 
-    public function test_archived_public_transaction_is_hidden_from_track_search_and_detail(): void
+    public function test_archived_public_transaction_is_visible_in_track_search_and_detail(): void
     {
         $viewer = $this->userWithRole('viewer');
         $tx = $this->makeTransaction(
@@ -218,31 +218,30 @@ class ViewerTrackingPrivacyTest extends TestCase
 
         $this->getJson('/api/viewer/transactions?q=TRACK-ARCHIVED-SHARED-1')
             ->assertOk()
-            ->assertJsonCount(0, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $tx->id);
 
         $this->getJson("/api/viewer/transactions/{$tx->id}")
-            ->assertNotFound();
+            ->assertOk()
+            ->assertJsonPath('data.id', $tx->id);
     }
 
-    public function test_archived_own_transaction_is_hidden_from_track_list_search_and_detail(): void
+    public function test_archived_private_transaction_is_hidden_even_from_its_creator(): void
     {
         $viewer = $this->userWithRole('viewer');
-        $tx = $this->makeTransaction($viewer, 'TRACK-ARCHIVED-OWN-1');
+        $tx = $this->makeTransaction($viewer, 'TRACK-ARCHIVED-OWN-1', true);
         $tx->update(['is_archive' => true]);
 
         Sanctum::actingAs($viewer);
 
-        // Default list: only active rows.
         $this->getJson('/api/viewer/transactions')
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        // Keyword search: archived rows stay out even for their owner.
         $this->getJson('/api/viewer/transactions?q=TRACK-ARCHIVED-OWN-1')
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        // Direct URL: 404.
         $this->getJson("/api/viewer/transactions/{$tx->id}")
             ->assertNotFound();
     }
@@ -274,7 +273,7 @@ class ViewerTrackingPrivacyTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_viewer_can_still_search_and_open_their_own_private_transaction(): void
+    public function test_viewer_cannot_search_or_open_their_own_private_transaction(): void
     {
         $viewer = $this->userWithRole('viewer');
         $own = $this->makeTransaction($viewer, 'TRACK-OWN-1', true);
@@ -283,12 +282,39 @@ class ViewerTrackingPrivacyTest extends TestCase
 
         $this->getJson('/api/viewer/transactions?q=TRACK-OWN-1')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $own->id);
+            ->assertJsonCount(0, 'data');
 
         $this->getJson("/api/viewer/transactions/{$own->id}")
+            ->assertNotFound();
+    }
+
+    public function test_archived_transaction_can_be_made_public_and_filtered_in_archive_history(): void
+    {
+        $admin = $this->userWithRole('superadmin');
+        $viewer = $this->userWithRole('viewer');
+        $tx = $this->makeTransaction(User::factory()->create(), 'TRACK-ARCHIVE-TOGGLE-1', true);
+        $tx->update(['is_archive' => true]);
+
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/admin/transactions/archive?access=private')
             ->assertOk()
-            ->assertJsonPath('data.id', $own->id);
+            ->assertJsonFragment(['id' => $tx->id, 'is_private' => true]);
+
+        $this->patchJson("/api/admin/transactions/{$tx->id}/privacy", ['is_private' => false])
+            ->assertOk()
+            ->assertJsonPath('data.is_private', false);
+
+        $this->getJson('/api/admin/transactions/archive?access=public')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $tx->id, 'is_private' => false]);
+        $this->getJson('/api/admin/transactions/archive?access=private')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        Sanctum::actingAs($viewer);
+        $this->getJson('/api/viewer/transactions?q=TRACK-ARCHIVE-TOGGLE-1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $tx->id);
     }
 
     public function test_viewer_cannot_open_another_viewers_private_transaction(): void
@@ -339,5 +365,109 @@ class ViewerTrackingPrivacyTest extends TestCase
                 'id' => $tx->id,
                 'is_private' => true,
             ]);
+    }
+
+    public function test_admin_can_change_privacy_of_multiple_current_and_archived_transactions(): void
+    {
+        $admin = $this->userWithRole('admin', $this->office);
+        $current = $this->makeTransaction(User::factory()->create(), 'BULK-CURRENT-1', true);
+        $archived = $this->makeTransaction(User::factory()->create(), 'BULK-ARCHIVED-1', true);
+        $archived->update(['is_archive' => true]);
+
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$current->id, $archived->id],
+            'action' => 'privacy',
+            'is_private' => false,
+        ])->assertOk()->assertJsonPath('data.updated', 2);
+
+        $this->assertDatabaseHas('transactions', ['id' => $current->id, 'is_private' => false]);
+        $this->assertDatabaseHas('transactions', ['id' => $archived->id, 'is_private' => false]);
+        $this->assertSame(2, AuditLog::where('event', 'transactions.privacy')->count());
+    }
+
+    public function test_bulk_archive_moves_current_transactions_to_history_without_deleting_them(): void
+    {
+        $admin = $this->userWithRole('admin', $this->office);
+        $first = $this->makeTransaction(User::factory()->create(), 'BULK-ARCHIVE-1');
+        $second = $this->makeTransaction(User::factory()->create(), 'BULK-ARCHIVE-2');
+
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$first->id, $second->id],
+            'action' => 'archive',
+        ])->assertOk()->assertJsonPath('data.archived', 2);
+
+        $this->assertDatabaseHas('transactions', ['id' => $first->id, 'is_archive' => true, 'deleted_at' => null]);
+        $this->assertDatabaseHas('transactions', ['id' => $second->id, 'is_archive' => true, 'deleted_at' => null]);
+        $this->assertDatabaseHas('transaction_states', ['transaction_id' => $first->id]);
+        $this->assertSame(2, AuditLog::where('event', 'transactions.archive')->count());
+    }
+
+    public function test_bulk_unarchive_restores_archived_transactions(): void
+    {
+        $admin = $this->userWithRole('admin', $this->office);
+        $first = $this->makeTransaction(User::factory()->create(), 'BULK-RESTORE-1');
+        $second = $this->makeTransaction(User::factory()->create(), 'BULK-RESTORE-2');
+        $first->update(['is_archive' => true]);
+        $second->update(['is_archive' => true]);
+
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$first->id, $second->id],
+            'action' => 'unarchive',
+        ])->assertOk()->assertJsonPath('data.unarchived', 2);
+
+        $this->assertDatabaseHas('transactions', ['id' => $first->id, 'is_archive' => false]);
+        $this->assertDatabaseHas('transactions', ['id' => $second->id, 'is_archive' => false]);
+        $this->assertSame(2, AuditLog::where('event', 'transactions.unarchive')->count());
+    }
+
+    public function test_bulk_action_rejects_out_of_scope_ids_without_changing_any_row(): void
+    {
+        $otherOffice = Office::create(['code' => 'CBO', 'name' => 'City Budget Office']);
+        $admin = $this->userWithRole('admin', $otherOffice);
+        $allowed = $this->makeTransaction(User::factory()->create(), 'BULK-ALLOWED-1', true);
+        $allowed->update(['office_id' => $otherOffice->id]);
+        $denied = $this->makeTransaction(User::factory()->create(), 'BULK-DENIED-1', true);
+
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$allowed->id, $denied->id],
+            'action' => 'privacy',
+            'is_private' => false,
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('transactions', ['id' => $allowed->id, 'is_private' => true]);
+        $this->assertDatabaseHas('transactions', ['id' => $denied->id, 'is_private' => true]);
+    }
+
+    public function test_bulk_action_requires_two_distinct_rows_and_admin_role(): void
+    {
+        $clerk = $this->userWithRole('clerk', $this->office);
+        $admin = $this->userWithRole('admin', $this->office);
+        $first = $this->makeTransaction(User::factory()->create(), 'BULK-VALIDATE-1');
+        $second = $this->makeTransaction(User::factory()->create(), 'BULK-VALIDATE-2');
+
+        Sanctum::actingAs($clerk);
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$first->id, $second->id],
+            'action' => 'archive',
+        ])->assertForbidden();
+
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$first->id],
+            'action' => 'archive',
+        ])->assertUnprocessable();
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$first->id, $first->id],
+            'action' => 'archive',
+        ])->assertUnprocessable();
+        $this->postJson('/api/admin/transactions/bulk', [
+            'ids' => [$first->id, $second->id],
+            'action' => 'delete',
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('transactions', ['id' => $first->id, 'is_archive' => false, 'deleted_at' => null]);
     }
 }

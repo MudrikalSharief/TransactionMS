@@ -74,20 +74,23 @@
         {{ error }}
       </v-alert>
 
-      <div class="tl-wrap">
+      <div ref="tableWrap" class="tl-wrap">
         <v-data-table
           v-show="!loading"
+          v-model="selected"
           :headers="headers"
           :items="filtered"
           :loading="loading"
-          item-key="id"
+          item-value="id"
+          show-select
+          select-strategy="page"
           :items-per-page="8"
           :sort-by="[{ key: 'created_at', order: 'desc' }]"
           v-model:page="tablePage"
           :hide-default-footer="true"
           hover
           class="tl-table"
-          @click:row="(_, row) => go(row.item.id)"
+          @click:row="openRow"
         >
           <template v-slot:[`header.type`]="{ column }">
             <v-menu
@@ -577,13 +580,32 @@
               class="tl-ghost"
               aria-hidden="true"
             >
+              <td />
               <td v-for="h in headers" :key="h.key" />
             </tr>
           </template>
         </v-data-table>
       </div>
 
-      <footer class="tl-pg">
+      <footer ref="footerEl" class="tl-pg">
+        <div v-if="canManageArchive && selected.length >= 2" class="tl-bulk-actions" :class="{ 'tl-bulk-actions--floating': !footerVisible }" :style="!footerVisible ? bulkDockStyle : undefined" role="group" aria-label="Selected transaction actions">
+          <span class="tl-bulk-count" aria-live="polite">{{ selected.length }} selected</span>
+          <v-btn size="small" rounded="0" variant="outlined" color="primary" :prepend-icon="isArchive ? 'mdi-archive-arrow-up-outline' : 'mdi-archive-outline'" :disabled="bulkSaving" @click="askBulk(isArchive ? 'unarchive' : 'archive')">{{ isArchive ? 'Unarchive' : 'Archive' }}</v-btn>
+          <fieldset class="tl-bulk-access" :disabled="bulkSaving">
+            <legend>Access</legend>
+            <div class="tl-bulk-access-track">
+              <label :class="{ 'is-active': selectedAccess === 'private' }">
+                <input type="radio" name="bulk-access" value="private" :checked="selectedAccess === 'private'" @click.prevent="askBulk('private')" />
+                <span>Private</span>
+              </label>
+              <label :class="{ 'is-active': selectedAccess === 'public', 'is-public': selectedAccess === 'public' }">
+                <input type="radio" name="bulk-access" value="public" :checked="selectedAccess === 'public'" @click.prevent="askBulk('public')" />
+                <span>Public</span>
+              </label>
+            </div>
+            <span v-if="selectedAccess === 'mixed'" class="tl-bulk-mixed">Mixed</span>
+          </fieldset>
+        </div>
         <div class="tl-per">
           <span>Items per page</span>
           <span class="tl-per-box" aria-label="Items per page: 8">
@@ -647,11 +669,29 @@
       @confirm="confirmAction"
     />
 
+    <v-dialog v-model="bulkOpen" max-width="440" :persistent="bulkSaving">
+      <v-card rounded="0">
+        <v-card-title>{{ bulkAction === 'archive' ? 'Archive selected transactions?' : bulkAction === 'unarchive' ? 'Unarchive selected transactions?' : `Make selected transactions ${bulkAction}?` }}</v-card-title>
+        <v-card-text>
+          <p v-if="bulkAction === 'archive'">Move {{ bulkIds.length }} transactions to Archive? Workflow actions will pause until they are restored. Their records and history stay in the system.</p>
+          <p v-else-if="bulkAction === 'unarchive'">Restore {{ bulkIds.length }} transactions to the active Transactions list?</p>
+          <p v-else-if="bulkAction === 'public'">Make {{ bulkIds.length }} transactions visible to viewers on Track?</p>
+          <p v-else>Hide {{ bulkIds.length }} transactions from viewers on Track?</p>
+          <v-alert v-if="bulkError" type="error" variant="tonal" class="mt-3">{{ bulkError }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="bulkSaving" @click="bulkOpen = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :loading="bulkSaving" @click="confirmBulk">Confirm</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTransactions } from '@/composables/useTransactions'
 import { useTransactionTypes } from '@/composables/useTransactionTypes'
@@ -673,7 +713,7 @@ const props = defineProps({
 const router = useRouter()
 const isArchive = computed(() => props.archive)
 const txStore = useTransactions({ archived: isArchive.value })
-const { items, loading, meta, fetchAll, create, archive: archiveTx, unarchive, setPrivacy } = txStore
+const { items, loading, meta, fetchAll, create, archive: archiveTx, unarchive, setPrivacy, bulkUpdate } = txStore
 
 // Full-page loader on every visit: brief when cached rows are already
 // painted, otherwise until the first fetch finishes.
@@ -699,6 +739,28 @@ const dialog = ref(false)
 const saving = ref(false)
 const error = ref('')
 const search = ref('')
+const selected = ref([])
+const tableWrap = ref(null)
+const footerEl = ref(null)
+const footerVisible = ref(false)
+const bulkDockStyle = ref({})
+let footerObserver
+let wrapObserver
+
+function updateBulkDock() {
+  const left = tableWrap.value
+    ? tableWrap.value.getBoundingClientRect().left + parseFloat(getComputedStyle(tableWrap.value).paddingLeft)
+    : 16
+  bulkDockStyle.value = {
+    left: `${left}px`,
+    maxWidth: `${Math.max(240, window.innerWidth - left - 16)}px`,
+  }
+}
+const bulkOpen = ref(false)
+const bulkSaving = ref(false)
+const bulkAction = ref('archive')
+const bulkIds = ref([])
+const bulkError = ref('')
 const filterType = ref(null)
 const filterOffice = ref(null)
 // Access column: null (all), 'public' or 'private'.
@@ -836,9 +898,7 @@ const headers = computed(() => {
     { title: 'Created', key: 'created_at', width: '14%' },
   ]
   if (canManageArchive.value) {
-    if (!isArchive.value) {
-      base.push({ title: 'Access', key: 'is_private', sortable: false, width: '110px', align: 'center' })
-    }
+    base.push({ title: 'Access', key: 'is_private', sortable: false, width: '110px', align: 'center' })
     base.push({ title: isArchive.value ? '' : 'Actions', key: 'actions', sortable: false, width: '64px', align: 'end' })
   }
   return base
@@ -849,10 +909,25 @@ const headers = computed(() => {
 // thousands of heavy rows on a weak CPU. Keeps the `filtered` name so the
 // template is untouched.
 const filtered = computed(() => items.value || [])
+const selectedAccess = computed(() => {
+  const ids = new Set(selected.value)
+  const rows = filtered.value.filter((row) => ids.has(row.id))
+  if (!rows.length) return 'mixed'
+  if (rows.every((row) => row.is_private)) return 'private'
+  if (rows.every((row) => !row.is_private)) return 'public'
+  return 'mixed'
+})
 
 // Client-side page count for the loaded 25-row server chunk at 8/page.
 // Server jumps use `page`; in-chunk moves use `tablePage`.
 const tablePage = ref(1)
+watch([page, tablePage, search, filterType, filterOffice, filterAccess, dateFrom, dateTo], () => {
+  selected.value = []
+})
+watch(items, (rows) => {
+  const visible = new Set(rows.map((row) => row.id))
+  selected.value = selected.value.filter((id) => visible.has(id))
+})
 const clientPages = computed(() => Math.max(1, Math.ceil((filtered.value || []).length / 8)))
 
 // The footer drives whichever pager is active: server pages when the API
@@ -880,6 +955,11 @@ const rangeText = computed(() => {
 
 function clearSearch() {
   search.value = ''
+}
+
+function openRow(event, row) {
+  if (event.target.closest('.v-selection-control')) return
+  go(row.item.id)
 }
 
 let searchTimer = null
@@ -1059,6 +1139,40 @@ async function togglePrivacy(item, value) {
   }
 }
 
+function askBulk(action) {
+  if (!canManageArchive.value || selected.value.length < 2) return
+  if (action === selectedAccess.value) return
+  bulkAction.value = action
+  bulkIds.value = [...selected.value]
+  bulkError.value = ''
+  bulkOpen.value = true
+}
+
+async function confirmBulk() {
+  if (bulkIds.value.length < 2 || bulkSaving.value) return
+  bulkSaving.value = true
+  bulkError.value = ''
+  try {
+    const action = ['archive', 'unarchive'].includes(bulkAction.value) ? bulkAction.value : 'privacy'
+    await bulkUpdate(bulkIds.value, action, bulkAction.value === 'private')
+    toast.success(['archive', 'unarchive'].includes(action)
+      ? `${bulkIds.value.length} transactions ${action === 'archive' ? 'archived' : 'unarchived'}.`
+      : `${bulkIds.value.length} transactions made ${bulkAction.value}.`)
+    bulkOpen.value = false
+    selected.value = []
+  } catch (e) {
+    bulkError.value = e?.response?.data?.message || 'Selected transactions could not be updated.'
+    return
+  } finally {
+    bulkSaving.value = false
+  }
+  try {
+    await fetchAll(requestParams(page.value))
+  } catch {
+    error.value = 'Transactions updated. Refresh the page to see the latest list.'
+  }
+}
+
 async function confirmAction() {
   if (!actionTarget.value) return
   const isArchiving = actionMode.value === 'archive'
@@ -1109,6 +1223,14 @@ async function createTx(payload) {
 }
 
 onMounted(() => {
+  updateBulkDock()
+  window.addEventListener('resize', updateBulkDock)
+  wrapObserver = new ResizeObserver(updateBulkDock)
+  wrapObserver.observe(tableWrap.value)
+  footerObserver = new IntersectionObserver(([entry]) => {
+    footerVisible.value = entry.isIntersecting
+  })
+  footerObserver.observe(footerEl.value)
   // Fire together: each paints its cache synchronously on invocation and
   // revalidates in parallel, so the table never waits behind the lookups.
   fetchTypes().catch(() => {})
@@ -1117,11 +1239,17 @@ onMounted(() => {
   settle(fetchAll(requestParams(page.value)), { warm: !loading.value })
 })
 
+onUnmounted(() => {
+  window.removeEventListener('resize', updateBulkDock)
+  wrapObserver?.disconnect()
+  footerObserver?.disconnect()
+})
+
 // Silent 20s smart-poll: refresh rows in place without loader flash,
 // page reload, or losing search/sort/pagination/scroll.
 useSmartPoll(async () => {
   // Skip while creating/archiving to avoid clobbering the dialogs.
-  if (saving.value || dialog.value || actionOpen.value) return
+  if (saving.value || dialog.value || actionOpen.value || bulkOpen.value || bulkSaving.value) return
   try {
     await fetchAll({ ...requestParams(page.value), silent: true })
   } catch {
@@ -1669,6 +1797,85 @@ html.dark .tl-page {
     align-items: center;
     gap: 10px;
 }
+.tl-bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-right: auto;
+}
+.tl-bulk-actions--floating {
+    position: fixed;
+    bottom: 16px;
+    z-index: 10;
+    padding: 10px;
+    border: 1px solid var(--tl-line);
+    background: var(--tl-panel);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+}
+.tl-bulk-count {
+    margin-right: 8px;
+    color: var(--tl-ink);
+    font-size: 13px;
+    font-weight: 700;
+}
+.tl-bulk-access {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+.tl-bulk-access legend {
+    float: left;
+    padding: 0 6px 0 0;
+    color: var(--tl-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+.tl-bulk-access-track {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--tl-line);
+    border-radius: 999px;
+    background: var(--tl-field);
+}
+.tl-bulk-access-track label {
+    position: relative;
+    padding: 5px 9px;
+    border-radius: 999px;
+    color: var(--tl-muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.tl-bulk-access-track label.is-active {
+    background: var(--tl-ink);
+    color: var(--tl-panel);
+}
+.tl-bulk-access-track label.is-public {
+    background: var(--tl-ok);
+}
+.tl-bulk-access-track input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.tl-bulk-access-track label:has(input:focus-visible) {
+    outline: 3px solid var(--tl-ring);
+    outline-offset: 2px;
+}
+.tl-bulk-mixed {
+    color: var(--tl-muted);
+    font-size: 12px;
+}
 .tl-per-box {
     display: inline-flex;
     align-items: center;
@@ -1733,6 +1940,9 @@ html.dark .tl-page {
     .tl-pg {
         justify-content: center;
         padding: 16px;
+    }
+    .tl-bulk-actions {
+        flex: 1 1 100%;
     }
 }
 @media (max-width: 520px) {

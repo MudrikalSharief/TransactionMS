@@ -29,6 +29,7 @@ class TransactionArchiveController extends Controller
             'office_id' => ['nullable', 'integer', 'exists:offices,id'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'access' => ['nullable', 'in:public,private'],
         ]);
 
         $perPage = (int) ($data['per_page'] ?? 25);
@@ -61,6 +62,10 @@ class TransactionArchiveController extends Controller
 
         if (!empty($data['office_id'])) {
             $query->where('office_id', (int) $data['office_id']);
+        }
+
+        if (!empty($data['access'])) {
+            $query->where('is_private', $data['access'] === 'private');
         }
 
         if (!empty($data['date_from'])) {

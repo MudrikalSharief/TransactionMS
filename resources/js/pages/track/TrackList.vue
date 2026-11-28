@@ -20,8 +20,8 @@
                 <div class="eyebrow">Transaction tracker</div>
                 <h1 class="title">Where is your transaction?</h1>
                 <p class="sub">
-                    Type a keyword (a name, reference number, transaction type or office) and follow
-                    each transaction from office to office.
+                    Search a reference number, title, transaction type or office to follow public
+                    current and archived transactions from office to office.
                 </p>
             </div>
         </div>
@@ -36,11 +36,11 @@
                 v-model="query"
                 type="search"
                 name="q"
-                placeholder="Name, reference number, type or office"
+                placeholder="Reference number, title, type or office"
                 autocomplete="off"
                 autocapitalize="none"
                 spellcheck="false"
-                aria-label="Search your transactions"
+                aria-label="Search public transactions"
                 autofocus
             />
             <button v-if="query" type="button" class="bar-clear" aria-label="Clear search" @click="clear">
@@ -128,10 +128,13 @@
                                 </v-chip>
                             </template>
                             <template v-slot:[`item.status`]="{ item }">
-                                <v-chip :color="item.is_done ? 'success' : 'warning'" variant="tonal" rounded="0" size="small">
-                                    <v-icon start size="small">{{ item.is_done ? "mdi-check-circle-outline" : "mdi-progress-clock" }}</v-icon>
-                                    {{ item.is_done ? "Completed" : "In process" }}
-                                </v-chip>
+                                <div class="d-flex align-center ga-1">
+                                    <v-chip :color="item.is_done ? 'success' : 'warning'" variant="tonal" rounded="0" size="small">
+                                        <v-icon start size="small">{{ item.is_done ? "mdi-check-circle-outline" : "mdi-progress-clock" }}</v-icon>
+                                        {{ item.is_done ? "Completed" : "In process" }}
+                                    </v-chip>
+                                    <v-chip v-if="item.is_archive" color="grey-darken-2" variant="tonal" rounded="0" size="small">Archived</v-chip>
+                                </div>
                             </template>
                             <template v-slot:[`item.current_step`]="{ item }">
                                 <v-menu open-on-hover location="end" open-delay="250">
@@ -200,7 +203,7 @@
                                 Nothing<template v-if="status !== 'all'"> {{ statusView.title.toLowerCase() }}</template> found for “{{ shownQuery }}”{{ dateLabel ? ` ${dateLabel}` : "" }}
                             </div>
                             <div class="text-caption text-medium-emphasis">
-                                Try a name, a reference number, a transaction type or an office.
+                                Try a reference number, title, transaction type or office. Only public transactions appear here.
                             </div>
                         </div>
                     </v-card-text>

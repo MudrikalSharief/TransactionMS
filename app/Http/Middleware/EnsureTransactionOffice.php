@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\RoutingEngine;
 use App\Services\OfficerAssignmentAccess;
 use Closure;
@@ -19,29 +20,10 @@ class EnsureTransactionOffice
         $transaction = $request->route('transaction');
 
         if ($user && $transaction instanceof Transaction) {
-            $user->loadMissing('roles');
-
-            $isSuperadmin = $user->roles->contains(fn ($r) => $r->code === 'superadmin');
-            $allowed = $isSuperadmin;
-
-            if (!$allowed) {
-                // Their own office's paper, wherever it currently sits —
-                // staff and office admins alike: the dashboard summary
-                // lists these rows, so the detail must open from there.
-                // Otherwise a station they can work: their roles at their
-                // office, or (office admins) any station parked at their
-                // office. Write routes keep their own deeper gates
-                // (assertUserCanExecute).
-                $ownsTransaction = $user->office_id !== null
-                    && $transaction->office_id !== null
-                    && (int) $transaction->office_id === (int) $user->office_id;
-
-                $allowed = $ownsTransaction
-                    || $this->routing->userCanWorkOnCurrentStep($transaction, $user);
-                if (!$allowed && $request->isMethodSafe()) {
-                    $allowed = app(OfficerAssignmentAccess::class)->canManage($transaction, $user)
-                        || app(OfficerAssignmentAccess::class)->hasOfficeAssignment($transaction, $user);
-                }
+            $allowed = $this->canWrite($user, $transaction);
+            if (!$allowed && $request->isMethodSafe()) {
+                $allowed = app(OfficerAssignmentAccess::class)->canManage($transaction, $user)
+                    || app(OfficerAssignmentAccess::class)->hasOfficeAssignment($transaction, $user);
             }
 
             if (!$allowed) {
@@ -50,5 +32,17 @@ class EnsureTransactionOffice
         }
 
         return $next($request);
+    }
+
+    public function canWrite(User $user, Transaction $transaction): bool
+    {
+        $user->loadMissing('roles');
+        if ($user->roles->contains(fn ($r) => $r->code === 'superadmin')) return true;
+
+        $ownsTransaction = $user->office_id !== null
+            && $transaction->office_id !== null
+            && (int) $transaction->office_id === (int) $user->office_id;
+
+        return $ownsTransaction || $this->routing->userCanWorkOnCurrentStep($transaction, $user);
     }
 }
